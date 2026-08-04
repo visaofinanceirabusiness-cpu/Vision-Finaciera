@@ -53,10 +53,12 @@ export default function LoginPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: 40 }}>🦉</div>
-          <h1 style={{ fontSize: 22, color: '#0b2447', margin: '8px 0 0' }}>
-            Visão Financeira
-          </h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpeg"
+            alt="Visão Financeira"
+            style={{ width: 96, height: 96, objectFit: 'contain' }}
+          />
           <p style={{ color: '#6b7280', fontSize: 13, margin: '4px 0 0' }}>
             Claridad para decidir. Seguridad para crecer.
           </p>
