@@ -81,129 +81,143 @@ export default function MiNegocioPage() {
   });
 
   return (
- <main
-  style={{
-    minHeight: '100vh',
-    background: '#f5f7f9',
-    padding: 24,
-    fontFamily: 'system-ui, sans-serif',
-  }}
->
-  <div style={{ maxWidth: 900, margin: '0 auto' }}>
-
-    {/* Barra superior */}
-    <div
+    <main
       style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
+        minHeight: '100vh',
+        background: '#f5f7f9',
+        padding: 24,
       }}
     >
-      <div>
-        <div style={{ fontWeight: 700, color: COLORES.azul }}>
-          {empresa?.nombre || 'Mi Negocio'}
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        {/* Barra superior */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, color: COLORES.azul }}>
+              {empresa?.nombre || 'Mi Negocio'}
+            </div>
+            <div style={{ fontSize: 12, color: COLORES.gris }}>
+              {perfil?.rol === 'admin' ? 'Administrador' : 'Cliente'}
+            </div>
+          </div>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/login');
+            }}
+            style={{
+              background: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: 12,
+              padding: '10px 14px',
+              cursor: 'pointer',
+              color: COLORES.azul,
+              fontWeight: 600,
+            }}
+          >
+            Cerrar sesión
+          </button>
         </div>
-        <div style={{ fontSize: 12, color: COLORES.gris }}>
-          {perfil?.rol === 'admin' ? 'Administrador' : 'Cliente'}
+
+        {/* Logo centrado */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 24,
+              background: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+            }}
+          >
+            {empresa?.logo_url ? (
+              <img
+                src={empresa.logo_url}
+                alt={empresa.nombre}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: 48 }}>🏪</span>
+            )}
+          </div>
+        </div>
+
+        {/* Encabezado */}
+        <section
+          style={{
+            background: COLORES.azul,
+            color: COLORES.blanco,
+            borderRadius: 24,
+            padding: 28,
+            textAlign: 'center',
+            marginBottom: 24,
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
+
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: 20,
+              fontWeight: 600,
+            }}
+          >
+            {empresa?.nombre}
+          </p>
+
+          <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
+            Hola, {perfil?.nombre} 👋
+          </p>
+
+          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
+            {hoy}
+          </p>
+        </section>
+
+        {/* Resumen */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <ResumenCard titulo='Ventas hoy' valor='R$ 0,00' color={COLORES.verde} />
+          <ResumenCard titulo='Caja disponible' valor='R$ 0,00' color={COLORES.azul} />
+          <ResumenCard titulo='Gastos del mes' valor='R$ 0,00' color='#c2410c' />
+          <ResumenCard titulo='Stock bajo' valor='0 productos' color={COLORES.gris} />
+        </div>
+
+        {/* Accesos rápidos */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+          }}
+        >
+          <BotonAcceso href='/lanzamientos' titulo='Registrar venta' principal />
+          <BotonAcceso href='/lanzamientos' titulo='Registrar gasto' />
+          <BotonAcceso href='/stock' titulo='Ver stock' />
         </div>
       </div>
-
-      <button
-        onClick={async () => {
-          await supabase.auth.signOut();
-          router.push('/login');
-        }}
-        style={{
-          background: '#ffffff',
-          border: '1px solid #d1d5db',
-          borderRadius: 12,
-          padding: '10px 14px',
-          cursor: 'pointer',
-          color: COLORES.azul,
-          fontWeight: 600,
-        }}
-      >
-        Cerrar sesión
-      </button>
-    </div>
-
-    {/* Logo centrado */}
-    <div style={{ textAlign: 'center', marginBottom: 20 }}>
-      {empresa?.logo_url ? (
-        <img
-          src={empresa.logo_url}
-          alt={empresa.nombre}
-          style={{
-            width: 120,
-            height: 120,
-            objectFit: 'contain',
-            borderRadius: 24,
-            background: COLORES.blanco,
-            padding: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }}
-        />
-      ) : (
-       <div style={{
-  width: 120,
-  height: 120,
-  borderRadius: 24,
-  background: '#fff',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-  overflow: 'hidden',
-}}>
-  {empresa?.logo_url ? (
-    <img
-      src={empresa.logo_url}
-      alt={empresa.nombre}
-      style={{
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-      }}
-    />
-  ) : (
-    <span style={{ fontSize: 48 }}>🏪</span>
-  )}
-</div>
-      )}
-    </div>
-
-    {/* Encabezado */}
-    <section
-      style={{
-        background: COLORES.azul,
-        color: COLORES.blanco,
-        borderRadius: 24,
-        padding: 28,
-        textAlign: 'center',
-        marginBottom: 24,
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
-
-      <p
-        style={{
-          margin: '8px 0 0',
-          fontSize: 20,
-          fontWeight: 600,
-        }}
-      >
-        {empresa?.nombre}
-      </p>
-
-      <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
-        Hola, {perfil?.nombre} 👋
-      </p>
-
-      <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
-        {hoy}
-      </p>
-    </section>
+    </main>
   );
 }
 
@@ -256,7 +270,9 @@ function BotonAcceso({
         padding: '18px 20px',
         textAlign: 'center',
         fontWeight: 700,
-        boxShadow: principal ? '0 8px 20px rgba(46,139,87,0.18)' : 'none',
+        boxShadow: principal
+          ? '0 8px 20px rgba(46,139,87,0.18)'
+          : 'none',
       }}
     >
       {titulo}
