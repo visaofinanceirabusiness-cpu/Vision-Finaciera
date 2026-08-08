@@ -1,11 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { registrarOperacion, LineaOperacion } from '@/lib/motor';
 
-// Paleta de marca
+// Branding oficial Visão Financeira
 const COLORES = {
   azul: '#1f3a5f',
   verde: '#2e8b57',
@@ -13,40 +13,24 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
-type Producto = { id: string; nombre: string; categoria: string | null };
+type Perfil = {
+  nombre: string;
+  empresa_id: string;
+  rol: string;
+};
 
-export default function CentralDeLanzamientos() {
+type Empresa = {
+  nombre: string;
+  logo_url: string | null;
+};
+
+export default function MiNegocioPage() {
   const router = useRouter();
 
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [cargandoInicial, setCargandoInicial] = useState(true);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [cargando, setCargando] = useState(true);
 
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
-  const [operaciones, setOperaciones] = useState<string[]>([]);
-  const [operacion, setOperacion] = useState('');
-
-  const [categorias, setCategorias] = useState<string[]>([]);
-  const [categoria, setCategoria] = useState('');
-
-  const [formasPago, setFormasPago] = useState<string[]>([]);
-  const [formaPago, setFormaPago] = useState('');
-
-  const [historico, setHistorico] = useState('');
-
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [lineas, setLineas] = useState<LineaOperacion[]>([
-    { producto: '', cantidad: 0, precio: 0 },
-  ]);
-
-  const [mensajeSabio, setMensajeSabio] = useState('🦉 Elegí una operación para empezar.');
-  const [error, setError] = useState('');
-  const [guardando, setGuardando] = useState(false);
-
-  const operacionesConProducto = ['COMPRA', 'VENTA', 'PERDIDA'];
-
-  // ------------------------------------------------------------
-  // Carga inicial: sesión, empresa, operaciones activas, productos
-  // ------------------------------------------------------------
   useEffect(() => {
     async function cargar() {
       const { data: userData } = await supabase.auth.getUser();
@@ -56,380 +40,236 @@ export default function CentralDeLanzamientos() {
         return;
       }
 
-      const { data: perfil } = await supabase
+      const { data: perfilData } = await supabase
         .from('perfiles')
-        .select('empresa_id')
+        .select('nombre, empresa_id, rol')
         .eq('id', userData.user.id)
-        .maybeSingle();
+        .single();
 
-      if (!perfil?.empresa_id) {
-        setError('Tu usuario todavía no tiene una empresa asignada.');
-        setCargandoInicial(false);
+      if (!perfilData) {
+        router.push('/login');
         return;
       }
 
-      setEmpresaId(perfil.empresa_id);
+      setPerfil(perfilData);
 
-      const { data: ops } = await supabase
-        .from('operaciones')
-        .select('nombre')
-        .eq('empresa_id', perfil.empresa_id)
-        .eq('activo', true);
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('nombre, logo_url')
+        .eq('id', perfilData.empresa_id)
+        .single();
 
-      setOperaciones((ops ?? []).map((o) => o.nombre));
-
-      const { data: prods } = await supabase
-        .from('productos')
-        .select('id, nombre, categoria')
-        .eq('empresa_id', perfil.empresa_id);
-
-      setProductos(prods ?? []);
-
-      setCargandoInicial(false);
+      setEmpresa(empresaData);
+      setCargando(false);
     }
 
     cargar();
   }, [router]);
 
-  // ------------------------------------------------------------
-  // Al cambiar Operación → cargar Categorías desde la Matriz
-  // ------------------------------------------------------------
-  useEffect(() => {
-    if (!empresaId || !operacion) {
-      setCategorias([]);
-      return;
-    }
-
-    async function cargarCategorias() {
-      const { data } = await supabase
-        .from('matriz_operaciones')
-        .select('categoria')
-        .eq('empresa_id', empresaId)
-        .eq('operacion', operacion);
-
-      const unicas = Array.from(
-        new Set((data ?? []).map((f) => f.categoria).filter(Boolean))
-      ) as string[];
-
-      setCategorias(unicas);
-      setCategoria('');
-      setFormaPago('');
-      setFormasPago([]);
-    }
-
-    cargarCategorias();
-    setMensajeSabio(`🦉 Elegí la categoría para "${operacion}".`);
-  }, [empresaId, operacion]);
-
-  // ------------------------------------------------------------
-  // Al cambiar Categoría → cargar Formas de Pago desde la Matriz
-  // ------------------------------------------------------------
-  useEffect(() => {
-    if (!empresaId || !operacion || !categoria) {
-      setFormasPago([]);
-      return;
-    }
-
-    async function cargarFormasPago() {
-      const { data } = await supabase
-        .from('matriz_operaciones')
-        .select('forma_pago')
-        .eq('empresa_id', empresaId)
-        .eq('operacion', operacion)
-        .eq('categoria', categoria);
-
-      const unicas = Array.from(
-        new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))
-      ) as string[];
-
-      setFormasPago(unicas);
-      setFormaPago('');
-    }
-
-    cargarFormasPago();
-  }, [empresaId, operacion, categoria]);
-
-  function actualizarLinea(indice: number, campo: keyof LineaOperacion, valor: string) {
-    setLineas((prev) =>
-      prev.map((linea, i) =>
-        i === indice
-          ? {
-              ...linea,
-              [campo]: campo === 'producto' ? valor : Number(valor),
-            }
-          : linea
-      )
+  if (cargando) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        Cargando tu negocio...
+      </div>
     );
   }
 
-  function agregarLinea() {
-    setLineas((prev) => [...prev, { producto: '', cantidad: 0, precio: 0 }]);
-  }
-
-  const total = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
-
-  const productosDeCategoria = productos.filter(
-    (p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase()
-  );
-
-  async function handleRegistrar() {
-    if (!empresaId) return;
-
-    setError('');
-    setGuardando(true);
-
-    try {
-      await registrarOperacion(empresaId, {
-        fecha,
-        operacion,
-        categoria,
-        formaPago,
-        historico,
-        lineas,
-      });
-
-      setMensajeSabio('🦉 ¡Operación registrada con éxito!');
-      // Reset del formulario, igual que limpiarFormulario() de Apps Script
-      setOperacion('');
-      setCategoria('');
-      setFormaPago('');
-      setHistorico('');
-      setLineas([{ producto: '', cantidad: 0, precio: 0 }]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo registrar la operación.');
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  if (cargandoInicial) {
-    return <p style={{ padding: 24 }}>Cargando...</p>;
-  }
+  const hoy = new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f7f9', padding: 24 }}>
-      {/* Encabezado estilo banner, como en Google Sheets */}
-      <div
-        style={{
-          background: COLORES.azul,
-          borderRadius: 16,
-          padding: 24,
-          color: COLORES.blanco,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Central de Lanzamientos</h1>
-          <p style={{ margin: '4px 0 0', color: '#cbd5e1', fontSize: 13 }}>
-            Registrá todas las operaciones desde un único punto de entrada.
-          </p>
-        </div>
-        <div style={{ fontSize: 36 }}>🦉</div>
-      </div>
-
-      <div
-        style={{
-          background: COLORES.blanco,
-          borderRadius: 16,
-          padding: 24,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-          maxWidth: 720,
-        }}
-      >
-        <div style={grid2}>
-          <Campo label="Fecha">
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              style={inputStyle}
+    <main
+      style={{
+        minHeight: '100vh',
+        background: '#f5f7f9',
+        padding: 24,
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        {/* Logo centrado */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          {empresa?.logo_url ? (
+            <img
+              src={empresa.logo_url}
+              alt={empresa.nombre}
+              style={{
+                width: 120,
+                height: 120,
+                objectFit: 'contain',
+                borderRadius: 24,
+                background: COLORES.blanco,
+                padding: 8,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              }}
             />
-          </Campo>
-
-          <Campo label="Operación">
-            <select
-              value={operacion}
-              onChange={(e) => setOperacion(e.target.value)}
-              style={inputStyle}
+          ) : (
+            <div
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: 24,
+                background: COLORES.blanco,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                fontSize: 42,
+              }}
             >
-              <option value="">Seleccionar...</option>
-              {operaciones.map((op) => (
-                <option key={op} value={op}>
-                  {op}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
-          <Campo label="Categoría">
-            <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              disabled={!operacion}
-              style={inputStyle}
-            >
-              <option value="">Seleccionar...</option>
-              {categorias.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
-          <Campo label="Forma de Pago">
-            <select
-              value={formaPago}
-              onChange={(e) => setFormaPago(e.target.value)}
-              disabled={!categoria}
-              style={inputStyle}
-            >
-              <option value="">Seleccionar...</option>
-              {formasPago.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </Campo>
+              🏪
+            </div>
+          )}
         </div>
 
-        <Campo label="Histórico / Cliente-Proveedor">
-          <input
-            type="text"
-            value={historico}
-            onChange={(e) => setHistorico(e.target.value)}
-            style={inputStyle}
-          />
-        </Campo>
-
-        {operacionesConProducto.includes(operacion) && (
-          <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 4 }}>
-              Detalle de productos
-            </p>
-            {lineas.map((linea, i) => (
-              <div key={i} style={filaProducto}>
-                <select
-                  value={linea.producto}
-                  onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
-                  style={{ ...inputStyle, flex: 2 }}
-                >
-                  <option value="">Producto...</option>
-                  {productosDeCategoria.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Cant."
-                  value={linea.cantidad || ''}
-                  onChange={(e) => actualizarLinea(i, 'cantidad', e.target.value)}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
-                <input
-                  type="number"
-                  placeholder="Precio"
-                  value={linea.precio || ''}
-                  onChange={(e) => actualizarLinea(i, 'precio', e.target.value)}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
-              </div>
-            ))}
-            <button type="button" onClick={agregarLinea} style={botonSecundario}>
-              + Agregar línea
-            </button>
-          </div>
-        )}
-
-        <div
+        {/* Encabezado */}
+        <section
           style={{
-            marginTop: 16,
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontWeight: 600,
-            color: COLORES.azul,
+            background: COLORES.azul,
+            color: COLORES.blanco,
+            borderRadius: 24,
+            padding: 28,
+            textAlign: 'center',
+            marginBottom: 24,
           }}
         >
-          <span>Total</span>
-          <span>R$ {total.toFixed(2)}</span>
-        </div>
+          <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
 
-        <p style={{ color: COLORES.verde, fontSize: 13, marginTop: 12 }}>
-          {mensajeSabio}
-        </p>
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: 20,
+              fontWeight: 600,
+            }}
+          >
+            {empresa?.nombre}
+          </p>
 
-        {error && (
-          <p style={{ color: '#dc2626', fontSize: 13, marginTop: 4 }}>{error}</p>
-        )}
+          <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
+            Hola, {perfil?.nombre} 👋
+          </p>
 
-        <button
-          onClick={handleRegistrar}
-          disabled={guardando || !operacion || !categoria || !formaPago}
-          style={{ ...botonPrincipal, marginTop: 16 }}
+          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
+            {hoy}
+          </p>
+        </section>
+
+        {/* Tarjetas resumen */}
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
         >
-          {guardando ? 'Registrando...' : 'Registrar Operación'}
-        </button>
+          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={COLORES.verde} />
+          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={COLORES.azul} />
+          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c0392b" />
+          <ResumenCard titulo="Stock bajo" valor="0 productos" color={COLORES.gris} />
+        </section>
+
+        {/* Accesos rápidos */}
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <BotonAcceso href="/lanzamientos" titulo="Registrar venta" principal />
+          <BotonAcceso href="/lanzamientos" titulo="Registrar gasto" />
+          <BotonAcceso href="/stock" titulo="Ver stock" />
+          <BotonAcceso href="/movimientos" titulo="Movimientos" />
+        </section>
+
+        {/* Actividad */}
+        <section
+          style={{
+            background: COLORES.blanco,
+            borderRadius: 20,
+            padding: 20,
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <h2 style={{ marginTop: 0, color: COLORES.azul }}>
+            Lo importante de hoy
+          </h2>
+
+          <div
+            style={{
+              border: '1px dashed #cbd5e1',
+              borderRadius: 14,
+              padding: 16,
+              color: COLORES.gris,
+              textAlign: 'center',
+            }}
+          >
+            Todavía no registraste operaciones hoy.
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function ResumenCard({
+  titulo,
+  valor,
+  color,
+}: {
+  titulo: string;
+  valor: string;
+  color: string;
+}) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 4 }}>
-        {label}
-      </label>
-      {children}
+    <div
+      style={{
+        background: COLORES.blanco,
+        borderRadius: 20,
+        padding: 20,
+        border: '1px solid #e5e7eb',
+        minHeight: 120,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      <span style={{ color: COLORES.gris, fontSize: 14 }}>{titulo}</span>
+      <strong style={{ color, fontSize: 24 }}>{valor}</strong>
     </div>
   );
 }
 
-const grid2: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 16,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 8,
-  border: '1px solid #d1d5db',
-  fontSize: 14,
-  boxSizing: 'border-box',
-};
-
-const filaProducto: React.CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  marginBottom: 8,
-};
-
-const botonPrincipal: React.CSSProperties = {
-  width: '100%',
-  padding: '12px',
-  borderRadius: 8,
-  border: 'none',
-  background: COLORES.verde,
-  color: COLORES.blanco,
-  fontWeight: 600,
-  fontSize: 15,
-  cursor: 'pointer',
-};
-
-const botonSecundario: React.CSSProperties = {
-  padding: '8px 12px',
-  borderRadius: 8,
-  border: `1px solid ${COLORES.azul}`,
-  background: 'transparent',
-  color: COLORES.azul,
-  fontSize: 13,
-  cursor: 'pointer',
-};
+function BotonAcceso({
+  href,
+  titulo,
+  principal = false,
+}: {
+  href: string;
+  titulo: string;
+  principal?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        textDecoration: 'none',
+        background: principal ? COLORES.verde : COLORES.blanco,
+        color: principal ? COLORES.blanco : COLORES.azul,
+        border: principal ? 'none' : '1px solid #d1d5db',
+        borderRadius: 18,
+        padding: '18px 20px',
+        textAlign: 'center',
+        fontWeight: 700,
+        boxShadow: principal ? '0 8px 20px rgba(46,139,87,0.18)' : 'none',
+      }}
+    >
+      {titulo}
+    </Link>
+  );
+}
