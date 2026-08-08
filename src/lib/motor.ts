@@ -138,3 +138,93 @@ export async function buscarReglaPorClave(empresaId: string, clave: string) {
   if (error) throw error;
   return data;
 }
+
+export type LineaOperacion = {
+  producto: string;
+  cantidad: number;
+  precio: number;
+};
+
+export type FormularioOperacion = {
+  fecha: string;
+  operacion: string;
+  categoria: string;
+  formaPago: string;
+  historico: string;
+  lineas: LineaOperacion[];
+};
+
+// Equivalente a registrarOperacion() de Apps Script: busca la regla,
+// guarda el Registro de Operaciones y, si corresponde, los Movimientos
+// de Stock.
+export async function registrarOperacion(
+  empresaId: string,
+  formulario: FormularioOperacion
+) {
+  const total = formulario.lineas.reduce(
+    (suma, linea) => suma + linea.cantidad * linea.precio,
+    0
+  );
+
+  if (total <= 0) {
+    throw new Error('El total debe ser mayor que cero.');
+  }
+
+  const clave = `${formulario.operacion}.${formulario.categoria}.${formulario.formaPago}`;
+  const regla = await buscarReglaPorClave(empresaId, clave);
+
+  if (!regla) {
+    throw new Error(
+      `No se encontró una regla contable para la combinación "${clave}". ` +
+        'Revisá la Matriz de Operaciones.'
+    );
+  }
+
+  // 1. Registro de Operaciones (si la regla dice que va al libro)
+  if (regla.libro === 'SI') {
+    const { error } = await supabase.from('registro_operaciones').insert({
+      empresa_id: empresaId,
+      fecha: formulario.fecha,
+      operacion: formulario.operacion,
+      categoria: formulario.categoria,
+      forma_pago: formulario.formaPago,
+      total,
+      historico: formulario.historico,
+      cuenta_debito: regla.cuenta_debito,
+      cuenta_credito: regla.cuenta_credito,
+      estado: 'PENDIENTE',
+    });
+
+    if (error) throw error;
+  }
+
+  // 2. Movimientos de Stock (si la regla dice que mueve stock)
+  if (regla.stock === 'SI') {
+    const tipoMovimiento =
+      formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
+
+    const movimientos = formulario.lineas
+      .filter((l) => l.producto && l.cantidad > 0)
+      .map((l) => ({
+        empresa_id: empresaId,
+        fecha: formulario.fecha,
+        tipo: tipoMovimiento,
+        categoria: formulario.categoria,
+        producto_id: l.producto,
+        cantidad: l.cantidad,
+        costo_unitario: l.precio,
+        historico: formulario.historico,
+        estado: 'PENDIENTE',
+      }));
+
+    if (movimientos.length > 0) {
+      const { error } = await supabase
+        .from('movimientos_stock')
+        .insert(movimientos);
+
+      if (error) throw error;
+    }
+  }
+
+  return { total, regla };
+}

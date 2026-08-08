@@ -36,7 +36,22 @@ export default function Home() {
   return (
     <div style={{ padding: 24 }}>
       <h1>🦉 Hola, {nombre}</h1>
-      <p>Sabio está listo para ayudarte. Acá va a vivir tu Libro Diario.</p>
+      <p>Sabio está listo para ayudarte.</p>
+      <a
+        href="/lanzamientos"
+        style={{
+          display: 'inline-block',
+          marginTop: 16,
+          padding: '12px 20px',
+          borderRadius: 8,
+          background: '#2e8b57',
+          color: 'white',
+          textDecoration: 'none',
+          fontWeight: 600,
+        }}
+      >
+        Ir a Central de Lanzamientos →
+      </a>
     </div>
   );
 }
