@@ -81,139 +81,119 @@ export default function MiNegocioPage() {
   });
 
   return (
-    <main
+ <main
+  style={{
+    minHeight: '100vh',
+    background: '#f5f7f9',
+    padding: 24,
+    fontFamily: 'system-ui, sans-serif',
+  }}
+>
+  <div style={{ maxWidth: 900, margin: '0 auto' }}>
+
+    {/* Barra superior */}
+    <div
       style={{
-        minHeight: '100vh',
-        background: '#f5f7f9',
-        padding: 24,
-        fontFamily: 'system-ui, sans-serif',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
       }}
     >
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        {/* Logo centrado */}
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          {empresa?.logo_url ? (
-            <img
-              src={empresa.logo_url}
-              alt={empresa.nombre}
-              style={{
-                width: 120,
-                height: 120,
-                objectFit: 'contain',
-                borderRadius: 24,
-                background: COLORES.blanco,
-                padding: 8,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 120,
-                height: 120,
-                borderRadius: 24,
-                background: COLORES.blanco,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                fontSize: 42,
-              }}
-            >
-              🏪
-            </div>
-          )}
+      <div>
+        <div style={{ fontWeight: 700, color: COLORES.azul }}>
+          {empresa?.nombre || 'Mi Negocio'}
         </div>
-
-        {/* Encabezado */}
-        <section
-          style={{
-            background: COLORES.azul,
-            color: COLORES.blanco,
-            borderRadius: 24,
-            padding: 28,
-            textAlign: 'center',
-            marginBottom: 24,
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
-
-          <p
-            style={{
-              margin: '8px 0 0',
-              fontSize: 20,
-              fontWeight: 600,
-            }}
-          >
-            {empresa?.nombre}
-          </p>
-
-          <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
-            Hola, {perfil?.nombre} 👋
-          </p>
-
-          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
-            {hoy}
-          </p>
-        </section>
-
-        {/* Tarjetas resumen */}
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={COLORES.verde} />
-          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={COLORES.azul} />
-          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c0392b" />
-          <ResumenCard titulo="Stock bajo" valor="0 productos" color={COLORES.gris} />
-        </section>
-
-        {/* Accesos rápidos */}
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <BotonAcceso href="/lanzamientos" titulo="Registrar venta" principal />
-          <BotonAcceso href="/lanzamientos" titulo="Registrar gasto" />
-          <BotonAcceso href="/stock" titulo="Ver stock" />
-          <BotonAcceso href="/movimientos" titulo="Movimientos" />
-        </section>
-
-        {/* Actividad */}
-        <section
-          style={{
-            background: COLORES.blanco,
-            borderRadius: 20,
-            padding: 20,
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <h2 style={{ marginTop: 0, color: COLORES.azul }}>
-            Lo importante de hoy
-          </h2>
-
-          <div
-            style={{
-              border: '1px dashed #cbd5e1',
-              borderRadius: 14,
-              padding: 16,
-              color: COLORES.gris,
-              textAlign: 'center',
-            }}
-          >
-            Todavía no registraste operaciones hoy.
-          </div>
-        </section>
+        <div style={{ fontSize: 12, color: COLORES.gris }}>
+          {perfil?.rol === 'admin' ? 'Administrador' : 'Cliente'}
+        </div>
       </div>
-    </main>
+
+      <button
+        onClick={async () => {
+          await supabase.auth.signOut();
+          router.push('/login');
+        }}
+        style={{
+          background: '#ffffff',
+          border: '1px solid #d1d5db',
+          borderRadius: 12,
+          padding: '10px 14px',
+          cursor: 'pointer',
+          color: COLORES.azul,
+          fontWeight: 600,
+        }}
+      >
+        Cerrar sesión
+      </button>
+    </div>
+
+    {/* Logo centrado */}
+    <div style={{ textAlign: 'center', marginBottom: 20 }}>
+      {empresa?.logo_url ? (
+        <img
+          src={empresa.logo_url}
+          alt={empresa.nombre}
+          style={{
+            width: 120,
+            height: 120,
+            objectFit: 'contain',
+            borderRadius: 24,
+            background: COLORES.blanco,
+            padding: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 120,
+            height: 120,
+            borderRadius: 24,
+            background: COLORES.blanco,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            fontSize: 42,
+          }}
+        >
+          🏪
+        </div>
+      )}
+    </div>
+
+    {/* Encabezado */}
+    <section
+      style={{
+        background: COLORES.azul,
+        color: COLORES.blanco,
+        borderRadius: 24,
+        padding: 28,
+        textAlign: 'center',
+        marginBottom: 24,
+      }}
+    >
+      <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
+
+      <p
+        style={{
+          margin: '8px 0 0',
+          fontSize: 20,
+          fontWeight: 600,
+        }}
+      >
+        {empresa?.nombre}
+      </p>
+
+      <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
+        Hola, {perfil?.nombre} 👋
+      </p>
+
+      <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
+        {hoy}
+      </p>
+    </section>
   );
 }
 
