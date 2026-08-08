@@ -126,7 +126,7 @@ export default function MiNegocioPage() {
           </button>
         </div>
 
-        {/* Logo centrado */}
+               {/* Logo centrado */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
@@ -142,22 +142,22 @@ export default function MiNegocioPage() {
             }}
           >
             {empresa?.logo_url ? (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img
-    src={empresa.logo_url}
-    alt={empresa.nombre}
-    width={120}
-    height={120}
-    style={{
-      width: 120,
-      height: 120,
-      objectFit: 'contain',
-      display: 'block',
-    }}
-  />
-) : (
-  <span style={{ fontSize: 48 }}>🏪</span>
-)}
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={empresa.logo_url}
+                alt={empresa.nombre}
+                width={120}
+                height={120}
+                style={{
+                  width: 120,
+                  height: 120,
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: 48 }}>🏪</span>
+            )}
           </div>
         </div>
 
