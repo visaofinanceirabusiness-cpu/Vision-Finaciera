@@ -145,21 +145,31 @@ export default function MiNegocioPage() {
           }}
         />
       ) : (
-        <div
-          style={{
-            width: 120,
-            height: 120,
-            borderRadius: 24,
-            background: COLORES.blanco,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            fontSize: 42,
-          }}
-        >
-          🏪
-        </div>
+       <div style={{
+  width: 120,
+  height: 120,
+  borderRadius: 24,
+  background: '#fff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+  overflow: 'hidden',
+}}>
+  {empresa?.logo_url ? (
+    <img
+      src={empresa.logo_url}
+      alt={empresa.nombre}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+      }}
+    />
+  ) : (
+    <span style={{ fontSize: 48 }}>🏪</span>
+  )}
+</div>
       )}
     </div>
 
