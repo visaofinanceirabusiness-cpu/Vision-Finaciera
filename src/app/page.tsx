@@ -25,15 +25,17 @@ type Empresa = {
 };
 
 function obtenerUrlLogo(logoUrl: string | null) {
-  if (!logoUrl) return null;
+  const url = logoUrl?.trim();
 
-  // Si la base de datos ya contiene una URL pública completa.
-  if (/^https?:\/\//i.test(logoUrl)) {
-    return logoUrl;
+  if (!url) return null;
+
+  // URL pública completa, como la de Encanto.
+  if (/^https?:\/\//i.test(url)) {
+    return url;
   }
 
-  // Si la base contiene solamente el nombre o ruta del archivo.
-  const ruta = logoUrl.replace(/^\/?(Logos|logos)\//, '');
+  // Si se guardara únicamente el nombre del archivo.
+  const ruta = url.replace(/^\/?(Logos|logos)\//, '');
 
   const { data } = supabase.storage.from('Logos').getPublicUrl(ruta);
 
