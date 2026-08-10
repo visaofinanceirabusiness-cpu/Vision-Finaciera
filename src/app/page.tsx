@@ -13,6 +13,11 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
+// Logo actualizado de Encanto.
+// Se usa como respaldo si la URL guardada en la base de datos está vacía o vencida.
+const LOGO_ENCANTO_URL =
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Encanto.jpeg';
+
 type Perfil = {
   nombre: string;
   empresa_id: string;
@@ -29,12 +34,12 @@ function obtenerUrlLogo(logoUrl: string | null) {
 
   if (!url) return null;
 
-  // URL pública completa, como la de Encanto.
+  // Si la base de datos contiene una URL pública completa.
   if (/^https?:\/\//i.test(url)) {
     return url;
   }
 
-  // Si se guardara únicamente el nombre del archivo.
+  // Si la base contiene solamente el nombre o la ruta del archivo.
   const ruta = url.replace(/^\/?(Logos|logos)\//, '');
 
   const { data } = supabase.storage.from('Logos').getPublicUrl(ruta);
@@ -48,7 +53,8 @@ export default function MiNegocioPage() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [logoError, setLogoError] = useState(false);
+  const [usarLogoPredeterminado, setUsarLogoPredeterminado] = useState(false);
+  const [logoNoDisponible, setLogoNoDisponible] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -79,7 +85,8 @@ export default function MiNegocioPage() {
         .single();
 
       setEmpresa(empresaData);
-      setLogoError(false);
+      setUsarLogoPredeterminado(false);
+      setLogoNoDisponible(false);
       setCargando(false);
     }
 
@@ -100,7 +107,15 @@ export default function MiNegocioPage() {
     month: 'long',
   });
 
-  const logoClienteUrl = obtenerUrlLogo(empresa?.logo_url ?? null);
+  const logoDesdeBase = obtenerUrlLogo(empresa?.logo_url ?? null);
+
+  const logoClienteUrl =
+    usarLogoPredeterminado || !logoDesdeBase
+      ? LOGO_ENCANTO_URL
+      : logoDesdeBase;
+
+  const logoEsPredeterminado =
+    usarLogoPredeterminado || !logoDesdeBase;
 
   return (
     <main
@@ -164,12 +179,21 @@ export default function MiNegocioPage() {
               overflow: 'hidden',
             }}
           >
-            {logoClienteUrl && !logoError ? (
+            {!logoNoDisponible ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoClienteUrl}
                 alt={`Logo de ${empresa?.nombre ?? 'la empresa'}`}
-                onError={() => setLogoError(true)}
+                onError={() => {
+                  // Si falla la URL de la base, intenta con Encanto.jpeg.
+                  if (!logoEsPredeterminado) {
+                    setUsarLogoPredeterminado(true);
+                    return;
+                  }
+
+                  // Solo muestra el ícono si también fallara Encanto.jpeg.
+                  setLogoNoDisponible(true);
+                }}
                 style={{
                   width: '100%',
                   height: '100%',
