@@ -24,12 +24,29 @@ type Empresa = {
   logo_url: string | null;
 };
 
+function obtenerUrlLogo(logoUrl: string | null) {
+  if (!logoUrl) return null;
+
+  // Si la base de datos ya contiene una URL pública completa.
+  if (/^https?:\/\//i.test(logoUrl)) {
+    return logoUrl;
+  }
+
+  // Si la base contiene solamente el nombre o ruta del archivo.
+  const ruta = logoUrl.replace(/^\/?(Logos|logos)\//, '');
+
+  const { data } = supabase.storage.from('Logos').getPublicUrl(ruta);
+
+  return data.publicUrl;
+}
+
 export default function MiNegocioPage() {
   const router = useRouter();
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -60,6 +77,7 @@ export default function MiNegocioPage() {
         .single();
 
       setEmpresa(empresaData);
+      setLogoError(false);
       setCargando(false);
     }
 
@@ -79,6 +97,8 @@ export default function MiNegocioPage() {
     day: 'numeric',
     month: 'long',
   });
+
+  const logoClienteUrl = obtenerUrlLogo(empresa?.logo_url ?? null);
 
   return (
     <main
@@ -102,6 +122,7 @@ export default function MiNegocioPage() {
             <div style={{ fontWeight: 700, color: COLORES.azul }}>
               {empresa?.nombre || 'Mi Negocio'}
             </div>
+
             <div style={{ fontSize: 12, color: COLORES.gris }}>
               {perfil?.rol === 'admin' ? 'Administrador' : 'Cliente'}
             </div>
@@ -126,7 +147,7 @@ export default function MiNegocioPage() {
           </button>
         </div>
 
-        {/* Logo centrado */}
+        {/* Logo del cliente */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
@@ -141,16 +162,15 @@ export default function MiNegocioPage() {
               overflow: 'hidden',
             }}
           >
-            {empresa?.logo_url ? (
+            {logoClienteUrl && !logoError ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={empresa.logo_url}
-                alt={empresa.nombre}
-                width={120}
-                height={120}
+                src={logoClienteUrl}
+                alt={`Logo de ${empresa?.nombre ?? 'la empresa'}`}
+                onError={() => setLogoError(true)}
                 style={{
-                  width: 120,
-                  height: 120,
+                  width: '100%',
+                  height: '100%',
                   objectFit: 'contain',
                   display: 'block',
                 }}
@@ -200,9 +220,7 @@ export default function MiNegocioPage() {
           <ResumenCard titulo="Stock bajo" valor="0 productos" color={COLORES.gris} />
         </div>
 
-        {/* Accesos rápidos: un único punto de entrada a la Central de
-            Lanzamientos (ahí adentro se elige Venta, Gasto, Compra, etc.
-            desde el desplegable de Operación), más el acceso a Stock. */}
+        {/* Accesos rápidos */}
         <div
           style={{
             display: 'grid',
@@ -215,6 +233,7 @@ export default function MiNegocioPage() {
             titulo="Central de Lanzamientos"
             principal
           />
+
           <BotonAcceso href="/stock" titulo="Ver stock" />
         </div>
       </div>
