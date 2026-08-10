@@ -14,6 +14,11 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
+const SABIO_URL =
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png';
+const LOGO_URL =
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Vision%20financiera.jpeg';
+
 type Producto = { id: string; nombre: string; categoria: string | null };
 
 export default function CentralDeLanzamientos() {
@@ -39,7 +44,7 @@ export default function CentralDeLanzamientos() {
     { producto: '', cantidad: 0, precio: 0 },
   ]);
 
-  const [mensajeSabio, setMensajeSabio] = useState('🦉 Elegí una operación para empezar.');
+  const [mensajeSabio, setMensajeSabio] = useState('Elegí una operación para empezar.');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -119,7 +124,7 @@ export default function CentralDeLanzamientos() {
     }
 
     cargarCategorias();
-    setMensajeSabio(`🦉 Elegí la categoría para "${operacion}".`);
+    setMensajeSabio(`Elegí la categoría para "${operacion}".`);
   }, [empresaId, operacion]);
 
   // ------------------------------------------------------------
@@ -189,7 +194,7 @@ export default function CentralDeLanzamientos() {
         lineas,
       });
 
-      setMensajeSabio('🦉 ¡Operación registrada con éxito!');
+      setMensajeSabio('¡Operación registrada con éxito!');
       // Reset del formulario, igual que limpiarFormulario() de Apps Script
       setOperacion('');
       setCategoria('');
@@ -240,7 +245,14 @@ export default function CentralDeLanzamientos() {
             Registrá todas las operaciones desde un único punto de entrada.
           </p>
         </div>
-        <div style={{ fontSize: 36 }}>🦉</div>
+        <div style={{ fontSize: 36 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={SABIO_URL}
+            alt="Sabio"
+            style={{ width: 56, height: 56, objectFit: 'contain' }}
+          />
+        </div>
       </div>
 
       <div
@@ -381,13 +393,28 @@ export default function CentralDeLanzamientos() {
           <p style={{ color: '#dc2626', fontSize: 13, marginTop: 4 }}>{error}</p>
         )}
 
-        <button
-          onClick={handleRegistrar}
-          disabled={guardando || !operacion || !categoria || !formaPago}
-          style={{ ...botonPrincipal, marginTop: 16 }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 16,
+          }}
         >
-          {guardando ? 'Registrando...' : 'Registrar Operación'}
-        </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={LOGO_URL}
+            alt="Visão Financeira"
+            style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'contain' }}
+          />
+          <button
+            onClick={handleRegistrar}
+            disabled={guardando || !operacion || !categoria || !formaPago}
+            style={{ ...botonPrincipal, flex: 1 }}
+          >
+            {guardando ? 'Registrando...' : 'Registrar Operación'}
+          </button>
+        </div>
       </div>
     </div>
   );
