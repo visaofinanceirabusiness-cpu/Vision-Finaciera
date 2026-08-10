@@ -126,7 +126,7 @@ export default function MiNegocioPage() {
           </button>
         </div>
 
-               {/* Logo centrado */}
+        {/* Logo centrado */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
@@ -174,13 +174,7 @@ export default function MiNegocioPage() {
         >
           <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
 
-          <p
-            style={{
-              margin: '8px 0 0',
-              fontSize: 20,
-              fontWeight: 600,
-            }}
-          >
+          <p style={{ margin: '8px 0 0', fontSize: 20, fontWeight: 600 }}>
             {empresa?.nombre}
           </p>
 
@@ -188,9 +182,7 @@ export default function MiNegocioPage() {
             Hola, {perfil?.nombre} 👋
           </p>
 
-          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>
-            {hoy}
-          </p>
+          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>{hoy}</p>
         </section>
 
         {/* Resumen */}
@@ -202,13 +194,15 @@ export default function MiNegocioPage() {
             marginBottom: 24,
           }}
         >
-          <ResumenCard titulo='Ventas hoy' valor='R$ 0,00' color={COLORES.verde} />
-          <ResumenCard titulo='Caja disponible' valor='R$ 0,00' color={COLORES.azul} />
-          <ResumenCard titulo='Gastos del mes' valor='R$ 0,00' color='#c2410c' />
-          <ResumenCard titulo='Stock bajo' valor='0 productos' color={COLORES.gris} />
+          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={COLORES.verde} />
+          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={COLORES.azul} />
+          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c2410c" />
+          <ResumenCard titulo="Stock bajo" valor="0 productos" color={COLORES.gris} />
         </div>
 
-        {/* Accesos rápidos */}
+        {/* Accesos rápidos: un único punto de entrada a la Central de
+            Lanzamientos (ahí adentro se elige Venta, Gasto, Compra, etc.
+            desde el desplegable de Operación), más el acceso a Stock. */}
         <div
           style={{
             display: 'grid',
@@ -216,9 +210,12 @@ export default function MiNegocioPage() {
             gap: 16,
           }}
         >
-          <BotonAcceso href='/lanzamientos' titulo='Registrar venta' principal />
-          <BotonAcceso href='/lanzamientos' titulo='Registrar gasto' />
-          <BotonAcceso href='/stock' titulo='Ver stock' />
+          <BotonAcceso
+            href="/lanzamientos"
+            titulo="Central de Lanzamientos"
+            principal
+          />
+          <BotonAcceso href="/stock" titulo="Ver stock" />
         </div>
       </div>
     </main>
@@ -274,9 +271,7 @@ function BotonAcceso({
         padding: '18px 20px',
         textAlign: 'center',
         fontWeight: 700,
-        boxShadow: principal
-          ? '0 8px 20px rgba(46,139,87,0.18)'
-          : 'none',
+        boxShadow: principal ? '0 8px 20px rgba(46,139,87,0.18)' : 'none',
       }}
     >
       {titulo}
