@@ -1,6 +1,3 @@
-Reemplazá el archivo completo por este. Mantiene toda la funcionalidad y hace que Sabio y Visão Financeira tengan mucho más protagonismo, integrados al fondo y sin aspecto de íconos pequeños.
-
-```tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -618,4 +615,3 @@ const botonSecundario: React.CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
 };
-```
