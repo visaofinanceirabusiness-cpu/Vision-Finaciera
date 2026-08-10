@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { registrarOperacion, LineaOperacion } from '@/lib/motor';
 
@@ -222,6 +223,18 @@ export default function CentralDeLanzamientos() {
         }}
       >
         <div>
+          <Link
+            href="/"
+            style={{
+              color: '#cbd5e1',
+              fontSize: 13,
+              textDecoration: 'none',
+              display: 'inline-block',
+              marginBottom: 8,
+            }}
+          >
+            ← Volver a Mi Negocio
+          </Link>
           <h1 style={{ margin: 0, fontSize: 22 }}>Central de Lanzamientos</h1>
           <p style={{ margin: '4px 0 0', color: '#cbd5e1', fontSize: 13 }}>
             Registrá todas las operaciones desde un único punto de entrada.
