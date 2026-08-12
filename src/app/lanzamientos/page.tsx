@@ -185,6 +185,7 @@ export default function CentralDeLanzamientos() {
         categoria,
         formaPago,
         historico,
+        clienteProveedor,
         lineas,
       });
 
