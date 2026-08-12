@@ -46,7 +46,7 @@ export default function RegistrosPage() {
   }, [router]);
 
   const visibles = filas.filter((fila) =>
-    [fila.operacion, fila.categoria, fila.forma_pago, fila.historico, fila.cliente_proveedor]
+    [fila.id, fila.operacion, fila.categoria, fila.forma_pago, fila.historico, fila.cliente_proveedor]
       .filter(Boolean).join(' ').toLowerCase().includes(busqueda.toLowerCase())
   );
 
@@ -55,15 +55,15 @@ export default function RegistrosPage() {
       <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar operación, categoría o persona..." style={inputStyle} />
       {cargando ? <p>Cargando registros...</p> : (
         <Tabla>
-          <thead><tr style={cabeceraFila}><Th>Fecha</Th><Th>Operación</Th><Th>Categoría</Th><Th>Forma de pago</Th><Th>Histórico</Th><Th>Cliente / Proveedor</Th><Th align="right">Total</Th><Th>Estado</Th></tr></thead>
+          <thead><tr style={cabeceraFila}><Th>ID Registro</Th><Th>Fecha</Th><Th>Operación</Th><Th>Categoría</Th><Th>Forma de pago</Th><Th>Histórico</Th><Th>Cliente / Proveedor</Th><Th align="right">Total</Th><Th>Estado</Th></tr></thead>
           <tbody>{visibles.map((fila) => (
             <tr key={fila.id} style={filaStyle}>
-              <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
+              <Td>{fila.id}</Td><Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
               <Td>{fila.operacion}</Td><Td>{fila.categoria}</Td><Td>{fila.forma_pago}</Td>
               <Td>{fila.historico || '—'}</Td><Td>{fila.cliente_proveedor || '—'}</Td>
               <Td align="right">R$ {Number(fila.total).toFixed(2)}</Td><Td>{fila.estado || '—'}</Td>
             </tr>
-          ))}{!visibles.length && <tr><td colSpan={8} style={vacioStyle}>No se encontraron registros.</td></tr>}</tbody>
+          ))}{!visibles.length && <tr><td colSpan={9} style={vacioStyle}>No se encontraron registros.</td></tr>}</tbody>
         </Tabla>
       )}
     </Pantalla>
