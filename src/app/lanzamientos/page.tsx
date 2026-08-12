@@ -38,10 +38,11 @@ export default function CentralDeLanzamientos() {
   const [clienteProveedor, setClienteProveedor] = useState('');
   const [contactos, setContactos] = useState<string[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [saldoPorProducto, setSaldoPorProducto] = useState<Record<string, number>>({});
   const [lineas, setLineas] = useState<LineaOperacion[]>([
     { producto: '', cantidad: 0, monto: 0 },
   ]);
-  const [mensajeSabio, setMensajeSabio] = useState('Elegí una operación para empezar.');
+  const [mensajeSabio, setMensajeSabio] = useState('ElegÃ­ una operaciÃ³n para empezar.');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -70,7 +71,7 @@ export default function CentralDeLanzamientos() {
         .maybeSingle();
 
       if (!perfil?.empresa_id) {
-        setError('Tu usuario todavía no tiene una empresa asignada.');
+        setError('Tu usuario todavÃ­a no tiene una empresa asignada.');
         setCargandoInicial(false);
         return;
       }
@@ -89,6 +90,17 @@ export default function CentralDeLanzamientos() {
         .from('productos')
         .select('id, nombre, categoria')
         .eq('empresa_id', perfil.empresa_id);
+
+      const { data: saldos } = await supabase
+        .from('saldo_stock')
+        .select('producto_id, saldo')
+        .eq('empresa_id', perfil.empresa_id);
+
+      setSaldoPorProducto(
+        Object.fromEntries(
+          (saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)])
+        )
+      );
 
       setProductos(prods ?? []);
 
@@ -122,7 +134,7 @@ export default function CentralDeLanzamientos() {
     }
 
     cargarCategorias();
-    setMensajeSabio(`Elegí la categoría para "${operacion}".`);
+    setMensajeSabio(`ElegÃ­ la categorÃ­a para "${operacion}".`);
   }, [empresaId, operacion]);
 
   useEffect(() => {
@@ -195,12 +207,16 @@ export default function CentralDeLanzamientos() {
   }
 
   const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
+  const esSalidaStock = operacion === 'VENTA' || operacion === 'PERDIDA';
+  const stockInsuficiente = esSalidaStock && lineas.some(
+    (linea) => linea.producto && linea.cantidad > (saldoPorProducto[linea.producto] ?? 0)
+  );
   const lineasCompletas = lineas.length > 0 && lineas.every(
     (linea) => linea.producto.trim() && linea.cantidad > 0 && linea.monto > 0
   );
   const camposCompletos = Boolean(
     fecha && operacion && categoria && formaPago && historico.trim() &&
-    clienteProveedor.trim() && lineasCompletas
+    clienteProveedor.trim() && lineasCompletas && !stockInsuficiente
   );
 
   async function handleRegistrar() {
@@ -220,7 +236,7 @@ export default function CentralDeLanzamientos() {
         lineas,
       });
 
-      setMensajeSabio('¡Operación registrada con éxito!');
+      setMensajeSabio('Â¡OperaciÃ³n registrada con Ã©xito!');
       setOperacion('');
       setCategoria('');
       setFormaPago('');
@@ -228,7 +244,7 @@ export default function CentralDeLanzamientos() {
       setClienteProveedor('');
       setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo registrar la operación.');
+      setError(e instanceof Error ? e.message : 'No se pudo registrar la operaciÃ³n.');
     } finally {
       setGuardando(false);
     }
@@ -283,7 +299,7 @@ export default function CentralDeLanzamientos() {
                 marginBottom: 14,
               }}
             >
-              ← Volver a Mi Negocio
+              â† Volver a Mi Negocio
             </Link>
 
             <p
@@ -295,7 +311,7 @@ export default function CentralDeLanzamientos() {
                 margin: '0 0 8px',
               }}
             >
-              GESTIÓN FINANCIERA
+              GESTIÃ“N FINANCIERA
             </p>
 
             <h1 style={{ margin: 0, fontSize: 30, letterSpacing: '-0.6px' }}>
@@ -311,7 +327,7 @@ export default function CentralDeLanzamientos() {
                 maxWidth: 500,
               }}
             >
-              Registrá todas las operaciones desde un único punto de entrada.
+              RegistrÃ¡ todas las operaciones desde un Ãºnico punto de entrada.
             </p>
           </div>
 
@@ -327,7 +343,7 @@ export default function CentralDeLanzamientos() {
             <div>
               <p style={eyebrow}>NUEVO REGISTRO</p>
               <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
-                Cargá una operación
+                CargÃ¡ una operaciÃ³n
               </h2>
             </div>
             <span style={estadoActivo}>Sistema activo</span>
@@ -343,7 +359,7 @@ export default function CentralDeLanzamientos() {
               />
             </Campo>
 
-            <Campo label="Operación">
+            <Campo label="OperaciÃ³n">
               <select
                 value={operacion}
                 onChange={(e) => setOperacion(e.target.value)}
@@ -358,7 +374,7 @@ export default function CentralDeLanzamientos() {
               </select>
             </Campo>
 
-            <Campo label="Categoría">
+            <Campo label="CategorÃ­a">
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
@@ -391,7 +407,7 @@ export default function CentralDeLanzamientos() {
             </Campo>
           </div>
 
-          <Campo label="Histórico">
+          <Campo label="HistÃ³rico">
             <input
               type="text"
               value={historico}
@@ -434,15 +450,19 @@ export default function CentralDeLanzamientos() {
                       {productos
                         .filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())
                         .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.nombre}
+                          <option
+                            key={p.id}
+                            value={p.id}
+                            disabled={esSalidaStock && (saldoPorProducto[p.id] ?? 0) <= 0}
+                          >
+                            {p.nombre}{esSalidaStock ? ` (stock: ${saldoPorProducto[p.id] ?? 0})` : ''}
                           </option>
                         ))}
                     </select>
                   ) : (
                     <input
                       type="text"
-                      placeholder="Descripción"
+                      placeholder="DescripciÃ³n"
                       value={linea.producto}
                       onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
                       style={{ ...inputStyle, flex: 2 }}
@@ -468,7 +488,7 @@ export default function CentralDeLanzamientos() {
               ))}
 
               <button type="button" onClick={agregarLinea} style={botonSecundario}>
-                + Agregar línea
+                + Agregar lÃ­nea
               </button>
             </div>
           )}
@@ -479,9 +499,15 @@ export default function CentralDeLanzamientos() {
           </div>
 
           <div style={validacionStyle}>
-            <span>{camposCompletos ? '✓ Todos los campos están completos' : '⚠ Faltan campos por completar'}</span>
-            <span>{lineas.length} renglón{lineas.length === 1 ? '' : 'es'}</span>
+            <span>{camposCompletos ? 'âœ“ Todos los campos estÃ¡n completos' : 'âš  Faltan campos por completar'}</span>
+            <span>{lineas.length} renglÃ³n{lineas.length === 1 ? '' : 'es'}</span>
           </div>
+
+          {stockInsuficiente && (
+            <p style={{ color: '#dc2626', fontSize: 13, margin: '10px 0 0' }}>
+              No se puede registrar: la cantidad solicitada supera el stock disponible.
+            </p>
+          )}
 
           <p style={{ color: COLORES.verde, fontSize: 13, margin: '14px 0 0' }}>
             {mensajeSabio}
@@ -492,9 +518,9 @@ export default function CentralDeLanzamientos() {
           <div style={accionFinal}>
             <div style={marcaVision}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Visão Financeira" style={visionLogo} />
+              <img src={LOGO_URL} alt="VisÃ£o Financeira" style={visionLogo} />
               <span style={{ color: COLORES.azul, fontSize: 12, fontWeight: 700, lineHeight: 1.25 }}>
-                Visão
+                VisÃ£o
                 <br />
                 Financeira
               </span>
@@ -505,7 +531,7 @@ export default function CentralDeLanzamientos() {
               disabled={guardando || !camposCompletos}
               style={{ ...botonPrincipal, flex: 1 }}
             >
-              {guardando ? 'Registrando...' : 'Registrar Operación'}
+              {guardando ? 'Registrando...' : 'Registrar OperaciÃ³n'}
             </button>
           </div>
         </main>
@@ -706,3 +732,4 @@ const validacionStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
 };
+
