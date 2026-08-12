@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Visão Financeira',
+  title: 'Vis\u00E3o Financeira',
   description: 'Claridad para decidir. Seguridad para crecer.',
 };
 
@@ -16,3 +16,4 @@ export default function RootLayout({
     </html>
   );
 }
+
