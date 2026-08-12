@@ -176,15 +176,15 @@ export async function registrarOperacion(
 
   if (!regla) {
     throw new Error(
-      `No se encontrÃ³ una regla contable para la combinaciÃ³n "${clave}". ` +
-        'RevisÃ¡ la Matriz de Operaciones.'
+        `No se encontr\u00F3 una regla contable para la combinaci\u00F3n "${clave}". ` +
+        'Revis\u00E1 la Matriz de Operaciones.'
     );
   }
 
   const tipoMovimiento = formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
   if (regla.stock === 'SI' && tipoMovimiento === 'SALIDA') {
     if (formulario.lineas.some((linea) => !linea.producto || linea.cantidad <= 0)) {
-      throw new Error('Cada renglÃ³n de una salida debe tener producto y cantidad vÃ¡lida.');
+      throw new Error('Cada rengl\u00F3n de una salida debe tener producto y cantidad v\u00E1lida.');
     }
 
     const cantidadesPorProducto = formulario.lineas.reduce((acumulado, linea) => {
