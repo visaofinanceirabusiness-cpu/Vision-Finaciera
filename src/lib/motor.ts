@@ -1,19 +1,19 @@
 // lib/motor.ts
 //
-// EL MOTOR — el corazón de "Sabio".
-// Es el equivalente exacto a tu función generarMatrizOperaciones()
-// de Apps Script, pero acá lee y escribe en la base de datos real
-// en vez de en una hoja de cálculo.
+// EL MOTOR â€” el corazÃ³n de "Sabio".
+// Es el equivalente exacto a tu funciÃ³n generarMatrizOperaciones()
+// de Apps Script, pero acÃ¡ lee y escribe en la base de datos real
+// en vez de en una hoja de cÃ¡lculo.
 //
-// Qué hace, paso a paso:
+// QuÃ© hace, paso a paso:
 // 1. Lee las REGLAS_CONTABLES de la empresa (ej: "VENTA, MERCADERIA,
-//    debe ir a Caja/PIX débito y Ventas crédito, sí mueve stock, sí
-//    va al libro, sí genera CMV").
+//    debe ir a Caja/PIX dÃ©bito y Ventas crÃ©dito, sÃ­ mueve stock, sÃ­
+//    va al libro, sÃ­ genera CMV").
 // 2. Lee los MEDIOS_FINANCIEROS disponibles (PIX, Efectivo, Cliente, etc).
-// 3. Combina cada regla con cada medio financiero válido para armar
-//    una "clave" única, ej: VENTA.MERCADERIA.PIX
-// 4. Guarda el resultado en matriz_operaciones — esa tabla es la que
-//    consulta la app cada vez que alguien registra una operación.
+// 3. Combina cada regla con cada medio financiero vÃ¡lido para armar
+//    una "clave" Ãºnica, ej: VENTA.MERCADERIA.PIX
+// 4. Guarda el resultado en matriz_operaciones â€” esa tabla es la que
+//    consulta la app cada vez que alguien registra una operaciÃ³n.
 
 import { supabase } from './supabase';
 
@@ -34,8 +34,8 @@ type MedioFinanciero = {
   nombre: string;
 };
 
-// Misma lógica que tenías en Apps Script: qué medios financieros
-// son válidos para cada tipo de operación.
+// Misma lÃ³gica que tenÃ­as en Apps Script: quÃ© medios financieros
+// son vÃ¡lidos para cada tipo de operaciÃ³n.
 function mediosValidosParaOperacion(
   operacion: string,
   medios: MedioFinanciero[]
@@ -69,7 +69,7 @@ export async function generarMatrizOperaciones(empresaId: string) {
 
   if (errorMedios) throw errorMedios;
 
-  // 3. Armar cada combinación válida
+  // 3. Armar cada combinaciÃ³n vÃ¡lida
   const filas: Record<string, unknown>[] = [];
 
   for (const regla of (reglas as ReglaContable[]) ?? []) {
@@ -80,8 +80,8 @@ export async function generarMatrizOperaciones(empresaId: string) {
     );
 
     for (const medio of mediosValidos) {
-      // Si el rol de débito/crédito dice "MEDIO_FINANCIERO", se resuelve
-      // dinámicamente con el nombre del medio de pago elegido.
+      // Si el rol de dÃ©bito/crÃ©dito dice "MEDIO_FINANCIERO", se resuelve
+      // dinÃ¡micamente con el nombre del medio de pago elegido.
       const cuentaDebito =
         regla.rol_debito === 'MEDIO_FINANCIERO' ? medio.nombre : regla.rol_debito;
 
@@ -125,7 +125,7 @@ export async function generarMatrizOperaciones(empresaId: string) {
   return { reglasGeneradas: filas.length };
 }
 
-// Busca la regla exacta para una operación que se está registrando
+// Busca la regla exacta para una operaciÃ³n que se estÃ¡ registrando
 // (equivalente a buscarReglaCatalogo(clave) de Apps Script)
 export async function buscarReglaPorClave(empresaId: string, clave: string) {
   const { data, error } = await supabase
@@ -176,9 +176,45 @@ export async function registrarOperacion(
 
   if (!regla) {
     throw new Error(
-      `No se encontró una regla contable para la combinación "${clave}". ` +
-        'Revisá la Matriz de Operaciones.'
+      `No se encontrÃ³ una regla contable para la combinaciÃ³n "${clave}". ` +
+        'RevisÃ¡ la Matriz de Operaciones.'
     );
+  }
+
+  const tipoMovimiento = formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
+  if (regla.stock === 'SI' && tipoMovimiento === 'SALIDA') {
+    if (formulario.lineas.some((linea) => !linea.producto || linea.cantidad <= 0)) {
+      throw new Error('Cada renglÃ³n de una salida debe tener producto y cantidad vÃ¡lida.');
+    }
+
+    const cantidadesPorProducto = formulario.lineas.reduce((acumulado, linea) => {
+      if (linea.producto && linea.cantidad > 0) {
+        acumulado.set(linea.producto, (acumulado.get(linea.producto) ?? 0) + linea.cantidad);
+      }
+      return acumulado;
+    }, new Map<string, number>());
+
+    const { data: saldos, error: errorLecturaStock } = await supabase
+      .from('saldo_stock')
+      .select('producto_id, saldo')
+      .eq('empresa_id', empresaId)
+      .in('producto_id', Array.from(cantidadesPorProducto.keys()));
+
+    if (errorLecturaStock) throw errorLecturaStock;
+
+    const saldoPorProducto = new Map(
+      (saldos ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
+    );
+    const faltante = Array.from(cantidadesPorProducto.entries()).find(
+      ([productoId, cantidad]) => (saldoPorProducto.get(productoId) ?? 0) < cantidad
+    );
+
+    if (faltante) {
+      const saldoDisponible = saldoPorProducto.get(faltante[0]) ?? 0;
+      throw new Error(
+        `Stock insuficiente para el producto seleccionado. Disponible: ${saldoDisponible}; solicitado: ${faltante[1]}.`
+      );
+    }
   }
 
   const { data: registrosExistentes, error: errorLecturaIds } = await supabase
@@ -217,9 +253,6 @@ export async function registrarOperacion(
 
   // 2. Movimientos de Stock (si la regla dice que mueve stock)
   if (regla.stock === 'SI') {
-    const tipoMovimiento =
-      formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
-
     const movimientos = formulario.lineas
       .filter((linea) => linea.producto && linea.cantidad > 0)
       .map((linea) => ({
@@ -246,3 +279,4 @@ export async function registrarOperacion(
 
   return { total, regla };
 }
+
