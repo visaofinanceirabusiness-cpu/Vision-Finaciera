@@ -42,7 +42,7 @@ export default function CentralDeLanzamientos() {
   const [lineas, setLineas] = useState<LineaOperacion[]>([
     { producto: '', cantidad: 0, monto: 0 },
   ]);
-  const [mensajeSabio, setMensajeSabio] = useState('ElegÃ­ una operaciÃ³n para empezar.');
+  const [mensajeSabio, setMensajeSabio] = useState('Eleg\u00ED una operaci\u00F3n para empezar.');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -71,7 +71,7 @@ export default function CentralDeLanzamientos() {
         .maybeSingle();
 
       if (!perfil?.empresa_id) {
-        setError('Tu usuario todavÃ­a no tiene una empresa asignada.');
+        setError('Tu usuario todav\u00EDa no tiene una empresa asignada.');
         setCargandoInicial(false);
         return;
       }
@@ -134,7 +134,7 @@ export default function CentralDeLanzamientos() {
     }
 
     cargarCategorias();
-    setMensajeSabio(`ElegÃ­ la categorÃ­a para "${operacion}".`);
+    setMensajeSabio(`Eleg\u00ED la categor\u00EDa para "${operacion}".`);
   }, [empresaId, operacion]);
 
   useEffect(() => {
@@ -236,7 +236,7 @@ export default function CentralDeLanzamientos() {
         lineas,
       });
 
-      setMensajeSabio('Â¡OperaciÃ³n registrada con Ã©xito!');
+      setMensajeSabio('\u00A1Operaci\u00F3n registrada con \u00E9xito!');
       setOperacion('');
       setCategoria('');
       setFormaPago('');
@@ -244,7 +244,7 @@ export default function CentralDeLanzamientos() {
       setClienteProveedor('');
       setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo registrar la operaciÃ³n.');
+      setError(e instanceof Error ? e.message : 'No se pudo registrar la operaci\u00F3n.');
     } finally {
       setGuardando(false);
     }
@@ -299,7 +299,7 @@ export default function CentralDeLanzamientos() {
                 marginBottom: 14,
               }}
             >
-              â† Volver a Mi Negocio
+              &larr; Volver a Mi Negocio
             </Link>
 
             <p
@@ -311,7 +311,7 @@ export default function CentralDeLanzamientos() {
                 margin: '0 0 8px',
               }}
             >
-              GESTIÃ“N FINANCIERA
+              GESTI&Oacute;N FINANCIERA
             </p>
 
             <h1 style={{ margin: 0, fontSize: 30, letterSpacing: '-0.6px' }}>
@@ -327,7 +327,7 @@ export default function CentralDeLanzamientos() {
                 maxWidth: 500,
               }}
             >
-              RegistrÃ¡ todas las operaciones desde un Ãºnico punto de entrada.
+              Registr&aacute; todas las operaciones desde un &uacute;nico punto de entrada.
             </p>
           </div>
 
@@ -343,7 +343,7 @@ export default function CentralDeLanzamientos() {
             <div>
               <p style={eyebrow}>NUEVO REGISTRO</p>
               <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
-                CargÃ¡ una operaciÃ³n
+                Carg&aacute; una operaci&oacute;n
               </h2>
             </div>
             <span style={estadoActivo}>Sistema activo</span>
@@ -359,7 +359,7 @@ export default function CentralDeLanzamientos() {
               />
             </Campo>
 
-            <Campo label="OperaciÃ³n">
+            <Campo label="Operaci&oacute;n">
               <select
                 value={operacion}
                 onChange={(e) => setOperacion(e.target.value)}
@@ -374,7 +374,7 @@ export default function CentralDeLanzamientos() {
               </select>
             </Campo>
 
-            <Campo label="CategorÃ­a">
+            <Campo label="Categor&iacute;a">
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
@@ -407,7 +407,7 @@ export default function CentralDeLanzamientos() {
             </Campo>
           </div>
 
-          <Campo label="HistÃ³rico">
+          <Campo label="Hist&oacute;rico">
             <input
               type="text"
               value={historico}
@@ -462,7 +462,7 @@ export default function CentralDeLanzamientos() {
                   ) : (
                     <input
                       type="text"
-                      placeholder="DescripciÃ³n"
+                      placeholder="Descripci&oacute;n"
                       value={linea.producto}
                       onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
                       style={{ ...inputStyle, flex: 2 }}
@@ -488,7 +488,7 @@ export default function CentralDeLanzamientos() {
               ))}
 
               <button type="button" onClick={agregarLinea} style={botonSecundario}>
-                + Agregar lÃ­nea
+                + Agregar l&iacute;nea
               </button>
             </div>
           )}
@@ -499,8 +499,8 @@ export default function CentralDeLanzamientos() {
           </div>
 
           <div style={validacionStyle}>
-            <span>{camposCompletos ? 'âœ“ Todos los campos estÃ¡n completos' : 'âš  Faltan campos por completar'}</span>
-            <span>{lineas.length} renglÃ³n{lineas.length === 1 ? '' : 'es'}</span>
+            <span>{camposCompletos ? '\u2713 Todos los campos est&aacute;n completos' : '\u26A0 Faltan campos por completar'}</span>
+            <span>{lineas.length} rengl&oacute;n{lineas.length === 1 ? '' : 'es'}</span>
           </div>
 
           {stockInsuficiente && (
@@ -518,9 +518,9 @@ export default function CentralDeLanzamientos() {
           <div style={accionFinal}>
             <div style={marcaVision}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="VisÃ£o Financeira" style={visionLogo} />
+              <img src={LOGO_URL} alt="Vis&atilde;o Financeira" style={visionLogo} />
               <span style={{ color: COLORES.azul, fontSize: 12, fontWeight: 700, lineHeight: 1.25 }}>
-                VisÃ£o
+                Vis&atilde;o
                 <br />
                 Financeira
               </span>
@@ -531,7 +531,7 @@ export default function CentralDeLanzamientos() {
               disabled={guardando || !camposCompletos}
               style={{ ...botonPrincipal, flex: 1 }}
             >
-              {guardando ? 'Registrando...' : 'Registrar OperaciÃ³n'}
+              {guardando ? 'Registrando...' : 'Registrar Operaci\u00F3n'}
             </button>
           </div>
         </main>
