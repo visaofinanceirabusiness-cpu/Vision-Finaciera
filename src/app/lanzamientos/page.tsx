@@ -36,6 +36,7 @@ export default function CentralDeLanzamientos() {
   const [formaPago, setFormaPago] = useState('');
   const [historico, setHistorico] = useState('');
   const [clienteProveedor, setClienteProveedor] = useState('');
+  const [contactos, setContactos] = useState<string[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [lineas, setLineas] = useState<LineaOperacion[]>([
     { producto: '', cantidad: 0, monto: 0 },
@@ -148,6 +149,36 @@ export default function CentralDeLanzamientos() {
 
     cargarFormasPago();
   }, [empresaId, operacion, categoria]);
+
+  useEffect(() => {
+    if (!empresaId || !operacion) {
+      setContactos([]);
+      setClienteProveedor('');
+      return;
+    }
+
+    async function cargarContactos() {
+      const esProveedor = operacion === 'COMPRA' || operacion === 'PAGO';
+      const esCliente = operacion === 'VENTA' || operacion === 'COBRO';
+
+      if (operacion === 'INVERSION' || operacion === 'EXTRACCION' || operacion === 'PERDIDA') {
+        setContactos(['Brenda']);
+      } else if (esProveedor || esCliente) {
+        const tabla = esProveedor ? 'proveedores' : 'clientes';
+        const { data } = await supabase
+          .from(tabla)
+          .select('nombre')
+          .eq('empresa_id', empresaId);
+        setContactos(Array.from(new Set((data ?? []).map((contacto) => contacto.nombre).filter(Boolean))));
+      } else {
+        setContactos([]);
+      }
+
+      setClienteProveedor('');
+    }
+
+    cargarContactos();
+  }, [empresaId, operacion]);
 
   function actualizarLinea(indice: number, campo: keyof LineaOperacion, valor: string) {
     setLineas((prev) =>
@@ -370,13 +401,19 @@ export default function CentralDeLanzamientos() {
           </Campo>
 
           <Campo label={etiquetaRelacion}>
-            <input
-              type="text"
+            <select
               value={clienteProveedor}
               onChange={(e) => setClienteProveedor(e.target.value)}
-              placeholder={`Ingresá ${etiquetaRelacion.toLowerCase()}`}
+              disabled={!operacion || contactos.length === 0}
               style={inputStyle}
-            />
+            >
+              <option value="">Seleccionar...</option>
+              {contactos.map((contacto) => (
+                <option key={contacto} value={contacto}>
+                  {contacto}
+                </option>
+              ))}
+            </select>
           </Campo>
 
           {operacion && (
