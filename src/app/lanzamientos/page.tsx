@@ -35,15 +35,23 @@ export default function CentralDeLanzamientos() {
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [formaPago, setFormaPago] = useState('');
   const [historico, setHistorico] = useState('');
+  const [clienteProveedor, setClienteProveedor] = useState('');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [lineas, setLineas] = useState<LineaOperacion[]>([
-    { producto: '', cantidad: 0, precio: 0 },
+    { producto: '', cantidad: 0, monto: 0 },
   ]);
   const [mensajeSabio, setMensajeSabio] = useState('Elegí una operación para empezar.');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   const operacionesConProducto = ['COMPRA', 'VENTA', 'PERDIDA'];
+  const etiquetaRelacion = ['INVERSION', 'PERDIDA'].includes(operacion)
+    ? 'Socia'
+    : operacion === 'COMPRA' || operacion === 'PAGO'
+      ? 'Proveedor'
+      : operacion === 'VENTA' || operacion === 'COBRO'
+        ? 'Cliente'
+        : 'Cliente / Proveedor';
 
   useEffect(() => {
     async function cargar() {
@@ -82,6 +90,7 @@ export default function CentralDeLanzamientos() {
         .eq('empresa_id', perfil.empresa_id);
 
       setProductos(prods ?? []);
+
       setCargandoInicial(false);
     }
 
@@ -151,13 +160,16 @@ export default function CentralDeLanzamientos() {
   }
 
   function agregarLinea() {
-    setLineas((prev) => [...prev, { producto: '', cantidad: 0, precio: 0 }]);
+    setLineas((prev) => [...prev, { producto: '', cantidad: 0, monto: 0 }]);
   }
 
-  const total = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
-
-  const productosDeCategoria = productos.filter(
-    (p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase()
+  const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
+  const lineasCompletas = lineas.length > 0 && lineas.every(
+    (linea) => linea.producto.trim() && linea.cantidad > 0 && linea.monto > 0
+  );
+  const camposCompletos = Boolean(
+    fecha && operacion && categoria && formaPago && historico.trim() &&
+    clienteProveedor.trim() && lineasCompletas
   );
 
   async function handleRegistrar() {
@@ -181,7 +193,8 @@ export default function CentralDeLanzamientos() {
       setCategoria('');
       setFormaPago('');
       setHistorico('');
-      setLineas([{ producto: '', cantidad: 0, precio: 0 }]);
+      setClienteProveedor('');
+      setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la operación.');
     } finally {
@@ -346,7 +359,7 @@ export default function CentralDeLanzamientos() {
             </Campo>
           </div>
 
-          <Campo label="Histórico / Cliente-Proveedor">
+          <Campo label="Histórico">
             <input
               type="text"
               value={historico}
@@ -355,26 +368,48 @@ export default function CentralDeLanzamientos() {
             />
           </Campo>
 
-          {operacionesConProducto.includes(operacion) && (
+          <Campo label={etiquetaRelacion}>
+            <input
+              type="text"
+              value={clienteProveedor}
+              onChange={(e) => setClienteProveedor(e.target.value)}
+              placeholder={`Ingresá ${etiquetaRelacion.toLowerCase()}`}
+              style={inputStyle}
+            />
+          </Campo>
+
+          {operacion && (
             <div style={{ marginTop: 20 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: COLORES.azul, marginBottom: 10 }}>
-                Detalle de productos
+                Detalle de valores
               </p>
 
               {lineas.map((linea, i) => (
                 <div key={i} style={filaProducto}>
-                  <select
-                    value={linea.producto}
-                    onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
-                    style={{ ...inputStyle, flex: 2 }}
-                  >
-                    <option value="">Producto...</option>
-                    {productosDeCategoria.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  {operacionesConProducto.includes(operacion) ? (
+                    <select
+                      value={linea.producto}
+                      onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
+                      style={{ ...inputStyle, flex: 2 }}
+                    >
+                      <option value="">Producto...</option>
+                      {productos
+                        .filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Descripción"
+                      value={linea.producto}
+                      onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
+                      style={{ ...inputStyle, flex: 2 }}
+                    />
+                  )}
 
                   <input
                     type="number"
@@ -386,9 +421,9 @@ export default function CentralDeLanzamientos() {
 
                   <input
                     type="number"
-                    placeholder="Precio"
-                    value={linea.precio || ''}
-                    onChange={(e) => actualizarLinea(i, 'precio', e.target.value)}
+                    placeholder="Monto"
+                    value={linea.monto || ''}
+                    onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                     style={{ ...inputStyle, flex: 1 }}
                   />
                 </div>
@@ -401,8 +436,13 @@ export default function CentralDeLanzamientos() {
           )}
 
           <div style={totalStyle}>
-            <span>Total estimado</span>
+            <span>Total</span>
             <span>R$ {total.toFixed(2)}</span>
+          </div>
+
+          <div style={validacionStyle}>
+            <span>{camposCompletos ? '✓ Todos los campos están completos' : '⚠ Faltan campos por completar'}</span>
+            <span>{lineas.length} renglón{lineas.length === 1 ? '' : 'es'}</span>
           </div>
 
           <p style={{ color: COLORES.verde, fontSize: 13, margin: '14px 0 0' }}>
@@ -424,7 +464,7 @@ export default function CentralDeLanzamientos() {
 
             <button
               onClick={handleRegistrar}
-              disabled={guardando || !operacion || !categoria || !formaPago}
+              disabled={guardando || !camposCompletos}
               style={{ ...botonPrincipal, flex: 1 }}
             >
               {guardando ? 'Registrando...' : 'Registrar Operación'}
@@ -614,4 +654,17 @@ const botonSecundario: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',
+};
+
+const validacionStyle: React.CSSProperties = {
+  marginTop: 10,
+  padding: '10px 14px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 12,
+  borderRadius: 10,
+  background: '#f8fafc',
+  color: COLORES.gris,
+  fontSize: 12,
+  fontWeight: 600,
 };
