@@ -142,7 +142,7 @@ export async function buscarReglaPorClave(empresaId: string, clave: string) {
 export type LineaOperacion = {
   producto: string;
   cantidad: number;
-  precio: number;
+  monto: number;
 };
 
 export type FormularioOperacion = {
@@ -151,6 +151,7 @@ export type FormularioOperacion = {
   categoria: string;
   formaPago: string;
   historico: string;
+  clienteProveedor: string;
   lineas: LineaOperacion[];
 };
 
@@ -162,7 +163,7 @@ export async function registrarOperacion(
   formulario: FormularioOperacion
 ) {
   const total = formulario.lineas.reduce(
-    (suma, linea) => suma + linea.cantidad * linea.precio,
+    (suma, linea) => suma + linea.cantidad * linea.monto,
     0
   );
 
@@ -190,6 +191,7 @@ export async function registrarOperacion(
       forma_pago: formulario.formaPago,
       total,
       historico: formulario.historico,
+      cliente_proveedor: formulario.clienteProveedor,
       cuenta_debito: regla.cuenta_debito,
       cuenta_credito: regla.cuenta_credito,
       estado: 'PENDIENTE',
@@ -204,15 +206,15 @@ export async function registrarOperacion(
       formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
 
     const movimientos = formulario.lineas
-      .filter((l) => l.producto && l.cantidad > 0)
-      .map((l) => ({
+      .filter((linea) => linea.producto && linea.cantidad > 0)
+      .map((linea) => ({
         empresa_id: empresaId,
         fecha: formulario.fecha,
         tipo: tipoMovimiento,
         categoria: formulario.categoria,
-        producto_id: l.producto,
-        cantidad: l.cantidad,
-        costo_unitario: l.precio,
+        producto_id: linea.producto,
+        cantidad: linea.cantidad,
+        costo_unitario: linea.monto,
         historico: formulario.historico,
         estado: 'PENDIENTE',
       }));
