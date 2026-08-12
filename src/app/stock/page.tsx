@@ -28,6 +28,8 @@ type MovimientoCosto = {
   costo_unitario: number;
 };
 
+const categoriaLabel = 'Categor' + String.fromCharCode(237) + 'a';
+
 export default function StockPage() {
   const router = useRouter();
   const [filas, setFilas] = useState<Fila[]>([]);
@@ -131,7 +133,7 @@ export default function StockPage() {
 
       <input
         type="text"
-        placeholder={'Buscar producto, categor\u00EDa o proveedor...'}
+        placeholder={`Buscar producto, ${categoriaLabel.toLowerCase()} o proveedor...`}
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
         style={{ width: '100%', maxWidth: 440, padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', marginBottom: 16, boxSizing: 'border-box' }}
@@ -146,7 +148,7 @@ export default function StockPage() {
           <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-                <Th>Producto</Th><Th>{'Categor\u00EDa'}</Th><Th>Proveedor</Th><Th align="right">Saldo</Th><Th align="right">Costo promedio</Th><Th>Valor inventario</Th><Th>Estado</Th>
+                <Th>Producto</Th><Th>{categoriaLabel}</Th><Th>Proveedor</Th><Th align="right">Saldo</Th><Th align="right">Costo promedio</Th><Th>Valor inventario</Th><Th>Estado</Th>
               </tr>
             </thead>
             <tbody>
