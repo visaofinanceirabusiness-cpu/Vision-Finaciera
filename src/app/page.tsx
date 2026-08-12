@@ -261,6 +261,8 @@ export default function MiNegocioPage() {
           />
 
           <BotonAcceso href="/stock" titulo="Ver stock" />
+          <BotonAcceso href="/registros" titulo="Registro de Operaciones" />
+          <BotonAcceso href="/movimientos-stock" titulo="Movimientos de Stock" />
         </div>
       </div>
     </main>
