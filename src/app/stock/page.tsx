@@ -125,13 +125,13 @@ export default function StockPage() {
         </Link>
         <h1 style={{ margin: 0, fontSize: 22 }}>Saldo de Stock</h1>
         <p style={{ margin: '4px 0 0', color: '#cbd5e1', fontSize: 13 }}>
-          Cantidades finales, costo promedio y valor del inventario.
+          {'Cantidades finales, costo promedio y valor del inventario.'}
         </p>
       </div>
 
       <input
         type="text"
-        placeholder="Buscar producto, categorÃ­a o proveedor..."
+        placeholder={'Buscar producto, categor\u00EDa o proveedor...'}
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
         style={{ width: '100%', maxWidth: 440, padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', marginBottom: 16, boxSizing: 'border-box' }}
@@ -146,7 +146,7 @@ export default function StockPage() {
           <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-                <Th>Producto</Th><Th>CategorÃ­a</Th><Th>Proveedor</Th><Th align="right">Saldo</Th><Th align="right">Costo promedio</Th><Th align="right">Valor inventario</Th><Th>Estado</Th>
+                <Th>Producto</Th><Th>{'Categor\u00EDa'}</Th><Th>Proveedor</Th><Th align="right">Saldo</Th><Th align="right">Costo promedio</Th><Th>Valor inventario</Th><Th>Estado</Th>
               </tr>
             </thead>
             <tbody>
