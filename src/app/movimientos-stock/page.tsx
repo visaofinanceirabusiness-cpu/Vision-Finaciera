@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 const COLORES = { azul: '#1f3a5f', verde: '#2e8b57', gris: '#6e7781', blanco: '#ffffff' };
-type Movimiento = { id: string; fecha: string; tipo: string; categoria: string; producto_id: string; cantidad: number; costo_unitario: number; total: number | null; historico: string | null; estado: string | null; };
+type Movimiento = { id: string; id_operacion: string | null; fecha: string; tipo: string; categoria: string; producto_id: string; cantidad: number; costo_unitario: number; total: number | null; historico: string | null; estado: string | null; };
 type Producto = { id: string; nombre: string };
 
 export default function MovimientosStockPage() {
@@ -24,7 +24,7 @@ export default function MovimientosStockPage() {
       if (!perfil?.empresa_id) { setCargando(false); return; }
 
       const [{ data: movimientos }, { data: catalogo }] = await Promise.all([
-        supabase.from('movimientos_stock').select('id, fecha, tipo, categoria, producto_id, cantidad, costo_unitario, total, historico, estado').eq('empresa_id', perfil.empresa_id).order('fecha', { ascending: false }),
+        supabase.from('movimientos_stock').select('id, id_operacion, fecha, tipo, categoria, producto_id, cantidad, costo_unitario, total, historico, estado').eq('empresa_id', perfil.empresa_id).order('fecha', { ascending: false }),
         supabase.from('productos').select('id, nombre').eq('empresa_id', perfil.empresa_id),
       ]);
       setFilas((movimientos ?? []) as Movimiento[]);
@@ -34,9 +34,9 @@ export default function MovimientosStockPage() {
     cargar();
   }, [router]);
 
-  const visibles = filas.filter((fila) => [fila.tipo, fila.categoria, fila.historico, productos[fila.producto_id]].filter(Boolean).join(' ').toLowerCase().includes(busqueda.toLowerCase()));
+  const visibles = filas.filter((fila) => [fila.id_operacion, fila.tipo, fila.categoria, fila.historico, productos[fila.producto_id]].filter(Boolean).join(' ').toLowerCase().includes(busqueda.toLowerCase()));
 
-  return <Pantalla titulo="Movimientos de Stock" subtitulo="Consultá las entradas y salidas generadas por las operaciones."><input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar producto, tipo o categoría..." style={inputStyle} />{cargando ? <p>Cargando movimientos...</p> : <Tabla><thead><tr style={cabeceraFila}><Th>Fecha</Th><Th>Tipo</Th><Th>Producto</Th><Th>Categoría</Th><Th align="right">Cantidad</Th><Th align="right">Monto unitario</Th><Th align="right">Total</Th><Th>Histórico</Th><Th>Estado</Th></tr></thead><tbody>{visibles.map((fila) => <tr key={fila.id} style={filaStyle}><Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td><Td>{fila.tipo}</Td><Td>{productos[fila.producto_id] || fila.producto_id}</Td><Td>{fila.categoria}</Td><Td align="right">{fila.cantidad}</Td><Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td><Td align="right">R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}</Td><Td>{fila.historico || '—'}</Td><Td>{fila.estado || '—'}</Td></tr>)}{!visibles.length && <tr><td colSpan={9} style={vacioStyle}>No se encontraron movimientos.</td></tr>}</tbody></Tabla>}</Pantalla>;
+  return <Pantalla titulo="Movimientos de Stock" subtitulo="Consultá las entradas y salidas generadas por las operaciones."><input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar ID, producto, tipo o categoría..." style={inputStyle} />{cargando ? <p>Cargando movimientos...</p> : <Tabla><thead><tr style={cabeceraFila}><Th>ID Registro</Th><Th>Fecha</Th><Th>Tipo</Th><Th>Producto</Th><Th>Categoría</Th><Th align="right">Cantidad</Th><Th align="right">Monto unitario</Th><Th align="right">Total</Th><Th>Histórico</Th><Th>Estado</Th></tr></thead><tbody>{visibles.map((fila) => <tr key={fila.id} style={filaStyle}><Td>{fila.id_operacion || '—'}</Td><Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td><Td>{fila.tipo}</Td><Td>{productos[fila.producto_id] || fila.producto_id}</Td><Td>{fila.categoria}</Td><Td align="right">{fila.cantidad}</Td><Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td><Td align="right">R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}</Td><Td>{fila.historico || '—'}</Td><Td>{fila.estado || '—'}</Td></tr>)}{!visibles.length && <tr><td colSpan={10} style={vacioStyle}>No se encontraron movimientos.</td></tr>}</tbody></Tabla>}</Pantalla>;
 }
 
 function Pantalla({ titulo, subtitulo, children }: { titulo: string; subtitulo: string; children: React.ReactNode }) { return <div style={fondo}><div style={{ maxWidth: 1180, margin: '0 auto' }}><header style={encabezado}><Link href="/" style={volver}>← Volver a Mi Negocio</Link><p style={eyebrow}>GESTIÓN FINANCIERA</p><h1 style={{ margin: 0, fontSize: 28 }}>{titulo}</h1><p style={{ margin: '8px 0 0', color: '#dbe5ef' }}>{subtitulo}</p></header><main style={panel}>{children}</main></div></div>; }
