@@ -181,10 +181,25 @@ export async function registrarOperacion(
     );
   }
 
+  const { data: registrosExistentes, error: errorLecturaIds } = await supabase
+    .from('registro_operaciones')
+    .select('id_operacion')
+    .eq('empresa_id', empresaId)
+    .not('id_operacion', 'is', null);
+
+  if (errorLecturaIds) throw errorLecturaIds;
+
+  const mayorId = (registrosExistentes ?? []).reduce((mayor, registro) => {
+    const numero = Number(String(registro.id_operacion ?? '').replace('OP-', ''));
+    return Number.isFinite(numero) ? Math.max(mayor, numero) : mayor;
+  }, 0);
+  const idOperacion = `OP-${String(mayorId + 1).padStart(5, '0')}`;
+
   // 1. Registro de Operaciones (si la regla dice que va al libro)
   if (regla.libro === 'SI') {
     const { error } = await supabase.from('registro_operaciones').insert({
       empresa_id: empresaId,
+      id_operacion: idOperacion,
       fecha: formulario.fecha,
       operacion: formulario.operacion,
       categoria: formulario.categoria,
@@ -209,6 +224,7 @@ export async function registrarOperacion(
       .filter((linea) => linea.producto && linea.cantidad > 0)
       .map((linea) => ({
         empresa_id: empresaId,
+        id_operacion: idOperacion,
         fecha: formulario.fecha,
         tipo: tipoMovimiento,
         categoria: formulario.categoria,
