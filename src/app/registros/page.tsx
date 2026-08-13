@@ -41,20 +41,33 @@ export default function RegistrosPage() {
   }
 
   useEffect(() => {
-    async function iniciar() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) { router.push('/login'); return; }
+  async function iniciar() {
+    const { data: userData } = await supabase.auth.getUser();
 
-      const { data: perfil } = await supabase.from('perfiles').select('empresa_id').eq('id', userData.user.id).maybeSingle();
-      if (!perfil?.empresa_id) { setCargando(false); return; }
-
-      setEmpresaId(perfil.empresa_id);
-      await cargar(perfil.empresa_id);
-      setCargando(false);
+    if (!userData.user) {
+      router.push('/login');
+      return;
     }
-    iniciar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+
+    const { data: perfil } = await supabase
+      .from('perfiles')
+      .select('empresa_id')
+      .eq('id', userData.user.id)
+      .maybeSingle();
+
+    if (!perfil?.empresa_id) {
+      setCargando(false);
+      return;
+    }
+
+    setEmpresaId(perfil.empresa_id);
+    await cargar(perfil.empresa_id);
+    setCargando(false);
+  }
+
+  iniciar();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [router]);
 
   async function handleEliminar(idOperacion: string) {
     if (!empresaId) return;
