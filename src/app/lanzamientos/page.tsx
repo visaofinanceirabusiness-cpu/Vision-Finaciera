@@ -46,7 +46,9 @@ export default function CentralDeLanzamientos() {
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  const operacionesConProducto = ['COMPRA', 'VENTA', 'PERDIDA'];
+  const operacionesConProducto =
+  ['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) ||
+  (operacion === 'INVERSION' && formaPago === 'Mercadería');
   const etiquetaRelacion = ['INVERSION', 'PERDIDA'].includes(operacion)
     ? 'Socia'
     : operacion === 'COMPRA' || operacion === 'PAGO'
@@ -440,7 +442,7 @@ export default function CentralDeLanzamientos() {
 
               {lineas.map((linea, i) => (
                 <div key={i} style={filaProducto}>
-                  {operacionesConProducto.includes(operacion) ? (
+                  {operacionesConProducto ? (
                     <select
                       value={linea.producto}
                       onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
