@@ -1,5 +1,8 @@
-export const metadata = {
-  title: 'Vis\u00E3o Financeira',
+import type { Metadata } from 'next';
+import React from 'react';
+
+export const metadata: Metadata = {
+  title: 'Visão Financeira',
   description: 'Claridad para decidir. Seguridad para crecer.',
 };
 
@@ -10,10 +13,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif', background: '#f5f7f9' }}>
+      <body
+        style={{
+          margin: 0,
+          fontFamily: 'system-ui, sans-serif',
+          background: '#f5f7f9',
+        }}
+      >
         {children}
       </body>
     </html>
   );
 }
-
