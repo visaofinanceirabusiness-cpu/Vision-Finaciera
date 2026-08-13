@@ -1,19 +1,19 @@
 // lib/motor.ts
 //
-// EL MOTOR â€” el corazÃ³n de "Sabio".
-// Es el equivalente exacto a tu funciÃ³n generarMatrizOperaciones()
-// de Apps Script, pero acÃ¡ lee y escribe en la base de datos real
-// en vez de en una hoja de cÃ¡lculo.
+// EL MOTOR — el corazón de "Sabio".
+// Es el equivalente exacto a tu función generarMatrizOperaciones()
+// de Apps Script, pero acá lee y escribe en la base de datos real
+// en vez de en una hoja de cálculo.
 //
-// QuÃ© hace, paso a paso:
+// Qué hace, paso a paso:
 // 1. Lee las REGLAS_CONTABLES de la empresa (ej: "VENTA, MERCADERIA,
-//    debe ir a Caja/PIX dÃ©bito y Ventas crÃ©dito, sÃ­ mueve stock, sÃ­
-//    va al libro, sÃ­ genera CMV").
+//    debe ir a Caja/PIX débito y Ventas crédito, sí mueve stock, sí
+//    va al libro, sí genera CMV").
 // 2. Lee los MEDIOS_FINANCIEROS disponibles (PIX, Efectivo, Cliente, etc).
-// 3. Combina cada regla con cada medio financiero vÃ¡lido para armar
-//    una "clave" Ãºnica, ej: VENTA.MERCADERIA.PIX
-// 4. Guarda el resultado en matriz_operaciones â€” esa tabla es la que
-//    consulta la app cada vez que alguien registra una operaciÃ³n.
+// 3. Combina cada regla con cada medio financiero válido para armar
+//    una "clave" única, ej: VENTA.MERCADERIA.PIX
+// 4. Guarda el resultado en matriz_operaciones — esa tabla es la que
+//    consulta la app cada vez que alguien registra una operación.
 
 import { supabase } from './supabase';
 
@@ -34,8 +34,8 @@ type MedioFinanciero = {
   nombre: string;
 };
 
-// Misma lÃ³gica que tenÃ­as en Apps Script: quÃ© medios financieros
-// son vÃ¡lidos para cada tipo de operaciÃ³n.
+// Misma lógica que tenías en Apps Script: qué medios financieros
+// son válidos para cada tipo de operación.
 function mediosValidosParaOperacion(
   operacion: string,
   medios: MedioFinanciero[]
@@ -69,7 +69,7 @@ export async function generarMatrizOperaciones(empresaId: string) {
 
   if (errorMedios) throw errorMedios;
 
-  // 3. Armar cada combinaciÃ³n vÃ¡lida
+  // 3. Armar cada combinación válida
   const filas: Record<string, unknown>[] = [];
 
   for (const regla of (reglas as ReglaContable[]) ?? []) {
@@ -80,8 +80,8 @@ export async function generarMatrizOperaciones(empresaId: string) {
     );
 
     for (const medio of mediosValidos) {
-      // Si el rol de dÃ©bito/crÃ©dito dice "MEDIO_FINANCIERO", se resuelve
-      // dinÃ¡micamente con el nombre del medio de pago elegido.
+      // Si el rol de débito/crédito dice "MEDIO_FINANCIERO", se resuelve
+      // dinámicamente con el nombre del medio de pago elegido.
       const cuentaDebito =
         regla.rol_debito === 'MEDIO_FINANCIERO' ? medio.nombre : regla.rol_debito;
 
@@ -125,7 +125,7 @@ export async function generarMatrizOperaciones(empresaId: string) {
   return { reglasGeneradas: filas.length };
 }
 
-// Busca la regla exacta para una operaciÃ³n que se estÃ¡ registrando
+// Busca la regla exacta para una operación que se está registrando
 // (equivalente a buscarReglaCatalogo(clave) de Apps Script)
 export async function buscarReglaPorClave(empresaId: string, clave: string) {
   const { data, error } = await supabase
@@ -142,7 +142,7 @@ export async function buscarReglaPorClave(empresaId: string, clave: string) {
 export type LineaOperacion = {
   producto: string;
   cantidad: number;
-  monto: number;
+  precio: number;
 };
 
 export type FormularioOperacion = {
@@ -151,7 +151,6 @@ export type FormularioOperacion = {
   categoria: string;
   formaPago: string;
   historico: string;
-  clienteProveedor: string;
   lineas: LineaOperacion[];
 };
 
@@ -163,7 +162,7 @@ export async function registrarOperacion(
   formulario: FormularioOperacion
 ) {
   const total = formulario.lineas.reduce(
-    (suma, linea) => suma + linea.cantidad * linea.monto,
+    (suma, linea) => suma + linea.cantidad * linea.precio,
     0
   );
 
@@ -176,73 +175,21 @@ export async function registrarOperacion(
 
   if (!regla) {
     throw new Error(
-        `No se encontr\u00F3 una regla contable para la combinaci\u00F3n "${clave}". ` +
-        'Revis\u00E1 la Matriz de Operaciones.'
+      `No se encontró una regla contable para la combinación "${clave}". ` +
+        'Revisá la Matriz de Operaciones.'
     );
   }
-
-  const tipoMovimiento = formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
-  if (regla.stock === 'SI' && tipoMovimiento === 'SALIDA') {
-    if (formulario.lineas.some((linea) => !linea.producto || linea.cantidad <= 0)) {
-      throw new Error('Cada rengl\u00F3n de una salida debe tener producto y cantidad v\u00E1lida.');
-    }
-
-    const cantidadesPorProducto = formulario.lineas.reduce((acumulado, linea) => {
-      if (linea.producto && linea.cantidad > 0) {
-        acumulado.set(linea.producto, (acumulado.get(linea.producto) ?? 0) + linea.cantidad);
-      }
-      return acumulado;
-    }, new Map<string, number>());
-
-    const { data: saldos, error: errorLecturaStock } = await supabase
-      .from('saldo_stock')
-      .select('producto_id, saldo')
-      .eq('empresa_id', empresaId)
-      .in('producto_id', Array.from(cantidadesPorProducto.keys()));
-
-    if (errorLecturaStock) throw errorLecturaStock;
-
-    const saldoPorProducto = new Map(
-      (saldos ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
-    );
-    const faltante = Array.from(cantidadesPorProducto.entries()).find(
-      ([productoId, cantidad]) => (saldoPorProducto.get(productoId) ?? 0) < cantidad
-    );
-
-    if (faltante) {
-      const saldoDisponible = saldoPorProducto.get(faltante[0]) ?? 0;
-      throw new Error(
-        `Stock insuficiente para el producto seleccionado. Disponible: ${saldoDisponible}; solicitado: ${faltante[1]}.`
-      );
-    }
-  }
-
-  const { data: registrosExistentes, error: errorLecturaIds } = await supabase
-    .from('registro_operaciones')
-    .select('id_operacion')
-    .eq('empresa_id', empresaId)
-    .not('id_operacion', 'is', null);
-
-  if (errorLecturaIds) throw errorLecturaIds;
-
-  const mayorId = (registrosExistentes ?? []).reduce((mayor, registro) => {
-    const numero = Number(String(registro.id_operacion ?? '').replace('OP-', ''));
-    return Number.isFinite(numero) ? Math.max(mayor, numero) : mayor;
-  }, 0);
-  const idOperacion = `OP-${String(mayorId + 1).padStart(5, '0')}`;
 
   // 1. Registro de Operaciones (si la regla dice que va al libro)
   if (regla.libro === 'SI') {
     const { error } = await supabase.from('registro_operaciones').insert({
       empresa_id: empresaId,
-      id_operacion: idOperacion,
       fecha: formulario.fecha,
       operacion: formulario.operacion,
       categoria: formulario.categoria,
       forma_pago: formulario.formaPago,
       total,
       historico: formulario.historico,
-      cliente_proveedor: formulario.clienteProveedor,
       cuenta_debito: regla.cuenta_debito,
       cuenta_credito: regla.cuenta_credito,
       estado: 'PENDIENTE',
@@ -253,17 +200,19 @@ export async function registrarOperacion(
 
   // 2. Movimientos de Stock (si la regla dice que mueve stock)
   if (regla.stock === 'SI') {
+    const tipoMovimiento =
+      formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA';
+
     const movimientos = formulario.lineas
-      .filter((linea) => linea.producto && linea.cantidad > 0)
-      .map((linea) => ({
+      .filter((l) => l.producto && l.cantidad > 0)
+      .map((l) => ({
         empresa_id: empresaId,
-        id_operacion: idOperacion,
         fecha: formulario.fecha,
         tipo: tipoMovimiento,
         categoria: formulario.categoria,
-        producto_id: linea.producto,
-        cantidad: linea.cantidad,
-        costo_unitario: linea.monto,
+        producto_id: l.producto,
+        cantidad: l.cantidad,
+        costo_unitario: l.precio,
         historico: formulario.historico,
         estado: 'PENDIENTE',
       }));
@@ -278,5 +227,30 @@ export async function registrarOperacion(
   }
 
   return { total, regla };
+}
+
+// Borra una operación y TODO lo que generó, en cascada, usando el
+// mismo id_operacion como hilo conductor (tal como se había planificado).
+// Por ahora cubre: Registro de Operaciones y Movimientos de Stock.
+// El Saldo de Stock no hay que tocarlo aparte: es una vista calculada
+// a partir de movimientos_stock, así que se actualiza sola.
+// Cuando se armen los "Registros Automáticos" (CMV), se agrega acá
+// un tercer borrado por el mismo id_operacion.
+export async function eliminarOperacion(empresaId: string, idOperacion: string) {
+  const { error: errorStock } = await supabase
+    .from('movimientos_stock')
+    .delete()
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', idOperacion);
+
+  if (errorStock) throw errorStock;
+
+  const { error: errorRegistro } = await supabase
+    .from('registro_operaciones')
+    .delete()
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', idOperacion);
+
+  if (errorRegistro) throw errorRegistro;
 }
 
