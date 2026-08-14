@@ -217,7 +217,7 @@ function Pantalla({
 }: {
   titulo: string;
   subtitulo: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div style={fondo}>
