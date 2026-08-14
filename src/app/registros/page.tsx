@@ -217,7 +217,7 @@ function Pantalla({
 }: {
   titulo: string;
   subtitulo: string;
-  children?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div style={fondo}>
@@ -256,7 +256,7 @@ function Th({
   children,
   align = 'left',
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   align?: 'left' | 'right';
 }) {
   return (
