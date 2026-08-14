@@ -176,7 +176,11 @@ export default function CentralDeLanzamientos() {
       const esCliente = operacion === 'VENTA' || operacion === 'COBRO';
 
       if (operacion === 'INVERSION' || operacion === 'EXTRACCION' || operacion === 'PERDIDA') {
-        setContactos(['Brenda']);
+        const { data } = await supabase
+          .from('perfiles')
+          .select('nombre')
+          .eq('empresa_id', empresaId);
+        setContactos(Array.from(new Set((data ?? []).map((p) => p.nombre).filter(Boolean))));
       } else if (esProveedor || esCliente) {
         const tabla = esProveedor ? 'proveedores' : 'clientes';
         const { data } = await supabase
