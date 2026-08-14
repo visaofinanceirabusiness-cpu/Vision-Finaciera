@@ -125,14 +125,26 @@ export async function generarMatrizOperaciones(empresaId: string) {
   return { reglasGeneradas: filas.length };
 }
 
-// Busca la regla exacta para una operación que se está registrando
-// (equivalente a buscarReglaCatalogo(clave) de Apps Script)
-export async function buscarReglaPorClave(empresaId: string, clave: string) {
+// Busca la regla exacta para una operación que se está registrando.
+// Antes se armaba una "clave" de texto (Operación.Categoría.FormaPago) y
+// se buscaba por igualdad exacta, pero eso rompía en las empresas donde
+// la Matriz se genera automáticamente (ahí la columna "clave" guarda
+// códigos cortos, no los nombres completos que ve el usuario). Por eso
+// ahora se busca directo por las 3 columnas, que es lo que el usuario
+// realmente eligió en el formulario.
+export async function buscarRegla(
+  empresaId: string,
+  operacion: string,
+  categoria: string,
+  formaPago: string
+) {
   const { data, error } = await supabase
     .from('matriz_operaciones')
     .select('*')
     .eq('empresa_id', empresaId)
-    .eq('clave', clave)
+    .eq('operacion', operacion)
+    .eq('categoria', categoria)
+    .eq('forma_pago', formaPago)
     .maybeSingle();
 
   if (error) throw error;
@@ -190,12 +202,17 @@ export async function registrarOperacion(
     throw new Error('El total debe ser mayor que cero.');
   }
 
-  const clave = `${formulario.operacion}.${formulario.categoria}.${formulario.formaPago}`;
-  const regla = await buscarReglaPorClave(empresaId, clave);
+  const regla = await buscarRegla(
+    empresaId,
+    formulario.operacion,
+    formulario.categoria,
+    formulario.formaPago
+  );
 
   if (!regla) {
     throw new Error(
-      `No se encontró una regla contable para la combinación "${clave}". ` +
+      `No se encontró una regla contable para "${formulario.operacion}" / ` +
+        `"${formulario.categoria}" / "${formulario.formaPago}". ` +
         'Revisá la Matriz de Operaciones.'
     );
   }
