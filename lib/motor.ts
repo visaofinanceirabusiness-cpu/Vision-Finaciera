@@ -142,7 +142,7 @@ export async function buscarReglaPorClave(empresaId: string, clave: string) {
 export type LineaOperacion = {
   producto: string;
   cantidad: number;
-  precio: number;
+  monto: number;
 };
 
 export type FormularioOperacion = {
@@ -151,18 +151,38 @@ export type FormularioOperacion = {
   categoria: string;
   formaPago: string;
   historico: string;
+  clienteProveedor: string;
   lineas: LineaOperacion[];
 };
 
+// Genera el próximo ID correlativo (OP-00001, OP-00002, ...) para esta
+// empresa, mirando el mayor número ya usado en Registro de Operaciones.
+async function generarIdOperacion(empresaId: string) {
+  const { data, error } = await supabase
+    .from('registro_operaciones')
+    .select('id_operacion')
+    .eq('empresa_id', empresaId);
+
+  if (error) throw error;
+
+  const numeros = (data ?? [])
+    .map((fila) => parseInt(String(fila.id_operacion ?? '').replace('OP-', ''), 10))
+    .filter((n) => !Number.isNaN(n));
+
+  const siguiente = numeros.length > 0 ? Math.max(...numeros) + 1 : 1;
+
+  return `OP-${String(siguiente).padStart(5, '0')}`;
+}
+
 // Equivalente a registrarOperacion() de Apps Script: busca la regla,
 // guarda el Registro de Operaciones y, si corresponde, los Movimientos
-// de Stock.
+// de Stock — todo enlazado por el mismo id_operacion.
 export async function registrarOperacion(
   empresaId: string,
   formulario: FormularioOperacion
 ) {
   const total = formulario.lineas.reduce(
-    (suma, linea) => suma + linea.cantidad * linea.precio,
+    (suma, linea) => suma + linea.cantidad * linea.monto,
     0
   );
 
@@ -180,16 +200,20 @@ export async function registrarOperacion(
     );
   }
 
+  const idOperacion = await generarIdOperacion(empresaId);
+
   // 1. Registro de Operaciones (si la regla dice que va al libro)
   if (regla.libro === 'SI') {
     const { error } = await supabase.from('registro_operaciones').insert({
       empresa_id: empresaId,
+      id_operacion: idOperacion,
       fecha: formulario.fecha,
       operacion: formulario.operacion,
       categoria: formulario.categoria,
       forma_pago: formulario.formaPago,
       total,
       historico: formulario.historico,
+      cliente_proveedor: formulario.clienteProveedor,
       cuenta_debito: regla.cuenta_debito,
       cuenta_credito: regla.cuenta_credito,
       estado: 'PENDIENTE',
@@ -207,12 +231,13 @@ export async function registrarOperacion(
       .filter((l) => l.producto && l.cantidad > 0)
       .map((l) => ({
         empresa_id: empresaId,
+        id_operacion: idOperacion,
         fecha: formulario.fecha,
         tipo: tipoMovimiento,
         categoria: formulario.categoria,
         producto_id: l.producto,
         cantidad: l.cantidad,
-        costo_unitario: l.precio,
+        costo_unitario: l.monto,
         historico: formulario.historico,
         estado: 'PENDIENTE',
       }));
@@ -226,7 +251,7 @@ export async function registrarOperacion(
     }
   }
 
-  return { total, regla };
+  return { total, regla, idOperacion };
 }
 
 // Borra una operación y TODO lo que generó, en cascada, usando el
