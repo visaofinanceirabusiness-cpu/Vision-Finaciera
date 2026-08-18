@@ -27,31 +27,16 @@ type Perfil = {
 type Empresa = {
   nombre: string;
   logo_url: string | null;
+  perfil_empresa_id: string | null;
 };
-
-function obtenerUrlLogo(logoUrl: string | null) {
-  const url = logoUrl?.trim();
-
-  if (!url) return null;
-
-  // Si la base de datos contiene una URL pública completa.
-  if (/^https?:\/\//i.test(url)) {
-    return url;
-  }
-
-  // Si la base contiene solamente el nombre o la ruta del archivo.
-  const ruta = url.replace(/^\/?(Logos|logos)\//, '');
-
-  const { data } = supabase.storage.from('Logos').getPublicUrl(ruta);
-
-  return data.publicUrl;
-}
 
 export default function MiNegocioPage() {
   const router = useRouter();
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [modulos, setModulos] = useState<string[]>([]);
+
   const [cargando, setCargando] = useState(true);
   const [usarLogoPredeterminado, setUsarLogoPredeterminado] = useState(false);
   const [logoNoDisponible, setLogoNoDisponible] = useState(false);
@@ -64,6 +49,10 @@ export default function MiNegocioPage() {
         router.push('/login');
         return;
       }
+
+      // ----------------------------------------------------------
+      // PERFIL DEL USUARIO
+      // ----------------------------------------------------------
 
       const { data: perfilData } = await supabase
         .from('perfiles')
@@ -78,13 +67,46 @@ export default function MiNegocioPage() {
 
       setPerfil(perfilData);
 
-      const { data: empresaData } = await supabase
+      // ----------------------------------------------------------
+      // EMPRESA
+      // ----------------------------------------------------------
+
+      const { data: empresaData, error: empresaError } = await supabase
         .from('empresas')
-        .select('nombre, logo_url')
+        .select('nombre, logo_url, perfil_empresa_id')
         .eq('id', perfilData.empresa_id)
         .single();
 
+      if (empresaError) {
+        console.error('Error cargando empresa:', empresaError);
+      }
+
       setEmpresa(empresaData);
+
+      // ----------------------------------------------------------
+      // MÓDULOS ACTIVOS DEL PERFIL DE EMPRESA
+      // ----------------------------------------------------------
+
+      if (empresaData?.perfil_empresa_id) {
+        const { data: modulosData, error: modulosError } = await supabase
+          .from('perfil_modulos')
+          .select('modulo')
+          .eq('perfil_empresa_id', empresaData.perfil_empresa_id)
+          .eq('activo', true);
+
+        if (modulosError) {
+          console.error('Error cargando módulos:', modulosError);
+          setModulos([]);
+        } else {
+          setModulos(
+            (modulosData ?? [])
+              .map((modulo) => String(modulo.modulo).toUpperCase())
+          );
+        }
+      } else {
+        setModulos([]);
+      }
+
       setUsarLogoPredeterminado(false);
       setLogoNoDisponible(false);
       setCargando(false);
@@ -117,6 +139,12 @@ export default function MiNegocioPage() {
   const logoEsPredeterminado =
     usarLogoPredeterminado || !logoDesdeBase;
 
+  // ----------------------------------------------------------
+  // CONFIGURACIÓN DINÁMICA
+  // ----------------------------------------------------------
+
+  const tieneProduccion = modulos.includes('PRODUCCION');
+
   return (
     <main
       style={{
@@ -126,6 +154,7 @@ export default function MiNegocioPage() {
       }}
     >
       <div style={{ maxWidth: 980, margin: '0 auto' }}>
+
         {/* Barra superior */}
         <div
           style={{
@@ -185,13 +214,11 @@ export default function MiNegocioPage() {
                 src={logoClienteUrl}
                 alt={`Logo de ${empresa?.nombre ?? 'la empresa'}`}
                 onError={() => {
-                  // Si falla la URL de la base, intenta con Encanto.jpeg.
                   if (!logoEsPredeterminado) {
                     setUsarLogoPredeterminado(true);
                     return;
                   }
 
-                  // Solo muestra el ícono si también fallara Encanto.jpeg.
                   setLogoNoDisponible(true);
                 }}
                 style={{
@@ -220,37 +247,76 @@ export default function MiNegocioPage() {
         >
           <h1 style={{ margin: 0, fontSize: 34 }}>Mi Negocio</h1>
 
-          <p style={{ margin: '8px 0 0', fontSize: 20, fontWeight: 600 }}>
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: 20,
+              fontWeight: 600,
+            }}
+          >
             {empresa?.nombre}
           </p>
 
-          <p style={{ margin: '10px 0 0', opacity: 0.95 }}>
+          <p
+            style={{
+              margin: '10px 0 0',
+              opacity: 0.95,
+            }}
+          >
             Hola, {perfil?.nombre} 👋
           </p>
 
-          <p style={{ margin: '4px 0 0', opacity: 0.85 }}>{hoy}</p>
+          <p
+            style={{
+              margin: '4px 0 0',
+              opacity: 0.85,
+            }}
+          >
+            {hoy}
+          </p>
         </section>
 
         {/* Resumen */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(180px, 1fr))',
             gap: 16,
             marginBottom: 24,
           }}
         >
-          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={COLORES.verde} />
-          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={COLORES.azul} />
-          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c2410c" />
-          <ResumenCard titulo="Stock bajo" valor="0 productos" color={COLORES.gris} />
+          <ResumenCard
+            titulo="Ventas hoy"
+            valor="R$ 0,00"
+            color={COLORES.verde}
+          />
+
+          <ResumenCard
+            titulo="Caja disponible"
+            valor="R$ 0,00"
+            color={COLORES.azul}
+          />
+
+          <ResumenCard
+            titulo="Gastos del mes"
+            valor="R$ 0,00"
+            color="#c2410c"
+          />
+
+          <ResumenCard
+            titulo="Stock bajo"
+            valor="0 productos"
+            color={COLORES.gris}
+          />
         </div>
 
         {/* Accesos rápidos */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(220px, 1fr))',
             gap: 16,
           }}
         >
@@ -260,13 +326,49 @@ export default function MiNegocioPage() {
             principal
           />
 
-          <BotonAcceso href="/stock" titulo="Ver stock" />
-          <BotonAcceso href="/registros" titulo="Registro de Operaciones" />
-          <BotonAcceso href="/movimientos-stock" titulo="Movimientos de Stock" />
+          {/* PRODUCCIÓN DINÁMICA */}
+          {tieneProduccion && (
+            <BotonAcceso
+              href="/produccion"
+              titulo="Producción"
+              principal
+            />
+          )}
+
+          <BotonAcceso
+            href="/stock"
+            titulo="Ver stock"
+          />
+
+          <BotonAcceso
+            href="/registros"
+            titulo="Registro de Operaciones"
+          />
+
+          <BotonAcceso
+            href="/movimientos-stock"
+            titulo="Movimientos de Stock"
+          />
         </div>
       </div>
     </main>
   );
+}
+
+function obtenerUrlLogo(logoUrl: string | null) {
+  const url = logoUrl?.trim();
+
+  if (!url) return null;
+
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  const ruta = url.replace(/^\/?(Logos|logos)\//, '');
+
+  const { data } = supabase.storage.from('Logos').getPublicUrl(ruta);
+
+  return data.publicUrl;
 }
 
 function ResumenCard({
@@ -291,8 +393,23 @@ function ResumenCard({
         justifyContent: 'space-between',
       }}
     >
-      <span style={{ color: COLORES.gris, fontSize: 14 }}>{titulo}</span>
-      <strong style={{ color, fontSize: 24 }}>{valor}</strong>
+      <span
+        style={{
+          color: COLORES.gris,
+          fontSize: 14,
+        }}
+      >
+        {titulo}
+      </span>
+
+      <strong
+        style={{
+          color,
+          fontSize: 24,
+        }}
+      >
+        {valor}
+      </strong>
     </div>
   );
 }
@@ -311,14 +428,22 @@ function BotonAcceso({
       href={href}
       style={{
         textDecoration: 'none',
-        background: principal ? COLORES.verde : COLORES.blanco,
-        color: principal ? COLORES.blanco : COLORES.azul,
-        border: principal ? 'none' : '1px solid #d1d5db',
+        background: principal
+          ? COLORES.verde
+          : COLORES.blanco,
+        color: principal
+          ? COLORES.blanco
+          : COLORES.azul,
+        border: principal
+          ? 'none'
+          : '1px solid #d1d5db',
         borderRadius: 18,
         padding: '18px 20px',
         textAlign: 'center',
         fontWeight: 700,
-        boxShadow: principal ? '0 8px 20px rgba(46,139,87,0.18)' : 'none',
+        boxShadow: principal
+          ? '0 8px 20px rgba(46,139,87,0.18)'
+          : 'none',
       }}
     >
       {titulo}
