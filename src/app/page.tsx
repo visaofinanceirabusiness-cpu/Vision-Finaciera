@@ -49,6 +49,20 @@ type ProgresoGamificacion = {
   faltan: number;
 };
 
+type ObjetivoEmpresa = {
+  id: string;
+  periodo: string;
+  indicador: string;
+  objetivo: number;
+  unidad: string;
+  activo: boolean;
+};
+
+type ObjetivoDashboard = ObjetivoEmpresa & {
+  resultado: number;
+  porcentaje: number;
+};
+
 export default function MiNegocioPage() {
   const router = useRouter();
 
@@ -67,6 +81,9 @@ export default function MiNegocioPage() {
     useState<ProgresoGamificacion | null>(
       null
     );
+
+  const [objetivos, setObjetivos] =
+    useState<ObjetivoDashboard[]>([]);
 
   const [cargando, setCargando] =
     useState(true);
@@ -179,7 +196,7 @@ export default function MiNegocioPage() {
         );
       }
 
-      setConfiguracion(
+      const configFinal =
         configData ?? {
           color_primario:
             COLORES_BASE.azul,
@@ -197,7 +214,10 @@ export default function MiNegocioPage() {
             true,
           mostrar_graficos:
             true,
-        }
+        };
+
+      setConfiguracion(
+        configFinal
       );
 
       // =================================================
@@ -210,14 +230,112 @@ export default function MiNegocioPage() {
             perfilData.empresa_id
           );
 
-        setGamificacion(progreso);
+        setGamificacion(
+          progreso
+        );
       } catch (errorGamificacion) {
         console.warn(
           'No se pudo calcular la gamificación:',
           errorGamificacion
         );
 
-        setGamificacion(null);
+        setGamificacion(
+          null
+        );
+      }
+
+      // =================================================
+      // OBJETIVOS DEL PERÍODO ACTUAL
+      // =================================================
+
+      const hoy = new Date();
+
+      const periodoActual =
+        `${hoy.getFullYear()}-${String(
+          hoy.getMonth() + 1
+        ).padStart(2, '0')}-01`;
+
+      const {
+        data: objetivosData,
+        error: errorObjetivos,
+      } = await supabase
+        .from('objetivos_empresa')
+        .select(
+          `
+          id,
+          periodo,
+          indicador,
+          objetivo,
+          unidad,
+          activo
+          `
+        )
+        .eq(
+          'empresa_id',
+          perfilData.empresa_id
+        )
+        .eq(
+          'periodo',
+          periodoActual
+        )
+        .eq(
+          'activo',
+          true
+        )
+        .order(
+          'indicador',
+          {
+            ascending: true,
+          }
+        );
+
+      if (errorObjetivos) {
+        console.warn(
+          'No se pudieron cargar los objetivos:',
+          errorObjetivos
+        );
+
+        setObjetivos([]);
+      } else {
+        const objetivosCalculados =
+          (
+            (objetivosData ??
+              []) as ObjetivoEmpresa[]
+          ).map((objetivo) => {
+            const resultado =
+              obtenerResultadoObjetivo(
+                objetivo,
+                gamificacion
+              );
+
+            const porcentaje =
+              objetivo.objetivo > 0
+                ? Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      (resultado /
+                        Number(
+                          objetivo.objetivo
+                        )) *
+                        100
+                    )
+                  )
+                : 0;
+
+            return {
+              ...objetivo,
+              resultado,
+              porcentaje:
+                Number(
+                  porcentaje.toFixed(2)
+                ),
+            };
+          });
+
+        setObjetivos(
+          objetivosCalculados
+        );
       }
 
       setCargando(false);
@@ -238,8 +356,10 @@ export default function MiNegocioPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f5f7f9',
-          color: COLORES_BASE.azul,
+          background:
+            '#f5f7f9',
+          color:
+            COLORES_BASE.azul,
           fontWeight: 600,
         }}
       >
@@ -279,6 +399,15 @@ export default function MiNegocioPage() {
       }
     );
 
+  const periodoTexto =
+    new Date().toLocaleDateString(
+      'es-AR',
+      {
+        month: 'long',
+        year: 'numeric',
+      }
+    );
+
   const logoDisponible =
     Boolean(
       empresa?.logo_url?.trim()
@@ -286,7 +415,9 @@ export default function MiNegocioPage() {
 
   const mensajeBienvenida =
     configuracion?.mensaje_bienvenida ||
-    `Hola, ${perfil?.nombre ?? ''} 👋`;
+    `Hola, ${
+      perfil?.nombre ?? ''
+    } 👋`;
 
   const subtitulo =
     configuracion?.subtitulo_dashboard ||
@@ -310,6 +441,7 @@ export default function MiNegocioPage() {
         {/* =================================================
             BARRA SUPERIOR
         ================================================= */}
+
         <div
           style={{
             display: 'flex',
@@ -324,7 +456,8 @@ export default function MiNegocioPage() {
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems:
+                'center',
               gap: 12,
             }}
           >
@@ -338,10 +471,12 @@ export default function MiNegocioPage() {
                 border:
                   `2px solid ${colores.acento}`,
                 display: 'flex',
-                alignItems: 'center',
+                alignItems:
+                  'center',
                 justifyContent:
                   'center',
-                overflow: 'hidden',
+                overflow:
+                  'hidden',
               }}
             >
               {logoDisponible ? (
@@ -363,10 +498,12 @@ export default function MiNegocioPage() {
                   style={{
                     fontSize: 19,
                     fontWeight: 800,
-                    color: colores.azul,
+                    color:
+                      colores.azul,
                   }}
                 >
-                  {(empresa?.nombre ||
+                  {(
+                    empresa?.nombre ||
                     'M'
                   )
                     .charAt(0)
@@ -379,7 +516,8 @@ export default function MiNegocioPage() {
               <div
                 style={{
                   fontWeight: 800,
-                  color: colores.azul,
+                  color:
+                    colores.azul,
                 }}
               >
                 {empresa?.nombre ||
@@ -389,7 +527,8 @@ export default function MiNegocioPage() {
               <div
                 style={{
                   fontSize: 12,
-                  color: COLORES_BASE.gris,
+                  color:
+                    COLORES_BASE.gris,
                 }}
               >
                 {empresa?.rubro ||
@@ -401,7 +540,9 @@ export default function MiNegocioPage() {
           <button
             onClick={async () => {
               await supabase.auth.signOut();
-              router.push('/login');
+              router.push(
+                '/login'
+              );
             }}
             style={{
               background:
@@ -411,8 +552,10 @@ export default function MiNegocioPage() {
               borderRadius: 12,
               padding:
                 '10px 14px',
-              cursor: 'pointer',
-              color: colores.azul,
+              cursor:
+                'pointer',
+              color:
+                colores.azul,
               fontWeight: 600,
             }}
           >
@@ -423,6 +566,7 @@ export default function MiNegocioPage() {
         {/* =================================================
             HERO
         ================================================= */}
+
         <section
           style={{
             background:
@@ -442,9 +586,11 @@ export default function MiNegocioPage() {
               display: 'flex',
               justifyContent:
                 'space-between',
-              alignItems: 'center',
+              alignItems:
+                'center',
               gap: 24,
-              flexWrap: 'wrap',
+              flexWrap:
+                'wrap',
             }}
           >
             <div>
@@ -452,7 +598,8 @@ export default function MiNegocioPage() {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  letterSpacing: 1.4,
+                  letterSpacing:
+                    1.4,
                   textTransform:
                     'uppercase',
                   opacity: 0.75,
@@ -506,6 +653,7 @@ export default function MiNegocioPage() {
             </div>
 
             {/* SABIO */}
+
             <div
               style={{
                 minWidth: 170,
@@ -516,16 +664,19 @@ export default function MiNegocioPage() {
                   'rgba(255,255,255,0.10)',
                 border:
                   '1px solid rgba(255,255,255,0.16)',
-                textAlign: 'center',
+                textAlign:
+                  'center',
               }}
             >
               <div
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  letterSpacing: 1.2,
+                  letterSpacing:
+                    1.2,
                   opacity: 0.72,
-                  marginBottom: 8,
+                  marginBottom:
+                    8,
                 }}
               >
                 SABIO
@@ -557,6 +708,7 @@ export default function MiNegocioPage() {
         {/* =================================================
             RESUMEN
         ================================================= */}
+
         <div
           style={{
             display: 'grid',
@@ -569,13 +721,17 @@ export default function MiNegocioPage() {
           <ResumenCard
             titulo="Ventas hoy"
             valor="R$ 0,00"
-            color={colores.verde}
+            color={
+              colores.verde
+            }
           />
 
           <ResumenCard
             titulo="Caja disponible"
             valor="R$ 0,00"
-            color={colores.azul}
+            color={
+              colores.azul
+            }
           />
 
           <ResumenCard
@@ -587,13 +743,159 @@ export default function MiNegocioPage() {
           <ResumenCard
             titulo="Stock bajo"
             valor="0 productos"
-            color={colores.acento}
+            color={
+              colores.acento
+            }
           />
         </div>
 
         {/* =================================================
+            OBJETIVOS DEL MES
+        ================================================= */}
+
+        {configuracion?.mostrar_objetivos && (
+          <section
+            style={{
+              background:
+                colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border:
+                '1px solid #e5e7eb',
+              boxShadow:
+                '0 10px 28px rgba(31,58,95,0.06)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                alignItems:
+                  'center',
+                gap: 16,
+                flexWrap:
+                  'wrap',
+                marginBottom:
+                  18,
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin:
+                      '0 0 5px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing:
+                      1.3,
+                    color:
+                      colores.verde,
+                  }}
+                >
+                  GESTIÓN
+                </p>
+
+                <h2
+                  style={{
+                    margin: 0,
+                    color:
+                      colores.azul,
+                    fontSize: 22,
+                  }}
+                >
+                  Objetivos del mes
+                </h2>
+
+                <p
+                  style={{
+                    margin:
+                      '5px 0 0',
+                    fontSize: 12,
+                    color:
+                      COLORES_BASE.gris,
+                    textTransform:
+                      'capitalize',
+                  }}
+                >
+                  {periodoTexto}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  padding:
+                    '8px 12px',
+                  borderRadius: 999,
+                  background:
+                    `${colores.verde}14`,
+                  color:
+                    colores.verde,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                Objetivos acordados
+              </div>
+            </div>
+
+            {!objetivos.length ? (
+              <div
+                style={{
+                  padding: 24,
+                  border:
+                    '1px dashed #d6dee5',
+                  borderRadius: 14,
+                  textAlign:
+                    'center',
+                  color:
+                    COLORES_BASE.gris,
+                  fontSize: 13,
+                }}
+              >
+                No hay objetivos configurados
+                para este período.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                {objetivos.map(
+                  (objetivo) => (
+                    <ObjetivoCard
+                      key={
+                        objetivo.id
+                      }
+                      objetivo={
+                        objetivo
+                      }
+                      colorPrimario={
+                        colores.azul
+                      }
+                      colorSecundario={
+                        colores.verde
+                      }
+                      colorAcento={
+                        colores.acento
+                      }
+                    />
+                  )
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* =================================================
             GAMIFICACIÓN
         ================================================= */}
+
         {configuracion?.mostrar_gamificacion &&
           gamificacion && (
             <section
@@ -617,7 +919,8 @@ export default function MiNegocioPage() {
                   alignItems:
                     'flex-start',
                   gap: 20,
-                  flexWrap: 'wrap',
+                  flexWrap:
+                    'wrap',
                 }}
               >
                 <div
@@ -630,10 +933,12 @@ export default function MiNegocioPage() {
                     style={{
                       fontSize: 11,
                       fontWeight: 700,
-                      color: colores.verde,
+                      color:
+                        colores.verde,
                       letterSpacing:
                         1.3,
-                      marginBottom: 6,
+                      marginBottom:
+                        6,
                     }}
                   >
                     PROGRESO DE TU NEGOCIO
@@ -642,15 +947,22 @@ export default function MiNegocioPage() {
                   <h2
                     style={{
                       margin: 0,
-                      color: colores.azul,
+                      color:
+                        colores.azul,
                       fontSize: 23,
                     }}
                   >
-                    {gamificacion.emoji}{' '}
+                    {
+                      gamificacion.emoji
+                    }{' '}
                     Nivel{' '}
-                    {gamificacion.nivel}{' '}
+                    {
+                      gamificacion.nivel
+                    }{' '}
                     ·{' '}
-                    {gamificacion.nombre}
+                    {
+                      gamificacion.nombre
+                    }
                   </h2>
 
                   <p
@@ -662,7 +974,9 @@ export default function MiNegocioPage() {
                       fontSize: 14,
                     }}
                   >
-                    {gamificacion.mensaje}
+                    {
+                      gamificacion.mensaje
+                    }
                   </p>
                 </div>
 
@@ -721,24 +1035,28 @@ export default function MiNegocioPage() {
                   <span>
                     {
                       gamificacion.progreso
-                    }%
+                    }
+                    %
                   </span>
                 </div>
 
                 <div
                   style={{
                     height: 12,
-                    borderRadius: 999,
+                    borderRadius:
+                      999,
                     background:
                       '#e7edf1',
-                    overflow: 'hidden',
+                    overflow:
+                      'hidden',
                   }}
                 >
                   <div
                     style={{
                       width: `${gamificacion.progreso}%`,
                       height: '100%',
-                      borderRadius: 999,
+                      borderRadius:
+                        999,
                       background:
                         `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
                       transition:
@@ -802,6 +1120,7 @@ export default function MiNegocioPage() {
         {/* =================================================
             ACCESOS
         ================================================= */}
+
         <section
           style={{
             background:
@@ -814,42 +1133,35 @@ export default function MiNegocioPage() {
         >
           <div
             style={{
-              display: 'flex',
-              justifyContent:
-                'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-              gap: 16,
-              flexWrap: 'wrap',
+              marginBottom:
+                16,
             }}
           >
-            <div>
-              <p
-                style={{
-                  margin:
-                    '0 0 4px',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing:
-                    1.3,
-                  color:
-                    colores.verde,
-                }}
-              >
-                GESTIÓN
-              </p>
+            <p
+              style={{
+                margin:
+                  '0 0 4px',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing:
+                  1.3,
+                color:
+                  colores.verde,
+              }}
+            >
+              GESTIÓN
+            </p>
 
-              <h2
-                style={{
-                  margin: 0,
-                  color:
-                    colores.azul,
-                  fontSize: 21,
-                }}
-              >
-                Tus herramientas
-              </h2>
-            </div>
+            <h2
+              style={{
+                margin: 0,
+                color:
+                  colores.azul,
+                fontSize: 21,
+              }}
+            >
+              Tus herramientas
+            </h2>
           </div>
 
           <div
@@ -908,6 +1220,256 @@ export default function MiNegocioPage() {
   );
 }
 
+// =====================================================
+// RESULTADO TEMPORAL DE OBJETIVOS
+// =====================================================
+//
+// Por ahora usamos datos reales únicamente para
+// OPERACIONES REGISTRADAS.
+//
+// Los demás indicadores quedan en 0 hasta que
+// conectemos cada uno con sus fuentes reales.
+//
+// Esta función es deliberadamente separada para
+// reemplazarla más adelante sin modificar la interfaz.
+//
+
+function obtenerResultadoObjetivo(
+  objetivo: ObjetivoEmpresa,
+  gamificacion:
+    | ProgresoGamificacion
+    | null
+): number {
+  const indicador =
+    objetivo.indicador
+      .trim()
+      .toUpperCase();
+
+  if (
+    indicador ===
+      'OPERACIONES REGISTRADAS' &&
+    gamificacion
+  ) {
+    return gamificacion.operaciones;
+  }
+
+  return 0;
+}
+
+// =====================================================
+// CARD DE OBJETIVO
+// =====================================================
+
+function ObjetivoCard({
+  objetivo,
+  colorPrimario,
+  colorSecundario,
+  colorAcento,
+}: {
+  objetivo: ObjetivoDashboard;
+  colorPrimario: string;
+  colorSecundario: string;
+  colorAcento: string;
+}) {
+  const cumplido =
+    objetivo.porcentaje >= 100;
+
+  const enCamino =
+    objetivo.porcentaje >= 50 &&
+    objetivo.porcentaje < 100;
+
+  const colorEstado =
+    cumplido
+      ? colorSecundario
+      : enCamino
+        ? '#d97706'
+        : '#dc2626';
+
+  const fondoEstado =
+    cumplido
+      ? `${colorSecundario}12`
+      : enCamino
+        ? '#fff7ed'
+        : '#fef2f2';
+
+  const resultadoTexto =
+    objetivo.unidad === 'R$'
+      ? `R$ ${objetivo.resultado.toFixed(2)}`
+      : `${objetivo.resultado}`;
+
+  const objetivoTexto =
+    objetivo.unidad === 'R$'
+      ? `R$ ${Number(
+          objetivo.objetivo
+        ).toFixed(2)}`
+      : `${Number(
+          objetivo.objetivo
+        )}`;
+
+  return (
+    <div
+      style={{
+        background:
+          '#fbfcfd',
+        border:
+          '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent:
+            'space-between',
+          alignItems:
+            'flex-start',
+          gap: 12,
+          marginBottom:
+            12,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              color:
+                colorPrimario,
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {formatearIndicador(
+              objetivo.indicador
+            )}
+          </div>
+
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 12,
+              color:
+                COLORES_BASE.gris,
+            }}
+          >
+            {resultadoTexto} /{' '}
+            {objetivoTexto}
+          </div>
+        </div>
+
+        <span
+          style={{
+            padding:
+              '5px 8px',
+            borderRadius:
+              999,
+            background:
+              fondoEstado,
+            color:
+              colorEstado,
+            fontSize: 10,
+            fontWeight: 800,
+            whiteSpace:
+              'nowrap',
+          }}
+        >
+          {cumplido
+            ? 'CUMPLIDO'
+            : enCamino
+              ? 'EN CAMINO'
+              : 'PENDIENTE'}
+        </span>
+      </div>
+
+      <div
+        style={{
+          height: 9,
+          borderRadius:
+            999,
+          background:
+            '#e7edf1',
+          overflow:
+            'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${objetivo.porcentaje}%`,
+            height: '100%',
+            borderRadius:
+              999,
+            background:
+              colorEstado,
+            transition:
+              'width 0.4s ease',
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent:
+            'space-between',
+          marginTop: 7,
+          fontSize: 10,
+          color:
+            COLORES_BASE.gris,
+        }}
+      >
+        <span>
+          {objetivo.porcentaje}%
+        </span>
+
+        <span>
+          Meta:{' '}
+          {objetivoTexto}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// FORMATEAR NOMBRE DEL INDICADOR
+// =====================================================
+
+function formatearIndicador(
+  indicador: string
+): string {
+  const mapa: Record<
+    string,
+    string
+  > = {
+    'VENTAS DEL MES':
+      'Ventas del mes',
+    'COMPRAS DEL MES':
+      'Compras del mes',
+    'OPERACIONES REGISTRADAS':
+      'Operaciones registradas',
+    'VALOR DEL INVENTARIO':
+      'Valor del inventario',
+    PUBLICACIONES:
+      'Publicaciones',
+    HISTORIAS:
+      'Historias',
+    'NUEVOS SEGUIDORES':
+      'Nuevos seguidores',
+    MENSAJES:
+      'Mensajes',
+  };
+
+  return (
+    mapa[
+      indicador.trim().toUpperCase()
+    ] ||
+    indicador
+  );
+}
+
+// =====================================================
+// RESUMEN CARD
+// =====================================================
+
 function ResumenCard({
   titulo,
   valor,
@@ -956,6 +1518,10 @@ function ResumenCard({
   );
 }
 
+// =====================================================
+// INFO CARD
+// =====================================================
+
 function InfoCard({
   etiqueta,
   valor,
@@ -982,7 +1548,8 @@ function InfoCard({
           fontWeight: 700,
           letterSpacing: 1,
           color,
-          marginBottom: 5,
+          marginBottom:
+            5,
         }}
       >
         {etiqueta.toUpperCase()}
@@ -1002,6 +1569,10 @@ function InfoCard({
     </div>
   );
 }
+
+// =====================================================
+// BOTÓN DE ACCESO
+// =====================================================
 
 function BotonAcceso({
   href,
