@@ -81,7 +81,6 @@ function mediosValidosParaOperacion(
 export async function generarMatrizOperaciones(
   empresaId: string
 ) {
-  // 1. Leer reglas contables
   const { data: reglas, error: errorReglas } = await supabase
     .from('reglas_contables')
     .select('*')
@@ -91,7 +90,6 @@ export async function generarMatrizOperaciones(
     throw errorReglas;
   }
 
-  // 2. Leer medios financieros
   const { data: medios, error: errorMedios } = await supabase
     .from('medios_financieros')
     .select('*')
@@ -101,7 +99,6 @@ export async function generarMatrizOperaciones(
     throw errorMedios;
   }
 
-  // 3. Construir combinaciones
   const filas: Record<string, unknown>[] = [];
 
   for (const regla of (reglas as ReglaContable[]) ?? []) {
@@ -144,7 +141,6 @@ export async function generarMatrizOperaciones(
     }
   }
 
-  // 4. Eliminar matriz anterior de esta empresa
   const { error: errorBorrar } = await supabase
     .from('matriz_operaciones')
     .delete()
@@ -154,7 +150,6 @@ export async function generarMatrizOperaciones(
     throw errorBorrar;
   }
 
-  // 5. Insertar nueva matriz
   if (filas.length > 0) {
     const { error: errorInsertar } = await supabase
       .from('matriz_operaciones')
@@ -231,6 +226,38 @@ async function generarIdOperacion(
 }
 
 // =====================================================
+// OBTENER CÓDIGO DE CATEGORÍA
+// =====================================================
+
+function obtenerCodigoCategoria(
+  categoria: string
+): string {
+  const normalizada = categoria
+    .trim()
+    .toUpperCase();
+
+  if (normalizada === 'ACCESORIO') {
+    return 'ACC';
+  }
+
+  if (normalizada === 'PROD. BELLEZA') {
+    return 'PBE';
+  }
+
+  if (normalizada === 'PERFUME') {
+    return 'PER';
+  }
+
+  if (normalizada === 'ROPA') {
+    return 'ROP';
+  }
+
+  throw new Error(
+    `No existe código configurado para la categoría "${categoria}".`
+  );
+}
+
+// =====================================================
 // REGISTRAR OPERACIÓN
 // =====================================================
 
@@ -238,10 +265,6 @@ export async function registrarOperacion(
   empresaId: string,
   formulario: FormularioOperacion
 ) {
-  // ---------------------------------------------------
-  // TOTAL DE LA OPERACIÓN
-  // ---------------------------------------------------
-
   const total = formulario.lineas.reduce(
     (suma, linea) =>
       suma + linea.cantidad * linea.monto,
@@ -253,10 +276,6 @@ export async function registrarOperacion(
       'El total debe ser mayor que cero.'
     );
   }
-
-  // ---------------------------------------------------
-  // BUSCAR REGLA
-  // ---------------------------------------------------
 
   const regla = await buscarRegla(
     empresaId,
@@ -270,10 +289,6 @@ export async function registrarOperacion(
       `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones.`
     );
   }
-
-  // ---------------------------------------------------
-  // ID ÚNICO
-  // ---------------------------------------------------
 
   const idOperacion =
     await generarIdOperacion(empresaId);
@@ -312,16 +327,18 @@ export async function registrarOperacion(
   // 2. MOVIMIENTOS DE STOCK
   // ===================================================
 
+  const costosCMV: {
+    cantidad: number;
+    costoMedio: number;
+  }[] = [];
+
   if (regla.stock === 'SI') {
     const tipoMovimiento =
       formulario.operacion === 'COMPRA'
         ? 'ENTRADA'
         : 'SALIDA';
 
-    const movimientos: Record<
-      string,
-      unknown
-    >[] = [];
+    const movimientos: Record<string, unknown>[] = [];
 
     for (const linea of formulario.lineas) {
       if (
@@ -335,7 +352,6 @@ export async function registrarOperacion(
 
       // -------------------------------------------------
       // COMPRA
-      // El monto ingresado representa el costo.
       // -------------------------------------------------
 
       if (
@@ -346,8 +362,6 @@ export async function registrarOperacion(
 
       // -------------------------------------------------
       // VENTA
-      // El monto ingresado es precio de venta.
-      // Para stock utilizamos costo medio.
       // -------------------------------------------------
 
       if (
@@ -361,12 +375,18 @@ export async function registrarOperacion(
           .select(
             'cantidad, costo_unitario'
           )
-          .eq('empresa_id', empresaId)
+          .eq(
+            'empresa_id',
+            empresaId
+          )
           .eq(
             'producto_id',
             linea.producto
           )
-          .eq('tipo', 'ENTRADA');
+          .eq(
+            'tipo',
+            'ENTRADA'
+          );
 
         if (error) {
           throw error;
@@ -404,11 +424,12 @@ export async function registrarOperacion(
         costoUnitario =
           valorEntrada /
           cantidadEntrada;
-      }
 
-      // -------------------------------------------------
-      // ARMAR MOVIMIENTO
-      // -------------------------------------------------
+        costosCMV.push({
+          cantidad: linea.cantidad,
+          costoMedio: costoUnitario,
+        });
+      }
 
       movimientos.push({
         empresa_id: empresaId,
@@ -424,10 +445,6 @@ export async function registrarOperacion(
       });
     }
 
-    // -------------------------------------------------
-    // GUARDAR MOVIMIENTOS
-    // -------------------------------------------------
-
     if (movimientos.length > 0) {
       const { error } = await supabase
         .from('movimientos_stock')
@@ -436,6 +453,175 @@ export async function registrarOperacion(
       if (error) {
         throw error;
       }
+    }
+  }
+
+  // ===================================================
+  // 3. REGISTRO AUTOMÁTICO CMV
+  // ===================================================
+
+  if (
+    formulario.operacion === 'VENTA' &&
+    regla.cmv === 'SI' &&
+    costosCMV.length > 0
+  ) {
+    const codigoCategoria =
+      obtenerCodigoCategoria(
+        formulario.categoria
+      );
+
+    // -------------------------------------------------
+    // Buscar categoría
+    // -------------------------------------------------
+
+    const {
+      data: categoriaProducto,
+      error: errorCategoria,
+    } = await supabase
+      .from('categorias_productos')
+      .select('id')
+      .eq(
+        'empresa_id',
+        empresaId
+      )
+      .eq(
+        'codigo',
+        codigoCategoria
+      )
+      .maybeSingle();
+
+    if (errorCategoria) {
+      throw errorCategoria;
+    }
+
+    if (!categoriaProducto) {
+      throw new Error(
+        `No se encontró la categoría de producto "${formulario.categoria}".`
+      );
+    }
+
+    // -------------------------------------------------
+    // Buscar cuentas Stock / CMV
+    // -------------------------------------------------
+
+    const {
+      data: cuentasCategoria,
+      error: errorCuentas,
+    } = await supabase
+      .from('categorias_productos_cuentas')
+      .select(
+        'cuenta_stock_id, cuenta_cmv_id'
+      )
+      .eq(
+        'empresa_id',
+        empresaId
+      )
+      .eq(
+        'categoria_producto_id',
+        categoriaProducto.id
+      )
+      .eq(
+        'activo',
+        true
+      )
+      .maybeSingle();
+
+    if (errorCuentas) {
+      throw errorCuentas;
+    }
+
+    if (!cuentasCategoria) {
+      throw new Error(
+        `No existe configuración de Stock/CMV para "${formulario.categoria}".`
+      );
+    }
+
+    // -------------------------------------------------
+    // Resolver cuentas del Plan de Cuentas
+    // -------------------------------------------------
+
+    const {
+      data: cuentas,
+      error: errorPlan,
+    } = await supabase
+      .from('plan_cuentas')
+      .select(
+        'id, codigo, nombre'
+      )
+      .in(
+        'id',
+        [
+          cuentasCategoria.cuenta_stock_id,
+          cuentasCategoria.cuenta_cmv_id,
+        ]
+      );
+
+    if (errorPlan) {
+      throw errorPlan;
+    }
+
+    const cuentaCMV =
+      cuentas?.find(
+        (cuenta) =>
+          cuenta.id ===
+          cuentasCategoria.cuenta_cmv_id
+      );
+
+    const cuentaStock =
+      cuentas?.find(
+        (cuenta) =>
+          cuenta.id ===
+          cuentasCategoria.cuenta_stock_id
+      );
+
+    if (!cuentaCMV || !cuentaStock) {
+      throw new Error(
+        `No se pudieron resolver las cuentas contables de CMV/Stock para "${formulario.categoria}".`
+      );
+    }
+
+    // -------------------------------------------------
+    // Calcular importe CMV
+    // -------------------------------------------------
+
+    const importeCMV =
+      costosCMV.reduce(
+        (acumulado, linea) =>
+          acumulado +
+          linea.cantidad *
+            linea.costoMedio,
+        0
+      );
+
+    if (importeCMV <= 0) {
+      throw new Error(
+        'El importe calculado del CMV debe ser mayor que cero.'
+      );
+    }
+
+    // -------------------------------------------------
+    // Guardar registro automático
+    // -------------------------------------------------
+
+    const {
+      error: errorAutomatico,
+    } = await supabase
+      .from('registros_automaticos')
+      .insert({
+        empresa_id: empresaId,
+        id_operacion: idOperacion,
+        tipo_registro: 'CMV',
+        fecha: formulario.fecha,
+        cuenta_debito: cuentaCMV.nombre,
+        cuenta_credito: cuentaStock.nombre,
+        importe: importeCMV,
+        historico:
+          `CMV generado automáticamente - ${idOperacion}`,
+        estado: 'PENDIENTE',
+      });
+
+    if (errorAutomatico) {
+      throw errorAutomatico;
     }
   }
 
@@ -449,26 +635,40 @@ export async function registrarOperacion(
 // =====================================================
 // ELIMINAR OPERACIÓN
 // =====================================================
-//
-// Elimina todos los movimientos relacionados con el
-// mismo id_operacion y luego elimina el registro.
-//
-// Más adelante agregaremos aquí los registros
-// automáticos de CMV para mantener la eliminación
-// completamente vinculada por id_operacion.
-//
 
 export async function eliminarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
-  // 1. Eliminar movimientos de stock
+  // 1. Eliminar registros automáticos
+  const {
+    error: errorAutomaticos,
+  } = await supabase
+    .from('registros_automaticos')
+    .delete()
+    .eq(
+      'empresa_id',
+      empresaId
+    )
+    .eq(
+      'id_operacion',
+      idOperacion
+    );
+
+  if (errorAutomaticos) {
+    throw errorAutomaticos;
+  }
+
+  // 2. Eliminar movimientos de stock
   const {
     error: errorStock,
   } = await supabase
     .from('movimientos_stock')
     .delete()
-    .eq('empresa_id', empresaId)
+    .eq(
+      'empresa_id',
+      empresaId
+    )
     .eq(
       'id_operacion',
       idOperacion
@@ -478,13 +678,16 @@ export async function eliminarOperacion(
     throw errorStock;
   }
 
-  // 2. Eliminar registro de operación
+  // 3. Eliminar registro de operación
   const {
     error: errorRegistro,
   } = await supabase
     .from('registro_operaciones')
     .delete()
-    .eq('empresa_id', empresaId)
+    .eq(
+      'empresa_id',
+      empresaId
+    )
     .eq(
       'id_operacion',
       idOperacion
