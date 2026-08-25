@@ -37,16 +37,21 @@ export default function RegistrosPage() {
   const [error, setError] = useState('');
 
   async function cargar(empresa: string) {
-    const { data } = await supabase
-      .from('registro_operaciones')
-      .select(
-        'id_operacion, fecha, operacion, categoria, forma_pago, total, historico, cliente_proveedor, estado'
-      )
-      .eq('empresa_id', empresa)
-      .order('fecha', { ascending: false });
+  const { data, error } = await supabase
+    .from('registro_operaciones')
+    .select(
+      'id_operacion, fecha, operacion, categoria, forma_pago, total, historico, cliente_proveedor, estado'
+    )
+    .eq('empresa_id', empresa)
+    .order('id_operacion', { ascending: false });
 
-    setFilas((data ?? []) as Registro[]);
+  if (error) {
+    setError(error.message);
+    return;
   }
+
+  setFilas((data ?? []) as Registro[]);
+}
 
   useEffect(() => {
     async function iniciar() {
