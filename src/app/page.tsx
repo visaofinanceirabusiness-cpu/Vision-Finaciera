@@ -223,15 +223,25 @@ export default function MiNegocioPage() {
       // =================================================
       // GAMIFICACIÓN
       // =================================================
+      //
+      // IMPORTANTE:
+      // Usamos una variable local para que los
+      // objetivos puedan utilizar inmediatamente
+      // el mismo resultado, sin depender de que
+      // React actualice el estado.
+
+      let progresoGamificacion:
+        | ProgresoGamificacion
+        | null = null;
 
       try {
-        const progreso =
+        progresoGamificacion =
           await obtenerProgresoGamificacion(
             perfilData.empresa_id
           );
 
         setGamificacion(
-          progreso
+          progresoGamificacion
         );
       } catch (errorGamificacion) {
         console.warn(
@@ -248,11 +258,12 @@ export default function MiNegocioPage() {
       // OBJETIVOS DEL PERÍODO ACTUAL
       // =================================================
 
-      const hoy = new Date();
+      const fechaActual =
+        new Date();
 
       const periodoActual =
-        `${hoy.getFullYear()}-${String(
-          hoy.getMonth() + 1
+        `${fechaActual.getFullYear()}-${String(
+          fechaActual.getMonth() + 1
         ).padStart(2, '0')}-01`;
 
       const {
@@ -305,7 +316,7 @@ export default function MiNegocioPage() {
             const resultado =
               obtenerResultadoObjetivo(
                 objetivo,
-                gamificacion
+                progresoGamificacion
               );
 
             const porcentaje =
@@ -356,10 +367,8 @@ export default function MiNegocioPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background:
-            '#f5f7f9',
-          color:
-            COLORES_BASE.azul,
+          background: '#f5f7f9',
+          color: COLORES_BASE.azul,
           fontWeight: 600,
         }}
       >
@@ -1224,15 +1233,17 @@ export default function MiNegocioPage() {
 // RESULTADO TEMPORAL DE OBJETIVOS
 // =====================================================
 //
-// Por ahora usamos datos reales únicamente para
+// Por ahora usamos datos reales únicamente para:
 // OPERACIONES REGISTRADAS.
 //
 // Los demás indicadores quedan en 0 hasta que
 // conectemos cada uno con sus fuentes reales.
 //
-// Esta función es deliberadamente separada para
-// reemplazarla más adelante sin modificar la interfaz.
-//
+// IMPORTANTE:
+// recibimos explícitamente el progreso actual
+// calculado dentro de cargar() para evitar problemas
+// de estado asincrónico de React.
+// =====================================================
 
 function obtenerResultadoObjetivo(
   objetivo: ObjetivoEmpresa,
@@ -1430,7 +1441,7 @@ function ObjetivoCard({
 }
 
 // =====================================================
-// FORMATEAR NOMBRE DEL INDICADOR
+// FORMATEAR INDICADOR
 // =====================================================
 
 function formatearIndicador(
@@ -1442,18 +1453,25 @@ function formatearIndicador(
   > = {
     'VENTAS DEL MES':
       'Ventas del mes',
+
     'COMPRAS DEL MES':
       'Compras del mes',
+
     'OPERACIONES REGISTRADAS':
       'Operaciones registradas',
+
     'VALOR DEL INVENTARIO':
       'Valor del inventario',
+
     PUBLICACIONES:
       'Publicaciones',
+
     HISTORIAS:
       'Historias',
+
     'NUEVOS SEGUIDORES':
       'Nuevos seguidores',
+
     MENSAJES:
       'Mensajes',
   };
