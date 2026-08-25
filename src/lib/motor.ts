@@ -80,7 +80,7 @@ type Cuenta = {
   nombre: string;
 };
 
-type LineaOperacion = {
+export type LineaOperacion = {
   producto: string;
   cantidad: number;
   monto: number;
