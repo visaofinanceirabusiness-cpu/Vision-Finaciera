@@ -1,19 +1,11 @@
-export async function registrarOperacion(
-// lib/motor.ts
-//
-// EL MOTOR — el corazón de "Sabio".
-// Lee las reglas configuradas para cada empresa,
-// genera la matriz de operaciones y registra operaciones
-// manteniendo un mismo id_operacion como hilo conductor.
-
 // lib/motor.ts
 //
 // EL MOTOR — el corazón de "Sabio".
 // Lee las reglas configuradas para cada empresa.
 // Genera la matriz y registra las operaciones.
+// Mantiene un mismo id_operacion como hilo conductor.
 
 import { supabase } from './supabase';
-
 
 // =====================================================
 // TIPOS
@@ -51,6 +43,7 @@ export type FormularioOperacion = {
   clienteProveedor: string;
   lineas: LineaOperacion[];
 };
+
 // =====================================================
 // MEDIOS VÁLIDOS POR OPERACIÓN
 // =====================================================
@@ -116,11 +109,10 @@ export async function generarMatrizOperaciones(
       .trim()
       .toUpperCase();
 
-    const mediosValidos =
-      mediosValidosParaOperacion(
-        operacion,
-        (medios as MedioFinanciero[]) ?? []
-      );
+    const mediosValidos = mediosValidosParaOperacion(
+      operacion,
+      (medios as MedioFinanciero[]) ?? []
+    );
 
     for (const medio of mediosValidos) {
       const cuentaDebito =
@@ -252,8 +244,7 @@ export async function registrarOperacion(
 
   const total = formulario.lineas.reduce(
     (suma, linea) =>
-      suma +
-      linea.cantidad * linea.monto,
+      suma + linea.cantidad * linea.monto,
     0
   );
 
@@ -342,10 +333,10 @@ export async function registrarOperacion(
 
       let costoUnitario = linea.monto;
 
-      // -----------------------------------------------
+      // -------------------------------------------------
       // COMPRA
       // El monto ingresado representa el costo.
-      // -----------------------------------------------
+      // -------------------------------------------------
 
       if (
         formulario.operacion === 'COMPRA'
@@ -353,13 +344,11 @@ export async function registrarOperacion(
         costoUnitario = linea.monto;
       }
 
-      // -----------------------------------------------
+      // -------------------------------------------------
       // VENTA
       // El monto ingresado es precio de venta.
-      //
-      // Para stock utilizamos costo medio de las
-      // entradas históricas del producto.
-      // -----------------------------------------------
+      // Para stock utilizamos costo medio.
+      // -------------------------------------------------
 
       if (
         formulario.operacion === 'VENTA'
@@ -400,10 +389,9 @@ export async function registrarOperacion(
               Number(
                 movimiento.cantidad ?? 0
               ) *
-                Number(
-                  movimiento.costo_unitario ??
-                    0
-                ),
+              Number(
+                movimiento.costo_unitario ?? 0
+              ),
             0
           );
 
@@ -418,9 +406,9 @@ export async function registrarOperacion(
           cantidadEntrada;
       }
 
-      // -----------------------------------------------
+      // -------------------------------------------------
       // ARMAR MOVIMIENTO
-      // -----------------------------------------------
+      // -------------------------------------------------
 
       movimientos.push({
         empresa_id: empresaId,
@@ -436,9 +424,9 @@ export async function registrarOperacion(
       });
     }
 
-    // -----------------------------------------------
+    // -------------------------------------------------
     // GUARDAR MOVIMIENTOS
-    // -----------------------------------------------
+    // -------------------------------------------------
 
     if (movimientos.length > 0) {
       const { error } = await supabase
