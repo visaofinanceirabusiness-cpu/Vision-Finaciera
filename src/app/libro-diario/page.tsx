@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +23,12 @@ type MovimientoDiario = {
   importe: number;
   estado: string | null;
   tipo_registro: 'OPERACION' | 'AUTOMATICO';
+};
+
+type GrupoOperacion = {
+  id_operacion: string;
+  fecha: string;
+  filas: MovimientoDiario[];
 };
 
 export default function LibroDiarioPage() {
@@ -183,21 +189,58 @@ export default function LibroDiarioPage() {
     iniciar();
   }, [router]);
 
-  const visibles = filas.filter((fila) =>
-    [
-      fila.id_operacion,
-      fila.operacion,
-      fila.historico,
-      fila.cuenta_debito,
-      fila.cuenta_credito,
-      fila.estado,
-      fila.tipo_registro,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(busqueda.toLowerCase())
-  );
+  const visibles = useMemo(() => {
+    const texto = busqueda
+      .trim()
+      .toLowerCase();
+
+    if (!texto) {
+      return filas;
+    }
+
+    return filas.filter((fila) =>
+      [
+        fila.id_operacion,
+        fila.operacion,
+        fila.historico,
+        fila.cuenta_debito,
+        fila.cuenta_credito,
+        fila.estado,
+        fila.tipo_registro,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(texto)
+    );
+  }, [filas, busqueda]);
+
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, GrupoOperacion>();
+
+    for (const fila of visibles) {
+      const existente = mapa.get(
+        fila.id_operacion
+      );
+
+      if (existente) {
+        existente.filas.push(fila);
+      } else {
+        mapa.set(
+          fila.id_operacion,
+          {
+            id_operacion: fila.id_operacion,
+            fecha: fila.fecha,
+            filas: [fila],
+          }
+        );
+      }
+    }
+
+    return Array.from(mapa.values());
+  }, [visibles]);
+
+  const totalAsientos = visibles.length;
 
   const totalImportes = visibles.reduce(
     (suma, fila) =>
@@ -205,11 +248,16 @@ export default function LibroDiarioPage() {
     0
   );
 
+  const totalOperaciones = grupos.length;
+
   return (
     <Pantalla
       titulo="Libro Diario"
       subtitulo="Vista contable unificada de las operaciones y registros automáticos."
     >
+      {/* ================================
+          BARRA DE BÚSQUEDA + RESUMEN
+      ================================= */}
       <div
         style={{
           display: 'flex',
@@ -238,8 +286,13 @@ export default function LibroDiarioPage() {
           }}
         >
           <Resumen
+            titulo="Operaciones"
+            valor={String(totalOperaciones)}
+          />
+
+          <Resumen
             titulo="Asientos"
-            valor={String(visibles.length)}
+            valor={String(totalAsientos)}
           />
 
           <Resumen
@@ -268,59 +321,165 @@ export default function LibroDiarioPage() {
       {cargando ? (
         <p>Cargando Libro Diario...</p>
       ) : (
-        <Tabla>
+        <div>
+          {!grupos.length ? (
+            <div style={vacioOperacion}>
+              No se encontraron movimientos contables.
+            </div>
+          ) : (
+            grupos.map((grupo) => (
+              <GrupoOperacionCard
+                key={grupo.id_operacion}
+                grupo={grupo}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </Pantalla>
+  );
+}
+
+function GrupoOperacionCard({
+  grupo,
+}: {
+  grupo: GrupoOperacion;
+}) {
+  const importeGrupo = grupo.filas.reduce(
+    (suma, fila) =>
+      suma + Number(fila.importe ?? 0),
+    0
+  );
+
+  return (
+    <section
+      style={{
+        marginBottom: 16,
+        border: '1px solid #e2e8f0',
+        borderRadius: 16,
+        overflow: 'hidden',
+        background: '#ffffff',
+      }}
+    >
+      {/* =================================
+          CABECERA DEL GRUPO
+      ================================== */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+          padding: '14px 18px',
+          background:
+            'linear-gradient(90deg, #eff5f9, #f8fafc)',
+          borderBottom:
+            '1px solid #e5e7eb',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 800,
+              color: COLORES.azul,
+            }}
+          >
+            {grupo.id_operacion}
+          </span>
+
+          <span
+            style={{
+              fontSize: 12,
+              color: COLORES.gris,
+            }}
+          >
+            {new Date(
+              `${grupo.fecha}T12:00:00`
+            ).toLocaleDateString('es-AR')}
+          </span>
+
+          <span
+            style={{
+              padding: '5px 9px',
+              borderRadius: 999,
+              background: '#eaf7ee',
+              color: '#247347',
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            {grupo.filas.length}{' '}
+            {grupo.filas.length === 1
+              ? 'asiento'
+              : 'asientos'}
+          </span>
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            color: COLORES.gris,
+          }}
+        >
+          Importe registrado:{' '}
+          <strong
+            style={{
+              color: COLORES.azul,
+            }}
+          >
+            R$ {importeGrupo.toFixed(2)}
+          </strong>
+        </div>
+      </div>
+
+      {/* =================================
+          TABLA DEL GRUPO
+      ================================== */}
+      <div style={tablaContenedorInterna}>
+        <table
+          style={{
+            width: '100%',
+            minWidth: 1100,
+            borderCollapse: 'collapse',
+          }}
+        >
           <thead>
-            <tr style={cabeceraFila}>
-              <Th>ID</Th>
-              <Th>Fecha</Th>
+            <tr
+              style={{
+                background: '#fafbfc',
+              }}
+            >
               <Th>Tipo</Th>
               <Th>Operación</Th>
               <Th>Histórico</Th>
               <Th>Debe</Th>
               <Th>Haber</Th>
-              <Th align="right">Importe</Th>
+              <Th align="right">
+                Importe
+              </Th>
               <Th>Estado</Th>
             </tr>
           </thead>
 
           <tbody>
-            {visibles.map((fila, indice) => {
-              const siguiente =
-                visibles[indice + 1];
-
-              const cambiaOperacion =
-                siguiente &&
-                siguiente.id_operacion !==
-                  fila.id_operacion;
-
-              return (
+            {grupo.filas.map(
+              (fila, indice) => (
                 <tr
                   key={`${fila.id_operacion}-${fila.tipo_registro}-${indice}`}
                   style={{
-                    ...filaStyle,
-                    borderBottom: cambiaOperacion
-                      ? '3px solid #dbe5ef'
-                      : undefined,
+                    borderTop:
+                      '1px solid #edf1f4',
                   }}
                 >
-                  <Td>
-                    <strong
-                      style={{
-                        color: COLORES.azul,
-                      }}
-                    >
-                      {fila.id_operacion}
-                    </strong>
-                  </Td>
-
-                  <Td>
-                    {new Date(
-                      `${fila.fecha}T12:00:00`
-                    ).toLocaleDateString(
-                      'es-AR'
-                    )}
-                  </Td>
-
                   <Td>
                     <TipoRegistro
                       tipo={
@@ -330,7 +489,11 @@ export default function LibroDiarioPage() {
                   </Td>
 
                   <Td>
-                    <strong>
+                    <strong
+                      style={{
+                        color: COLORES.azul,
+                      }}
+                    >
                       {fila.operacion}
                     </strong>
                   </Td>
@@ -372,24 +535,12 @@ export default function LibroDiarioPage() {
                     />
                   </Td>
                 </tr>
-              );
-            })}
-
-            {!visibles.length && (
-              <tr>
-                <td
-                  colSpan={9}
-                  style={vacioStyle}
-                >
-                  No se encontraron movimientos
-                  contables.
-                </td>
-              </tr>
+              )
             )}
           </tbody>
-        </Tabla>
-      )}
-    </Pantalla>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -469,7 +620,7 @@ function Resumen({
         background: '#f1f5f9',
         borderRadius: 10,
         padding: '9px 13px',
-        minWidth: 100,
+        minWidth: 105,
       }}
     >
       <div
@@ -551,26 +702,6 @@ function Pantalla({
   );
 }
 
-function Tabla({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={tablaContenedor}>
-      <table
-        style={{
-          width: '100%',
-          minWidth: 1250,
-          borderCollapse: 'collapse',
-        }}
-      >
-        {children}
-      </table>
-    </div>
-  );
-}
-
 function Th({
   children,
   align = 'left',
@@ -581,7 +712,7 @@ function Th({
   return (
     <th
       style={{
-        padding: '12px 14px',
+        padding: '11px 14px',
         color: '#374151',
         fontSize: 12,
         textAlign: align,
@@ -603,7 +734,7 @@ function Td({
   return (
     <td
       style={{
-        padding: '12px 14px',
+        padding: '11px 14px',
         fontSize: 13,
         textAlign: align,
         whiteSpace: 'nowrap',
@@ -668,21 +799,8 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-const tablaContenedor: React.CSSProperties = {
+const tablaContenedorInterna: React.CSSProperties = {
   overflowX: 'auto',
-  border:
-    '1px solid #e5e7eb',
-  borderRadius: 14,
-};
-
-const cabeceraFila: React.CSSProperties = {
-  background: '#f1f5f9',
-  textAlign: 'left',
-};
-
-const filaStyle: React.CSSProperties = {
-  borderTop:
-    '1px solid #e5e7eb',
 };
 
 const cuentaDebe: React.CSSProperties = {
@@ -695,8 +813,11 @@ const cuentaHaber: React.CSSProperties = {
   color: '#2e8b57',
 };
 
-const vacioStyle: React.CSSProperties = {
-  padding: 24,
+const vacioOperacion: React.CSSProperties = {
+  padding: 40,
   textAlign: 'center',
   color: COLORES.gris,
+  border:
+    '1px dashed #d6dee5',
+  borderRadius: 14,
 };
