@@ -70,6 +70,10 @@ function mediosValidosParaOperacion(
       return true;
     }
 
+    if (codigo === 'TAR' && operacion === 'VENTA') {
+      return true;
+    }
+
     return false;
   });
 }
@@ -81,19 +85,21 @@ function mediosValidosParaOperacion(
 export async function generarMatrizOperaciones(
   empresaId: string
 ) {
-  const { data: reglas, error: errorReglas } = await supabase
-    .from('reglas_contables')
-    .select('*')
-    .eq('empresa_id', empresaId);
+  const { data: reglas, error: errorReglas } =
+    await supabase
+      .from('reglas_contables')
+      .select('*')
+      .eq('empresa_id', empresaId);
 
   if (errorReglas) {
     throw errorReglas;
   }
 
-  const { data: medios, error: errorMedios } = await supabase
-    .from('medios_financieros')
-    .select('*')
-    .eq('empresa_id', empresaId);
+  const { data: medios, error: errorMedios } =
+    await supabase
+      .from('medios_financieros')
+      .select('*')
+      .eq('empresa_id', empresaId);
 
   if (errorMedios) {
     throw errorMedios;
@@ -106,10 +112,11 @@ export async function generarMatrizOperaciones(
       .trim()
       .toUpperCase();
 
-    const mediosValidos = mediosValidosParaOperacion(
-      operacion,
-      (medios as MedioFinanciero[]) ?? []
-    );
+    const mediosValidos =
+      mediosValidosParaOperacion(
+        operacion,
+        (medios as MedioFinanciero[]) ?? []
+      );
 
     for (const medio of mediosValidos) {
       const cuentaDebito =
@@ -141,19 +148,21 @@ export async function generarMatrizOperaciones(
     }
   }
 
-  const { error: errorBorrar } = await supabase
-    .from('matriz_operaciones')
-    .delete()
-    .eq('empresa_id', empresaId);
+  const { error: errorBorrar } =
+    await supabase
+      .from('matriz_operaciones')
+      .delete()
+      .eq('empresa_id', empresaId);
 
   if (errorBorrar) {
     throw errorBorrar;
   }
 
   if (filas.length > 0) {
-    const { error: errorInsertar } = await supabase
-      .from('matriz_operaciones')
-      .insert(filas);
+    const { error: errorInsertar } =
+      await supabase
+        .from('matriz_operaciones')
+        .insert(filas);
 
     if (errorInsertar) {
       throw errorInsertar;
@@ -258,6 +267,57 @@ function obtenerCodigoCategoria(
 }
 
 // =====================================================
+// ELIMINAR DATOS DE UNA OPERACIÓN
+// =====================================================
+
+async function limpiarOperacion(
+  empresaId: string,
+  idOperacion: string
+) {
+  const { error: errorAutomaticos } =
+    await supabase
+      .from('registros_automaticos')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', idOperacion);
+
+  if (errorAutomaticos) {
+    console.error(
+      'Error limpiando registros automáticos:',
+      errorAutomaticos
+    );
+  }
+
+  const { error: errorStock } =
+    await supabase
+      .from('movimientos_stock')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', idOperacion);
+
+  if (errorStock) {
+    console.error(
+      'Error limpiando movimientos de stock:',
+      errorStock
+    );
+  }
+
+  const { error: errorRegistro } =
+    await supabase
+      .from('registro_operaciones')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', idOperacion);
+
+  if (errorRegistro) {
+    console.error(
+      'Error limpiando registro de operación:',
+      errorRegistro
+    );
+  }
+}
+
+// =====================================================
 // REGISTRAR OPERACIÓN
 // =====================================================
 
@@ -267,7 +327,9 @@ export async function registrarOperacion(
 ) {
   const total = formulario.lineas.reduce(
     (suma, linea) =>
-      suma + linea.cantidad * linea.monto,
+      suma +
+      Number(linea.cantidad) *
+        Number(linea.monto),
     0
   );
 
@@ -277,11 +339,15 @@ export async function registrarOperacion(
     );
   }
 
+  // ---------------------------------------------------
+  // 1. BUSCAR REGLA
+  // ---------------------------------------------------
+
   const regla = await buscarRegla(
     empresaId,
-    formulario.operacion,
-    formulario.categoria,
-    formulario.formaPago
+    formulario.operacion.trim(),
+    formulario.categoria.trim(),
+    formulario.formaPago.trim()
   );
 
   if (!regla) {
@@ -294,38 +360,15 @@ export async function registrarOperacion(
     await generarIdOperacion(empresaId);
 
   // ===================================================
-  // 1. REGISTRO DE OPERACIONES
+  // 2. PREPARAR MOVIMIENTOS Y CMV
+  //
+  // IMPORTANTE:
+  // Acá todavía NO grabamos nada.
+  // Primero validamos y calculamos todo.
   // ===================================================
 
-  if (regla.libro === 'SI') {
-    const { error } = await supabase
-      .from('registro_operaciones')
-      .insert({
-        empresa_id: empresaId,
-        id_operacion: idOperacion,
-        fecha: formulario.fecha,
-        operacion: formulario.operacion,
-        categoria: formulario.categoria,
-        forma_pago: formulario.formaPago,
-        total,
-        historico: formulario.historico,
-        cliente_proveedor:
-          formulario.clienteProveedor,
-        cuenta_debito:
-          regla.cuenta_debito,
-        cuenta_credito:
-          regla.cuenta_credito,
-        estado: 'PENDIENTE',
-      });
-
-    if (error) {
-      throw error;
-    }
-  }
-
-  // ===================================================
-  // 2. MOVIMIENTOS DE STOCK
-  // ===================================================
+  const movimientos: Record<string, unknown>[] =
+    [];
 
   const costosCMV: {
     cantidad: number;
@@ -338,31 +381,34 @@ export async function registrarOperacion(
         ? 'ENTRADA'
         : 'SALIDA';
 
-    const movimientos: Record<string, unknown>[] = [];
-
     for (const linea of formulario.lineas) {
       if (
         !linea.producto ||
-        linea.cantidad <= 0
+        Number(linea.cantidad) <= 0
       ) {
         continue;
       }
 
-      let costoUnitario = linea.monto;
+      let costoUnitario =
+        Number(linea.monto);
 
-      // -------------------------------------------------
+      // ------------------------------------------------
       // COMPRA
-      // -------------------------------------------------
+      // ------------------------------------------------
 
       if (
         formulario.operacion === 'COMPRA'
       ) {
-        costoUnitario = linea.monto;
+        costoUnitario =
+          Number(linea.monto);
       }
 
-      // -------------------------------------------------
+      // ------------------------------------------------
       // VENTA
-      // -------------------------------------------------
+      //
+      // Buscamos las entradas históricas del producto
+      // para obtener el costo medio ponderado.
+      // ------------------------------------------------
 
       if (
         formulario.operacion === 'VENTA'
@@ -375,18 +421,12 @@ export async function registrarOperacion(
           .select(
             'cantidad, costo_unitario'
           )
-          .eq(
-            'empresa_id',
-            empresaId
-          )
+          .eq('empresa_id', empresaId)
           .eq(
             'producto_id',
             linea.producto
           )
-          .eq(
-            'tipo',
-            'ENTRADA'
-          );
+          .eq('tipo', 'ENTRADA');
 
         if (error) {
           throw error;
@@ -409,9 +449,10 @@ export async function registrarOperacion(
               Number(
                 movimiento.cantidad ?? 0
               ) *
-              Number(
-                movimiento.costo_unitario ?? 0
-              ),
+                Number(
+                  movimiento.costo_unitario ??
+                    0
+                ),
             0
           );
 
@@ -426,8 +467,11 @@ export async function registrarOperacion(
           cantidadEntrada;
 
         costosCMV.push({
-          cantidad: linea.cantidad,
-          costoMedio: costoUnitario,
+          cantidad: Number(
+            linea.cantidad
+          ),
+          costoMedio:
+            costoUnitario,
         });
       }
 
@@ -436,29 +480,34 @@ export async function registrarOperacion(
         id_operacion: idOperacion,
         fecha: formulario.fecha,
         tipo: tipoMovimiento,
-        categoria: formulario.categoria,
-        producto_id: linea.producto,
-        cantidad: linea.cantidad,
-        costo_unitario: costoUnitario,
-        historico: formulario.historico,
+        categoria:
+          formulario.categoria,
+        producto_id:
+          linea.producto,
+        cantidad:
+          Number(linea.cantidad),
+        costo_unitario:
+          costoUnitario,
+        historico:
+          formulario.historico,
         estado: 'PENDIENTE',
       });
-    }
-
-    if (movimientos.length > 0) {
-      const { error } = await supabase
-        .from('movimientos_stock')
-        .insert(movimientos);
-
-      if (error) {
-        throw error;
-      }
     }
   }
 
   // ===================================================
-  // 3. REGISTRO AUTOMÁTICO CMV
+  // 3. PREPARAR CMV COMPLETO
+  //
+  // TODAVÍA NO GRABAMOS NADA.
   // ===================================================
+
+  let datosCMV:
+    | {
+        cuentaDebito: string;
+        cuentaCredito: string;
+        importe: number;
+      }
+    | null = null;
 
   if (
     formulario.operacion === 'VENTA' &&
@@ -470,9 +519,9 @@ export async function registrarOperacion(
         formulario.categoria
       );
 
-    // -------------------------------------------------
-    // Buscar categoría
-    // -------------------------------------------------
+    // ------------------------------------------------
+    // Buscar categoría de producto
+    // ------------------------------------------------
 
     const {
       data: categoriaProducto,
@@ -480,10 +529,7 @@ export async function registrarOperacion(
     } = await supabase
       .from('categorias_productos')
       .select('id')
-      .eq(
-        'empresa_id',
-        empresaId
-      )
+      .eq('empresa_id', empresaId)
       .eq(
         'codigo',
         codigoCategoria
@@ -500,9 +546,9 @@ export async function registrarOperacion(
       );
     }
 
-    // -------------------------------------------------
+    // ------------------------------------------------
     // Buscar cuentas Stock / CMV
-    // -------------------------------------------------
+    // ------------------------------------------------
 
     const {
       data: cuentasCategoria,
@@ -512,18 +558,12 @@ export async function registrarOperacion(
       .select(
         'cuenta_stock_id, cuenta_cmv_id'
       )
-      .eq(
-        'empresa_id',
-        empresaId
-      )
+      .eq('empresa_id', empresaId)
       .eq(
         'categoria_producto_id',
         categoriaProducto.id
       )
-      .eq(
-        'activo',
-        true
-      )
+      .eq('activo', true)
       .maybeSingle();
 
     if (errorCuentas) {
@@ -536,9 +576,9 @@ export async function registrarOperacion(
       );
     }
 
-    // -------------------------------------------------
+    // ------------------------------------------------
     // Resolver cuentas del Plan de Cuentas
-    // -------------------------------------------------
+    // ------------------------------------------------
 
     const {
       data: cuentas,
@@ -548,13 +588,10 @@ export async function registrarOperacion(
       .select(
         'id, codigo, nombre'
       )
-      .in(
-        'id',
-        [
-          cuentasCategoria.cuenta_stock_id,
-          cuentasCategoria.cuenta_cmv_id,
-        ]
-      );
+      .in('id', [
+        cuentasCategoria.cuenta_stock_id,
+        cuentasCategoria.cuenta_cmv_id,
+      ]);
 
     if (errorPlan) {
       throw errorPlan;
@@ -580,9 +617,9 @@ export async function registrarOperacion(
       );
     }
 
-    // -------------------------------------------------
+    // ------------------------------------------------
     // Calcular importe CMV
-    // -------------------------------------------------
+    // ------------------------------------------------
 
     const importeCMV =
       costosCMV.reduce(
@@ -599,37 +636,131 @@ export async function registrarOperacion(
       );
     }
 
-    // -------------------------------------------------
-    // Guardar registro automático
-    // -------------------------------------------------
-
-    const {
-      error: errorAutomatico,
-    } = await supabase
-      .from('registros_automaticos')
-      .insert({
-        empresa_id: empresaId,
-        id_operacion: idOperacion,
-        tipo_registro: 'CMV',
-        fecha: formulario.fecha,
-        cuenta_debito: cuentaCMV.nombre,
-        cuenta_credito: cuentaStock.nombre,
-        importe: importeCMV,
-        historico:
-          `CMV generado automáticamente - ${idOperacion}`,
-        estado: 'PENDIENTE',
-      });
-
-    if (errorAutomatico) {
-      throw errorAutomatico;
-    }
+    datosCMV = {
+      cuentaDebito:
+        cuentaCMV.nombre,
+      cuentaCredito:
+        cuentaStock.nombre,
+      importe: importeCMV,
+    };
   }
 
-  return {
-    total,
-    regla,
-    idOperacion,
-  };
+  // ===================================================
+  // 4. GRABAR TODO
+  //
+  // Recién acá comenzamos a modificar la base.
+  // ===================================================
+
+  try {
+    // -------------------------------------------------
+    // REGISTRO DE OPERACIONES
+    // -------------------------------------------------
+
+    if (regla.libro === 'SI') {
+      const { error } =
+        await supabase
+          .from('registro_operaciones')
+          .insert({
+            empresa_id: empresaId,
+            id_operacion:
+              idOperacion,
+            fecha:
+              formulario.fecha,
+            operacion:
+              formulario.operacion,
+            categoria:
+              formulario.categoria,
+            forma_pago:
+              formulario.formaPago,
+            total,
+            historico:
+              formulario.historico,
+            cliente_proveedor:
+              formulario.clienteProveedor,
+            cuenta_debito:
+              regla.cuenta_debito,
+            cuenta_credito:
+              regla.cuenta_credito,
+            estado: 'PENDIENTE',
+          });
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    // -------------------------------------------------
+    // MOVIMIENTOS DE STOCK
+    // -------------------------------------------------
+
+    if (movimientos.length > 0) {
+      const { error } =
+        await supabase
+          .from('movimientos_stock')
+          .insert(movimientos);
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    // -------------------------------------------------
+    // REGISTRO AUTOMÁTICO CMV
+    // -------------------------------------------------
+
+    if (datosCMV) {
+      const { error } =
+        await supabase
+          .from('registros_automaticos')
+          .insert({
+            empresa_id:
+              empresaId,
+            id_operacion:
+              idOperacion,
+            tipo_registro:
+              'CMV',
+            fecha:
+              formulario.fecha,
+            cuenta_debito:
+              datosCMV.cuentaDebito,
+            cuenta_credito:
+              datosCMV.cuentaCredito,
+            importe:
+              datosCMV.importe,
+            historico:
+              `CMV generado automáticamente - ${idOperacion}`,
+            estado:
+              'PENDIENTE',
+          });
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    // =================================================
+    // TODO SALIÓ CORRECTAMENTE
+    // =================================================
+
+    return {
+      total,
+      regla,
+      idOperacion,
+      cmv:
+        datosCMV?.importe ?? 0,
+    };
+  } catch (error) {
+    // =================================================
+    // SI ALGO FALLA, REVERTIR LA OPERACIÓN
+    // =================================================
+
+    await limpiarOperacion(
+      empresaId,
+      idOperacion
+    );
+
+    throw error;
+  }
 }
 
 // =====================================================
@@ -640,60 +771,8 @@ export async function eliminarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
-  // 1. Eliminar registros automáticos
-  const {
-    error: errorAutomaticos,
-  } = await supabase
-    .from('registros_automaticos')
-    .delete()
-    .eq(
-      'empresa_id',
-      empresaId
-    )
-    .eq(
-      'id_operacion',
-      idOperacion
-    );
-
-  if (errorAutomaticos) {
-    throw errorAutomaticos;
-  }
-
-  // 2. Eliminar movimientos de stock
-  const {
-    error: errorStock,
-  } = await supabase
-    .from('movimientos_stock')
-    .delete()
-    .eq(
-      'empresa_id',
-      empresaId
-    )
-    .eq(
-      'id_operacion',
-      idOperacion
-    );
-
-  if (errorStock) {
-    throw errorStock;
-  }
-
-  // 3. Eliminar registro de operación
-  const {
-    error: errorRegistro,
-  } = await supabase
-    .from('registro_operaciones')
-    .delete()
-    .eq(
-      'empresa_id',
-      empresaId
-    )
-    .eq(
-      'id_operacion',
-      idOperacion
-    );
-
-  if (errorRegistro) {
-    throw errorRegistro;
-  }
+  await limpiarOperacion(
+    empresaId,
+    idOperacion
+  );
 }
