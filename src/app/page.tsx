@@ -349,6 +349,7 @@ export default function MiNegocioPage() {
             href="/movimientos-stock"
             titulo="Movimientos de Stock"
           />
+          <BotonAcceso href="/diario" titulo="Libro Diario" />
         </div>
       </div>
     </main>
