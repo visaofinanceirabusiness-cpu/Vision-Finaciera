@@ -6,7 +6,14 @@ export async function registrarOperacion(
 // genera la matriz de operaciones y registra operaciones
 // manteniendo un mismo id_operacion como hilo conductor.
 
+// lib/motor.ts
+//
+// EL MOTOR — el corazón de "Sabio".
+// Lee las reglas configuradas para cada empresa.
+// Genera la matriz y registra las operaciones.
+
 import { supabase } from './supabase';
+
 
 // =====================================================
 // TIPOS
@@ -29,9 +36,6 @@ type MedioFinanciero = {
   nombre: string;
 };
 
-// IMPORTANTE:
-// Este tipo debe estar exportado porque lanzamientos/page.tsx
-// lo importa directamente desde este archivo.
 export type LineaOperacion = {
   producto: string;
   cantidad: number;
@@ -47,7 +51,6 @@ export type FormularioOperacion = {
   clienteProveedor: string;
   lineas: LineaOperacion[];
 };
-
 // =====================================================
 // MEDIOS VÁLIDOS POR OPERACIÓN
 // =====================================================
