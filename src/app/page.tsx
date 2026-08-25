@@ -4,20 +4,14 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 
-// Branding oficial Visão Financeira
-const COLORES = {
+const COLORES_BASE = {
   azul: '#1f3a5f',
   verde: '#2e8b57',
   gris: '#6e7781',
   blanco: '#ffffff',
 };
-
-// Logo de Encanto.
-// Se usa como respaldo si la URL guardada en la base de datos
-// está vacía o no disponible.
-const LOGO_ENCANTO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Encanto.jpeg';
 
 type Perfil = {
   nombre: string;
@@ -27,33 +21,33 @@ type Perfil = {
 
 type Empresa = {
   nombre: string;
+  rubro: string | null;
   logo_url: string | null;
 };
 
-function obtenerUrlLogo(logoUrl: string | null) {
-  const url = logoUrl?.trim();
+type ConfiguracionDashboard = {
+  color_primario: string;
+  color_secundario: string;
+  color_acento: string;
+  mensaje_bienvenida: string | null;
+  subtitulo_dashboard: string | null;
+  mostrar_gamificacion: boolean;
+  mostrar_objetivos: boolean;
+  mostrar_graficos: boolean;
+};
 
-  if (!url) {
-    return null;
-  }
-
-  // URL pública completa.
-  if (/^https?:\/\//i.test(url)) {
-    return url;
-  }
-
-  // Nombre o ruta de archivo guardada en la base.
-  const ruta = url.replace(
-    /^\/?(Logos|logos)\//,
-    ''
-  );
-
-  const { data } = supabase.storage
-    .from('Logos')
-    .getPublicUrl(ruta);
-
-  return data.publicUrl;
-}
+type ProgresoGamificacion = {
+  operaciones: number;
+  nivel: number;
+  nombre: string;
+  emoji: string;
+  operacionesMin: number;
+  operacionesMax: number | null;
+  mision: string;
+  mensaje: string;
+  progreso: number;
+  faltan: number;
+};
 
 export default function MiNegocioPage() {
   const router = useRouter();
@@ -64,17 +58,26 @@ export default function MiNegocioPage() {
   const [empresa, setEmpresa] =
     useState<Empresa | null>(null);
 
+  const [configuracion, setConfiguracion] =
+    useState<ConfiguracionDashboard | null>(
+      null
+    );
+
+  const [gamificacion, setGamificacion] =
+    useState<ProgresoGamificacion | null>(
+      null
+    );
+
   const [cargando, setCargando] =
     useState(true);
 
-  const [usarLogoPredeterminado, setUsarLogoPredeterminado] =
-    useState(false);
-
-  const [logoNoDisponible, setLogoNoDisponible] =
-    useState(false);
+  const [error, setError] =
+    useState('');
 
   useEffect(() => {
     async function cargar() {
+      setError('');
+
       const { data: userData } =
         await supabase.auth.getUser();
 
@@ -83,53 +86,161 @@ export default function MiNegocioPage() {
         return;
       }
 
-      const { data: perfilData } =
-        await supabase
-          .from('perfiles')
-          .select(
-            'nombre, empresa_id, rol'
-          )
-          .eq(
-            'id',
-            userData.user.id
-          )
-          .single();
+      // =================================================
+      // PERFIL
+      // =================================================
 
-      if (!perfilData) {
-        router.push('/login');
+      const {
+        data: perfilData,
+        error: errorPerfil,
+      } = await supabase
+        .from('perfiles')
+        .select(
+          'nombre, empresa_id, rol'
+        )
+        .eq(
+          'id',
+          userData.user.id
+        )
+        .maybeSingle();
+
+      if (
+        errorPerfil ||
+        !perfilData?.empresa_id
+      ) {
+        setError(
+          'No se pudo identificar la empresa del usuario.'
+        );
+        setCargando(false);
         return;
       }
 
       setPerfil(perfilData);
 
-      const { data: empresaData } =
-        await supabase
-          .from('empresas')
-          .select(
-            'nombre, logo_url'
-          )
-          .eq(
-            'id',
-            perfilData.empresa_id
-          )
-          .single();
+      // =================================================
+      // EMPRESA
+      // =================================================
+
+      const {
+        data: empresaData,
+        error: errorEmpresa,
+      } = await supabase
+        .from('empresas')
+        .select(
+          'nombre, rubro, logo_url'
+        )
+        .eq(
+          'id',
+          perfilData.empresa_id
+        )
+        .maybeSingle();
+
+      if (errorEmpresa) {
+        setError(
+          `No se pudo cargar la empresa: ${errorEmpresa.message}`
+        );
+        setCargando(false);
+        return;
+      }
 
       setEmpresa(empresaData);
 
-      setUsarLogoPredeterminado(false);
-      setLogoNoDisponible(false);
+      // =================================================
+      // CONFIGURACIÓN VISUAL
+      // =================================================
+
+      const {
+        data: configData,
+        error: errorConfig,
+      } = await supabase
+        .from('configuracion_dashboard')
+        .select(
+          `
+          color_primario,
+          color_secundario,
+          color_acento,
+          mensaje_bienvenida,
+          subtitulo_dashboard,
+          mostrar_gamificacion,
+          mostrar_objetivos,
+          mostrar_graficos
+          `
+        )
+        .eq(
+          'empresa_id',
+          perfilData.empresa_id
+        )
+        .maybeSingle();
+
+      if (errorConfig) {
+        console.warn(
+          'No se pudo cargar configuracion_dashboard:',
+          errorConfig
+        );
+      }
+
+      setConfiguracion(
+        configData ?? {
+          color_primario:
+            COLORES_BASE.azul,
+          color_secundario:
+            COLORES_BASE.verde,
+          color_acento:
+            COLORES_BASE.gris,
+          mensaje_bienvenida:
+            null,
+          subtitulo_dashboard:
+            null,
+          mostrar_gamificacion:
+            true,
+          mostrar_objetivos:
+            true,
+          mostrar_graficos:
+            true,
+        }
+      );
+
+      // =================================================
+      // GAMIFICACIÓN
+      // =================================================
+
+      try {
+        const progreso =
+          await obtenerProgresoGamificacion(
+            perfilData.empresa_id
+          );
+
+        setGamificacion(progreso);
+      } catch (errorGamificacion) {
+        console.warn(
+          'No se pudo calcular la gamificación:',
+          errorGamificacion
+        );
+
+        setGamificacion(null);
+      }
+
       setCargando(false);
     }
 
     cargar();
   }, [router]);
 
+  // ===================================================
+  // ESTADO DE CARGA
+  // ===================================================
+
   if (cargando) {
     return (
       <div
         style={{
-          padding: 40,
-          textAlign: 'center',
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f5f7f9',
+          color: COLORES_BASE.azul,
+          fontWeight: 600,
         }}
       >
         Cargando tu negocio...
@@ -137,76 +248,153 @@ export default function MiNegocioPage() {
     );
   }
 
-  const hoy = new Date().toLocaleDateString(
-    'es-AR',
-    {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    }
-  );
+  // ===================================================
+  // COLORES DINÁMICOS
+  // ===================================================
 
-  const logoDesdeBase =
-    obtenerUrlLogo(
-      empresa?.logo_url ?? null
+  const colores = {
+    azul:
+      configuracion?.color_primario ||
+      COLORES_BASE.azul,
+
+    verde:
+      configuracion?.color_secundario ||
+      COLORES_BASE.verde,
+
+    acento:
+      configuracion?.color_acento ||
+      COLORES_BASE.gris,
+
+    blanco:
+      COLORES_BASE.blanco,
+  };
+
+  const hoy =
+    new Date().toLocaleDateString(
+      'es-AR',
+      {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      }
     );
 
-  const logoClienteUrl =
-    usarLogoPredeterminado ||
-    !logoDesdeBase
-      ? LOGO_ENCANTO_URL
-      : logoDesdeBase;
+  const logoDisponible =
+    Boolean(
+      empresa?.logo_url?.trim()
+    );
 
-  const logoEsPredeterminado =
-    usarLogoPredeterminado ||
-    !logoDesdeBase;
+  const mensajeBienvenida =
+    configuracion?.mensaje_bienvenida ||
+    `Hola, ${perfil?.nombre ?? ''} 👋`;
+
+  const subtitulo =
+    configuracion?.subtitulo_dashboard ||
+    'Tu negocio, tus números y tus próximos objetivos.';
 
   return (
     <main
       style={{
         minHeight: '100vh',
-        background: '#f5f7f9',
+        background:
+          'radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9',
         padding: 24,
       }}
     >
       <div
         style={{
-          maxWidth: 980,
+          maxWidth: 1100,
           margin: '0 auto',
         }}
       >
-        {/* ================================
+        {/* =================================================
             BARRA SUPERIOR
-        ================================= */}
+        ================================================= */}
         <div
           style={{
             display: 'flex',
             justifyContent:
               'space-between',
             alignItems: 'center',
+            gap: 16,
             marginBottom: 16,
+            flexWrap: 'wrap',
           }}
         >
-          <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
             <div
               style={{
-                fontWeight: 700,
-                color: COLORES.azul,
+                width: 46,
+                height: 46,
+                borderRadius: 14,
+                background:
+                  colores.blanco,
+                border:
+                  `2px solid ${colores.acento}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent:
+                  'center',
+                overflow: 'hidden',
               }}
             >
-              {empresa?.nombre ||
-                'Mi Negocio'}
+              {logoDisponible ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={
+                    empresa!.logo_url!
+                  }
+                  alt={`Logo de ${empresa?.nombre}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit:
+                      'contain',
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    fontSize: 19,
+                    fontWeight: 800,
+                    color: colores.azul,
+                  }}
+                >
+                  {(empresa?.nombre ||
+                    'M'
+                  )
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
+              )}
             </div>
 
-            <div
-              style={{
-                fontSize: 12,
-                color: COLORES.gris,
-              }}
-            >
-              {perfil?.rol === 'admin'
-                ? 'Administrador'
-                : 'Cliente'}
+            <div>
+              <div
+                style={{
+                  fontWeight: 800,
+                  color: colores.azul,
+                }}
+              >
+                {empresa?.nombre ||
+                  'Mi Negocio'}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  color: COLORES_BASE.gris,
+                }}
+              >
+                {empresa?.rubro ||
+                  'Gestión financiera'}
+              </div>
             </div>
           </div>
 
@@ -216,14 +404,15 @@ export default function MiNegocioPage() {
               router.push('/login');
             }}
             style={{
-              background: '#ffffff',
+              background:
+                colores.blanco,
               border:
                 '1px solid #d1d5db',
               borderRadius: 12,
               padding:
                 '10px 14px',
               cursor: 'pointer',
-              color: COLORES.azul,
+              color: colores.azul,
               fontWeight: 600,
             }}
           >
@@ -231,148 +420,162 @@ export default function MiNegocioPage() {
           </button>
         </div>
 
-        {/* ================================
-            LOGO DEL CLIENTE
-        ================================= */}
-        <div
+        {/* =================================================
+            HERO
+        ================================================= */}
+        <section
           style={{
-            textAlign: 'center',
+            background:
+              `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
+            color:
+              colores.blanco,
+            borderRadius: 26,
+            padding:
+              '28px 30px',
             marginBottom: 20,
+            boxShadow:
+              '0 18px 40px rgba(31,58,95,0.16)',
           }}
         >
           <div
             style={{
-              width: 120,
-              height: 120,
-              borderRadius: 24,
-              background: '#fff',
-              display: 'inline-flex',
-              alignItems: 'center',
+              display: 'flex',
               justifyContent:
-                'center',
-              boxShadow:
-                '0 8px 24px rgba(0,0,0,0.08)',
-              overflow: 'hidden',
+                'space-between',
+              alignItems: 'center',
+              gap: 24,
+              flexWrap: 'wrap',
             }}
           >
-            {!logoNoDisponible ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoClienteUrl}
-                alt={`Logo de ${
-                  empresa?.nombre ??
-                  'la empresa'
-                }`}
-                onError={() => {
-                  if (
-                    !logoEsPredeterminado
-                  ) {
-                    setUsarLogoPredeterminado(
-                      true
-                    );
-                    return;
-                  }
-
-                  setLogoNoDisponible(
-                    true
-                  );
-                }}
+            <div>
+              <div
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  display: 'block',
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  fontSize: 48,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 1.4,
+                  textTransform:
+                    'uppercase',
+                  opacity: 0.75,
+                  marginBottom: 8,
                 }}
               >
-                🏪
-              </span>
-            )}
+                MI NEGOCIO
+              </div>
+
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 32,
+                }}
+              >
+                {empresa?.nombre}
+              </h1>
+
+              <p
+                style={{
+                  margin:
+                    '10px 0 0',
+                  fontSize: 18,
+                  fontWeight: 600,
+                }}
+              >
+                {mensajeBienvenida}
+              </p>
+
+              <p
+                style={{
+                  margin:
+                    '6px 0 0',
+                  opacity: 0.82,
+                  fontSize: 14,
+                }}
+              >
+                {subtitulo}
+              </p>
+
+              <p
+                style={{
+                  margin:
+                    '10px 0 0',
+                  opacity: 0.68,
+                  fontSize: 12,
+                }}
+              >
+                {hoy}
+              </p>
+            </div>
+
+            {/* SABIO */}
+            <div
+              style={{
+                minWidth: 170,
+                padding:
+                  '16px 20px',
+                borderRadius: 20,
+                background:
+                  'rgba(255,255,255,0.10)',
+                border:
+                  '1px solid rgba(255,255,255,0.16)',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 1.2,
+                  opacity: 0.72,
+                  marginBottom: 8,
+                }}
+              >
+                SABIO
+              </div>
+
+              <div
+                style={{
+                  fontSize: 42,
+                  lineHeight: 1,
+                }}
+              >
+                🦉
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  opacity: 0.85,
+                }}
+              >
+                Tu compañero
+                financiero
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* ================================
-            ENCABEZADO
-        ================================= */}
-        <section
-          style={{
-            background:
-              COLORES.azul,
-            color: COLORES.blanco,
-            borderRadius: 24,
-            padding: 28,
-            textAlign: 'center',
-            marginBottom: 24,
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 34,
-            }}
-          >
-            Mi Negocio
-          </h1>
-
-          <p
-            style={{
-              margin:
-                '8px 0 0',
-              fontSize: 20,
-              fontWeight: 600,
-            }}
-          >
-            {empresa?.nombre}
-          </p>
-
-          <p
-            style={{
-              margin:
-                '10px 0 0',
-              opacity: 0.95,
-            }}
-          >
-            Hola, {perfil?.nombre} 👋
-          </p>
-
-          <p
-            style={{
-              margin:
-                '4px 0 0',
-              opacity: 0.85,
-            }}
-          >
-            {hoy}
-          </p>
         </section>
 
-        {/* ================================
+        {/* =================================================
             RESUMEN
-        ================================= */}
+        ================================================= */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns:
-              'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 16,
-            marginBottom: 24,
+              'repeat(auto-fit, minmax(190px, 1fr))',
+            gap: 14,
+            marginBottom: 20,
           }}
         >
           <ResumenCard
             titulo="Ventas hoy"
             valor="R$ 0,00"
-            color={COLORES.verde}
+            color={colores.verde}
           />
 
           <ResumenCard
             titulo="Caja disponible"
             valor="R$ 0,00"
-            color={COLORES.azul}
+            color={colores.azul}
           />
 
           <ResumenCard
@@ -384,48 +587,322 @@ export default function MiNegocioPage() {
           <ResumenCard
             titulo="Stock bajo"
             valor="0 productos"
-            color={COLORES.gris}
+            color={colores.acento}
           />
         </div>
 
-        {/* ================================
-            ACCESOS RÁPIDOS
-        ================================= */}
-        <div
+        {/* =================================================
+            GAMIFICACIÓN
+        ================================================= */}
+        {configuracion?.mostrar_gamificacion &&
+          gamificacion && (
+            <section
+              style={{
+                background:
+                  colores.blanco,
+                borderRadius: 24,
+                padding: 24,
+                marginBottom: 20,
+                border:
+                  `1px solid ${colores.acento}33`,
+                boxShadow:
+                  '0 10px 28px rgba(31,58,95,0.08)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent:
+                    'space-between',
+                  alignItems:
+                    'flex-start',
+                  gap: 20,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 250,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: colores.verde,
+                      letterSpacing:
+                        1.3,
+                      marginBottom: 6,
+                    }}
+                  >
+                    PROGRESO DE TU NEGOCIO
+                  </div>
+
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: colores.azul,
+                      fontSize: 23,
+                    }}
+                  >
+                    {gamificacion.emoji}{' '}
+                    Nivel{' '}
+                    {gamificacion.nivel}{' '}
+                    ·{' '}
+                    {gamificacion.nombre}
+                  </h2>
+
+                  <p
+                    style={{
+                      margin:
+                        '8px 0 0',
+                      color:
+                        COLORES_BASE.gris,
+                      fontSize: 14,
+                    }}
+                  >
+                    {gamificacion.mensaje}
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    textAlign:
+                      'right',
+                    minWidth: 170,
+                  }}
+                >
+                  <strong
+                    style={{
+                      color:
+                        colores.azul,
+                      fontSize: 24,
+                    }}
+                  >
+                    {
+                      gamificacion.operaciones
+                    }
+                  </strong>
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color:
+                        COLORES_BASE.gris,
+                    }}
+                  >
+                    operaciones registradas
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 20,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent:
+                      'space-between',
+                    marginBottom: 7,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color:
+                      COLORES_BASE.gris,
+                  }}
+                >
+                  <span>
+                    Progreso
+                  </span>
+
+                  <span>
+                    {
+                      gamificacion.progreso
+                    }%
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    height: 12,
+                    borderRadius: 999,
+                    background:
+                      '#e7edf1',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${gamificacion.progreso}%`,
+                      height: '100%',
+                      borderRadius: 999,
+                      background:
+                        `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
+                      transition:
+                        'width 0.4s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: 12,
+                  marginTop: 16,
+                }}
+              >
+                <InfoCard
+                  etiqueta="Misión"
+                  valor={
+                    gamificacion.mision
+                  }
+                  color={
+                    colores.verde
+                  }
+                />
+
+                <InfoCard
+                  etiqueta="Próximo objetivo"
+                  valor={
+                    gamificacion.operacionesMax ===
+                    null
+                      ? 'Mantener la excelencia'
+                      : `Alcanzar ${
+                          gamificacion.operacionesMax +
+                          1
+                        } operaciones`
+                  }
+                  color={
+                    colores.azul
+                  }
+                />
+
+                <InfoCard
+                  etiqueta="Faltan"
+                  valor={
+                    gamificacion.operacionesMax ===
+                    null
+                      ? '0 operaciones'
+                      : `${gamificacion.faltan} operaciones`
+                  }
+                  color={
+                    colores.acento
+                  }
+                />
+              </div>
+            </section>
+          )}
+
+        {/* =================================================
+            ACCESOS
+        ================================================= */}
+        <section
           style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 16,
+            background:
+              colores.blanco,
+            borderRadius: 24,
+            padding: 24,
+            border:
+              '1px solid #e5e7eb',
           }}
         >
-          <BotonAcceso
-            href="/lanzamientos"
-            titulo="Central de Lanzamientos"
-            principal
-          />
+          <div
+            style={{
+              display: 'flex',
+              justifyContent:
+                'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  margin:
+                    '0 0 4px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing:
+                    1.3,
+                  color:
+                    colores.verde,
+                }}
+              >
+                GESTIÓN
+              </p>
 
-          <BotonAcceso
-            href="/registros"
-            titulo="Registro de Operaciones"
-          />
+              <h2
+                style={{
+                  margin: 0,
+                  color:
+                    colores.azul,
+                  fontSize: 21,
+                }}
+              >
+                Tus herramientas
+              </h2>
+            </div>
+          </div>
 
-          <BotonAcceso
-            href="/stock"
-            titulo="Saldo de Stock"
-          />
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <BotonAcceso
+              href="/lanzamientos"
+              titulo="Central de Lanzamientos"
+              principal
+              colorPrincipal={
+                colores.verde
+              }
+            />
 
-          <BotonAcceso
-            href="/movimientos-stock"
-            titulo="Movimientos de Stock"
-          />
+            <BotonAcceso
+              href="/registros"
+              titulo="Registro de Operaciones"
+              colorPrincipal={
+                colores.azul
+              }
+            />
 
-          <BotonAcceso
-            href="/libro-diario"
-            titulo="Libro Diario"
-            destacado
-          />
-        </div>
+            <BotonAcceso
+              href="/stock"
+              titulo="Saldo de Stock"
+              colorPrincipal={
+                colores.azul
+              }
+            />
+
+            <BotonAcceso
+              href="/movimientos-stock"
+              titulo="Movimientos de Stock"
+              colorPrincipal={
+                colores.azul
+              }
+            />
+
+            <BotonAcceso
+              href="/libro-diario"
+              titulo="Libro Diario"
+              destacado
+              colorPrincipal={
+                colores.verde
+              }
+            />
+          </div>
+        </section>
       </div>
     </main>
   );
@@ -444,12 +921,12 @@ function ResumenCard({
     <div
       style={{
         background:
-          COLORES.blanco,
+          COLORES_BASE.blanco,
         borderRadius: 20,
         padding: 20,
         border:
           '1px solid #e5e7eb',
-        minHeight: 120,
+        minHeight: 112,
         display: 'flex',
         flexDirection:
           'column',
@@ -459,8 +936,9 @@ function ResumenCard({
     >
       <span
         style={{
-          color: COLORES.gris,
-          fontSize: 14,
+          color:
+            COLORES_BASE.gris,
+          fontSize: 13,
         }}
       >
         {titulo}
@@ -469,11 +947,58 @@ function ResumenCard({
       <strong
         style={{
           color,
-          fontSize: 24,
+          fontSize: 23,
         }}
       >
         {valor}
       </strong>
+    </div>
+  );
+}
+
+function InfoCard({
+  etiqueta,
+  valor,
+  color,
+}: {
+  etiqueta: string;
+  valor: string;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        background:
+          '#f8fafc',
+        borderRadius: 14,
+        padding: 14,
+        border:
+          '1px solid #e5e7eb',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 1,
+          color,
+          marginBottom: 5,
+        }}
+      >
+        {etiqueta.toUpperCase()}
+      </div>
+
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color:
+            COLORES_BASE.azul,
+          lineHeight: 1.4,
+        }}
+      >
+        {valor}
+      </div>
     </div>
   );
 }
@@ -483,48 +1008,52 @@ function BotonAcceso({
   titulo,
   principal = false,
   destacado = false,
+  colorPrincipal,
 }: {
   href: string;
   titulo: string;
   principal?: boolean;
   destacado?: boolean;
+  colorPrincipal: string;
 }) {
   return (
     <Link
       href={href}
       style={{
-        textDecoration: 'none',
+        textDecoration:
+          'none',
 
-        background: principal
-          ? COLORES.verde
-          : destacado
-            ? '#eaf7ee'
-            : COLORES.blanco,
+        background:
+          principal
+            ? colorPrincipal
+            : destacado
+              ? `${colorPrincipal}18`
+              : '#ffffff',
 
-        color: principal
-          ? COLORES.blanco
-          : destacado
-            ? COLORES.verde
-            : COLORES.azul,
+        color:
+          principal
+            ? '#ffffff'
+            : colorPrincipal,
 
         border:
-          principal || destacado
+          principal ||
+          destacado
             ? 'none'
             : '1px solid #d1d5db',
 
-        borderRadius: 18,
+        borderRadius: 16,
 
         padding:
-          '18px 20px',
+          '17px 18px',
 
-        textAlign: 'center',
+        textAlign:
+          'center',
 
         fontWeight: 700,
 
-        boxShadow: principal
-          ? '0 8px 20px rgba(46,139,87,0.18)'
-          : destacado
-            ? '0 6px 16px rgba(46,139,87,0.10)'
+        boxShadow:
+          principal
+            ? `0 8px 20px ${colorPrincipal}33`
             : 'none',
       }}
     >
