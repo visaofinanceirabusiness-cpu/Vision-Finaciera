@@ -596,19 +596,6 @@ export default function MiNegocioPage() {
         padding: 24,
       }}
     >
-      <style>{`
-        @keyframes sabioFlota {
-          0% {
-            transform: translateY(18px) scale(1.08);
-          }
-          50% {
-            transform: translateY(8px) scale(1.10);
-          }
-          100% {
-            transform: translateY(18px) scale(1.08);
-          }
-        }
-      `}</style>
       <div
         style={{
           maxWidth: 1180,
