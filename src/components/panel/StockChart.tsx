@@ -2,37 +2,35 @@
 
 import { ChartCard } from './ChartCard';
 
-type DatosCategoria = { nombre: string; valor: number };
+type DatosCategoria = {
+  nombre: string;
+  valor: number;
+};
 
 // GRÁFICO STOCK
 // =====================================================
 
-function GraficoStock({
+export function StockChart({
   datos,
   color,
 }: {
   datos: DatosCategoria[];
   color: string;
 }) {
-  const radio =
-    70;
+  const radio = 70;
 
-  const centroX =
-    150;
-
-  const centroY =
-    135;
+  const centroX = 150;
+  const centroY = 135;
 
   let anguloActual =
     -Math.PI / 2;
 
-  const coloresSegmentos =
-    [
-      color,
-      '#f59e0b',
-      '#2e8b57',
-      '#6e7781',
-    ];
+  const coloresSegmentos = [
+    color,
+    '#f59e0b',
+    '#2e8b57',
+    '#6e7781',
+  ];
 
   const segmentos =
     datos.map(
@@ -90,13 +88,12 @@ function GraficoStock({
             ? 1
             : 0;
 
-        const path =
-          [
-            `M ${centroX} ${centroY}`,
-            `L ${x1} ${y1}`,
-            `A ${radio} ${radio} 0 ${grande} 1 ${x2} ${y2}`,
-            'Z',
-          ].join(' ');
+        const path = [
+          `M ${centroX} ${centroY}`,
+          `L ${x1} ${y1}`,
+          `A ${radio} ${radio} 0 ${grande} 1 ${x2} ${y2}`,
+          'Z',
+        ].join(' ');
 
         return {
           ...dato,
@@ -117,24 +114,19 @@ function GraficoStock({
     >
       <div
         style={{
-          display:
-            'flex',
+          display: 'flex',
           alignItems:
             'center',
           gap: 20,
-          minHeight:
-            270,
+          minHeight: 270,
         }}
       >
         <svg
           viewBox="0 0 305 270"
           style={{
-            width:
-              '58%',
-            maxWidth:
-              305,
-            height:
-              260,
+            width: '58%',
+            maxWidth: 305,
+            height: 260,
           }}
         >
           {segmentos.map(
@@ -165,8 +157,7 @@ function GraficoStock({
           <text
             x={centroX}
             y={
-              centroY +
-              5
+              centroY + 5
             }
             textAnchor="middle"
             fontSize="15"
@@ -180,8 +171,7 @@ function GraficoStock({
         <div
           style={{
             flex: 1,
-            display:
-              'flex',
+            display: 'flex',
             flexDirection:
               'column',
             gap: 12,
@@ -206,10 +196,8 @@ function GraficoStock({
               >
                 <span
                   style={{
-                    width:
-                      12,
-                    height:
-                      12,
+                    width: 12,
+                    height: 12,
                     borderRadius:
                       '50%',
                     background:
@@ -217,15 +205,13 @@ function GraficoStock({
                         indice %
                           coloresSegmentos.length
                       ],
-                    flexShrink:
-                      0,
+                    flexShrink: 0,
                   }}
                 />
 
                 <div
                   style={{
-                    fontSize:
-                      12,
+                    fontSize: 12,
                     color:
                       '#475569',
                     lineHeight:
@@ -236,8 +222,7 @@ function GraficoStock({
                     style={{
                       color:
                         '#1f3a5f',
-                      fontSize:
-                        13,
+                      fontSize: 13,
                     }}
                   >
                     {
@@ -247,10 +232,8 @@ function GraficoStock({
 
                   <div
                     style={{
-                      marginTop:
-                        2,
-                      fontSize:
-                        12,
+                      marginTop: 2,
+                      fontSize: 12,
                     }}
                   >
                     {
