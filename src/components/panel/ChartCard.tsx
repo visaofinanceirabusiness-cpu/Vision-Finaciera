@@ -2,14 +2,27 @@
 
 import type { ReactNode } from 'react';
 
-type DatosVentaMes = { mes: string; valor: number };
-type DatosCategoria = { nombre: string; valor: number };
-const COLORES_BASE = { azul: '#1f3a5f', verde: '#2e8b57', gris: '#6e7781', blanco: '#ffffff' };
+type DatosVentaMes = {
+  mes: string;
+  valor: number;
+};
+
+type DatosCategoria = {
+  nombre: string;
+  valor: number;
+};
+
+const COLORES_BASE = {
+  azul: '#1f3a5f',
+  verde: '#2e8b57',
+  gris: '#6e7781',
+  blanco: '#ffffff',
+};
 
 // CONTENEDOR GRÁFICOS
 // =====================================================
 
-function ChartCard({
+export function ChartCard({
   titulo,
   subtitulo,
   children,
