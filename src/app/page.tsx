@@ -14,7 +14,7 @@ const COLORES_BASE = {
 };
 
 const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO%203D.png';
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
 
 type Perfil = {
   nombre: string;
