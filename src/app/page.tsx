@@ -14,7 +14,7 @@ const COLORES_BASE = {
 };
 
 const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png';
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO%203D.png';
 
 type Perfil = {
   nombre: string;
@@ -587,6 +587,26 @@ export default function MiNegocioPage() {
     configuracion?.subtitulo_dashboard ??
     'Tu negocio, tus números y tus próximos objetivos.';
 
+  // =====================================================
+  // ANIMACIÓN DE SABIO
+  // =====================================================
+
+  const estiloSabio = `
+    @keyframes sabioFlota {
+      0% {
+        transform: translateY(18px) scale(1.08);
+      }
+
+      50% {
+        transform: translateY(8px) scale(1.10);
+      }
+
+      100% {
+        transform: translateY(18px) scale(1.08);
+      }
+    }
+  `;
+
   return (
     <main
       style={{
@@ -596,6 +616,8 @@ export default function MiNegocioPage() {
         padding: 24,
       }}
     >
+      <style>{estiloSabio}</style>
+
       <div
         style={{
           maxWidth: 1180,
@@ -884,21 +906,35 @@ export default function MiNegocioPage() {
                 SABIO
               </div>
 
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={SABIO_URL}
-                alt="Sabio - asistente inteligente de Visão Financeira"
+                <div
                 style={{
-                  width: 175,
-                  height: 150,
-                  objectFit:
-                    'contain',
-                  display:
-                    'block',
-                  filter:
-                    'drop-shadow(0 12px 14px rgba(0,0,0,0.18))',
+                  position: 'relative',
+                  width: 210,
+                  height: 180,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  overflow: 'visible',
                 }}
-              />
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={SABIO_URL}
+                  alt="Sabio - asistente inteligente de Visão Financeira"
+                  style={{
+                    width: 205,
+                    height: 205,
+                    objectFit: 'contain',
+                    display: 'block',
+                    transform:
+                      'translateY(18px) scale(1.08)',
+                    filter:
+                      'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
+                    animation:
+                      'sabioFlota 3.8s ease-in-out infinite',
+                  }}
+                />
+              </div>
 
               <div
                 style={{
