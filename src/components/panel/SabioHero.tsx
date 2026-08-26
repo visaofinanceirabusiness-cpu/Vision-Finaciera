@@ -31,43 +31,108 @@ export function SabioHero({
       return;
     }
 
-    let frameId: number;
-    let inicio: number | null = null;
+    const mover = (e: MouseEvent) => {
+      const rect =
+        elemento.getBoundingClientRect();
 
-    const duracion = 3800;
-    const amplitud = 18;
+      const centroX =
+        rect.left + rect.width / 2;
 
-    const animar = (tiempo: number) => {
-      if (inicio === null) {
-        inicio = tiempo;
-      }
+      const centroY =
+        rect.top + rect.height / 2;
 
-      const progreso =
-        ((tiempo - inicio) % duracion) /
-        duracion;
+      const distanciaX =
+        e.clientX - centroX;
 
-      const movimiento =
-        Math.sin(progreso * Math.PI * 2) *
-        amplitud;
+      const distanciaY =
+        e.clientY - centroY;
 
-      const escala =
-        1 +
-        Math.sin(progreso * Math.PI * 2) *
-          0.015;
+      const rotacionY =
+        Math.max(
+          -10,
+          Math.min(
+            10,
+            distanciaX / 18
+          )
+        );
+
+      const rotacionX =
+        Math.max(
+          -8,
+          Math.min(
+            8,
+            -(distanciaY / 22)
+          )
+        );
+
+      const movimientoX =
+        Math.max(
+          -8,
+          Math.min(
+            8,
+            distanciaX / 35
+          )
+        );
+
+      const movimientoY =
+        Math.max(
+          -8,
+          Math.min(
+            8,
+            distanciaY / 35
+          )
+        );
 
       elemento.style.transform =
-        `translate3d(0, ${movimiento}px, 0) scale(${escala})`;
-
-      frameId =
-        requestAnimationFrame(animar);
+        `translate3d(${movimientoX}px, ${movimientoY}px, 0) rotateX(${rotacionX}deg) rotateY(${rotacionY}deg) scale(1.04)`;
     };
 
-    frameId =
-      requestAnimationFrame(animar);
+    const entrar = () => {
+      elemento.style.transition =
+        'transform 120ms ease-out';
+
+      elemento.style.transform =
+        'translate3d(0, -6px, 0) scale(1.04)';
+    };
+
+    const salir = () => {
+      elemento.style.transition =
+        'transform 500ms ease-out';
+
+      elemento.style.transform =
+        'translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1)';
+    };
+
+    elemento.addEventListener(
+      'mousemove',
+      mover
+    );
+
+    elemento.addEventListener(
+      'mouseenter',
+      entrar
+    );
+
+    elemento.addEventListener(
+      'mouseleave',
+      salir
+    );
 
     return () => {
-      cancelAnimationFrame(frameId);
-      elemento.style.transform = '';
+      elemento.removeEventListener(
+        'mousemove',
+        mover
+      );
+
+      elemento.removeEventListener(
+        'mouseenter',
+        entrar
+      );
+
+      elemento.removeEventListener(
+        'mouseleave',
+        salir
+      );
     };
   }, []);
 
@@ -98,8 +163,6 @@ export function SabioHero({
           flexWrap: 'wrap',
         }}
       >
-        {/* TEXTO */}
-
         <div
           style={{
             flex: 1,
@@ -159,8 +222,6 @@ export function SabioHero({
           </p>
         </div>
 
-        {/* SABIO */}
-
         <div
           style={{
             width: 240,
@@ -201,7 +262,12 @@ export function SabioHero({
               alignItems: 'flex-end',
               justifyContent: 'center',
               overflow: 'visible',
+              transformStyle: 'preserve-3d',
+              perspective: 800,
+              cursor: 'pointer',
               willChange: 'transform',
+              transition:
+                'transform 500ms ease-out',
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -213,6 +279,7 @@ export function SabioHero({
                 height: 205,
                 objectFit: 'contain',
                 display: 'block',
+                pointerEvents: 'none',
                 filter:
                   'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
               }}
