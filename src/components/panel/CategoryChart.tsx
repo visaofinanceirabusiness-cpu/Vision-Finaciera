@@ -2,44 +2,35 @@
 
 import { ChartCard } from './ChartCard';
 
-type DatosCategoria = { nombre: string; valor: number };
+type DatosCategoria = {
+  nombre: string;
+  valor: number;
+};
 
 // GRÁFICO CATEGORÍAS
 // =====================================================
 
-function GraficoCategorias({
+export function CategoryChart({
   datos,
   color,
 }: {
   datos: DatosCategoria[];
   color: string;
 }) {
-  const ancho =
-    520;
+  const ancho = 520;
+  const alto = 270;
 
-  const alto =
-    270;
+  const margenIzq = 70;
+  const margenDer = 16;
+  const margenSup = 30;
+  const margenInf = 62;
 
-  const margenIzq =
-    70;
-
-  const margenDer =
-    16;
-
-  const margenSup =
-    30;
-
-  const margenInf =
-    62;
-
-  const maxValor =
-    Math.max(
-      ...datos.map(
-        (dato) =>
-          dato.valor
-      ),
-      1
-    );
+  const maxValor = Math.max(
+    ...datos.map(
+      (dato) => dato.valor
+    ),
+    1
+  );
 
   const anchoUtil =
     ancho -
@@ -63,12 +54,9 @@ function GraficoCategorias({
       <svg
         viewBox={`0 0 ${ancho} ${alto}`}
         style={{
-          width:
-            '100%',
-          height:
-            270,
-          display:
-            'block',
+          width: '100%',
+          height: 270,
+          display: 'block',
         }}
       >
         {[
@@ -93,9 +81,7 @@ function GraficoCategorias({
 
             return (
               <g
-                key={
-                  factor
-                }
+                key={factor}
               >
                 <line
                   x1={
@@ -116,17 +102,12 @@ function GraficoCategorias({
                     margenIzq -
                     10
                   }
-                  y={
-                    y + 5
-                  }
+                  y={y + 5}
                   textAnchor="end"
                   fontSize="14"
                   fill="#6e7781"
                 >
-                  R$
-                  {
-                    valor
-                  }
+                  R${valor}
                 </text>
               </g>
             );
@@ -190,18 +171,14 @@ function GraficoCategorias({
                       2
                   }
                   y={
-                    y -
-                    10
+                    y - 10
                   }
                   textAnchor="middle"
                   fontSize="13"
                   fontWeight="800"
                   fill="#1f3a5f"
                 >
-                  R$
-                  {
-                    dato.valor
-                  }
+                  R${dato.valor}
                 </text>
 
                 <text
@@ -211,8 +188,7 @@ function GraficoCategorias({
                       2
                   }
                   y={
-                    alto -
-                    23
+                    alto - 23
                   }
                   textAnchor="middle"
                   fontSize="13"
