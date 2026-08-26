@@ -7,7 +7,7 @@ type DatosVentaMes = { mes: string; valor: number };
 // GRÁFICO VENTAS
 // =====================================================
 
-function GraficoVentas({
+export function SalesChart({
   datos,
   color,
   colorSecundario,
