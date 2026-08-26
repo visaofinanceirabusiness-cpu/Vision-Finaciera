@@ -13,6 +13,9 @@ const COLORES_BASE = {
   blanco: '#ffffff',
 };
 
+const SABIO_URL =
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png';
+
 type Perfil = {
   nombre: string;
   empresa_id: string;
@@ -349,9 +352,10 @@ export default function MiNegocioPage() {
           continue;
         }
 
-        const fecha = String(
-          fila.fecha
-        );
+        const fecha =
+          String(
+            fila.fecha
+          );
 
         periodosUnicos.add(
           `${fecha.slice(0, 7)}-01`
@@ -366,11 +370,15 @@ export default function MiNegocioPage() {
             (a, b) =>
               b.localeCompare(a)
           )
-          .map((valor) => ({
-            valor,
-            etiqueta:
-              formatearPeriodo(valor),
-          }));
+          .map(
+            (valor) => ({
+              valor,
+              etiqueta:
+                formatearPeriodo(
+                  valor
+                ),
+            })
+          );
 
       setPeriodos(
         listaPeriodos
@@ -384,10 +392,13 @@ export default function MiNegocioPage() {
     }
 
     cargarBase();
-  }, [router, periodoActual]);
+  }, [
+    router,
+    periodoActual,
+  ]);
 
   // =====================================================
-  // CARGA DE OBJETIVOS SEGÚN PERIODO
+  // CARGA DE OBJETIVOS
   // =====================================================
 
   useEffect(() => {
@@ -444,38 +455,42 @@ export default function MiNegocioPage() {
       const objetivosCalculados =
         (
           (data ?? []) as ObjetivoEmpresa[]
-        ).map((objetivo) => {
-          const resultado =
-            obtenerResultadoObjetivo(
-              objetivo,
-              gamificacion,
-              periodoSeleccionado
-            );
+        ).map(
+          (objetivo) => {
+            const resultado =
+              obtenerResultadoObjetivo(
+                objetivo,
+                gamificacion,
+                periodoSeleccionado
+              );
 
-          const porcentaje =
-            objetivo.objetivo > 0
-              ? Math.min(
-                  100,
-                  Math.max(
-                    0,
-                    (resultado /
-                      Number(
-                        objetivo.objetivo
-                      )) *
-                      100
+            const porcentaje =
+              objetivo.objetivo > 0
+                ? Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      (resultado /
+                        Number(
+                          objetivo.objetivo
+                        )) *
+                        100
+                    )
                   )
-                )
-              : 0;
+                : 0;
 
-          return {
-            ...objetivo,
-            resultado,
-            porcentaje:
-              Number(
-                porcentaje.toFixed(2)
-              ),
-          };
-        });
+            return {
+              ...objetivo,
+              resultado,
+              porcentaje:
+                Number(
+                  porcentaje.toFixed(
+                    2
+                  )
+                ),
+            };
+          }
+        );
 
       setObjetivos(
         objetivosCalculados
@@ -499,7 +514,8 @@ export default function MiNegocioPage() {
         style={{
           minHeight: '100vh',
           display: 'flex',
-          alignItems: 'center',
+          alignItems:
+            'center',
           justifyContent:
             'center',
           background:
@@ -515,7 +531,7 @@ export default function MiNegocioPage() {
   }
 
   // =====================================================
-  // COLORES DINÁMICOS
+  // COLORES
   // =====================================================
 
   const colores = {
@@ -545,8 +561,12 @@ export default function MiNegocioPage() {
       }
     );
 
+  const esTodosLosPeriodos =
+    periodoSeleccionado ===
+    'TODOS';
+
   const periodoTexto =
-    periodoSeleccionado === 'TODOS'
+    esTodosLosPeriodos
       ? 'Todos los períodos'
       : formatearPeriodo(
           periodoSeleccionado
@@ -566,10 +586,6 @@ export default function MiNegocioPage() {
   const subtitulo =
     configuracion?.subtitulo_dashboard ??
     'Tu negocio, tus números y tus próximos objetivos.';
-
-  const esTodosLosPeriodos =
-    periodoSeleccionado ===
-    'TODOS';
 
   return (
     <main
@@ -598,35 +614,42 @@ export default function MiNegocioPage() {
             alignItems:
               'center',
             gap: 16,
-            marginBottom: 16,
+            marginBottom:
+              16,
             flexWrap:
               'wrap',
           }}
         >
           <div
             style={{
-              display: 'flex',
+              display:
+                'flex',
               alignItems:
                 'center',
-              gap: 12,
+              gap: 16,
             }}
           >
             <div
               style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
+                width: 78,
+                height: 78,
+                borderRadius:
+                  20,
                 background:
                   colores.blanco,
                 border:
                   `2px solid ${colores.acento}`,
-                display: 'flex',
+                display:
+                  'flex',
                 alignItems:
                   'center',
                 justifyContent:
                   'center',
                 overflow:
                   'hidden',
+                boxShadow:
+                  '0 8px 20px rgba(31,58,95,0.10)',
+                flexShrink: 0,
               }}
             >
               {logoDisponible ? (
@@ -646,12 +669,13 @@ export default function MiNegocioPage() {
                     height: '100%',
                     objectFit:
                       'contain',
+                    padding: 6,
                   }}
                 />
               ) : (
                 <span
                   style={{
-                    fontSize: 19,
+                    fontSize: 30,
                     fontWeight: 800,
                     color:
                       colores.azul,
@@ -670,6 +694,7 @@ export default function MiNegocioPage() {
             <div>
               <div
                 style={{
+                  fontSize: 22,
                   fontWeight: 800,
                   color:
                     colores.azul,
@@ -681,9 +706,10 @@ export default function MiNegocioPage() {
 
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: 13,
                   color:
                     COLORES_BASE.gris,
+                  marginTop: 3,
                 }}
               >
                 {empresa?.rubro ??
@@ -704,14 +730,15 @@ export default function MiNegocioPage() {
                 colores.blanco,
               border:
                 '1px solid #d1d5db',
-              borderRadius: 12,
+              borderRadius:
+                12,
               padding:
-                '10px 14px',
+                '11px 16px',
               cursor:
                 'pointer',
               color:
                 colores.azul,
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
             Cerrar sesión
@@ -728,17 +755,20 @@ export default function MiNegocioPage() {
               `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
             color:
               colores.blanco,
-            borderRadius: 26,
+            borderRadius:
+              28,
             padding:
-              '28px 30px',
-            marginBottom: 20,
+              '30px 32px',
+            marginBottom:
+              20,
             boxShadow:
               '0 18px 40px rgba(31,58,95,0.16)',
           }}
         >
           <div
             style={{
-              display: 'flex',
+              display:
+                'flex',
               justifyContent:
                 'space-between',
               alignItems:
@@ -748,7 +778,12 @@ export default function MiNegocioPage() {
                 'wrap',
             }}
           >
-            <div>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 280,
+              }}
+            >
               <div
                 style={{
                   fontSize: 11,
@@ -768,7 +803,7 @@ export default function MiNegocioPage() {
               <h1
                 style={{
                   margin: 0,
-                  fontSize: 32,
+                  fontSize: 34,
                 }}
               >
                 {empresa?.nombre}
@@ -778,7 +813,7 @@ export default function MiNegocioPage() {
                 style={{
                   margin:
                     '10px 0 0',
-                  fontSize: 18,
+                  fontSize: 19,
                   fontWeight: 600,
                 }}
               >
@@ -808,50 +843,72 @@ export default function MiNegocioPage() {
               </p>
             </div>
 
-            {/* SABIO */}
+            {/* =================================================
+                SABIO OFICIAL
+            ================================================== */}
 
             <div
               style={{
-                minWidth: 170,
-                padding:
-                  '16px 20px',
-                borderRadius: 20,
+                width: 240,
+                minHeight: 220,
+                borderRadius:
+                  24,
                 background:
                   'rgba(255,255,255,0.10)',
                 border:
-                  '1px solid rgba(255,255,255,0.16)',
-                textAlign:
+                  '1px solid rgba(255,255,255,0.18)',
+                display:
+                  'flex',
+                flexDirection:
+                  'column',
+                alignItems:
                   'center',
+                justifyContent:
+                  'center',
+                padding:
+                  '16px 18px',
+                flexShrink: 0,
               }}
             >
               <div
                 style={{
                   fontSize: 11,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   letterSpacing:
-                    1.2,
-                  opacity: 0.72,
+                    1.5,
+                  opacity: 0.78,
                   marginBottom:
-                    8,
+                    4,
                 }}
               >
                 SABIO
               </div>
 
-              <div
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={SABIO_URL}
+                alt="Sabio - asistente inteligente de Visão Financeira"
                 style={{
-                  fontSize: 42,
-                  lineHeight: 1,
+                  width: 175,
+                  height: 150,
+                  objectFit:
+                    'contain',
+                  display:
+                    'block',
+                  filter:
+                    'drop-shadow(0 12px 14px rgba(0,0,0,0.18))',
                 }}
-              >
-                🦉
-              </div>
+              />
 
               <div
                 style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  opacity: 0.85,
+                  marginTop:
+                    2,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  opacity: 0.90,
+                  textAlign:
+                    'center',
                 }}
               >
                 Tu compañero
@@ -862,20 +919,23 @@ export default function MiNegocioPage() {
         </section>
 
         {/* =================================================
-            SELECTOR GLOBAL DE PERÍODO
+            SELECTOR GLOBAL
         ================================================== */}
 
         <section
           style={{
             background:
               colores.blanco,
-            borderRadius: 18,
+            borderRadius:
+              18,
             padding:
               '15px 18px',
-            marginBottom: 20,
+            marginBottom:
+              20,
             border:
               '1px solid #e5e7eb',
-            display: 'flex',
+            display:
+              'flex',
             justifyContent:
               'space-between',
             alignItems:
@@ -894,7 +954,8 @@ export default function MiNegocioPage() {
                   1.3,
                 color:
                   colores.verde,
-                marginBottom: 4,
+                marginBottom:
+                  4,
               }}
             >
               PERÍODO DE ANÁLISIS
@@ -924,10 +985,12 @@ export default function MiNegocioPage() {
               )
             }
             style={{
-              minWidth: 190,
+              minWidth:
+                210,
               padding:
                 '11px 14px',
-              borderRadius: 12,
+              borderRadius:
+                12,
               border:
                 `1px solid ${colores.acento}`,
               background:
@@ -967,11 +1030,13 @@ export default function MiNegocioPage() {
 
         <div
           style={{
-            display: 'grid',
+            display:
+              'grid',
             gridTemplateColumns:
               'repeat(auto-fit, minmax(190px, 1fr))',
             gap: 14,
-            marginBottom: 20,
+            marginBottom:
+              20,
           }}
         >
           <ResumenCard
@@ -1014,9 +1079,11 @@ export default function MiNegocioPage() {
             style={{
               background:
                 colores.blanco,
-              borderRadius: 24,
+              borderRadius:
+                24,
               padding: 24,
-              marginBottom: 20,
+              marginBottom:
+                20,
               border:
                 '1px solid #e5e7eb',
               boxShadow:
@@ -1025,7 +1092,8 @@ export default function MiNegocioPage() {
           >
             <div
               style={{
-                display: 'flex',
+                display:
+                  'flex',
                 justifyContent:
                   'space-between',
                 alignItems:
@@ -1033,15 +1101,19 @@ export default function MiNegocioPage() {
                 gap: 16,
                 flexWrap:
                   'wrap',
-                marginBottom: 20,
+                marginBottom:
+                  20,
               }}
             >
               <div>
                 <div
                   style={{
-                    marginBottom: 5,
-                    fontSize: 10,
-                    fontWeight: 700,
+                    marginBottom:
+                      5,
+                    fontSize:
+                      10,
+                    fontWeight:
+                      700,
                     letterSpacing:
                       1.3,
                     color:
@@ -1056,7 +1128,8 @@ export default function MiNegocioPage() {
                     margin: 0,
                     color:
                       colores.azul,
-                    fontSize: 23,
+                    fontSize:
+                      23,
                   }}
                 >
                   Resumen Ejecutivo
@@ -1066,7 +1139,8 @@ export default function MiNegocioPage() {
                   style={{
                     margin:
                       '5px 0 0',
-                    fontSize: 12,
+                    fontSize:
+                      12,
                     color:
                       COLORES_BASE.gris,
                   }}
@@ -1081,13 +1155,16 @@ export default function MiNegocioPage() {
                 style={{
                   padding:
                     '9px 14px',
-                  borderRadius: 999,
+                  borderRadius:
+                    999,
                   background:
                     `${colores.azul}10`,
                   color:
                     colores.azul,
-                  fontSize: 12,
-                  fontWeight: 800,
+                  fontSize:
+                    12,
+                  fontWeight:
+                    800,
                   textTransform:
                     'capitalize',
                 }}
@@ -1096,15 +1173,15 @@ export default function MiNegocioPage() {
               </div>
             </div>
 
-            {/* CARDS EJECUTIVAS */}
-
             <div
               style={{
-                display: 'grid',
+                display:
+                  'grid',
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(170px, 1fr))',
                 gap: 12,
-                marginBottom: 18,
+                marginBottom:
+                  18,
               }}
             >
               <ResumenEjecutivoCard
@@ -1179,11 +1256,10 @@ export default function MiNegocioPage() {
               />
             </div>
 
-            {/* GRÁFICOS */}
-
             <div
               style={{
-                display: 'grid',
+                display:
+                  'grid',
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(310px, 1fr))',
                 gap: 16,
@@ -1223,7 +1299,7 @@ export default function MiNegocioPage() {
         )}
 
         {/* =================================================
-            OBJETIVOS DEL MES
+            OBJETIVOS
         ================================================== */}
 
         {configuracion?.mostrar_objetivos &&
@@ -1232,9 +1308,11 @@ export default function MiNegocioPage() {
               style={{
                 background:
                   colores.blanco,
-                borderRadius: 24,
+                borderRadius:
+                  24,
                 padding: 24,
-                marginBottom: 20,
+                marginBottom:
+                  20,
                 border:
                   '1px solid #e5e7eb',
                 boxShadow:
@@ -1243,7 +1321,8 @@ export default function MiNegocioPage() {
             >
               <div
                 style={{
-                  display: 'flex',
+                  display:
+                    'flex',
                   justifyContent:
                     'space-between',
                   alignItems:
@@ -1251,15 +1330,19 @@ export default function MiNegocioPage() {
                   gap: 16,
                   flexWrap:
                     'wrap',
-                  marginBottom: 18,
+                  marginBottom:
+                    18,
                 }}
               >
                 <div>
                   <div
                     style={{
-                      marginBottom: 5,
-                      fontSize: 10,
-                      fontWeight: 700,
+                      marginBottom:
+                        5,
+                      fontSize:
+                        10,
+                      fontWeight:
+                        700,
                       letterSpacing:
                         1.3,
                       color:
@@ -1274,7 +1357,8 @@ export default function MiNegocioPage() {
                       margin: 0,
                       color:
                         colores.azul,
-                      fontSize: 22,
+                      fontSize:
+                        22,
                     }}
                   >
                     Objetivos del mes
@@ -1284,7 +1368,8 @@ export default function MiNegocioPage() {
                     style={{
                       margin:
                         '5px 0 0',
-                      fontSize: 12,
+                      fontSize:
+                        12,
                       color:
                         COLORES_BASE.gris,
                       textTransform:
@@ -1299,13 +1384,16 @@ export default function MiNegocioPage() {
                   style={{
                     padding:
                       '8px 12px',
-                    borderRadius: 999,
+                    borderRadius:
+                      999,
                     background:
                       `${colores.verde}14`,
                     color:
                       colores.verde,
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize:
+                      11,
+                    fontWeight:
+                      700,
                   }}
                 >
                   Objetivos acordados
@@ -1318,12 +1406,14 @@ export default function MiNegocioPage() {
                     padding: 24,
                     border:
                       '1px dashed #d6dee5',
-                    borderRadius: 14,
+                    borderRadius:
+                      14,
                     textAlign:
                       'center',
                     color:
                       COLORES_BASE.gris,
-                    fontSize: 13,
+                    fontSize:
+                      13,
                   }}
                 >
                   No hay objetivos
@@ -1367,7 +1457,7 @@ export default function MiNegocioPage() {
           )}
 
         {/* =================================================
-            MENSAJE TODOS LOS PERIODOS
+            TODOS LOS PERIODOS
         ================================================== */}
 
         {esTodosLosPeriodos && (
@@ -1377,9 +1467,11 @@ export default function MiNegocioPage() {
                 `${colores.azul}08`,
               border:
                 `1px solid ${colores.azul}22`,
-              borderRadius: 18,
+              borderRadius:
+                18,
               padding: 18,
-              marginBottom: 20,
+              marginBottom:
+                20,
               color:
                 colores.azul,
               fontSize: 13,
@@ -1391,16 +1483,18 @@ export default function MiNegocioPage() {
 
             <div
               style={{
-                marginTop: 5,
+                marginTop:
+                  5,
                 color:
                   COLORES_BASE.gris,
               }}
             >
               En esta vista se analizan
-              todos los períodos. Los
-              objetivos mensuales no se
-              muestran porque pertenecen
-              a períodos específicos.
+              todos los períodos.
+              Los objetivos mensuales
+              se muestran únicamente
+              cuando seleccionás un
+              período específico.
             </div>
           </section>
         )}
@@ -1415,9 +1509,11 @@ export default function MiNegocioPage() {
               style={{
                 background:
                   colores.blanco,
-                borderRadius: 24,
+                borderRadius:
+                  24,
                 padding: 24,
-                marginBottom: 20,
+                marginBottom:
+                  20,
                 border:
                   `1px solid ${colores.acento}33`,
                 boxShadow:
@@ -1426,7 +1522,8 @@ export default function MiNegocioPage() {
             >
               <div
                 style={{
-                  display: 'flex',
+                  display:
+                    'flex',
                   justifyContent:
                     'space-between',
                   alignItems:
@@ -1444,8 +1541,10 @@ export default function MiNegocioPage() {
                 >
                   <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 700,
+                      fontSize:
+                        11,
+                      fontWeight:
+                        700,
                       color:
                         colores.verde,
                       letterSpacing:
@@ -1462,7 +1561,8 @@ export default function MiNegocioPage() {
                       margin: 0,
                       color:
                         colores.azul,
-                      fontSize: 23,
+                      fontSize:
+                        23,
                     }}
                   >
                     {
@@ -1484,7 +1584,8 @@ export default function MiNegocioPage() {
                         '8px 0 0',
                       color:
                         COLORES_BASE.gris,
-                      fontSize: 14,
+                      fontSize:
+                        14,
                     }}
                   >
                     {
@@ -1497,14 +1598,16 @@ export default function MiNegocioPage() {
                   style={{
                     textAlign:
                       'right',
-                    minWidth: 170,
+                    minWidth:
+                      170,
                   }}
                 >
                   <strong
                     style={{
                       color:
                         colores.azul,
-                      fontSize: 24,
+                      fontSize:
+                        24,
                     }}
                   >
                     {
@@ -1514,7 +1617,8 @@ export default function MiNegocioPage() {
 
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize:
+                        12,
                       color:
                         COLORES_BASE.gris,
                     }}
@@ -1527,18 +1631,22 @@ export default function MiNegocioPage() {
 
               <div
                 style={{
-                  marginTop: 20,
+                  marginTop:
+                    20,
                 }}
               >
                 <div
                   style={{
-                    display: 'flex',
+                    display:
+                      'flex',
                     justifyContent:
                       'space-between',
                     marginBottom:
                       7,
-                    fontSize: 12,
-                    fontWeight: 700,
+                    fontSize:
+                      12,
+                    fontWeight:
+                      700,
                     color:
                       COLORES_BASE.gris,
                   }}
@@ -1557,7 +1665,8 @@ export default function MiNegocioPage() {
 
                 <div
                   style={{
-                    height: 12,
+                    height:
+                      12,
                     borderRadius:
                       999,
                     background:
@@ -1644,7 +1753,8 @@ export default function MiNegocioPage() {
           style={{
             background:
               colores.blanco,
-            borderRadius: 24,
+            borderRadius:
+              24,
             padding: 24,
             border:
               '1px solid #e5e7eb',
@@ -1658,9 +1768,12 @@ export default function MiNegocioPage() {
           >
             <div
               style={{
-                marginBottom: 4,
-                fontSize: 10,
-                fontWeight: 700,
+                marginBottom:
+                  4,
+                fontSize:
+                  10,
+                fontWeight:
+                  700,
                 letterSpacing:
                   1.3,
                 color:
@@ -1675,7 +1788,8 @@ export default function MiNegocioPage() {
                 margin: 0,
                 color:
                   colores.azul,
-                fontSize: 21,
+                fontSize:
+                  21,
               }}
             >
               Tus herramientas
@@ -1768,7 +1882,7 @@ function obtenerResultadoObjetivo(
 }
 
 // =====================================================
-// OBJETIVO
+// CARD OBJETIVO
 // =====================================================
 
 function ObjetivoCard({
@@ -1829,8 +1943,10 @@ function ObjetivoCard({
           '#fbfcfd',
         border:
           '1px solid #e5e7eb',
-        borderRadius: 16,
-        padding: 16,
+        borderRadius:
+          16,
+        padding:
+          16,
       }}
     >
       <div
@@ -1851,8 +1967,10 @@ function ObjetivoCard({
             style={{
               color:
                 colorPrimario,
-              fontSize: 13,
-              fontWeight: 800,
+              fontSize:
+                13,
+              fontWeight:
+                800,
             }}
           >
             {formatearIndicador(
@@ -1862,14 +1980,21 @@ function ObjetivoCard({
 
           <div
             style={{
-              marginTop: 4,
-              fontSize: 12,
+              marginTop:
+                4,
+              fontSize:
+                12,
               color:
                 COLORES_BASE.gris,
             }}
           >
-            {resultadoTexto} /{' '}
-            {objetivoTexto}
+            {
+              resultadoTexto
+            }{' '}
+            /{' '}
+            {
+              objetivoTexto
+            }
           </div>
         </div>
 
@@ -1883,8 +2008,10 @@ function ObjetivoCard({
               fondoEstado,
             color:
               colorEstado,
-            fontSize: 10,
-            fontWeight: 800,
+            fontSize:
+              10,
+            fontWeight:
+              800,
             whiteSpace:
               'nowrap',
           }}
@@ -1899,7 +2026,8 @@ function ObjetivoCard({
 
       <div
         style={{
-          height: 9,
+          height:
+            9,
           borderRadius:
             999,
           background:
@@ -1928,19 +2056,25 @@ function ObjetivoCard({
             'flex',
           justifyContent:
             'space-between',
-          marginTop: 7,
-          fontSize: 10,
+          marginTop:
+            7,
+          fontSize:
+            10,
           color:
             COLORES_BASE.gris,
         }}
       >
         <span>
-          {objetivo.porcentaje}%
+          {
+            objetivo.porcentaje
+          }%
         </span>
 
         <span>
           Meta:{' '}
-          {objetivoTexto}
+          {
+            objetivoTexto
+          }
         </span>
       </div>
     </div>
@@ -1967,7 +2101,8 @@ function ResumenEjecutivoCard({
       style={{
         border:
           '1px solid #e5e7eb',
-        borderRadius: 16,
+        borderRadius:
+          16,
         padding: 15,
         background:
           '#fbfcfd',
@@ -1975,20 +2110,23 @@ function ResumenEjecutivoCard({
     >
       <div
         style={{
-          fontSize: 12,
+          fontSize:
+            12,
           color:
             COLORES_BASE.gris,
           marginBottom:
             8,
         }}
       >
-        {emoji} {titulo}
+        {emoji}{' '}
+        {titulo}
       </div>
 
       <strong
         style={{
           color,
-          fontSize: 21,
+          fontSize:
+            21,
         }}
       >
         {valor}
@@ -1998,7 +2136,71 @@ function ResumenEjecutivoCard({
 }
 
 // =====================================================
-// GRÁFICO — EVOLUCIÓN DE VENTAS
+// CONTENEDOR GRÁFICOS
+// =====================================================
+
+function ChartCard({
+  titulo,
+  subtitulo,
+  children,
+}: {
+  titulo: string;
+  subtitulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        border:
+          '1px solid #e5e7eb',
+        borderRadius:
+          18,
+        padding:
+          18,
+        background:
+          '#fbfcfd',
+      }}
+    >
+      <div
+        style={{
+          marginBottom:
+            6,
+        }}
+      >
+        <div
+          style={{
+            color:
+              COLORES_BASE.gris,
+            fontSize:
+              16,
+            fontWeight:
+              800,
+          }}
+        >
+          {titulo}
+        </div>
+
+        <div
+          style={{
+            color:
+              '#94a3b8',
+            fontSize:
+              12,
+            marginTop:
+              3,
+          }}
+        >
+          {subtitulo}
+        </div>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+// =====================================================
+// GRÁFICO VENTAS
 // =====================================================
 
 function GraficoVentas({
@@ -2010,17 +2212,29 @@ function GraficoVentas({
   color: string;
   colorSecundario: string;
 }) {
-  const ancho = 520;
-  const alto = 270;
-  const margenIzq = 70;
-  const margenDer = 20;
-  const margenSup = 32;
-  const margenInf = 55;
+  const ancho =
+    520;
+
+  const alto =
+    270;
+
+  const margenIzq =
+    70;
+
+  const margenDer =
+    20;
+
+  const margenSup =
+    32;
+
+  const margenInf =
+    55;
 
   const maxValor =
     Math.max(
       ...datos.map(
-        (dato) => dato.valor
+        (dato) =>
+          dato.valor
       ),
       1
     );
@@ -2038,12 +2252,16 @@ function GraficoVentas({
   const pasoX =
     datos.length > 1
       ? anchoUtil /
-        (datos.length - 1)
+        (datos.length -
+          1)
       : anchoUtil;
 
   const puntos =
     datos.map(
-      (dato, indice) => {
+      (
+        dato,
+        indice
+      ) => {
         const x =
           margenIzq +
           indice *
@@ -2067,9 +2285,13 @@ function GraficoVentas({
   const linea =
     puntos
       .map(
-        (punto, indice) =>
+        (
+          punto,
+          indice
+        ) =>
           `${
-            indice === 0
+            indice ===
+            0
               ? 'M'
               : 'L'
           } ${punto.x} ${punto.y}`
@@ -2086,12 +2308,19 @@ function GraficoVentas({
         style={{
           width:
             '100%',
-          height: 270,
+          height:
+            270,
           display:
             'block',
         }}
       >
-        {[0, 0.25, 0.5, 0.75, 1].map(
+        {[
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1,
+        ].map(
           (factor) => {
             const y =
               margenSup +
@@ -2107,7 +2336,9 @@ function GraficoVentas({
 
             return (
               <g
-                key={factor}
+                key={
+                  factor
+                }
               >
                 <line
                   x1={
@@ -2136,7 +2367,9 @@ function GraficoVentas({
                   fill="#6e7781"
                 >
                   R$
-                  {valor}
+                  {
+                    valor
+                  }
                 </text>
               </g>
             );
@@ -2182,7 +2415,9 @@ function GraficoVentas({
                 fill="#1f3a5f"
               >
                 R$
-                {punto.valor}
+                {
+                  punto.valor
+                }
               </text>
 
               <text
@@ -2196,7 +2431,9 @@ function GraficoVentas({
                 fontWeight="600"
                 fill="#6e7781"
               >
-                {punto.mes}
+                {
+                  punto.mes
+                }
               </text>
             </g>
           )
@@ -2207,7 +2444,7 @@ function GraficoVentas({
 }
 
 // =====================================================
-// GRÁFICO — VENTAS POR CATEGORÍA
+// GRÁFICO CATEGORÍAS
 // =====================================================
 
 function GraficoCategorias({
@@ -2217,17 +2454,29 @@ function GraficoCategorias({
   datos: DatosCategoria[];
   color: string;
 }) {
-  const ancho = 520;
-  const alto = 270;
-  const margenIzq = 70;
-  const margenDer = 16;
-  const margenSup = 30;
-  const margenInf = 62;
+  const ancho =
+    520;
+
+  const alto =
+    270;
+
+  const margenIzq =
+    70;
+
+  const margenDer =
+    16;
+
+  const margenSup =
+    30;
+
+  const margenInf =
+    62;
 
   const maxValor =
     Math.max(
       ...datos.map(
-        (dato) => dato.valor
+        (dato) =>
+          dato.valor
       ),
       1
     );
@@ -2256,12 +2505,19 @@ function GraficoCategorias({
         style={{
           width:
             '100%',
-          height: 270,
+          height:
+            270,
           display:
             'block',
         }}
       >
-        {[0, 0.25, 0.5, 0.75, 1].map(
+        {[
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1,
+        ].map(
           (factor) => {
             const y =
               margenSup +
@@ -2277,7 +2533,9 @@ function GraficoCategorias({
 
             return (
               <g
-                key={factor}
+                key={
+                  factor
+                }
               >
                 <line
                   x1={
@@ -2306,7 +2564,9 @@ function GraficoCategorias({
                   fill="#6e7781"
                 >
                   R$
-                  {valor}
+                  {
+                    valor
+                  }
                 </text>
               </g>
             );
@@ -2314,7 +2574,10 @@ function GraficoCategorias({
         )}
 
         {datos.map(
-          (dato, indice) => {
+          (
+            dato,
+            indice
+          ) => {
             const altura =
               (dato.valor /
                 maxValor) *
@@ -2376,7 +2639,9 @@ function GraficoCategorias({
                   fill="#1f3a5f"
                 >
                   R$
-                  {dato.valor}
+                  {
+                    dato.valor
+                  }
                 </text>
 
                 <text
@@ -2394,7 +2659,9 @@ function GraficoCategorias({
                   fontWeight="600"
                   fill="#6e7781"
                 >
-                  {dato.nombre}
+                  {
+                    dato.nombre
+                  }
                 </text>
               </g>
             );
@@ -2406,7 +2673,7 @@ function GraficoCategorias({
 }
 
 // =====================================================
-// GRÁFICO — COMPOSICIÓN STOCK
+// GRÁFICO STOCK
 // =====================================================
 
 function GraficoStock({
@@ -2416,9 +2683,14 @@ function GraficoStock({
   datos: DatosCategoria[];
   color: string;
 }) {
-  const radio = 70;
-  const centroX = 150;
-  const centroY = 135;
+  const radio =
+    70;
+
+  const centroX =
+    150;
+
+  const centroY =
+    135;
 
   let anguloActual =
     -Math.PI / 2;
@@ -2433,7 +2705,10 @@ function GraficoStock({
 
   const segmentos =
     datos.map(
-      (dato, indice) => {
+      (
+        dato,
+        indice
+      ) => {
         const inicio =
           anguloActual;
 
@@ -2527,7 +2802,8 @@ function GraficoStock({
               '58%',
             maxWidth:
               305,
-            height: 260,
+            height:
+              260,
           }}
         >
           {segmentos.map(
@@ -2581,7 +2857,10 @@ function GraficoStock({
           }}
         >
           {datos.map(
-            (dato, indice) => (
+            (
+              dato,
+              indice
+            ) => (
               <div
                 key={
                   dato.nombre
@@ -2596,8 +2875,10 @@ function GraficoStock({
               >
                 <span
                   style={{
-                    width: 12,
-                    height: 12,
+                    width:
+                      12,
+                    height:
+                      12,
                     borderRadius:
                       '50%',
                     background:
@@ -2605,7 +2886,8 @@ function GraficoStock({
                         indice %
                           coloresSegmentos.length
                       ],
-                    flexShrink: 0,
+                    flexShrink:
+                      0,
                   }}
                 />
 
@@ -2634,7 +2916,8 @@ function GraficoStock({
 
                   <div
                     style={{
-                      marginTop: 2,
+                      marginTop:
+                        2,
                       fontSize:
                         12,
                     }}
@@ -2650,64 +2933,6 @@ function GraficoStock({
         </div>
       </div>
     </ChartCard>
-  );
-}
-
-// =====================================================
-// CONTENEDOR DE GRÁFICO
-// =====================================================
-
-function ChartCard({
-  titulo,
-  subtitulo,
-  children,
-}: {
-  titulo: string;
-  subtitulo: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        border:
-          '1px solid #e5e7eb',
-        borderRadius: 18,
-        padding: 18,
-        background:
-          '#fbfcfd',
-      }}
-    >
-      <div
-        style={{
-          marginBottom:
-            6,
-        }}
-      >
-        <div
-          style={{
-            color:
-              COLORES_BASE.gris,
-            fontSize: 16,
-            fontWeight: 800,
-          }}
-        >
-          {titulo}
-        </div>
-
-        <div
-          style={{
-            color:
-              '#94a3b8',
-            fontSize: 12,
-            marginTop: 3,
-          }}
-        >
-          {subtitulo}
-        </div>
-      </div>
-
-      {children}
-    </div>
   );
 }
 
@@ -2731,16 +2956,20 @@ function InfoCard({
           '#f8fafc',
         borderRadius:
           14,
-        padding: 14,
+        padding:
+          14,
         border:
           '1px solid #e5e7eb',
       }}
     >
       <div
         style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: 1,
+          fontSize:
+            10,
+          fontWeight:
+            700,
+          letterSpacing:
+            1,
           color,
           marginBottom:
             5,
@@ -2751,8 +2980,10 @@ function InfoCard({
 
       <div
         style={{
-          fontSize: 13,
-          fontWeight: 600,
+          fontSize:
+            13,
+          fontWeight:
+            600,
           color:
             COLORES_BASE.azul,
           lineHeight:
@@ -2785,10 +3016,12 @@ function ResumenCard({
           COLORES_BASE.blanco,
         borderRadius:
           20,
-        padding: 20,
+        padding:
+          20,
         border:
           '1px solid #e5e7eb',
-        minHeight: 112,
+        minHeight:
+          112,
         display:
           'flex',
         flexDirection:
@@ -2801,7 +3034,8 @@ function ResumenCard({
         style={{
           color:
             COLORES_BASE.gris,
-          fontSize: 13,
+          fontSize:
+            13,
         }}
       >
         {titulo}
@@ -2810,7 +3044,8 @@ function ResumenCard({
       <strong
         style={{
           color,
-          fontSize: 23,
+          fontSize:
+            23,
         }}
       >
         {valor}
@@ -2870,7 +3105,8 @@ function BotonAcceso({
         textAlign:
           'center',
 
-        fontWeight: 700,
+        fontWeight:
+          700,
 
         boxShadow:
           principal
@@ -2893,8 +3129,10 @@ function formatearNumero(
   return valor.toLocaleString(
     'es-AR',
     {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits:
+        2,
+      maximumFractionDigits:
+        2,
     }
   );
 }
@@ -2910,16 +3148,21 @@ function formatearPeriodo(
     valor.split('-');
 
   if (
-    partes.length < 2
+    partes.length <
+    2
   ) {
     return valor;
   }
 
   const year =
-    Number(partes[0]);
+    Number(
+      partes[0]
+    );
 
   const month =
-    Number(partes[1]);
+    Number(
+      partes[1]
+    );
 
   if (
     !year ||
@@ -2935,8 +3178,10 @@ function formatearPeriodo(
   ).toLocaleDateString(
     'es-AR',
     {
-      month: 'long',
-      year: 'numeric',
+      month:
+        'long',
+      year:
+        'numeric',
     }
   );
 }
