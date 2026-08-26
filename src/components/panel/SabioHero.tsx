@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+
 const SABIO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
 
@@ -23,52 +25,80 @@ export function SabioHero({
   subtitulo: string;
   hoy: string;
 }) {
+  const sabioRef =
+    useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const elemento =
+      sabioRef.current;
+
+    if (!elemento) {
+      return;
+    }
+
+    const animacion =
+      elemento.animate(
+        [
+          {
+            transform:
+              'translateY(10px)',
+          },
+          {
+            transform:
+              'translateY(-10px)',
+          },
+          {
+            transform:
+              'translateY(10px)',
+          },
+        ],
+        {
+          duration: 3800,
+          iterations: Infinity,
+          easing:
+            'ease-in-out',
+        }
+      );
+
+    return () => {
+      animacion.cancel();
+    };
+  }, []);
+
   return (
     <section
       style={{
-        background: `linear-gradient(
-          125deg,
-          ${colores.azul} 0%,
-          ${colores.azul} 58%,
-          ${colores.verde} 100%
-        )`,
-        color: colores.blanco,
+        background:
+          `linear-gradient(
+            125deg,
+            ${colores.azul} 0%,
+            ${colores.azul} 58%,
+            ${colores.verde} 100%
+          )`,
+        color:
+          colores.blanco,
         borderRadius: 28,
-        padding: '30px 32px',
+        padding:
+          '30px 32px',
         marginBottom: 20,
         boxShadow:
           '0 18px 40px rgba(31,58,95,0.16)',
       }}
     >
-      <style>{`
-        @keyframes sabioFlota {
-          0% {
-            transform: translateY(10px);
-          }
-
-          50% {
-            transform: translateY(-10px);
-          }
-
-          100% {
-            transform: translateY(10px);
-          }
-        }
-      `}</style>
-
       <div
         style={{
-          display: 'flex',
+          display:
+            'flex',
           justifyContent:
             'space-between',
-          alignItems: 'center',
+          alignItems:
+            'center',
           gap: 24,
-          flexWrap: 'wrap',
+          flexWrap:
+            'wrap',
         }}
       >
-        {/* =================================================
-            TEXTO DEL NEGOCIO
-        ================================================== */}
+        {/* TEXTO */}
 
         <div
           style={{
@@ -81,7 +111,8 @@ export function SabioHero({
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: 1.4,
-              textTransform: 'uppercase',
+              textTransform:
+                'uppercase',
               opacity: 0.75,
               marginBottom: 8,
             }}
@@ -100,7 +131,8 @@ export function SabioHero({
 
           <p
             style={{
-              margin: '10px 0 0',
+              margin:
+                '10px 0 0',
               fontSize: 19,
               fontWeight: 600,
             }}
@@ -110,7 +142,8 @@ export function SabioHero({
 
           <p
             style={{
-              margin: '6px 0 0',
+              margin:
+                '6px 0 0',
               opacity: 0.82,
               fontSize: 14,
             }}
@@ -120,7 +153,8 @@ export function SabioHero({
 
           <p
             style={{
-              margin: '10px 0 0',
+              margin:
+                '10px 0 0',
               opacity: 0.68,
               fontSize: 12,
             }}
@@ -129,9 +163,7 @@ export function SabioHero({
           </p>
         </div>
 
-        {/* =================================================
-            SABIO
-        ================================================== */}
+        {/* SABIO */}
 
         <div
           style={{
@@ -142,13 +174,19 @@ export function SabioHero({
               'rgba(255,255,255,0.10)',
             border:
               '1px solid rgba(255,255,255,0.18)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px 18px',
+            display:
+              'flex',
+            flexDirection:
+              'column',
+            alignItems:
+              'center',
+            justifyContent:
+              'center',
+            padding:
+              '16px 18px',
             flexShrink: 0,
-            overflow: 'visible',
+            overflow:
+              'visible',
           }}
         >
           <div
@@ -163,22 +201,25 @@ export function SabioHero({
             SABIO
           </div>
 
-          {/* CONTENEDOR ANIMADO */}
           <div
+            ref={sabioRef}
             style={{
-              position: 'relative',
+              position:
+                'relative',
               width: 210,
               height: 180,
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              overflow: 'visible',
-              animation:
-                'sabioFlota 3.8s ease-in-out infinite',
-              willChange: 'transform',
+              display:
+                'flex',
+              alignItems:
+                'flex-end',
+              justifyContent:
+                'center',
+              overflow:
+                'visible',
+              willChange:
+                'transform',
             }}
           >
-            {/* IMAGEN SIN TRANSFORM */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={SABIO_URL}
@@ -186,8 +227,10 @@ export function SabioHero({
               style={{
                 width: 205,
                 height: 205,
-                objectFit: 'contain',
-                display: 'block',
+                objectFit:
+                  'contain',
+                display:
+                  'block',
                 filter:
                   'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
               }}
@@ -200,7 +243,8 @@ export function SabioHero({
               fontSize: 13,
               fontWeight: 600,
               opacity: 0.9,
-              textAlign: 'center',
+              textAlign:
+                'center',
             }}
           >
             Tu compañero financiero
