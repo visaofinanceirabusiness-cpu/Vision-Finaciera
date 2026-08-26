@@ -63,26 +63,24 @@ type ObjetivoDashboard = ObjetivoEmpresa & {
   porcentaje: number;
 };
 
-type ResumenEjecutivo = {
-  activos: number;
-  pasivos: number;
-  capital: number;
-  ingresos: number;
-  lucro: number;
-  rentabilidad: number;
-  liquidez: number;
+type DatosVentaMes = {
+  mes: string;
+  valor: number;
+};
+
+type DatosCategoria = {
+  nombre: string;
+  valor: number;
 };
 
 const DATOS_DEMO = {
-  resumen: {
-    activos: 983,
-    pasivos: 0,
-    capital: 180,
-    ingresos: 2288,
-    lucro: 933,
-    rentabilidad: 41,
-    liquidez: 655.52,
-  } satisfies ResumenEjecutivo,
+  activos: 983,
+  pasivos: 0,
+  capital: 180,
+  ingresos: 2288,
+  lucro: 933,
+  rentabilidad: 41,
+  liquidez: 655.52,
 
   ventasMensuales: [
     { mes: 'Abr', valor: 1890 },
@@ -110,30 +108,20 @@ const DATOS_DEMO = {
 export default function MiNegocioPage() {
   const router = useRouter();
 
-  const [perfil, setPerfil] =
-    useState<Perfil | null>(null);
-
-  const [empresa, setEmpresa] =
-    useState<Empresa | null>(null);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [empresa, setEmpresa] = useState<Empresa | null>(null);
 
   const [configuracion, setConfiguracion] =
-    useState<ConfiguracionDashboard | null>(
-      null
-    );
+    useState<ConfiguracionDashboard | null>(null);
 
   const [gamificacion, setGamificacion] =
-    useState<ProgresoGamificacion | null>(
-      null
-    );
+    useState<ProgresoGamificacion | null>(null);
 
   const [objetivos, setObjetivos] =
     useState<ObjetivoDashboard[]>([]);
 
-  const [cargando, setCargando] =
-    useState(true);
-
-  const [error, setError] =
-    useState('');
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     async function cargar() {
@@ -147,22 +135,17 @@ export default function MiNegocioPage() {
         return;
       }
 
-      // =================================================
+      // =====================================================
       // PERFIL
-      // =================================================
+      // =====================================================
 
       const {
         data: perfilData,
         error: errorPerfil,
       } = await supabase
         .from('perfiles')
-        .select(
-          'nombre, empresa_id, rol'
-        )
-        .eq(
-          'id',
-          userData.user.id
-        )
+        .select('nombre, empresa_id, rol')
+        .eq('id', userData.user.id)
         .maybeSingle();
 
       if (
@@ -178,22 +161,17 @@ export default function MiNegocioPage() {
 
       setPerfil(perfilData);
 
-      // =================================================
+      // =====================================================
       // EMPRESA
-      // =================================================
+      // =====================================================
 
       const {
         data: empresaData,
         error: errorEmpresa,
       } = await supabase
         .from('empresas')
-        .select(
-          'nombre, rubro, logo_url'
-        )
-        .eq(
-          'id',
-          perfilData.empresa_id
-        )
+        .select('nombre, rubro, logo_url')
+        .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
       if (errorEmpresa) {
@@ -206,17 +184,16 @@ export default function MiNegocioPage() {
 
       setEmpresa(empresaData);
 
-      // =================================================
-      // CONFIGURACIÓN VISUAL
-      // =================================================
+      // =====================================================
+      // CONFIGURACIÓN DEL DASHBOARD
+      // =====================================================
 
       const {
         data: configData,
         error: errorConfig,
       } = await supabase
         .from('configuracion_dashboard')
-        .select(
-          `
+        .select(`
           color_primario,
           color_secundario,
           color_acento,
@@ -225,12 +202,8 @@ export default function MiNegocioPage() {
           mostrar_gamificacion,
           mostrar_objetivos,
           mostrar_graficos
-          `
-        )
-        .eq(
-          'empresa_id',
-          perfilData.empresa_id
-        )
+        `)
+        .eq('empresa_id', perfilData.empresa_id)
         .maybeSingle();
 
       if (errorConfig) {
@@ -240,33 +213,23 @@ export default function MiNegocioPage() {
         );
       }
 
-      const configFinal =
+      const configFinal: ConfiguracionDashboard =
         configData ?? {
-          color_primario:
-            COLORES_BASE.azul,
-          color_secundario:
-            COLORES_BASE.verde,
-          color_acento:
-            COLORES_BASE.gris,
-          mensaje_bienvenida:
-            null,
-          subtitulo_dashboard:
-            null,
-          mostrar_gamificacion:
-            true,
-          mostrar_objetivos:
-            true,
-          mostrar_graficos:
-            true,
+          color_primario: COLORES_BASE.azul,
+          color_secundario: COLORES_BASE.verde,
+          color_acento: COLORES_BASE.gris,
+          mensaje_bienvenida: null,
+          subtitulo_dashboard: null,
+          mostrar_gamificacion: true,
+          mostrar_objetivos: true,
+          mostrar_graficos: true,
         };
 
-      setConfiguracion(
-        configFinal
-      );
+      setConfiguracion(configFinal);
 
-      // =================================================
+      // =====================================================
       // GAMIFICACIÓN
-      // =================================================
+      // =====================================================
 
       let progresoGamificacion:
         | ProgresoGamificacion
@@ -287,17 +250,14 @@ export default function MiNegocioPage() {
           errorGamificacion
         );
 
-        setGamificacion(
-          null
-        );
+        setGamificacion(null);
       }
 
-      // =================================================
-      // OBJETIVOS
-      // =================================================
+      // =====================================================
+      // OBJETIVOS DEL MES
+      // =====================================================
 
-      const fechaActual =
-        new Date();
+      const fechaActual = new Date();
 
       const periodoActual =
         `${fechaActual.getFullYear()}-${String(
@@ -309,34 +269,23 @@ export default function MiNegocioPage() {
         error: errorObjetivos,
       } = await supabase
         .from('objetivos_empresa')
-        .select(
-          `
+        .select(`
           id,
           periodo,
           indicador,
           objetivo,
           unidad,
           activo
-          `
-        )
+        `)
         .eq(
           'empresa_id',
           perfilData.empresa_id
         )
-        .eq(
-          'periodo',
-          periodoActual
-        )
-        .eq(
-          'activo',
-          true
-        )
-        .order(
-          'indicador',
-          {
-            ascending: true,
-          }
-        );
+        .eq('periodo', periodoActual)
+        .eq('activo', true)
+        .order('indicador', {
+          ascending: true,
+        });
 
       if (errorObjetivos) {
         console.warn(
@@ -347,40 +296,38 @@ export default function MiNegocioPage() {
         setObjetivos([]);
       } else {
         const objetivosCalculados =
-          (
-            (objetivosData ??
-              []) as ObjetivoEmpresa[]
-          ).map((objetivo) => {
-            const resultado =
-              obtenerResultadoObjetivo(
-                objetivo,
-                progresoGamificacion
-              );
+          ((objetivosData ?? []) as ObjetivoEmpresa[])
+            .map((objetivo) => {
+              const resultado =
+                obtenerResultadoObjetivo(
+                  objetivo,
+                  progresoGamificacion
+                );
 
-            const porcentaje =
-              objetivo.objetivo > 0
-                ? Math.min(
-                    100,
-                    Math.max(
-                      0,
-                      (resultado /
-                        Number(
-                          objetivo.objetivo
-                        )) *
-                        100
+              const porcentaje =
+                objetivo.objetivo > 0
+                  ? Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        (resultado /
+                          Number(
+                            objetivo.objetivo
+                          )) *
+                          100
+                      )
                     )
-                  )
-                : 0;
+                  : 0;
 
-            return {
-              ...objetivo,
-              resultado,
-              porcentaje:
-                Number(
-                  porcentaje.toFixed(2)
-                ),
-            };
-          });
+              return {
+                ...objetivo,
+                resultado,
+                porcentaje:
+                  Number(
+                    porcentaje.toFixed(2)
+                  ),
+              };
+            });
 
         setObjetivos(
           objetivosCalculados
@@ -392,6 +339,10 @@ export default function MiNegocioPage() {
 
     cargar();
   }, [router]);
+
+  // =======================================================
+  // CARGANDO
+  // =======================================================
 
   if (cargando) {
     return (
@@ -411,21 +362,24 @@ export default function MiNegocioPage() {
     );
   }
 
+  // =======================================================
+  // CONFIGURACIÓN VISUAL
+  // =======================================================
+
   const colores = {
     azul:
-      configuracion?.color_primario ||
+      configuracion?.color_primario ??
       COLORES_BASE.azul,
 
     verde:
-      configuracion?.color_secundario ||
+      configuracion?.color_secundario ??
       COLORES_BASE.verde,
 
     acento:
-      configuracion?.color_acento ||
+      configuracion?.color_acento ??
       COLORES_BASE.gris,
 
-    blanco:
-      COLORES_BASE.blanco,
+    blanco: COLORES_BASE.blanco,
   };
 
   const hoy =
@@ -453,13 +407,11 @@ export default function MiNegocioPage() {
     );
 
   const mensajeBienvenida =
-    configuracion?.mensaje_bienvenida ||
-    `Hola, ${
-      perfil?.nombre ?? ''
-    } 👋`;
+    configuracion?.mensaje_bienvenida ??
+    `Hola, ${perfil?.nombre ?? ''} 👋`;
 
   const subtitulo =
-    configuracion?.subtitulo_dashboard ||
+    configuracion?.subtitulo_dashboard ??
     'Tu negocio, tus números y tus próximos objetivos.';
 
   return (
@@ -478,14 +430,13 @@ export default function MiNegocioPage() {
         }}
       >
         {/* =================================================
-            BARRA SUPERIOR
-        ================================================= */}
+            CABECERA
+        ================================================== */}
 
         <div
           style={{
             display: 'flex',
-            justifyContent:
-              'space-between',
+            justifyContent: 'space-between',
             alignItems: 'center',
             gap: 16,
             marginBottom: 16,
@@ -495,8 +446,7 @@ export default function MiNegocioPage() {
           <div
             style={{
               display: 'flex',
-              alignItems:
-                'center',
+              alignItems: 'center',
               gap: 12,
             }}
           >
@@ -505,31 +455,26 @@ export default function MiNegocioPage() {
                 width: 46,
                 height: 46,
                 borderRadius: 14,
-                background:
-                  colores.blanco,
+                background: colores.blanco,
                 border:
                   `2px solid ${colores.acento}`,
                 display: 'flex',
-                alignItems:
-                  'center',
-                justifyContent:
-                  'center',
-                overflow:
-                  'hidden',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
               }}
             >
               {logoDisponible ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={
-                    empresa!.logo_url!
+                  src={empresa!.logo_url!}
+                  alt={
+                    `Logo de ${empresa?.nombre ?? 'empresa'}`
                   }
-                  alt={`Logo de ${empresa?.nombre}`}
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit:
-                      'contain',
+                    objectFit: 'contain',
                   }}
                 />
               ) : (
@@ -537,13 +482,11 @@ export default function MiNegocioPage() {
                   style={{
                     fontSize: 19,
                     fontWeight: 800,
-                    color:
-                      colores.azul,
+                    color: colores.azul,
                   }}
                 >
                   {(
-                    empresa?.nombre ||
-                    'M'
+                    empresa?.nombre ?? 'M'
                   )
                     .charAt(0)
                     .toUpperCase()}
@@ -555,22 +498,20 @@ export default function MiNegocioPage() {
               <div
                 style={{
                   fontWeight: 800,
-                  color:
-                    colores.azul,
+                  color: colores.azul,
                 }}
               >
-                {empresa?.nombre ||
+                {empresa?.nombre ??
                   'Mi Negocio'}
               </div>
 
               <div
                 style={{
                   fontSize: 12,
-                  color:
-                    COLORES_BASE.gris,
+                  color: COLORES_BASE.gris,
                 }}
               >
-                {empresa?.rubro ||
+                {empresa?.rubro ??
                   'Gestión financiera'}
               </div>
             </div>
@@ -579,22 +520,17 @@ export default function MiNegocioPage() {
           <button
             onClick={async () => {
               await supabase.auth.signOut();
-              router.push(
-                '/login'
-              );
+              router.push('/login');
             }}
             style={{
-              background:
-                colores.blanco,
+              background: colores.blanco,
               border:
                 '1px solid #d1d5db',
               borderRadius: 12,
               padding:
                 '10px 14px',
-              cursor:
-                'pointer',
-              color:
-                colores.azul,
+              cursor: 'pointer',
+              color: colores.azul,
               fontWeight: 600,
             }}
           >
@@ -604,17 +540,15 @@ export default function MiNegocioPage() {
 
         {/* =================================================
             HERO
-        ================================================= */}
+        ================================================== */}
 
         <section
           style={{
             background:
               `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
-            color:
-              colores.blanco,
+            color: colores.blanco,
             borderRadius: 26,
-            padding:
-              '28px 30px',
+            padding: '28px 30px',
             marginBottom: 20,
             boxShadow:
               '0 18px 40px rgba(31,58,95,0.16)',
@@ -623,13 +557,10 @@ export default function MiNegocioPage() {
           <div
             style={{
               display: 'flex',
-              justifyContent:
-                'space-between',
-              alignItems:
-                'center',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               gap: 24,
-              flexWrap:
-                'wrap',
+              flexWrap: 'wrap',
             }}
           >
             <div>
@@ -637,10 +568,8 @@ export default function MiNegocioPage() {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  letterSpacing:
-                    1.4,
-                  textTransform:
-                    'uppercase',
+                  letterSpacing: 1.4,
+                  textTransform: 'uppercase',
                   opacity: 0.75,
                   marginBottom: 8,
                 }}
@@ -659,8 +588,7 @@ export default function MiNegocioPage() {
 
               <p
                 style={{
-                  margin:
-                    '10px 0 0',
+                  margin: '10px 0 0',
                   fontSize: 18,
                   fontWeight: 600,
                 }}
@@ -670,8 +598,7 @@ export default function MiNegocioPage() {
 
               <p
                 style={{
-                  margin:
-                    '6px 0 0',
+                  margin: '6px 0 0',
                   opacity: 0.82,
                   fontSize: 14,
                 }}
@@ -681,8 +608,7 @@ export default function MiNegocioPage() {
 
               <p
                 style={{
-                  margin:
-                    '10px 0 0',
+                  margin: '10px 0 0',
                   opacity: 0.68,
                   fontSize: 12,
                 }}
@@ -694,26 +620,22 @@ export default function MiNegocioPage() {
             <div
               style={{
                 minWidth: 170,
-                padding:
-                  '16px 20px',
+                padding: '16px 20px',
                 borderRadius: 20,
                 background:
                   'rgba(255,255,255,0.10)',
                 border:
                   '1px solid rgba(255,255,255,0.16)',
-                textAlign:
-                  'center',
+                textAlign: 'center',
               }}
             >
               <div
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  letterSpacing:
-                    1.2,
+                  letterSpacing: 1.2,
                   opacity: 0.72,
-                  marginBottom:
-                    8,
+                  marginBottom: 8,
                 }}
               >
                 SABIO
@@ -735,16 +657,15 @@ export default function MiNegocioPage() {
                   opacity: 0.85,
                 }}
               >
-                Tu compañero
-                financiero
+                Tu compañero financiero
               </div>
             </div>
           </div>
         </section>
 
         {/* =================================================
-            RESUMEN RÁPIDO
-        ================================================= */}
+            TARJETAS SUPERIORES
+        ================================================== */}
 
         <div
           style={{
@@ -758,17 +679,13 @@ export default function MiNegocioPage() {
           <ResumenCard
             titulo="Ventas hoy"
             valor="R$ 0,00"
-            color={
-              colores.verde
-            }
+            color={colores.verde}
           />
 
           <ResumenCard
             titulo="Caja disponible"
             valor="R$ 0,00"
-            color={
-              colores.azul
-            }
+            color={colores.azul}
           />
 
           <ResumenCard
@@ -780,21 +697,18 @@ export default function MiNegocioPage() {
           <ResumenCard
             titulo="Stock bajo"
             valor="0 productos"
-            color={
-              colores.acento
-            }
+            color={colores.acento}
           />
         </div>
 
         {/* =================================================
             RESUMEN EJECUTIVO
-        ================================================= */}
+        ================================================== */}
 
         {configuracion?.mostrar_graficos && (
           <section
             style={{
-              background:
-                colores.blanco,
+              background: colores.blanco,
               borderRadius: 24,
               padding: 24,
               marginBottom: 20,
@@ -809,35 +723,29 @@ export default function MiNegocioPage() {
                 display: 'flex',
                 justifyContent:
                   'space-between',
-                alignItems:
-                  'flex-start',
+                alignItems: 'flex-start',
                 gap: 16,
-                flexWrap:
-                  'wrap',
+                flexWrap: 'wrap',
                 marginBottom: 20,
               }}
             >
               <div>
-                <p
+                <div
                   style={{
-                    margin:
-                      '0 0 5px',
+                    marginBottom: 5,
                     fontSize: 10,
                     fontWeight: 700,
-                    letterSpacing:
-                      1.3,
-                    color:
-                      colores.verde,
+                    letterSpacing: 1.3,
+                    color: colores.verde,
                   }}
                 >
                   INFORMACIÓN EJECUTIVA
-                </p>
+                </div>
 
                 <h2
                   style={{
                     margin: 0,
-                    color:
-                      colores.azul,
+                    color: colores.azul,
                     fontSize: 23,
                   }}
                 >
@@ -846,17 +754,14 @@ export default function MiNegocioPage() {
 
                 <p
                   style={{
-                    margin:
-                      '5px 0 0',
+                    margin: '5px 0 0',
                     fontSize: 12,
-                    color:
-                      COLORES_BASE.gris,
+                    color: COLORES_BASE.gris,
                   }}
                 >
-                  Vista de demostración ·
-                  Próximamente conectada
-                  a los datos contables
-                  reales.
+                  Datos de demostración ·
+                  Próximamente conectados
+                  a la información contable real.
                 </p>
               </div>
 
@@ -864,14 +769,14 @@ export default function MiNegocioPage() {
                 style={{
                   padding:
                     '8px 12px',
-                  borderRadius:
-                    999,
+                  borderRadius: 999,
                   background:
                     `${colores.azul}10`,
-                  color:
-                    colores.azul,
+                  color: colores.azul,
                   fontSize: 11,
                   fontWeight: 700,
+                  textTransform:
+                    'capitalize',
                 }}
               >
                 {periodoTexto}
@@ -882,26 +787,24 @@ export default function MiNegocioPage() {
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 14,
-                marginBottom: 20,
+                  'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: 12,
+                marginBottom: 18,
               }}
             >
               <ResumenEjecutivoCard
                 titulo="Activos"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.activos
+                  DATOS_DEMO.activos
                 )}`}
                 emoji="💚"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Pasivos"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.pasivos
+                  DATOS_DEMO.pasivos
                 )}`}
                 emoji="💗"
                 color="#b91c1c"
@@ -910,49 +813,41 @@ export default function MiNegocioPage() {
               <ResumenEjecutivoCard
                 titulo="Capital"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.capital
+                  DATOS_DEMO.capital
                 )}`}
                 emoji="💙"
-                color={
-                  colores.azul
-                }
+                color={colores.azul}
               />
 
               <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.ingresos
+                  DATOS_DEMO.ingresos
                 )}`}
                 emoji="💵"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Lucro"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.lucro
+                  DATOS_DEMO.lucro
                 )}`}
                 emoji="💰"
-                color={
-                  colores.azul
-                }
+                color={colores.azul}
               />
 
               <ResumenEjecutivoCard
                 titulo="Rentabilidad"
-                valor={`${DATOS_DEMO.resumen.rentabilidad}%`}
+                valor={`${DATOS_DEMO.rentabilidad}%`}
                 emoji="📈"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Liquidez disponible"
                 valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.resumen.liquidez
+                  DATOS_DEMO.liquidez
                 )}`}
                 emoji="💧"
                 color="#ca8a04"
@@ -971,9 +866,7 @@ export default function MiNegocioPage() {
                 datos={
                   DATOS_DEMO.ventasMensuales
                 }
-                color={
-                  colores.acento
-                }
+                color={colores.acento}
                 colorSecundario={
                   colores.azul
                 }
@@ -983,18 +876,14 @@ export default function MiNegocioPage() {
                 datos={
                   DATOS_DEMO.ventasCategorias
                 }
-                color={
-                  colores.acento
-                }
+                color={colores.acento}
               />
 
               <GraficoStock
                 datos={
                   DATOS_DEMO.stockCategorias
                 }
-                color={
-                  colores.acento
-                }
+                color={colores.acento}
               />
             </div>
           </section>
@@ -1002,13 +891,12 @@ export default function MiNegocioPage() {
 
         {/* =================================================
             OBJETIVOS DEL MES
-        ================================================= */}
+        ================================================== */}
 
         {configuracion?.mostrar_objetivos && (
           <section
             style={{
-              background:
-                colores.blanco,
+              background: colores.blanco,
               borderRadius: 24,
               padding: 24,
               marginBottom: 20,
@@ -1023,36 +911,29 @@ export default function MiNegocioPage() {
                 display: 'flex',
                 justifyContent:
                   'space-between',
-                alignItems:
-                  'center',
+                alignItems: 'center',
                 gap: 16,
-                flexWrap:
-                  'wrap',
-                marginBottom:
-                  18,
+                flexWrap: 'wrap',
+                marginBottom: 18,
               }}
             >
               <div>
-                <p
+                <div
                   style={{
-                    margin:
-                      '0 0 5px',
+                    marginBottom: 5,
                     fontSize: 10,
                     fontWeight: 700,
-                    letterSpacing:
-                      1.3,
-                    color:
-                      colores.verde,
+                    letterSpacing: 1.3,
+                    color: colores.verde,
                   }}
                 >
                   GESTIÓN
-                </p>
+                </div>
 
                 <h2
                   style={{
                     margin: 0,
-                    color:
-                      colores.azul,
+                    color: colores.azul,
                     fontSize: 22,
                   }}
                 >
@@ -1061,11 +942,9 @@ export default function MiNegocioPage() {
 
                 <p
                   style={{
-                    margin:
-                      '5px 0 0',
+                    margin: '5px 0 0',
                     fontSize: 12,
-                    color:
-                      COLORES_BASE.gris,
+                    color: COLORES_BASE.gris,
                     textTransform:
                       'capitalize',
                   }}
@@ -1078,12 +957,10 @@ export default function MiNegocioPage() {
                 style={{
                   padding:
                     '8px 12px',
-                  borderRadius:
-                    999,
+                  borderRadius: 999,
                   background:
                     `${colores.verde}14`,
-                  color:
-                    colores.verde,
+                  color: colores.verde,
                   fontSize: 11,
                   fontWeight: 700,
                 }}
@@ -1099,16 +976,14 @@ export default function MiNegocioPage() {
                   border:
                     '1px dashed #d6dee5',
                   borderRadius: 14,
-                  textAlign:
-                    'center',
+                  textAlign: 'center',
                   color:
                     COLORES_BASE.gris,
                   fontSize: 13,
                 }}
               >
-                No hay objetivos
-                configurados para
-                este período.
+                No hay objetivos configurados
+                para este período.
               </div>
             ) : (
               <div
@@ -1122,12 +997,8 @@ export default function MiNegocioPage() {
                 {objetivos.map(
                   (objetivo) => (
                     <ObjetivoCard
-                      key={
-                        objetivo.id
-                      }
-                      objetivo={
-                        objetivo
-                      }
+                      key={objetivo.id}
+                      objetivo={objetivo}
                       colorPrimario={
                         colores.azul
                       }
@@ -1147,14 +1018,13 @@ export default function MiNegocioPage() {
 
         {/* =================================================
             GAMIFICACIÓN
-        ================================================= */}
+        ================================================== */}
 
         {configuracion?.mostrar_gamificacion &&
           gamificacion && (
             <section
               style={{
-                background:
-                  colores.blanco,
+                background: colores.blanco,
                 borderRadius: 24,
                 padding: 24,
                 marginBottom: 20,
@@ -1172,8 +1042,7 @@ export default function MiNegocioPage() {
                   alignItems:
                     'flex-start',
                   gap: 20,
-                  flexWrap:
-                    'wrap',
+                  flexWrap: 'wrap',
                 }}
               >
                 <div
@@ -1186,12 +1055,9 @@ export default function MiNegocioPage() {
                     style={{
                       fontSize: 11,
                       fontWeight: 700,
-                      color:
-                        colores.verde,
-                      letterSpacing:
-                        1.3,
-                      marginBottom:
-                        6,
+                      color: colores.verde,
+                      letterSpacing: 1.3,
+                      marginBottom: 6,
                     }}
                   >
                     PROGRESO DE TU NEGOCIO
@@ -1200,56 +1066,42 @@ export default function MiNegocioPage() {
                   <h2
                     style={{
                       margin: 0,
-                      color:
-                        colores.azul,
+                      color: colores.azul,
                       fontSize: 23,
                     }}
                   >
-                    {
-                      gamificacion.emoji
-                    }{' '}
+                    {gamificacion.emoji}{' '}
                     Nivel{' '}
-                    {
-                      gamificacion.nivel
-                    }{' '}
+                    {gamificacion.nivel}{' '}
                     ·{' '}
-                    {
-                      gamificacion.nombre
-                    }
+                    {gamificacion.nombre}
                   </h2>
 
                   <p
                     style={{
-                      margin:
-                        '8px 0 0',
+                      margin: '8px 0 0',
                       color:
                         COLORES_BASE.gris,
                       fontSize: 14,
                     }}
                   >
-                    {
-                      gamificacion.mensaje
-                    }
+                    {gamificacion.mensaje}
                   </p>
                 </div>
 
                 <div
                   style={{
-                    textAlign:
-                      'right',
+                    textAlign: 'right',
                     minWidth: 170,
                   }}
                 >
                   <strong
                     style={{
-                      color:
-                        colores.azul,
+                      color: colores.azul,
                       fontSize: 24,
                     }}
                   >
-                    {
-                      gamificacion.operaciones
-                    }
+                    {gamificacion.operaciones}
                   </strong>
 
                   <div
@@ -1259,8 +1111,7 @@ export default function MiNegocioPage() {
                         COLORES_BASE.gris,
                     }}
                   >
-                    operaciones
-                    registradas
+                    operaciones registradas
                   </div>
                 </div>
               </div>
@@ -1282,35 +1133,28 @@ export default function MiNegocioPage() {
                       COLORES_BASE.gris,
                   }}
                 >
-                  <span>
-                    Progreso
-                  </span>
+                  <span>Progreso</span>
 
                   <span>
-                    {
-                      gamificacion.progreso
-                    }
-                    %
+                    {gamificacion.progreso}%
                   </span>
                 </div>
 
                 <div
                   style={{
                     height: 12,
-                    borderRadius:
-                      999,
+                    borderRadius: 999,
                     background:
                       '#e7edf1',
-                    overflow:
-                      'hidden',
+                    overflow: 'hidden',
                   }}
                 >
                   <div
                     style={{
-                      width: `${gamificacion.progreso}%`,
+                      width:
+                        `${gamificacion.progreso}%`,
                       height: '100%',
-                      borderRadius:
-                        999,
+                      borderRadius: 999,
                       background:
                         `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
                       transition:
@@ -1331,12 +1175,8 @@ export default function MiNegocioPage() {
               >
                 <InfoCard
                   etiqueta="Misión"
-                  valor={
-                    gamificacion.mision
-                  }
-                  color={
-                    colores.verde
-                  }
+                  valor={gamificacion.mision}
+                  color={colores.verde}
                 />
 
                 <InfoCard
@@ -1350,9 +1190,7 @@ export default function MiNegocioPage() {
                           1
                         } operaciones`
                   }
-                  color={
-                    colores.azul
-                  }
+                  color={colores.azul}
                 />
 
                 <InfoCard
@@ -1363,9 +1201,7 @@ export default function MiNegocioPage() {
                       ? '0 operaciones'
                       : `${gamificacion.faltan} operaciones`
                   }
-                  color={
-                    colores.acento
-                  }
+                  color={colores.acento}
                 />
               </div>
             </section>
@@ -1373,12 +1209,11 @@ export default function MiNegocioPage() {
 
         {/* =================================================
             HERRAMIENTAS
-        ================================================= */}
+        ================================================== */}
 
         <section
           style={{
-            background:
-              colores.blanco,
+            background: colores.blanco,
             borderRadius: 24,
             padding: 24,
             border:
@@ -1387,30 +1222,25 @@ export default function MiNegocioPage() {
         >
           <div
             style={{
-              marginBottom:
-                16,
+              marginBottom: 16,
             }}
           >
-            <p
+            <div
               style={{
-                margin:
-                  '0 0 4px',
+                marginBottom: 4,
                 fontSize: 10,
                 fontWeight: 700,
-                letterSpacing:
-                  1.3,
-                color:
-                  colores.verde,
+                letterSpacing: 1.3,
+                color: colores.verde,
               }}
             >
               GESTIÓN
-            </p>
+            </div>
 
             <h2
               style={{
                 margin: 0,
-                color:
-                  colores.azul,
+                color: colores.azul,
                 fontSize: 21,
               }}
             >
@@ -1430,42 +1260,32 @@ export default function MiNegocioPage() {
               href="/lanzamientos"
               titulo="Central de Lanzamientos"
               principal
-              colorPrincipal={
-                colores.verde
-              }
+              colorPrincipal={colores.verde}
             />
 
             <BotonAcceso
               href="/registros"
               titulo="Registro de Operaciones"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
 
             <BotonAcceso
               href="/stock"
               titulo="Saldo de Stock"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
 
             <BotonAcceso
               href="/movimientos-stock"
               titulo="Movimientos de Stock"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
 
             <BotonAcceso
               href="/libro-diario"
               titulo="Libro Diario"
               destacado
-              colorPrincipal={
-                colores.verde
-              }
+              colorPrincipal={colores.verde}
             />
           </div>
         </section>
@@ -1475,14 +1295,12 @@ export default function MiNegocioPage() {
 }
 
 // =====================================================
-// RESULTADO TEMPORAL DE OBJETIVOS
+// RESULTADO DE OBJETIVO
 // =====================================================
 
 function obtenerResultadoObjetivo(
   objetivo: ObjetivoEmpresa,
-  gamificacion:
-    | ProgresoGamificacion
-    | null
+  gamificacion: ProgresoGamificacion | null
 ): number {
   const indicador =
     objetivo.indicador
@@ -1553,8 +1371,7 @@ function ObjetivoCard({
   return (
     <div
       style={{
-        background:
-          '#fbfcfd',
+        background: '#fbfcfd',
         border:
           '1px solid #e5e7eb',
         borderRadius: 16,
@@ -1569,15 +1386,13 @@ function ObjetivoCard({
           alignItems:
             'flex-start',
           gap: 12,
-          marginBottom:
-            12,
+          marginBottom: 12,
         }}
       >
         <div>
           <div
             style={{
-              color:
-                colorPrimario,
+              color: colorPrimario,
               fontSize: 13,
               fontWeight: 800,
             }}
@@ -1595,8 +1410,7 @@ function ObjetivoCard({
                 COLORES_BASE.gris,
             }}
           >
-            {resultadoTexto} /{' '}
-            {objetivoTexto}
+            {resultadoTexto} / {objetivoTexto}
           </div>
         </div>
 
@@ -1604,8 +1418,7 @@ function ObjetivoCard({
           style={{
             padding:
               '5px 8px',
-            borderRadius:
-              999,
+            borderRadius: 999,
             background:
               fondoEstado,
             color:
@@ -1627,24 +1440,18 @@ function ObjetivoCard({
       <div
         style={{
           height: 9,
-          borderRadius:
-            999,
-          background:
-            '#e7edf1',
-          overflow:
-            'hidden',
+          borderRadius: 999,
+          background: '#e7edf1',
+          overflow: 'hidden',
         }}
       >
         <div
           style={{
-            width: `${objetivo.porcentaje}%`,
+            width:
+              `${objetivo.porcentaje}%`,
             height: '100%',
-            borderRadius:
-              999,
-            background:
-              colorEstado,
-            transition:
-              'width 0.4s ease',
+            borderRadius: 999,
+            background: colorEstado,
           }}
         />
       </div>
@@ -1665,8 +1472,7 @@ function ObjetivoCard({
         </span>
 
         <span>
-          Meta:{' '}
-          {objetivoTexto}
+          Meta: {objetivoTexto}
         </span>
       </div>
     </div>
@@ -1695,8 +1501,7 @@ function ResumenEjecutivoCard({
           '1px solid #e5e7eb',
         borderRadius: 16,
         padding: 14,
-        background:
-          '#fbfcfd',
+        background: '#fbfcfd',
       }}
     >
       <div
@@ -1723,7 +1528,62 @@ function ResumenEjecutivoCard({
 }
 
 // =====================================================
-// GRÁFICO 1 — EVOLUCIÓN DE VENTAS
+// CONTENEDOR DE GRÁFICO
+// =====================================================
+
+function ChartCard({
+  titulo,
+  subtitulo,
+  children,
+}: {
+  titulo: string;
+  subtitulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        border:
+          '1px solid #e5e7eb',
+        borderRadius: 18,
+        padding: 16,
+        background: '#fbfcfd',
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 4,
+        }}
+      >
+        <div
+          style={{
+            color:
+              COLORES_BASE.gris,
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          {titulo}
+        </div>
+
+        <div
+          style={{
+            color: '#94a3b8',
+            fontSize: 10,
+            marginTop: 2,
+          }}
+        >
+          {subtitulo}
+        </div>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+// =====================================================
+// GRÁFICO DE VENTAS
 // =====================================================
 
 function GraficoVentas({
@@ -1731,10 +1591,7 @@ function GraficoVentas({
   color,
   colorSecundario,
 }: {
-  datos: {
-    mes: string;
-    valor: number;
-  }[];
+  datos: DatosVentaMes[];
   color: string;
   colorSecundario: string;
 }) {
@@ -1745,13 +1602,12 @@ function GraficoVentas({
   const margenSup = 28;
   const margenInf = 42;
 
-  const maxValor =
-    Math.max(
-      ...datos.map(
-        (dato) => dato.valor
-      ),
-      1
-    );
+  const maxValor = Math.max(
+    ...datos.map(
+      (dato) => dato.valor
+    ),
+    1
+  );
 
   const anchoUtil =
     ancho -
@@ -1808,8 +1664,7 @@ function GraficoVentas({
         style={{
           width: '100%',
           height: 260,
-          display:
-            'block',
+          display: 'block',
         }}
       >
         {[0, 0.25, 0.5, 0.75, 1].map(
@@ -1817,11 +1672,13 @@ function GraficoVentas({
             const y =
               margenSup +
               altoUtil -
-              factor * altoUtil;
+              factor *
+                altoUtil;
 
             const valor =
               Math.round(
-                maxValor * factor
+                maxValor *
+                  factor
               );
 
             return (
@@ -1829,9 +1686,7 @@ function GraficoVentas({
                 key={factor}
               >
                 <line
-                  x1={
-                    margenIzq
-                  }
+                  x1={margenIzq}
                   x2={
                     ancho -
                     margenDer
@@ -1844,11 +1699,10 @@ function GraficoVentas({
 
                 <text
                   x={
-                    margenIzq - 8
+                    margenIzq -
+                    8
                   }
-                  y={
-                    y + 4
-                  }
+                  y={y + 4}
                   textAnchor="end"
                   fontSize="10"
                   fill="#6e7781"
@@ -1868,7 +1722,6 @@ function GraficoVentas({
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.95"
         />
 
         {puntos.map(
@@ -1910,17 +1763,14 @@ function GraficoVentas({
 }
 
 // =====================================================
-// GRÁFICO 2 — VENTAS POR CATEGORÍA
+// GRÁFICO DE CATEGORÍAS
 // =====================================================
 
 function GraficoCategorias({
   datos,
   color,
 }: {
-  datos: {
-    nombre: string;
-    valor: number;
-  }[];
+  datos: DatosCategoria[];
   color: string;
 }) {
   const ancho = 520;
@@ -1930,13 +1780,12 @@ function GraficoCategorias({
   const margenSup = 24;
   const margenInf = 46;
 
-  const maxValor =
-    Math.max(
-      ...datos.map(
-        (dato) => dato.valor
-      ),
-      1
-    );
+  const maxValor = Math.max(
+    ...datos.map(
+      (dato) => dato.valor
+    ),
+    1
+  );
 
   const anchoUtil =
     ancho -
@@ -1962,8 +1811,7 @@ function GraficoCategorias({
         style={{
           width: '100%',
           height: 260,
-          display:
-            'block',
+          display: 'block',
         }}
       >
         {[0, 0.25, 0.5, 0.75, 1].map(
@@ -1971,11 +1819,13 @@ function GraficoCategorias({
             const y =
               margenSup +
               altoUtil -
-              factor * altoUtil;
+              factor *
+                altoUtil;
 
             const valor =
               Math.round(
-                maxValor * factor
+                maxValor *
+                  factor
               );
 
             return (
@@ -1983,9 +1833,7 @@ function GraficoCategorias({
                 key={factor}
               >
                 <line
-                  x1={
-                    margenIzq
-                  }
+                  x1={margenIzq}
                   x2={
                     ancho -
                     margenDer
@@ -1998,11 +1846,10 @@ function GraficoCategorias({
 
                 <text
                   x={
-                    margenIzq - 8
+                    margenIzq -
+                    8
                   }
-                  y={
-                    y + 4
-                  }
+                  y={y + 4}
                   textAnchor="end"
                   fontSize="10"
                   fill="#6e7781"
@@ -2047,29 +1894,23 @@ function GraficoCategorias({
                 <rect
                   x={x}
                   y={y}
-                  width={
-                    anchoReal
-                  }
-                  height={
-                    altura
-                  }
+                  width={anchoReal}
+                  height={altura}
                   rx="8"
                   fill={color}
                   opacity={
-                    0.78 +
-                    indice *
-                      0.05
+                    0.75 +
+                    indice * 0.05
                   }
                 />
 
                 <text
                   x={
                     x +
-                    anchoReal / 2
+                    anchoReal /
+                      2
                   }
-                  y={
-                    y - 8
-                  }
+                  y={y - 8}
                   textAnchor="middle"
                   fontSize="10"
                   fill="#1f3a5f"
@@ -2082,10 +1923,12 @@ function GraficoCategorias({
                 <text
                   x={
                     x +
-                    anchoReal / 2
+                    anchoReal /
+                      2
                   }
                   y={
-                    alto - 18
+                    alto -
+                    18
                   }
                   textAnchor="middle"
                   fontSize="10"
@@ -2103,38 +1946,29 @@ function GraficoCategorias({
 }
 
 // =====================================================
-// GRÁFICO 3 — COMPOSICIÓN DEL STOCK
+// GRÁFICO DE STOCK
 // =====================================================
 
 function GraficoStock({
   datos,
   color,
 }: {
-  datos: {
-    nombre: string;
-    valor: number;
-  }[];
+  datos: DatosCategoria[];
   color: string;
 }) {
-  const radio =
-    62;
-
-  const centroX =
-    145;
-
-  const centroY =
-    130;
+  const radio = 62;
+  const centroX = 145;
+  const centroY = 130;
 
   let anguloActual =
     -Math.PI / 2;
 
-  const coloresSegmentos =
-    [
-      color,
-      '#f59e0b',
-      '#2e8b57',
-      '#6e7781',
-    ];
+  const coloresSegmentos = [
+    color,
+    '#f59e0b',
+    '#2e8b57',
+    '#6e7781',
+  ];
 
   const segmentos =
     datos.map(
@@ -2143,8 +1977,7 @@ function GraficoStock({
           anguloActual;
 
         const barrido =
-          (dato.valor /
-            100) *
+          (dato.valor / 100) *
           Math.PI *
           2;
 
@@ -2152,8 +1985,7 @@ function GraficoStock({
           inicio +
           barrido;
 
-        anguloActual =
-          fin;
+        anguloActual = fin;
 
         const x1 =
           centroX +
@@ -2184,17 +2016,17 @@ function GraficoStock({
             );
 
         const grande =
-          barrido >
-          Math.PI
+          barrido > Math.PI
             ? 1
             : 0;
 
-        const path = [
-          `M ${centroX} ${centroY}`,
-          `L ${x1} ${y1}`,
-          `A ${radio} ${radio} 0 ${grande} 1 ${x2} ${y2}`,
-          'Z',
-        ].join(' ');
+        const path =
+          [
+            `M ${centroX} ${centroY}`,
+            `L ${x1} ${y1}`,
+            `A ${radio} ${radio} 0 ${grande} 1 ${x2} ${y2}`,
+            'Z',
+          ].join(' ');
 
         return {
           ...dato,
@@ -2216,8 +2048,7 @@ function GraficoStock({
       <div
         style={{
           display: 'flex',
-          alignItems:
-            'center',
+          alignItems: 'center',
           gap: 18,
           minHeight: 260,
         }}
@@ -2251,7 +2082,7 @@ function GraficoStock({
           <circle
             cx={centroX}
             cy={centroY}
-            r={35}
+            r="35"
             fill="#ffffff"
           />
 
@@ -2285,8 +2116,7 @@ function GraficoStock({
                   dato.nombre
                 }
                 style={{
-                  display:
-                    'flex',
+                  display: 'flex',
                   alignItems:
                     'center',
                   gap: 8,
@@ -2309,10 +2139,8 @@ function GraficoStock({
 
                 <div
                   style={{
-                    fontSize:
-                      11,
-                    color:
-                      '#475569',
+                    fontSize: 11,
+                    color: '#475569',
                     lineHeight:
                       1.3,
                   }}
@@ -2323,16 +2151,11 @@ function GraficoStock({
                         '#1f3a5f',
                     }}
                   >
-                    {
-                      dato.nombre
-                    }
+                    {dato.nombre}
                   </strong>
 
                   <div>
-                    {
-                      dato.valor
-                    }
-                    %
+                    {dato.valor}%
                   </div>
                 </div>
               </div>
@@ -2345,64 +2168,163 @@ function GraficoStock({
 }
 
 // =====================================================
-// CONTENEDOR DE GRÁFICO
+// INFO CARD
 // =====================================================
 
-function ChartCard({
-  titulo,
-  subtitulo,
-  children,
+function InfoCard({
+  etiqueta,
+  valor,
+  color,
 }: {
-  titulo: string;
-  subtitulo: string;
-  children: React.ReactNode;
+  etiqueta: string;
+  valor: string;
+  color: string;
 }) {
   return (
     <div
       style={{
+        background: '#f8fafc',
+        borderRadius: 14,
+        padding: 14,
         border:
           '1px solid #e5e7eb',
-        borderRadius: 18,
-        padding: 16,
-        background:
-          '#fbfcfd',
       }}
     >
       <div
         style={{
-          marginBottom: 4,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 1,
+          color,
+          marginBottom: 5,
         }}
       >
-        <div
-          style={{
-            color:
-              COLORES_BASE.gris,
-            fontSize: 13,
-            fontWeight: 700,
-          }}
-        >
-          {titulo}
-        </div>
-
-        <div
-          style={{
-            color:
-              '#94a3b8',
-            fontSize: 10,
-            marginTop: 2,
-          }}
-        >
-          {subtitulo}
-        </div>
+        {etiqueta.toUpperCase()}
       </div>
 
-      {children}
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color:
+            COLORES_BASE.azul,
+          lineHeight: 1.4,
+        }}
+      >
+        {valor}
+      </div>
     </div>
   );
 }
 
 // =====================================================
-// FORMATEAR NÚMEROS
+// TARJETA RESUMEN
+// =====================================================
+
+function ResumenCard({
+  titulo,
+  valor,
+  color,
+}: {
+  titulo: string;
+  valor: string;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        background:
+          COLORES_BASE.blanco,
+        borderRadius: 20,
+        padding: 20,
+        border:
+          '1px solid #e5e7eb',
+        minHeight: 112,
+        display: 'flex',
+        flexDirection:
+          'column',
+        justifyContent:
+          'space-between',
+      }}
+    >
+      <span
+        style={{
+          color:
+            COLORES_BASE.gris,
+          fontSize: 13,
+        }}
+      >
+        {titulo}
+      </span>
+
+      <strong
+        style={{
+          color,
+          fontSize: 23,
+        }}
+      >
+        {valor}
+      </strong>
+    </div>
+  );
+}
+
+// =====================================================
+// BOTÓN DE ACCESO
+// =====================================================
+
+function BotonAcceso({
+  href,
+  titulo,
+  principal = false,
+  destacado = false,
+  colorPrincipal,
+}: {
+  href: string;
+  titulo: string;
+  principal?: boolean;
+  destacado?: boolean;
+  colorPrincipal: string;
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        textDecoration:
+          'none',
+        background:
+          principal
+            ? colorPrincipal
+            : destacado
+              ? `${colorPrincipal}18`
+              : '#ffffff',
+        color:
+          principal
+            ? '#ffffff'
+            : colorPrincipal,
+        border:
+          principal ||
+          destacado
+            ? 'none'
+            : '1px solid #d1d5db',
+        borderRadius: 16,
+        padding:
+          '17px 18px',
+        textAlign: 'center',
+        fontWeight: 700,
+        boxShadow:
+          principal
+            ? `0 8px 20px ${colorPrincipal}33`
+            : 'none',
+      }}
+    >
+      {titulo}
+    </Link>
+  );
+}
+
+// =====================================================
+// FORMATEAR NÚMERO
 // =====================================================
 
 function formatearNumero(
@@ -2455,346 +2377,10 @@ function formatearIndicador(
 
   return (
     mapa[
-      indicador.trim().toUpperCase()
+      indicador
+        .trim()
+        .toUpperCase()
     ] ||
     indicador
-  );
-}
-
-// =====================================================
-// RESUMEN CARD
-// =====================================================
-
-function ResumenCard({
-  titulo,
-  valor,
-  color,
-}: {
-  titulo: string;
-  valor: string;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        background:
-          COLORES_BASE.blanco,
-        borderRadius: 20,
-        padding: 20,
-        border:
-          '1px solid #e5e7eb',
-        minHeight: 112,
-        display: 'flex',
-        flexDirection:
-          'column',
-        justifyContent:
-          'space-between',
-      }}
-    >
-      <span
-        style={{
-          color:
-            COLORES_BASE.gris,
-          fontSize: 13,
-        }}
-      >
-        {titulo}
-      </span>
-
-      <strong
-        style={{
-          color,
-          fontSize: 23,
-        }}
-      >
-        {valor}
-      </strong>
-    </div>
-  );
-}
-
-// =====================================================
-// INFO CARD
-// =====================================================
-
-function InfoCard({
-  etiqueta,
-  valor,
-  color,
-}: {
-  etiqueta: string;
-  valor: string;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        background:
-          '#f8fafc',
-        borderRadius: 14,
-        padding: 14,
-        border:
-          '1px solid #e5e7eb',
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: 1,
-          color,
-          marginBottom:
-            5,
-        }}
-      >
-        {etiqueta.toUpperCase()}
-      </div>
-
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color:
-            COLORES_BASE.azul,
-          lineHeight: 1.4,
-        }}
-      >
-        {valor}
-      </div>
-    </div>
-  );
-}
-
-// =====================================================
-// OBJETIVO
-// =====================================================
-
-function ObjetivoCard({
-  objetivo,
-  colorPrimario,
-  colorSecundario,
-  colorAcento,
-}: {
-  objetivo: ObjetivoDashboard;
-  colorPrimario: string;
-  colorSecundario: string;
-  colorAcento: string;
-}) {
-  const cumplido =
-    objetivo.porcentaje >= 100;
-
-  const enCamino =
-    objetivo.porcentaje >= 50 &&
-    objetivo.porcentaje < 100;
-
-  const colorEstado =
-    cumplido
-      ? colorSecundario
-      : enCamino
-        ? '#d97706'
-        : '#dc2626';
-
-  const fondoEstado =
-    cumplido
-      ? `${colorSecundario}12`
-      : enCamino
-        ? '#fff7ed'
-        : '#fef2f2';
-
-  const resultadoTexto =
-    objetivo.unidad === 'R$'
-      ? `R$ ${objetivo.resultado.toFixed(2)}`
-      : `${objetivo.resultado}`;
-
-  const objetivoTexto =
-    objetivo.unidad === 'R$'
-      ? `R$ ${Number(
-          objetivo.objetivo
-        ).toFixed(2)}`
-      : `${Number(
-          objetivo.objetivo
-        )}`;
-
-  return (
-    <div
-      style={{
-        background:
-          '#fbfcfd',
-        border:
-          '1px solid #e5e7eb',
-        borderRadius: 16,
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          alignItems:
-            'flex-start',
-          gap: 12,
-          marginBottom:
-            12,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              color:
-                colorPrimario,
-              fontSize: 13,
-              fontWeight: 800,
-            }}
-          >
-            {formatearIndicador(
-              objetivo.indicador
-            )}
-          </div>
-
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 12,
-              color:
-                COLORES_BASE.gris,
-            }}
-          >
-            {resultadoTexto} /{' '}
-            {objetivoTexto}
-          </div>
-        </div>
-
-        <span
-          style={{
-            padding:
-              '5px 8px',
-            borderRadius:
-              999,
-            background:
-              fondoEstado,
-            color:
-              colorEstado,
-            fontSize: 10,
-            fontWeight: 800,
-            whiteSpace:
-              'nowrap',
-          }}
-        >
-          {cumplido
-            ? 'CUMPLIDO'
-            : enCamino
-              ? 'EN CAMINO'
-              : 'PENDIENTE'}
-        </span>
-      </div>
-
-      <div
-        style={{
-          height: 9,
-          borderRadius:
-            999,
-          background:
-            '#e7edf1',
-          overflow:
-            'hidden',
-        }}
-      >
-        <div
-          style={{
-            width: `${objetivo.porcentaje}%`,
-            height: '100%',
-            borderRadius:
-              999,
-            background:
-              colorEstado,
-          }}
-        />
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          marginTop: 7,
-          fontSize: 10,
-          color:
-            COLORES_BASE.gris,
-        }}
-      >
-        <span>
-          {objetivo.porcentaje}%
-        </span>
-
-        <span>
-          Meta:{' '}
-          {objetivoTexto}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// =====================================================
-// BOTÓN DE ACCESO
-// =====================================================
-
-function BotonAcceso({
-  href,
-  titulo,
-  principal = false,
-  destacado = false,
-  colorPrincipal,
-}: {
-  href: string;
-  titulo: string;
-  principal?: boolean;
-  destacado?: boolean;
-  colorPrincipal: string;
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        textDecoration:
-          'none',
-
-        background:
-          principal
-            ? colorPrincipal
-            : destacado
-              ? `${colorPrincipal}18`
-              : '#ffffff',
-
-        color:
-          principal
-            ? '#ffffff'
-            : colorPrincipal,
-
-        border:
-          principal ||
-          destacado
-            ? 'none'
-            : '1px solid #d1d5db',
-
-        borderRadius: 16,
-
-        padding:
-          '17px 18px',
-
-        textAlign:
-          'center',
-
-        fontWeight: 700,
-
-        boxShadow:
-          principal
-            ? `0 8px 20px ${colorPrincipal}33`
-            : 'none',
-      }}
-    >
-      {titulo}
-    </Link>
   );
 }
