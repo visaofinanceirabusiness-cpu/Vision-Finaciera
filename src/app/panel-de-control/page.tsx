@@ -1944,11 +1944,7 @@ function ObjetivoCard({
     objetivo.porcentaje >=
     100;
 
-  const enCamino =
-    objetivo.porcentaje >=
-      50 &&
-    objetivo.porcentaje 
-      100;
+  const enCamino = objetivo.porcentaje >= 50 && objetivo.porcentaje < 100;
 
   const colorEstado =
     cumplido
@@ -2390,10 +2386,7 @@ function formatearPeriodo(
   const partes =
     valor.split('-');
 
-  if (
-    partes.length 
-    2
-  ) {
+  if (partes.length < 2) {
     return valor;
   }
 
@@ -2436,10 +2429,7 @@ function formatearPeriodo(
 function formatearIndicador(
   indicador: string
 ): string {
-  const mapa: Record
-    string,
-    string
-  > = {
+  const mapa: Record<string, string> = {
     'VENTAS DEL MES':
       'Ventas del mes',
 
