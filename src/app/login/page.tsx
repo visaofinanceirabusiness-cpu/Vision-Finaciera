@@ -19,12 +19,19 @@ export default function LoginPage() {
     const { error: errorAuth } = await supabase.auth.signInWithPassword({ email, password });
     setCargando(false);
 
-    if (errorAuth) {
-      setError('No pudimos iniciar sesi\u00F3n. Revis\u00E1 tu email y contrase\u00F1a.');
+      if (errorAuth) {
+      setError('No pudimos iniciar sesión. Revisá tu email y contraseña.');
       return;
     }
 
-    router.push('/');
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: perfil } = await supabase
+      .from('perfiles')
+      .select('es_admin_plataforma')
+      .eq('id', userData.user?.id)
+      .maybeSingle();
+
+    router.push(perfil?.es_admin_plataforma ? '/panel-maestro' : '/');
   }
 
   return (
