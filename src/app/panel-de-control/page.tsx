@@ -23,6 +23,7 @@ type Perfil = {
   nombre: string;
   empresa_id: string;
   rol: string;
+  es_admin_plataforma: boolean;
 };
 
 type Empresa = {
@@ -188,7 +189,7 @@ export default function MiNegocioPage() {
       } = await supabase
         .from('perfiles')
         .select(
-          'nombre, empresa_id, rol'
+          'nombre, empresa_id, rol, es_admin_plataforma'
         )
         .eq(
           'id',
@@ -721,31 +722,58 @@ export default function MiNegocioPage() {
             </div>
           </div>
 
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.push(
-                '/login'
-              );
-            }}
+          <div
             style={{
-              background:
-                colores.blanco,
-              border:
-                '1px solid #d1d5db',
-              borderRadius:
-                12,
-              padding:
-                '11px 16px',
-              cursor:
-                'pointer',
-              color:
-                colores.azul,
-              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
-            Cerrar sesión
-          </button>
+            {perfil?.es_admin_plataforma && (
+              <Link
+                href="/panel-maestro"
+                style={{
+                  background: colores.azul,
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '11px 16px',
+                  cursor: 'pointer',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  display: 'inline-block',
+                }}
+              >
+                🔱 Volver a mi Panel
+              </Link>
+            )}
+
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push(
+                  '/login'
+                );
+              }}
+              style={{
+                background:
+                  colores.blanco,
+                border:
+                  '1px solid #d1d5db',
+                borderRadius:
+                  12,
+                padding:
+                  '11px 16px',
+                cursor:
+                  'pointer',
+                color:
+                  colores.azul,
+                fontWeight: 700,
+              }}
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
 
         {/* =================================================
@@ -1919,7 +1947,7 @@ function ObjetivoCard({
   const enCamino =
     objetivo.porcentaje >=
       50 &&
-    objetivo.porcentaje <
+    objetivo.porcentaje 
       100;
 
   const colorEstado =
@@ -2363,7 +2391,7 @@ function formatearPeriodo(
     valor.split('-');
 
   if (
-    partes.length <
+    partes.length 
     2
   ) {
     return valor;
@@ -2408,7 +2436,7 @@ function formatearPeriodo(
 function formatearIndicador(
   indicador: string
 ): string {
-  const mapa: Record<
+  const mapa: Record
     string,
     string
   > = {
