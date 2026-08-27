@@ -8,6 +8,7 @@ import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { SalesChart } from '@/components/panel/SalesChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
+import { SabioHero } from '@/components/panel/SabioHero';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -15,9 +16,6 @@ const COLORES_BASE = {
   gris: '#6e7781',
   blanco: '#ffffff',
 };
-
-const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO%203D.png';
 
 type Perfil = {
   nombre: string;
@@ -70,16 +68,6 @@ type ObjetivoDashboard = ObjetivoEmpresa & {
   porcentaje: number;
 };
 
-type DatosVentaMes = {
-  mes: string;
-  valor: number;
-};
-
-type DatosCategoria = {
-  nombre: string;
-  valor: number;
-};
-
 type PeriodoDisponible = {
   valor: string;
   etiqueta: string;
@@ -120,132 +108,61 @@ const DATOS_DEMO = {
 export default function MiNegocioPage() {
   const router = useRouter();
 
-  const [perfil, setPerfil] =
-    useState<Perfil | null>(null);
-
-  const [empresa, setEmpresa] =
-    useState<Empresa | null>(null);
-
-  const [configuracion, setConfiguracion] =
-    useState<ConfiguracionDashboard | null>(
-      null
-    );
-
-  const [gamificacion, setGamificacion] =
-    useState<ProgresoGamificacion | null>(
-      null
-    );
-
-  const [objetivos, setObjetivos] =
-    useState<ObjetivoDashboard[]>([]);
-
-  const [periodos, setPeriodos] =
-    useState<PeriodoDisponible[]>([]);
-
-  const [periodoSeleccionado, setPeriodoSeleccionado] =
-    useState('');
-
-  const [cargando, setCargando] =
-    useState(true);
-
-  const [error, setError] =
-    useState('');
-
-  // =====================================================
-  // FECHA ACTUAL
-  // =====================================================
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
+  const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
+  const [objetivos, setObjetivos] = useState<ObjetivoDashboard[]>([]);
+  const [periodos, setPeriodos] = useState<PeriodoDisponible[]>([]);
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
 
   const periodoActual = useMemo(() => {
     const fecha = new Date();
-
-    return `${fecha.getFullYear()}-${String(
-      fecha.getMonth() + 1
-    ).padStart(2, '0')}-01`;
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01`;
   }, []);
-
-  // =====================================================
-  // CARGA INICIAL
-  // =====================================================
 
   useEffect(() => {
     async function cargarBase() {
       setError('');
 
-      const { data: userData } =
-        await supabase.auth.getUser();
+      const { data: userData } = await supabase.auth.getUser();
 
       if (!userData.user) {
         router.push('/login');
         return;
       }
 
-      // =================================================
-      // PERFIL
-      // =================================================
-
-      const {
-        data: perfilData,
-        error: errorPerfil,
-      } = await supabase
+      const { data: perfilData, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select(
-          'nombre, empresa_id, rol, es_admin_plataforma'
-        )
-        .eq(
-          'id',
-          userData.user.id
-        )
+        .select('nombre, empresa_id, rol, es_admin_plataforma')
+        .eq('id', userData.user.id)
         .maybeSingle();
 
-      if (
-        errorPerfil ||
-        !perfilData?.empresa_id
-      ) {
-        setError(
-          'No se pudo identificar la empresa del usuario.'
-        );
+      if (errorPerfil || !perfilData?.empresa_id) {
+        setError('No se pudo identificar la empresa del usuario.');
         setCargando(false);
         return;
       }
 
       setPerfil(perfilData);
 
-      // =================================================
-      // EMPRESA
-      // =================================================
-
-      const {
-        data: empresaData,
-        error: errorEmpresa,
-      } = await supabase
+      const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select(
-          'nombre, rubro, logo_url'
-        )
-        .eq(
-          'id',
-          perfilData.empresa_id
-        )
+        .select('nombre, rubro, logo_url')
+        .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
       if (errorEmpresa) {
-        setError(
-          `No se pudo cargar la empresa: ${errorEmpresa.message}`
-        );
+        setError(`No se pudo cargar la empresa: ${errorEmpresa.message}`);
         setCargando(false);
         return;
       }
 
       setEmpresa(empresaData);
 
-      // =================================================
-      // CONFIGURACIÓN
-      // =================================================
-
-      const {
-        data: configData,
-        error: errorConfig,
-      } = await supabase
+      const { data: configData, error: errorConfig } = await supabase
         .from('configuracion_dashboard')
         .select(`
           color_primario,
@@ -257,167 +174,78 @@ export default function MiNegocioPage() {
           mostrar_objetivos,
           mostrar_graficos
         `)
-        .eq(
-          'empresa_id',
-          perfilData.empresa_id
-        )
+        .eq('empresa_id', perfilData.empresa_id)
         .maybeSingle();
 
       if (errorConfig) {
-        console.warn(
-          'No se pudo cargar configuracion_dashboard:',
-          errorConfig
-        );
+        console.warn('No se pudo cargar configuracion_dashboard:', errorConfig);
       }
 
       const configFinal =
         configData ?? {
-          color_primario:
-            COLORES_BASE.azul,
-          color_secundario:
-            COLORES_BASE.verde,
-          color_acento:
-            COLORES_BASE.gris,
-          mensaje_bienvenida:
-            null,
-          subtitulo_dashboard:
-            null,
-          mostrar_gamificacion:
-            true,
-          mostrar_objetivos:
-            true,
-          mostrar_graficos:
-            true,
+          color_primario: COLORES_BASE.azul,
+          color_secundario: COLORES_BASE.verde,
+          color_acento: COLORES_BASE.gris,
+          mensaje_bienvenida: null,
+          subtitulo_dashboard: null,
+          mostrar_gamificacion: true,
+          mostrar_objetivos: true,
+          mostrar_graficos: true,
         };
 
-      setConfiguracion(
-        configFinal
-      );
-
-      // =================================================
-      // GAMIFICACIÓN
-      // =================================================
+      setConfiguracion(configFinal);
 
       try {
-        const progreso =
-          await obtenerProgresoGamificacion(
-            perfilData.empresa_id
-          );
-
+        const progreso = await obtenerProgresoGamificacion(perfilData.empresa_id);
         setGamificacion(progreso);
       } catch (errorGamificacion) {
-        console.warn(
-          'No se pudo calcular la gamificación:',
-          errorGamificacion
-        );
-
+        console.warn('No se pudo calcular la gamificación:', errorGamificacion);
         setGamificacion(null);
       }
 
-      // =================================================
-      // PERIODOS DISPONIBLES
-      // =================================================
-
-      const {
-        data: registrosFechas,
-        error: errorFechas,
-      } = await supabase
+      const { data: registrosFechas, error: errorFechas } = await supabase
         .from('registro_operaciones')
         .select('fecha')
-        .eq(
-          'empresa_id',
-          perfilData.empresa_id
-        )
-        .order(
-          'fecha',
-          {
-            ascending: false,
-          }
-        );
+        .eq('empresa_id', perfilData.empresa_id)
+        .order('fecha', { ascending: false });
 
       if (errorFechas) {
-        console.warn(
-          'No se pudieron cargar las fechas:',
-          errorFechas
-        );
+        console.warn('No se pudieron cargar las fechas:', errorFechas);
       }
 
-      const periodosUnicos =
-        new Set<string>();
+      const periodosUnicos = new Set<string>();
+      periodosUnicos.add(periodoActual);
 
-      periodosUnicos.add(
-        periodoActual
-      );
-
-      for (
-        const fila of registrosFechas ?? []
-      ) {
+      for (const fila of registrosFechas ?? []) {
         if (!fila.fecha) {
           continue;
         }
-
-        const fecha =
-          String(
-            fila.fecha
-          );
-
-        periodosUnicos.add(
-          `${fecha.slice(0, 7)}-01`
-        );
+        const fecha = String(fila.fecha);
+        periodosUnicos.add(`${fecha.slice(0, 7)}-01`);
       }
 
-      const listaPeriodos =
-        Array.from(
-          periodosUnicos
-        )
-          .sort(
-            (a, b) =>
-              b.localeCompare(a)
-          )
-          .map(
-            (valor) => ({
-              valor,
-              etiqueta:
-                formatearPeriodo(
-                  valor
-                ),
-            })
-          );
+      const listaPeriodos = Array.from(periodosUnicos)
+        .sort((a, b) => b.localeCompare(a))
+        .map((valor) => ({
+          valor,
+          etiqueta: formatearPeriodo(valor),
+        }));
 
-      setPeriodos(
-        listaPeriodos
-      );
-
-      setPeriodoSeleccionado(
-        periodoActual
-      );
-
+      setPeriodos(listaPeriodos);
+      setPeriodoSeleccionado(periodoActual);
       setCargando(false);
     }
 
     cargarBase();
-  }, [
-    router,
-    periodoActual,
-  ]);
-
-  // =====================================================
-  // CARGA DE OBJETIVOS
-  // =====================================================
+  }, [router, periodoActual]);
 
   useEffect(() => {
     async function cargarObjetivos() {
-      if (
-        !perfil?.empresa_id ||
-        !periodoSeleccionado
-      ) {
+      if (!perfil?.empresa_id || !periodoSeleccionado) {
         return;
       }
 
-      const {
-        data,
-        error: errorObjetivos,
-      } = await supabase
+      const { data, error: errorObjetivos } = await supabase
         .from('objetivos_empresa')
         .select(`
           id,
@@ -427,90 +255,37 @@ export default function MiNegocioPage() {
           unidad,
           activo
         `)
-        .eq(
-          'empresa_id',
-          perfil.empresa_id
-        )
-        .eq(
-          'periodo',
-          periodoSeleccionado
-        )
-        .eq(
-          'activo',
-          true
-        )
-        .order(
-          'indicador',
-          {
-            ascending: true,
-          }
-        );
+        .eq('empresa_id', perfil.empresa_id)
+        .eq('periodo', periodoSeleccionado)
+        .eq('activo', true)
+        .order('indicador', { ascending: true });
 
       if (errorObjetivos) {
-        console.warn(
-          'No se pudieron cargar los objetivos:',
-          errorObjetivos
-        );
-
+        console.warn('No se pudieron cargar los objetivos:', errorObjetivos);
         setObjetivos([]);
         return;
       }
 
-      const objetivosCalculados =
-        (
-          (data ?? []) as ObjetivoEmpresa[]
-        ).map(
-          (objetivo) => {
-            const resultado =
-              obtenerResultadoObjetivo(
-                objetivo,
-                gamificacion,
-                periodoSeleccionado
-              );
+      const objetivosCalculados = ((data ?? []) as ObjetivoEmpresa[]).map((objetivo) => {
+        const resultado = obtenerResultadoObjetivo(objetivo, gamificacion, periodoSeleccionado);
 
-            const porcentaje =
-              objetivo.objetivo > 0
-                ? Math.min(
-                    100,
-                    Math.max(
-                      0,
-                      (resultado /
-                        Number(
-                          objetivo.objetivo
-                        )) *
-                        100
-                    )
-                  )
-                : 0;
+        const porcentaje =
+          objetivo.objetivo > 0
+            ? Math.min(100, Math.max(0, (resultado / Number(objetivo.objetivo)) * 100))
+            : 0;
 
-            return {
-              ...objetivo,
-              resultado,
-              porcentaje:
-                Number(
-                  porcentaje.toFixed(
-                    2
-                  )
-                ),
-            };
-          }
-        );
+        return {
+          ...objetivo,
+          resultado,
+          porcentaje: Number(porcentaje.toFixed(2)),
+        };
+      });
 
-      setObjetivos(
-        objetivosCalculados
-      );
+      setObjetivos(objetivosCalculados);
     }
 
     cargarObjetivos();
-  }, [
-    perfil?.empresa_id,
-    periodoSeleccionado,
-    gamificacion,
-  ]);
-
-  // =====================================================
-  // CARGANDO
-  // =====================================================
+  }, [perfil?.empresa_id, periodoSeleccionado, gamificacion]);
 
   if (cargando) {
     return (
@@ -518,14 +293,10 @@ export default function MiNegocioPage() {
         style={{
           minHeight: '100vh',
           display: 'flex',
-          alignItems:
-            'center',
-          justifyContent:
-            'center',
-          background:
-            '#f5f7f9',
-          color:
-            COLORES_BASE.azul,
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f5f7f9',
+          color: COLORES_BASE.azul,
           fontWeight: 600,
         }}
       >
@@ -534,62 +305,32 @@ export default function MiNegocioPage() {
     );
   }
 
-  // =====================================================
-  // COLORES
-  // =====================================================
-
   const colores = {
-    azul:
-      configuracion?.color_primario ??
-      COLORES_BASE.azul,
-
-    verde:
-      configuracion?.color_secundario ??
-      COLORES_BASE.verde,
-
-    acento:
-      configuracion?.color_acento ??
-      COLORES_BASE.gris,
-
-    blanco:
-      COLORES_BASE.blanco,
+    azul: configuracion?.color_primario ?? COLORES_BASE.azul,
+    verde: configuracion?.color_secundario ?? COLORES_BASE.verde,
+    acento: configuracion?.color_acento ?? COLORES_BASE.gris,
+    blanco: COLORES_BASE.blanco,
   };
 
-  const hoy =
-    new Date().toLocaleDateString(
-      'es-AR',
-      {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      }
-    );
+  const hoy = new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
-  const esTodosLosPeriodos =
-    periodoSeleccionado ===
-    'TODOS';
+  const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';
 
-  const periodoTexto =
-    esTodosLosPeriodos
-      ? 'Todos los períodos'
-      : formatearPeriodo(
-          periodoSeleccionado
-        );
+  const periodoTexto = esTodosLosPeriodos
+    ? 'Todos los períodos'
+    : formatearPeriodo(periodoSeleccionado);
 
-  const logoDisponible =
-    Boolean(
-      empresa?.logo_url?.trim()
-    );
+  const logoDisponible = Boolean(empresa?.logo_url?.trim());
 
   const mensajeBienvenida =
-    configuracion?.mensaje_bienvenida ??
-    `Hola, ${
-      perfil?.nombre ?? ''
-    } 👋`;
+    configuracion?.mensaje_bienvenida ?? `Hola, ${perfil?.nombre ?? ''} 👋`;
 
   const subtitulo =
-    configuracion?.subtitulo_dashboard ??
-    'Tu negocio, tus números y tus próximos objetivos.';
+    configuracion?.subtitulo_dashboard ?? 'Tu negocio, tus números y tus próximos objetivos.';
 
   return (
     <main
@@ -600,12 +341,7 @@ export default function MiNegocioPage() {
         padding: 24,
       }}
     >
-      <div
-        style={{
-          maxWidth: 1180,
-          margin: '0 auto',
-        }}
-      >
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         {/* =================================================
             CABECERA
         ================================================== */}
@@ -613,66 +349,38 @@ export default function MiNegocioPage() {
         <div
           style={{
             display: 'flex',
-            justifyContent:
-              'space-between',
-            alignItems:
-              'center',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             gap: 16,
-            marginBottom:
-              16,
-            flexWrap:
-              'wrap',
+            marginBottom: 16,
+            flexWrap: 'wrap',
           }}
         >
-          <div
-            style={{
-              display:
-                'flex',
-              alignItems:
-                'center',
-              gap: 16,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div
               style={{
                 width: 78,
                 height: 78,
-                borderRadius:
-                  20,
-                background:
-                  colores.blanco,
-                border:
-                  `2px solid ${colores.acento}`,
-                display:
-                  'flex',
-                alignItems:
-                  'center',
-                justifyContent:
-                  'center',
-                overflow:
-                  'hidden',
-                boxShadow:
-                  '0 8px 20px rgba(31,58,95,0.10)',
+                borderRadius: 20,
+                background: colores.blanco,
+                border: `2px solid ${colores.acento}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                boxShadow: '0 8px 20px rgba(31,58,95,0.10)',
                 flexShrink: 0,
               }}
             >
               {logoDisponible ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={
-                    empresa!.logo_url!
-                  }
-                  alt={
-                    `Logo de ${
-                      empresa?.nombre ??
-                      'empresa'
-                    }`
-                  }
+                  src={empresa!.logo_url!}
+                  alt={`Logo de ${empresa?.nombre ?? 'empresa'}`}
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit:
-                      'contain',
+                    objectFit: 'contain',
                     padding: 6,
                   }}
                 />
@@ -681,54 +389,26 @@ export default function MiNegocioPage() {
                   style={{
                     fontSize: 30,
                     fontWeight: 800,
-                    color:
-                      colores.azul,
+                    color: colores.azul,
                   }}
                 >
-                  {(
-                    empresa?.nombre ??
-                    'M'
-                  )
-                    .charAt(0)
-                    .toUpperCase()}
+                  {(empresa?.nombre ?? 'M').charAt(0).toUpperCase()}
                 </span>
               )}
             </div>
 
             <div>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color:
-                    colores.azul,
-                }}
-              >
-                {empresa?.nombre ??
-                  'Mi Negocio'}
+              <div style={{ fontSize: 22, fontWeight: 800, color: colores.azul }}>
+                {empresa?.nombre ?? 'Mi Negocio'}
               </div>
 
-              <div
-                style={{
-                  fontSize: 13,
-                  color:
-                    COLORES_BASE.gris,
-                  marginTop: 3,
-                }}
-              >
-                {empresa?.rubro ??
-                  'Gestión financiera'}
+              <div style={{ fontSize: 13, color: COLORES_BASE.gris, marginTop: 3 }}>
+                {empresa?.rubro ?? 'Gestión financiera'}
               </div>
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {perfil?.es_admin_plataforma && (
               <Link
                 href="/panel-maestro"
@@ -751,23 +431,15 @@ export default function MiNegocioPage() {
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
-                router.push(
-                  '/login'
-                );
+                router.push('/login');
               }}
               style={{
-                background:
-                  colores.blanco,
-                border:
-                  '1px solid #d1d5db',
-                borderRadius:
-                  12,
-                padding:
-                  '11px 16px',
-                cursor:
-                  'pointer',
-                color:
-                  colores.azul,
+                background: colores.blanco,
+                border: '1px solid #d1d5db',
+                borderRadius: 12,
+                padding: '11px 16px',
+                cursor: 'pointer',
+                color: colores.azul,
                 fontWeight: 700,
               }}
             >
@@ -777,190 +449,16 @@ export default function MiNegocioPage() {
         </div>
 
         {/* =================================================
-            HERO
+            HERO (con Sabio interactivo)
         ================================================== */}
 
-        <section
-          style={{
-            background:
-              `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
-            color:
-              colores.blanco,
-            borderRadius:
-              28,
-            padding:
-              '30px 32px',
-            marginBottom:
-              20,
-            boxShadow:
-              '0 18px 40px rgba(31,58,95,0.16)',
-          }}
-        >
-          <div
-            style={{
-              display:
-                'flex',
-              justifyContent:
-                'space-between',
-              alignItems:
-                'center',
-              gap: 24,
-              flexWrap:
-                'wrap',
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                minWidth: 280,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing:
-                    1.4,
-                  textTransform:
-                    'uppercase',
-                  opacity: 0.75,
-                  marginBottom:
-                    8,
-                }}
-              >
-                MI NEGOCIO
-              </div>
-
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: 34,
-                }}
-              >
-                {empresa?.nombre}
-              </h1>
-
-              <p
-                style={{
-                  margin:
-                    '10px 0 0',
-                  fontSize: 19,
-                  fontWeight: 600,
-                }}
-              >
-                {mensajeBienvenida}
-              </p>
-
-              <p
-                style={{
-                  margin:
-                    '6px 0 0',
-                  opacity: 0.82,
-                  fontSize: 14,
-                }}
-              >
-                {subtitulo}
-              </p>
-
-              <p
-                style={{
-                  margin:
-                    '10px 0 0',
-                  opacity: 0.68,
-                  fontSize: 12,
-                }}
-              >
-                {hoy}
-              </p>
-            </div>
-
-            {/* =================================================
-                SABIO OFICIAL
-            ================================================== */}
-
-            <div
-              style={{
-                width: 240,
-                minHeight: 220,
-                borderRadius:
-                  24,
-                background:
-                  'rgba(255,255,255,0.10)',
-                border:
-                  '1px solid rgba(255,255,255,0.18)',
-                display:
-                  'flex',
-                flexDirection:
-                  'column',
-                alignItems:
-                  'center',
-                justifyContent:
-                  'center',
-                padding:
-                  '16px 18px',
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing:
-                    1.5,
-                  opacity: 0.78,
-                  marginBottom:
-                    4,
-                }}
-              >
-                SABIO
-              </div>
-
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <div
-  style={{
-    position: 'relative',
-    width: 210,
-    height: 180,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  }}
->
-  <img
-    src={SABIO_URL}
-    alt="Sabio - asistente inteligente de Visão Financeira"
-    style={{
-      width: 205,
-      height: 205,
-      objectFit: 'contain',
-      display: 'block',
-      transform:
-        'translateY(18px) scale(1.08)',
-      filter:
-        'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
-      animation:
-        'sabioFlota 3.8s ease-in-out infinite',
-    }}
-  />
-</div>
-
-              <div
-                style={{
-                  marginTop:
-                    2,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  opacity: 0.90,
-                  textAlign:
-                    'center',
-                }}
-              >
-                Tu compañero
-                financiero
-              </div>
-            </div>
-          </div>
-        </section>
+        <SabioHero
+          colores={colores}
+          nombreEmpresa={empresa?.nombre}
+          mensajeBienvenida={mensajeBienvenida}
+          subtitulo={subtitulo}
+          hoy={hoy}
+        />
 
         {/* =================================================
             SELECTOR GLOBAL
@@ -968,25 +466,16 @@ export default function MiNegocioPage() {
 
         <section
           style={{
-            background:
-              colores.blanco,
-            borderRadius:
-              18,
-            padding:
-              '15px 18px',
-            marginBottom:
-              20,
-            border:
-              '1px solid #e5e7eb',
-            display:
-              'flex',
-            justifyContent:
-              'space-between',
-            alignItems:
-              'center',
+            background: colores.blanco,
+            borderRadius: 18,
+            padding: '15px 18px',
+            marginBottom: 20,
+            border: '1px solid #e5e7eb',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             gap: 16,
-            flexWrap:
-              'wrap',
+            flexWrap: 'wrap',
           }}
         >
           <div>
@@ -994,77 +483,41 @@ export default function MiNegocioPage() {
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                letterSpacing:
-                  1.3,
-                color:
-                  colores.verde,
-                marginBottom:
-                  4,
+                letterSpacing: 1.3,
+                color: colores.verde,
+                marginBottom: 4,
               }}
             >
               PERÍODO DE ANÁLISIS
             </div>
 
-            <div
-              style={{
-                fontSize: 13,
-                color:
-                  COLORES_BASE.gris,
-              }}
-            >
-              El dashboard utiliza
-              este período para
-              sus objetivos e
-              indicadores.
+            <div style={{ fontSize: 13, color: COLORES_BASE.gris }}>
+              El dashboard utiliza este período para sus objetivos e indicadores.
             </div>
           </div>
 
           <select
-            value={
-              periodoSeleccionado
-            }
-            onChange={(e) =>
-              setPeriodoSeleccionado(
-                e.target.value
-              )
-            }
+            value={periodoSeleccionado}
+            onChange={(e) => setPeriodoSeleccionado(e.target.value)}
             style={{
-              minWidth:
-                210,
-              padding:
-                '11px 14px',
-              borderRadius:
-                12,
-              border:
-                `1px solid ${colores.acento}`,
-              background:
-                '#fbfcfd',
-              color:
-                colores.azul,
+              minWidth: 210,
+              padding: '11px 14px',
+              borderRadius: 12,
+              border: `1px solid ${colores.acento}`,
+              background: '#fbfcfd',
+              color: colores.azul,
               fontWeight: 700,
               fontSize: 13,
-              cursor:
-                'pointer',
+              cursor: 'pointer',
             }}
           >
-            {periodos.map(
-              (periodo) => (
-                <option
-                  key={
-                    periodo.valor
-                  }
-                  value={
-                    periodo.valor
-                  }
-                >
-                  {periodo.etiqueta}
-                </option>
-              )
-            )}
+            {periodos.map((periodo) => (
+              <option key={periodo.valor} value={periodo.valor}>
+                {periodo.etiqueta}
+              </option>
+            ))}
 
-            <option value="TODOS">
-              Todos los períodos
-            </option>
+            <option value="TODOS">Todos los períodos</option>
           </select>
         </section>
 
@@ -1074,44 +527,16 @@ export default function MiNegocioPage() {
 
         <div
           style={{
-            display:
-              'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(190px, 1fr))',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
             gap: 14,
-            marginBottom:
-              20,
+            marginBottom: 20,
           }}
         >
-          <ResumenCard
-            titulo="Ventas hoy"
-            valor="R$ 0,00"
-            color={
-              colores.verde
-            }
-          />
-
-          <ResumenCard
-            titulo="Caja disponible"
-            valor="R$ 0,00"
-            color={
-              colores.azul
-            }
-          />
-
-          <ResumenCard
-            titulo="Gastos del mes"
-            valor="R$ 0,00"
-            color="#c2410c"
-          />
-
-          <ResumenCard
-            titulo="Stock bajo"
-            valor="0 productos"
-            color={
-              colores.acento
-            }
-          />
+          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={colores.verde} />
+          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={colores.azul} />
+          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c2410c" />
+          <ResumenCard titulo="Stock bajo" valor="0 productos" color={colores.acento} />
         </div>
 
         {/* =================================================
@@ -1121,74 +546,42 @@ export default function MiNegocioPage() {
         {configuracion?.mostrar_graficos && (
           <section
             style={{
-              background:
-                colores.blanco,
-              borderRadius:
-                24,
+              background: colores.blanco,
+              borderRadius: 24,
               padding: 24,
-              marginBottom:
-                20,
-              border:
-                '1px solid #e5e7eb',
-              boxShadow:
-                '0 10px 28px rgba(31,58,95,0.06)',
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
             }}
           >
             <div
               style={{
-                display:
-                  'flex',
-                justifyContent:
-                  'space-between',
-                alignItems:
-                  'flex-start',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
                 gap: 16,
-                flexWrap:
-                  'wrap',
-                marginBottom:
-                  20,
+                flexWrap: 'wrap',
+                marginBottom: 20,
               }}
             >
               <div>
                 <div
                   style={{
-                    marginBottom:
-                      5,
-                    fontSize:
-                      10,
-                    fontWeight:
-                      700,
-                    letterSpacing:
-                      1.3,
-                    color:
-                      colores.verde,
+                    marginBottom: 5,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 1.3,
+                    color: colores.verde,
                   }}
                 >
                   INFORMACIÓN EJECUTIVA
                 </div>
 
-                <h2
-                  style={{
-                    margin: 0,
-                    color:
-                      colores.azul,
-                    fontSize:
-                      23,
-                  }}
-                >
+                <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
                   Resumen Ejecutivo
                 </h2>
 
-                <p
-                  style={{
-                    margin:
-                      '5px 0 0',
-                    fontSize:
-                      12,
-                    color:
-                      COLORES_BASE.gris,
-                  }}
-                >
+                <p style={{ margin: '5px 0 0', fontSize: 12, color: COLORES_BASE.gris }}>
                   {esTodosLosPeriodos
                     ? 'Vista histórica'
                     : 'Datos de demostración · Próximamente conectados a la información contable real.'}
@@ -1197,20 +590,13 @@ export default function MiNegocioPage() {
 
               <div
                 style={{
-                  padding:
-                    '9px 14px',
-                  borderRadius:
-                    999,
-                  background:
-                    `${colores.azul}10`,
-                  color:
-                    colores.azul,
-                  fontSize:
-                    12,
-                  fontWeight:
-                    800,
-                  textTransform:
-                    'capitalize',
+                  padding: '9px 14px',
+                  borderRadius: 999,
+                  background: `${colores.azul}10`,
+                  color: colores.azul,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textTransform: 'capitalize',
                 }}
               >
                 {periodoTexto}
@@ -1219,82 +605,51 @@ export default function MiNegocioPage() {
 
             <div
               style={{
-                display:
-                  'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(170px, 1fr))',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
                 gap: 12,
-                marginBottom:
-                  18,
+                marginBottom: 18,
               }}
             >
               <ResumenEjecutivoCard
                 titulo="Activos"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.activos
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.activos)}`}
                 emoji="💚"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
-
               <ResumenEjecutivoCard
                 titulo="Pasivos"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.pasivos
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.pasivos)}`}
                 emoji="💗"
                 color="#b91c1c"
               />
-
               <ResumenEjecutivoCard
                 titulo="Capital"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.capital
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.capital)}`}
                 emoji="💙"
-                color={
-                  colores.azul
-                }
+                color={colores.azul}
               />
-
               <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.ingresos
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.ingresos)}`}
                 emoji="💵"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
-
               <ResumenEjecutivoCard
                 titulo="Lucro"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.lucro
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.lucro)}`}
                 emoji="💰"
-                color={
-                  colores.azul
-                }
+                color={colores.azul}
               />
-
               <ResumenEjecutivoCard
                 titulo="Rentabilidad"
                 valor={`${DATOS_DEMO.rentabilidad}%`}
                 emoji="📈"
-                color={
-                  colores.verde
-                }
+                color={colores.verde}
               />
-
               <ResumenEjecutivoCard
                 titulo="Liquidez disponible"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.liquidez
-                )}`}
+                valor={`R$ ${formatearNumero(DATOS_DEMO.liquidez)}`}
                 emoji="💧"
                 color="#ca8a04"
               />
@@ -1302,42 +657,18 @@ export default function MiNegocioPage() {
 
             <div
               style={{
-                display:
-                  'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(310px, 1fr))',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
                 gap: 16,
               }}
             >
               <SalesChart
-                datos={
-                  DATOS_DEMO.ventasMensuales
-                }
-                color={
-                  colores.acento
-                }
-                colorSecundario={
-                  colores.azul
-                }
+                datos={DATOS_DEMO.ventasMensuales}
+                color={colores.acento}
+                colorSecundario={colores.azul}
               />
-
-              <CategoryChart
-                datos={
-                  DATOS_DEMO.ventasCategorias
-                }
-                color={
-                  colores.acento
-                }
-              />
-
-              <StockChart
-                datos={
-                  DATOS_DEMO.stockCategorias
-                }
-                color={
-                  colores.acento
-                }
-              />
+              <CategoryChart datos={DATOS_DEMO.ventasCategorias} color={colores.acento} />
+              <StockChart datos={DATOS_DEMO.stockCategorias} color={colores.acento} />
             </div>
           </section>
         )}
@@ -1346,159 +677,104 @@ export default function MiNegocioPage() {
             OBJETIVOS
         ================================================== */}
 
-        {configuracion?.mostrar_objetivos &&
-          !esTodosLosPeriodos && (
-            <section
+        {configuracion?.mostrar_objetivos && !esTodosLosPeriodos && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+            }}
+          >
+            <div
               style={{
-                background:
-                  colores.blanco,
-                borderRadius:
-                  24,
-                padding: 24,
-                marginBottom:
-                  20,
-                border:
-                  '1px solid #e5e7eb',
-                boxShadow:
-                  '0 10px 28px rgba(31,58,95,0.06)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 16,
+                flexWrap: 'wrap',
+                marginBottom: 18,
               }}
             >
-              <div
-                style={{
-                  display:
-                    'flex',
-                  justifyContent:
-                    'space-between',
-                  alignItems:
-                    'center',
-                  gap: 16,
-                  flexWrap:
-                    'wrap',
-                  marginBottom:
-                    18,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      marginBottom:
-                        5,
-                      fontSize:
-                        10,
-                      fontWeight:
-                        700,
-                      letterSpacing:
-                        1.3,
-                      color:
-                        colores.verde,
-                    }}
-                  >
-                    GESTIÓN
-                  </div>
-
-                  <h2
-                    style={{
-                      margin: 0,
-                      color:
-                        colores.azul,
-                      fontSize:
-                        22,
-                    }}
-                  >
-                    Objetivos del mes
-                  </h2>
-
-                  <p
-                    style={{
-                      margin:
-                        '5px 0 0',
-                      fontSize:
-                        12,
-                      color:
-                        COLORES_BASE.gris,
-                      textTransform:
-                        'capitalize',
-                    }}
-                  >
-                    {periodoTexto}
-                  </p>
-                </div>
-
+              <div>
                 <div
                   style={{
-                    padding:
-                      '8px 12px',
-                    borderRadius:
-                      999,
-                    background:
-                      `${colores.verde}14`,
-                    color:
-                      colores.verde,
-                    fontSize:
-                      11,
-                    fontWeight:
-                      700,
+                    marginBottom: 5,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 1.3,
+                    color: colores.verde,
                   }}
                 >
-                  Objetivos acordados
+                  GESTIÓN
                 </div>
+
+                <h2 style={{ margin: 0, color: colores.azul, fontSize: 22 }}>
+                  Objetivos del mes
+                </h2>
+
+                <p
+                  style={{
+                    margin: '5px 0 0',
+                    fontSize: 12,
+                    color: COLORES_BASE.gris,
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {periodoTexto}
+                </p>
               </div>
 
-              {!objetivos.length ? (
-                <div
-                  style={{
-                    padding: 24,
-                    border:
-                      '1px dashed #d6dee5',
-                    borderRadius:
-                      14,
-                    textAlign:
-                      'center',
-                    color:
-                      COLORES_BASE.gris,
-                    fontSize:
-                      13,
-                  }}
-                >
-                  No hay objetivos
-                  configurados
-                  para este período.
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display:
-                      'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: 14,
-                  }}
-                >
-                  {objetivos.map(
-                    (objetivo) => (
-                      <ObjetivoCard
-                        key={
-                          objetivo.id
-                        }
-                        objetivo={
-                          objetivo
-                        }
-                        colorPrimario={
-                          colores.azul
-                        }
-                        colorSecundario={
-                          colores.verde
-                        }
-                        colorAcento={
-                          colores.acento
-                        }
-                      />
-                    )
-                  )}
-                </div>
-              )}
-            </section>
-          )}
+              <div
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  background: `${colores.verde}14`,
+                  color: colores.verde,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                Objetivos acordados
+              </div>
+            </div>
+
+            {!objetivos.length ? (
+              <div
+                style={{
+                  padding: 24,
+                  border: '1px dashed #d6dee5',
+                  borderRadius: 14,
+                  textAlign: 'center',
+                  color: COLORES_BASE.gris,
+                  fontSize: 13,
+                }}
+              >
+                No hay objetivos configurados para este período.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                {objetivos.map((objetivo) => (
+                  <ObjetivoCard
+                    key={objetivo.id}
+                    objetivo={objetivo}
+                    colorPrimario={colores.azul}
+                    colorSecundario={colores.verde}
+                    colorAcento={colores.acento}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* =================================================
             TODOS LOS PERIODOS
@@ -1507,38 +783,20 @@ export default function MiNegocioPage() {
         {esTodosLosPeriodos && (
           <section
             style={{
-              background:
-                `${colores.azul}08`,
-              border:
-                `1px solid ${colores.azul}22`,
-              borderRadius:
-                18,
+              background: `${colores.azul}08`,
+              border: `1px solid ${colores.azul}22`,
+              borderRadius: 18,
               padding: 18,
-              marginBottom:
-                20,
-              color:
-                colores.azul,
+              marginBottom: 20,
+              color: colores.azul,
               fontSize: 13,
             }}
           >
-            <strong>
-              📊 Vista histórica
-            </strong>
+            <strong>📊 Vista histórica</strong>
 
-            <div
-              style={{
-                marginTop:
-                  5,
-                color:
-                  COLORES_BASE.gris,
-              }}
-            >
-              En esta vista se analizan
-              todos los períodos.
-              Los objetivos mensuales
-              se muestran únicamente
-              cuando seleccionás un
-              período específico.
+            <div style={{ marginTop: 5, color: COLORES_BASE.gris }}>
+              En esta vista se analizan todos los períodos. Los objetivos mensuales se
+              muestran únicamente cuando seleccionás un período específico.
             </div>
           </section>
         )}
@@ -1547,247 +805,124 @@ export default function MiNegocioPage() {
             GAMIFICACIÓN
         ================================================== */}
 
-        {configuracion?.mostrar_gamificacion &&
-          gamificacion && (
-            <section
+        {configuracion?.mostrar_gamificacion && gamificacion && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: `1px solid ${colores.acento}33`,
+              boxShadow: '0 10px 28px rgba(31,58,95,0.08)',
+            }}
+          >
+            <div
               style={{
-                background:
-                  colores.blanco,
-                borderRadius:
-                  24,
-                padding: 24,
-                marginBottom:
-                  20,
-                border:
-                  `1px solid ${colores.acento}33`,
-                boxShadow:
-                  '0 10px 28px rgba(31,58,95,0.08)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 20,
+                flexWrap: 'wrap',
               }}
             >
+              <div style={{ flex: 1, minWidth: 250 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: colores.verde,
+                    letterSpacing: 1.3,
+                    marginBottom: 6,
+                  }}
+                >
+                  PROGRESO DE TU NEGOCIO
+                </div>
+
+                <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
+                  {gamificacion.emoji} Nivel {gamificacion.nivel} · {gamificacion.nombre}
+                </h2>
+
+                <p style={{ margin: '8px 0 0', color: COLORES_BASE.gris, fontSize: 14 }}>
+                  {gamificacion.mensaje}
+                </p>
+              </div>
+
+              <div style={{ textAlign: 'right', minWidth: 170 }}>
+                <strong style={{ color: colores.azul, fontSize: 24 }}>
+                  {gamificacion.operaciones}
+                </strong>
+
+                <div style={{ fontSize: 12, color: COLORES_BASE.gris }}>
+                  operaciones registradas
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
               <div
                 style={{
-                  display:
-                    'flex',
-                  justifyContent:
-                    'space-between',
-                  alignItems:
-                    'flex-start',
-                  gap: 20,
-                  flexWrap:
-                    'wrap',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 7,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: COLORES_BASE.gris,
                 }}
               >
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: 250,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize:
-                        11,
-                      fontWeight:
-                        700,
-                      color:
-                        colores.verde,
-                      letterSpacing:
-                        1.3,
-                      marginBottom:
-                        6,
-                    }}
-                  >
-                    PROGRESO DE TU NEGOCIO
-                  </div>
-
-                  <h2
-                    style={{
-                      margin: 0,
-                      color:
-                        colores.azul,
-                      fontSize:
-                        23,
-                    }}
-                  >
-                    {
-                      gamificacion.emoji
-                    }{' '}
-                    Nivel{' '}
-                    {
-                      gamificacion.nivel
-                    }{' '}
-                    ·{' '}
-                    {
-                      gamificacion.nombre
-                    }
-                  </h2>
-
-                  <p
-                    style={{
-                      margin:
-                        '8px 0 0',
-                      color:
-                        COLORES_BASE.gris,
-                      fontSize:
-                        14,
-                    }}
-                  >
-                    {
-                      gamificacion.mensaje
-                    }
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    textAlign:
-                      'right',
-                    minWidth:
-                      170,
-                  }}
-                >
-                  <strong
-                    style={{
-                      color:
-                        colores.azul,
-                      fontSize:
-                        24,
-                    }}
-                  >
-                    {
-                      gamificacion.operaciones
-                    }
-                  </strong>
-
-                  <div
-                    style={{
-                      fontSize:
-                        12,
-                      color:
-                        COLORES_BASE.gris,
-                    }}
-                  >
-                    operaciones
-                    registradas
-                  </div>
-                </div>
+                <span>Progreso</span>
+                <span>{gamificacion.progreso}%</span>
               </div>
 
               <div
                 style={{
-                  marginTop:
-                    20,
+                  height: 12,
+                  borderRadius: 999,
+                  background: '#e7edf1',
+                  overflow: 'hidden',
                 }}
               >
                 <div
                   style={{
-                    display:
-                      'flex',
-                    justifyContent:
-                      'space-between',
-                    marginBottom:
-                      7,
-                    fontSize:
-                      12,
-                    fontWeight:
-                      700,
-                    color:
-                      COLORES_BASE.gris,
+                    width: `${gamificacion.progreso}%`,
+                    height: '100%',
+                    borderRadius: 999,
+                    background: `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
+                    transition: 'width 0.4s ease',
                   }}
-                >
-                  <span>
-                    Progreso
-                  </span>
-
-                  <span>
-                    {
-                      gamificacion.progreso
-                    }
-                    %
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    height:
-                      12,
-                    borderRadius:
-                      999,
-                    background:
-                      '#e7edf1',
-                    overflow:
-                      'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      width:
-                        `${gamificacion.progreso}%`,
-                      height:
-                        '100%',
-                      borderRadius:
-                        999,
-                      background:
-                        `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
-                      transition:
-                        'width 0.4s ease',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display:
-                    'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 12,
-                  marginTop:
-                    16,
-                }}
-              >
-                <InfoCard
-                  etiqueta="Misión"
-                  valor={
-                    gamificacion.mision
-                  }
-                  color={
-                    colores.verde
-                  }
-                />
-
-                <InfoCard
-                  etiqueta="Próximo objetivo"
-                  valor={
-                    gamificacion.operacionesMax ===
-                    null
-                      ? 'Mantener la excelencia'
-                      : `Alcanzar ${
-                          gamificacion.operacionesMax +
-                          1
-                        } operaciones`
-                  }
-                  color={
-                    colores.azul
-                  }
-                />
-
-                <InfoCard
-                  etiqueta="Faltan"
-                  valor={
-                    gamificacion.operacionesMax ===
-                    null
-                      ? '0 operaciones'
-                      : `${gamificacion.faltan} operaciones`
-                  }
-                  color={
-                    colores.acento
-                  }
                 />
               </div>
-            </section>
-          )}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 12,
+                marginTop: 16,
+              }}
+            >
+              <InfoCard etiqueta="Misión" valor={gamificacion.mision} color={colores.verde} />
+              <InfoCard
+                etiqueta="Próximo objetivo"
+                valor={
+                  gamificacion.operacionesMax === null
+                    ? 'Mantener la excelencia'
+                    : `Alcanzar ${gamificacion.operacionesMax + 1} operaciones`
+                }
+                color={colores.azul}
+              />
+              <InfoCard
+                etiqueta="Faltan"
+                valor={
+                  gamificacion.operacionesMax === null
+                    ? '0 operaciones'
+                    : `${gamificacion.faltan} operaciones`
+                }
+                color={colores.acento}
+              />
+            </div>
+          </section>
+        )}
 
         {/* =================================================
             HERRAMIENTAS
@@ -1795,57 +930,34 @@ export default function MiNegocioPage() {
 
         <section
           style={{
-            background:
-              colores.blanco,
-            borderRadius:
-              24,
+            background: colores.blanco,
+            borderRadius: 24,
             padding: 24,
-            border:
-              '1px solid #e5e7eb',
+            border: '1px solid #e5e7eb',
           }}
         >
-          <div
-            style={{
-              marginBottom:
-                16,
-            }}
-          >
+          <div style={{ marginBottom: 16 }}>
             <div
               style={{
-                marginBottom:
-                  4,
-                fontSize:
-                  10,
-                fontWeight:
-                  700,
-                letterSpacing:
-                  1.3,
-                color:
-                  colores.verde,
+                marginBottom: 4,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 1.3,
+                color: colores.verde,
               }}
             >
               GESTIÓN
             </div>
 
-            <h2
-              style={{
-                margin: 0,
-                color:
-                  colores.azul,
-                fontSize:
-                  21,
-              }}
-            >
+            <h2 style={{ margin: 0, color: colores.azul, fontSize: 21 }}>
               Tus herramientas
             </h2>
           </div>
 
           <div
             style={{
-              display:
-                'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(210px, 1fr))',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
               gap: 12,
             }}
           >
@@ -1853,42 +965,28 @@ export default function MiNegocioPage() {
               href="/lanzamientos"
               titulo="Central de Lanzamientos"
               principal
-              colorPrincipal={
-                colores.verde
-              }
+              colorPrincipal={colores.verde}
             />
-
             <BotonAcceso
               href="/registros"
               titulo="Registro de Operaciones"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
-
             <BotonAcceso
               href="/stock"
               titulo="Saldo de Stock"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
-
             <BotonAcceso
               href="/movimientos-stock"
               titulo="Movimientos de Stock"
-              colorPrincipal={
-                colores.azul
-              }
+              colorPrincipal={colores.azul}
             />
-
             <BotonAcceso
               href="/libro-diario"
               titulo="Libro Diario"
               destacado
-              colorPrincipal={
-                colores.verde
-              }
+              colorPrincipal={colores.verde}
             />
           </div>
         </section>
@@ -1897,37 +995,19 @@ export default function MiNegocioPage() {
   );
 }
 
-// =====================================================
-// RESULTADO DE OBJETIVO
-// =====================================================
-
 function obtenerResultadoObjetivo(
   objetivo: ObjetivoEmpresa,
-  gamificacion:
-    | ProgresoGamificacion
-    | null,
+  gamificacion: ProgresoGamificacion | null,
   periodo: string
 ): number {
-  const indicador =
-    objetivo.indicador
-      .trim()
-      .toUpperCase();
+  const indicador = objetivo.indicador.trim().toUpperCase();
 
-  if (
-    indicador ===
-      'OPERACIONES REGISTRADAS' &&
-    gamificacion &&
-    periodo !== 'TODOS'
-  ) {
+  if (indicador === 'OPERACIONES REGISTRADAS' && gamificacion && periodo !== 'TODOS') {
     return gamificacion.operaciones;
   }
 
   return 0;
 }
-
-// =====================================================
-// CARD OBJETIVO
-// =====================================================
 
 function ObjetivoCard({
   objetivo,
@@ -1940,190 +1020,102 @@ function ObjetivoCard({
   colorSecundario: string;
   colorAcento: string;
 }) {
-  const cumplido =
-    objetivo.porcentaje >=
-    100;
-
+  const cumplido = objetivo.porcentaje >= 100;
   const enCamino = objetivo.porcentaje >= 50 && objetivo.porcentaje < 100;
 
-  const colorEstado =
-    cumplido
-      ? colorSecundario
-      : enCamino
-        ? '#d97706'
-        : '#dc2626';
-
-  const fondoEstado =
-    cumplido
-      ? `${colorSecundario}12`
-      : enCamino
-        ? '#fff7ed'
-        : '#fef2f2';
+  const colorEstado = cumplido ? colorSecundario : enCamino ? '#d97706' : '#dc2626';
+  const fondoEstado = cumplido
+    ? `${colorSecundario}12`
+    : enCamino
+      ? '#fff7ed'
+      : '#fef2f2';
 
   const resultadoTexto =
-    objetivo.unidad ===
-    'R$'
+    objetivo.unidad === 'R$'
       ? `R$ ${objetivo.resultado.toFixed(2)}`
       : `${objetivo.resultado}`;
 
   const objetivoTexto =
-    objetivo.unidad ===
-    'R$'
-      ? `R$ ${Number(
-          objetivo.objetivo
-        ).toFixed(2)}`
-      : `${Number(
-          objetivo.objetivo
-        )}`;
+    objetivo.unidad === 'R$'
+      ? `R$ ${Number(objetivo.objetivo).toFixed(2)}`
+      : `${Number(objetivo.objetivo)}`;
 
   return (
     <div
       style={{
-        background:
-          '#fbfcfd',
-        border:
-          '1px solid #e5e7eb',
-        borderRadius:
-          16,
-        padding:
-          16,
+        background: '#fbfcfd',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: 16,
       }}
     >
       <div
         style={{
-          display:
-            'flex',
-          justifyContent:
-            'space-between',
-          alignItems:
-            'flex-start',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
           gap: 12,
-          marginBottom:
-            12,
+          marginBottom: 12,
         }}
       >
         <div>
-          <div
-            style={{
-              color:
-                colorPrimario,
-              fontSize:
-                13,
-              fontWeight:
-                800,
-            }}
-          >
-            {formatearIndicador(
-              objetivo.indicador
-            )}
+          <div style={{ color: colorPrimario, fontSize: 13, fontWeight: 800 }}>
+            {formatearIndicador(objetivo.indicador)}
           </div>
 
-          <div
-            style={{
-              marginTop:
-                4,
-              fontSize:
-                12,
-              color:
-                COLORES_BASE.gris,
-            }}
-          >
-            {
-              resultadoTexto
-            }{' '}
-            /{' '}
-            {
-              objetivoTexto
-            }
+          <div style={{ marginTop: 4, fontSize: 12, color: COLORES_BASE.gris }}>
+            {resultadoTexto} / {objetivoTexto}
           </div>
         </div>
 
         <span
           style={{
-            padding:
-              '5px 8px',
-            borderRadius:
-              999,
-            background:
-              fondoEstado,
-            color:
-              colorEstado,
-            fontSize:
-              10,
-            fontWeight:
-              800,
-            whiteSpace:
-              'nowrap',
+            padding: '5px 8px',
+            borderRadius: 999,
+            background: fondoEstado,
+            color: colorEstado,
+            fontSize: 10,
+            fontWeight: 800,
+            whiteSpace: 'nowrap',
           }}
         >
-          {cumplido
-            ? 'CUMPLIDO'
-            : enCamino
-              ? 'EN CAMINO'
-              : 'PENDIENTE'}
+          {cumplido ? 'CUMPLIDO' : enCamino ? 'EN CAMINO' : 'PENDIENTE'}
         </span>
       </div>
 
       <div
         style={{
-          height:
-            9,
-          borderRadius:
-            999,
-          background:
-            '#e7edf1',
-          overflow:
-            'hidden',
+          height: 9,
+          borderRadius: 999,
+          background: '#e7edf1',
+          overflow: 'hidden',
         }}
       >
         <div
           style={{
-            width:
-              `${objetivo.porcentaje}%`,
-            height:
-              '100%',
-            borderRadius:
-              999,
-            background:
-              colorEstado,
+            width: `${objetivo.porcentaje}%`,
+            height: '100%',
+            borderRadius: 999,
+            background: colorEstado,
           }}
         />
       </div>
 
       <div
         style={{
-          display:
-            'flex',
-          justifyContent:
-            'space-between',
-          marginTop:
-            7,
-          fontSize:
-            10,
-          color:
-            COLORES_BASE.gris,
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 7,
+          fontSize: 10,
+          color: COLORES_BASE.gris,
         }}
       >
-        <span>
-          {
-            objetivo.porcentaje
-          }%
-        </span>
-
-        <span>
-          Meta:{' '}
-          {
-            objetivoTexto
-          }
-        </span>
+        <span>{objetivo.porcentaje}%</span>
+        <span>Meta: {objetivoTexto}</span>
       </div>
     </div>
   );
 }
-
-// =====================================================
-// RESUMEN EJECUTIVO
-// =====================================================
 
 function ResumenEjecutivoCard({
   titulo,
@@ -2139,45 +1131,20 @@ function ResumenEjecutivoCard({
   return (
     <div
       style={{
-        border:
-          '1px solid #e5e7eb',
-        borderRadius:
-          16,
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
         padding: 15,
-        background:
-          '#fbfcfd',
+        background: '#fbfcfd',
       }}
     >
-      <div
-        style={{
-          fontSize:
-            12,
-          color:
-            COLORES_BASE.gris,
-          marginBottom:
-            8,
-        }}
-      >
-        {emoji}{' '}
-        {titulo}
+      <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginBottom: 8 }}>
+        {emoji} {titulo}
       </div>
 
-      <strong
-        style={{
-          color,
-          fontSize:
-            21,
-        }}
-      >
-        {valor}
-      </strong>
+      <strong style={{ color, fontSize: 21 }}>{valor}</strong>
     </div>
   );
 }
-
-// =====================================================
-// INFO CARD
-// =====================================================
 
 function InfoCard({
   etiqueta,
@@ -2191,53 +1158,30 @@ function InfoCard({
   return (
     <div
       style={{
-        background:
-          '#f8fafc',
-        borderRadius:
-          14,
-        padding:
-          14,
-        border:
-          '1px solid #e5e7eb',
+        background: '#f8fafc',
+        borderRadius: 14,
+        padding: 14,
+        border: '1px solid #e5e7eb',
       }}
     >
       <div
         style={{
-          fontSize:
-            10,
-          fontWeight:
-            700,
-          letterSpacing:
-            1,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 1,
           color,
-          marginBottom:
-            5,
+          marginBottom: 5,
         }}
       >
         {etiqueta.toUpperCase()}
       </div>
 
-      <div
-        style={{
-          fontSize:
-            13,
-          fontWeight:
-            600,
-          color:
-            COLORES_BASE.azul,
-          lineHeight:
-            1.4,
-        }}
-      >
+      <div style={{ fontSize: 13, fontWeight: 600, color: COLORES_BASE.azul, lineHeight: 1.4 }}>
         {valor}
       </div>
     </div>
   );
 }
-
-// =====================================================
-// RESUMEN CARD
-// =====================================================
 
 function ResumenCard({
   titulo,
@@ -2251,51 +1195,21 @@ function ResumenCard({
   return (
     <div
       style={{
-        background:
-          COLORES_BASE.blanco,
-        borderRadius:
-          20,
-        padding:
-          20,
-        border:
-          '1px solid #e5e7eb',
-        minHeight:
-          112,
-        display:
-          'flex',
-        flexDirection:
-          'column',
-        justifyContent:
-          'space-between',
+        background: COLORES_BASE.blanco,
+        borderRadius: 20,
+        padding: 20,
+        border: '1px solid #e5e7eb',
+        minHeight: 112,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}
     >
-      <span
-        style={{
-          color:
-            COLORES_BASE.gris,
-          fontSize:
-            13,
-        }}
-      >
-        {titulo}
-      </span>
-
-      <strong
-        style={{
-          color,
-          fontSize:
-            23,
-        }}
-      >
-        {valor}
-      </strong>
+      <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{titulo}</span>
+      <strong style={{ color, fontSize: 23 }}>{valor}</strong>
     </div>
   );
 }
-
-// =====================================================
-// BOTÓN DE ACCESO
-// =====================================================
 
 function BotonAcceso({
   href,
@@ -2314,43 +1228,19 @@ function BotonAcceso({
     <Link
       href={href}
       style={{
-        textDecoration:
-          'none',
-
-        background:
-          principal
-            ? colorPrincipal
-            : destacado
-              ? `${colorPrincipal}18`
-              : '#ffffff',
-
-        color:
-          principal
-            ? '#ffffff'
-            : colorPrincipal,
-
-        border:
-          principal ||
-          destacado
-            ? 'none'
-            : '1px solid #d1d5db',
-
-        borderRadius:
-          16,
-
-        padding:
-          '17px 18px',
-
-        textAlign:
-          'center',
-
-        fontWeight:
-          700,
-
-        boxShadow:
-          principal
-            ? `0 8px 20px ${colorPrincipal}33`
-            : 'none',
+        textDecoration: 'none',
+        background: principal
+          ? colorPrincipal
+          : destacado
+            ? `${colorPrincipal}18`
+            : '#ffffff',
+        color: principal ? '#ffffff' : colorPrincipal,
+        border: principal || destacado ? 'none' : '1px solid #d1d5db',
+        borderRadius: 16,
+        padding: '17px 18px',
+        textAlign: 'center',
+        fontWeight: 700,
+        boxShadow: principal ? `0 8px 20px ${colorPrincipal}33` : 'none',
       }}
     >
       {titulo}
@@ -2358,109 +1248,44 @@ function BotonAcceso({
   );
 }
 
-// =====================================================
-// FORMATEAR NÚMERO
-// =====================================================
-
-function formatearNumero(
-  valor: number
-): string {
-  return valor.toLocaleString(
-    'es-AR',
-    {
-      minimumFractionDigits:
-        2,
-      maximumFractionDigits:
-        2,
-    }
-  );
+function formatearNumero(valor: number): string {
+  return valor.toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-// =====================================================
-// FORMATEAR PERÍODO
-// =====================================================
-
-function formatearPeriodo(
-  valor: string
-): string {
-  const partes =
-    valor.split('-');
+function formatearPeriodo(valor: string): string {
+  const partes = valor.split('-');
 
   if (partes.length < 2) {
     return valor;
   }
 
-  const year =
-    Number(
-      partes[0]
-    );
+  const year = Number(partes[0]);
+  const month = Number(partes[1]);
 
-  const month =
-    Number(
-      partes[1]
-    );
-
-  if (
-    !year ||
-    !month
-  ) {
+  if (!year || !month) {
     return valor;
   }
 
-  return new Date(
-    year,
-    month - 1,
-    1
-  ).toLocaleDateString(
-    'es-AR',
-    {
-      month:
-        'long',
-      year:
-        'numeric',
-    }
-  );
+  return new Date(year, month - 1, 1).toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
-// =====================================================
-// FORMATEAR INDICADOR
-// =====================================================
-
-function formatearIndicador(
-  indicador: string
-): string {
+function formatearIndicador(indicador: string): string {
   const mapa: Record<string, string> = {
-    'VENTAS DEL MES':
-      'Ventas del mes',
-
-    'COMPRAS DEL MES':
-      'Compras del mes',
-
-    'OPERACIONES REGISTRADAS':
-      'Operaciones registradas',
-
-    'VALOR DEL INVENTARIO':
-      'Valor del inventario',
-
-    PUBLICACIONES:
-      'Publicaciones',
-
-    HISTORIAS:
-      'Historias',
-
-    'NUEVOS SEGUIDORES':
-      'Nuevos seguidores',
-
-    MENSAJES:
-      'Mensajes',
+    'VENTAS DEL MES': 'Ventas del mes',
+    'COMPRAS DEL MES': 'Compras del mes',
+    'OPERACIONES REGISTRADAS': 'Operaciones registradas',
+    'VALOR DEL INVENTARIO': 'Valor del inventario',
+    PUBLICACIONES: 'Publicaciones',
+    HISTORIAS: 'Historias',
+    'NUEVOS SEGUIDORES': 'Nuevos seguidores',
+    MENSAJES: 'Mensajes',
   };
 
-  return (
-    mapa[
-      indicador
-        .trim()
-        .toUpperCase()
-    ] ||
-    indicador
-  );
+  return mapa[indicador.trim().toUpperCase()] || indicador;
 }
