@@ -573,6 +573,12 @@ export default function MiNegocioPage() {
               destacado
               colorPrincipal={colores.verde}
             />
+
+            <BotonAcceso
+              href="/recursos-humanos"
+              titulo="Recursos Humanos"
+              colorPrincipal={colores.azul}
+            />
           </div>
         </section>
 
