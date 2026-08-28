@@ -47,13 +47,16 @@ export function SabioHero({
 
     const mover = (e: MouseEvent) => {
       const rect = elemento.getBoundingClientRect();
+
       const centroX = rect.left + rect.width / 2;
       const centroY = rect.top + rect.height / 2;
+
       const distanciaX = e.clientX - centroX;
       const distanciaY = e.clientY - centroY;
 
       const rotacionY = Math.max(-10, Math.min(10, distanciaX / 18));
       const rotacionX = Math.max(-8, Math.min(8, -(distanciaY / 22)));
+
       const movimientoX = Math.max(-8, Math.min(8, distanciaX / 35));
       const movimientoY = Math.max(-8, Math.min(8, distanciaY / 35));
 
@@ -119,17 +122,37 @@ export function SabioHero({
             MI NEGOCIO
           </div>
 
-          <h1 style={{ margin: 0, fontSize: 34 }}>{nombreEmpresa}</h1>
+          <h1 style={{ margin: 0, fontSize: 34 }}>
+            {nombreEmpresa}
+          </h1>
 
-          <p style={{ margin: '10px 0 0', fontSize: 19, fontWeight: 600 }}>
+          <p
+            style={{
+              margin: '10px 0 0',
+              fontSize: 19,
+              fontWeight: 600,
+            }}
+          >
             {mensajeBienvenida}
           </p>
 
-          <p style={{ margin: '6px 0 0', opacity: 0.82, fontSize: 14 }}>
+          <p
+            style={{
+              margin: '6px 0 0',
+              opacity: 0.82,
+              fontSize: 14,
+            }}
+          >
             {subtitulo}
           </p>
 
-          <p style={{ margin: '10px 0 0', opacity: 0.68, fontSize: 12 }}>
+          <p
+            style={{
+              margin: '10px 0 0',
+              opacity: 0.68,
+              fontSize: 12,
+            }}
+          >
             {hoy}
           </p>
         </div>
@@ -157,7 +180,12 @@ export function SabioHero({
                 flexWrap: 'wrap',
               }}
             >
-              <div style={{ flex: 1, minWidth: 170 }}>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 170,
+                }}
+              >
                 <div
                   style={{
                     fontSize: 11,
@@ -178,14 +206,23 @@ export function SabioHero({
                   }}
                 >
                   {gamificacion.emoji} Nivel {gamificacion.nivel}
-                  <span style={{ opacity: 0.85 }}>
+
+                  <span
+                    style={{
+                      opacity: 0.85,
+                    }}
+                  >
                     {' '}
                     · {gamificacion.nombre}
                   </span>
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
+              <div
+                style={{
+                  textAlign: 'right',
+                }}
+              >
                 <strong
                   style={{
                     fontSize: 26,
@@ -196,7 +233,12 @@ export function SabioHero({
                   {gamificacion.operaciones}
                 </strong>
 
-                <span style={{ fontSize: 11, opacity: 0.8 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    opacity: 0.8,
+                  }}
+                >
                   operaciones registradas
                 </span>
               </div>
@@ -225,7 +267,10 @@ export function SabioHero({
               }}
             >
               <span>Progreso</span>
-              <span>{gamificacion.progreso}%</span>
+
+              <span>
+                {gamificacion.progreso}%
+              </span>
             </div>
 
             <div
@@ -364,5 +409,51 @@ export function SabioHero({
         </div>
       </div>
     </section>
+  );
+}
+
+/* =========================================
+   COMPONENTE AUXILIAR — DATO DEL NIVEL
+========================================= */
+
+function DatoNivel({
+  etiqueta,
+  valor,
+}: {
+  etiqueta: string;
+  valor: string;
+}) {
+  return (
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.10)',
+        border: '1px solid rgba(255,255,255,0.16)',
+        borderRadius: 14,
+        padding: '10px 12px',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          opacity: 0.75,
+          marginBottom: 4,
+        }}
+      >
+        {etiqueta}
+      </div>
+
+      <div
+        style={{
+          fontSize: 12.5,
+          fontWeight: 600,
+          lineHeight: 1.4,
+        }}
+      >
+        {valor}
+      </div>
+    </div>
   );
 }
