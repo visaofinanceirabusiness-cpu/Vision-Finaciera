@@ -1,3 +1,22 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+
+const SABIO_URL =
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
+
+type NivelHero = {
+  nivel: number;
+  nombre: string;
+  emoji: string;
+  mensaje: string;
+  mision: string;
+  progreso: number;
+  operaciones: number;
+  operacionesMax: number | null;
+  faltan: number;
+};
+
 export function SabioHero({
   colores,
   nombreEmpresa,
