@@ -41,6 +41,7 @@ export default function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.jpeg" alt={'Vis\u00E3o Financeira'} style={{ width: 96, height: 96, objectFit: 'contain' }} />
           <p style={{ color: '#6b7280', fontSize: 13, margin: '4px 0 0' }}>Claridad para decidir. Seguridad para crecer.</p>
+          <a href="https://visao-financeira-web.vercel.app" style={{ display: 'inline-block', marginTop: 14, color: '#1E8C3C', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>← Volver al sitio</a>
         </div>
 
         <label style={{ fontSize: 13, color: '#374151' }}>Email</label>
