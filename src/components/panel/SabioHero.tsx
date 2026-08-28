@@ -1,26 +1,3 @@
-'use client';
-
-import { useEffect, useRef } from 'react';
-
-const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
-
-// Datos del nivel que se muestran en el centro del hero, entre el saludo
-// y Sabio. Es opcional: si no se pasa (o la empresa tiene la gamificación
-// desactivada en su configuración), el hero se ve como antes, con dos
-// columnas y sin ningún hueco.
-type NivelHero = {
-  nivel: number;
-  nombre: string;
-  emoji: string;
-  mensaje: string;
-  mision: string;
-  progreso: number;
-  operaciones: number;
-  operacionesMax: number | null;
-  faltan: number;
-};
-
 export function SabioHero({
   colores,
   nombreEmpresa,
@@ -129,14 +106,17 @@ export function SabioHero({
             {mensajeBienvenida}
           </p>
 
-          <p style={{ margin: '6px 0 0', opacity: 0.82, fontSize: 14 }}>{subtitulo}</p>
+          <p style={{ margin: '6px 0 0', opacity: 0.82, fontSize: 14 }}>
+            {subtitulo}
+          </p>
 
-          <p style={{ margin: '10px 0 0', opacity: 0.68, fontSize: 12 }}>{hoy}</p>
+          <p style={{ margin: '10px 0 0', opacity: 0.68, fontSize: 12 }}>
+            {hoy}
+          </p>
         </div>
 
         {/* =========================================
             COLUMNA 2 — El nivel del emprendedor
-            (justo en el medio, entre el saludo y Sabio)
         ========================================== */}
         {gamificacion && (
           <div
@@ -171,23 +151,46 @@ export function SabioHero({
                   PROGRESO DE TU NEGOCIO
                 </div>
 
-                <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.25 }}>
+                <div
+                  style={{
+                    fontSize: 21,
+                    fontWeight: 700,
+                    lineHeight: 1.25,
+                  }}
+                >
                   {gamificacion.emoji} Nivel {gamificacion.nivel}
-                  <span style={{ opacity: 0.85 }}> · {gamificacion.nombre}</span>
+                  <span style={{ opacity: 0.85 }}>
+                    {' '}
+                    · {gamificacion.nombre}
+                  </span>
                 </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <strong style={{ fontSize: 26, display: 'block', lineHeight: 1.1 }}>
+                <strong
+                  style={{
+                    fontSize: 26,
+                    display: 'block',
+                    lineHeight: 1.1,
+                  }}
+                >
                   {gamificacion.operaciones}
                 </strong>
+
                 <span style={{ fontSize: 11, opacity: 0.8 }}>
                   operaciones registradas
                 </span>
               </div>
             </div>
 
-            <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
+            <p
+              style={{
+                margin: '10px 0 0',
+                fontSize: 13,
+                opacity: 0.85,
+                lineHeight: 1.5,
+              }}
+            >
               {gamificacion.mensaje}
             </p>
 
@@ -219,7 +222,8 @@ export function SabioHero({
                   width: `${gamificacion.progreso}%`,
                   height: '100%',
                   borderRadius: 999,
-                  background: 'linear-gradient(90deg, #86efac, #ffffff)',
+                  background:
+                    'linear-gradient(90deg, #86efac, #ffffff)',
                   transition: 'width 0.4s ease',
                 }}
               />
@@ -229,19 +233,25 @@ export function SabioHero({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(150px, 1fr))',
                 gap: 10,
                 marginTop: 16,
               }}
             >
-              <DatoNivel etiqueta="Misión" valor={gamificacion.mision} />
+              <DatoNivel
+                etiqueta="Misión"
+                valor={gamificacion.mision}
+              />
 
               <DatoNivel
                 etiqueta="Próximo objetivo"
                 valor={
                   gamificacion.operacionesMax === null
                     ? 'Mantener la excelencia'
-                    : `Alcanzar ${gamificacion.operacionesMax + 1} operaciones`
+                    : `Alcanzar ${
+                        gamificacion.operacionesMax + 1
+                      } operaciones`
                 }
               />
 
@@ -262,8 +272,8 @@ export function SabioHero({
         ========================================== */}
         <div
           style={{
-            width: 240,
-            minHeight: 220,
+            width: 260,
+            minHeight: 250,
             borderRadius: 24,
             background: 'rgba(255,255,255,0.10)',
             border: '1px solid rgba(255,255,255,0.18)',
@@ -292,8 +302,8 @@ export function SabioHero({
             ref={sabioRef}
             style={{
               position: 'relative',
-              width: 210,
-              height: 205,
+              width: 230,
+              height: 225,
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'center',
@@ -310,12 +320,13 @@ export function SabioHero({
               src={SABIO_URL}
               alt="Sabio - asistente inteligente de Visão Financeira"
               style={{
-                width: 205,
-                height: 205,
+                width: 230,
+                height: 230,
                 objectFit: 'contain',
                 display: 'block',
                 pointerEvents: 'none',
-                filter: 'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
+                filter:
+                  'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
               }}
             />
           </div>
@@ -334,35 +345,5 @@ export function SabioHero({
         </div>
       </div>
     </section>
-  );
-}
-
-// Tarjetita de dato dentro del bloque de nivel. Es la versión para fondo
-// oscuro de la InfoCard que se usaba en el panel.
-function DatoNivel({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  return (
-    <div
-      style={{
-        background: 'rgba(255,255,255,0.10)',
-        border: '1px solid rgba(255,255,255,0.16)',
-        borderRadius: 14,
-        padding: '10px 12px',
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 800,
-          letterSpacing: 1,
-          textTransform: 'uppercase',
-          opacity: 0.75,
-          marginBottom: 4,
-        }}
-      >
-        {etiqueta}
-      </div>
-
-      <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>{valor}</div>
-    </div>
   );
 }
