@@ -38,6 +38,7 @@ type Empresa = {
   nombre: string;
   rubro: string | null;
   logo_url: string | null;
+  perfil_empresa_id: string | null;
 };
 
 type ConfiguracionDashboard = {
@@ -71,6 +72,7 @@ export default function InicioPage() {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
+  const [modulos, setModulos] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -101,7 +103,7 @@ export default function InicioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url')
+        .select('nombre, rubro, logo_url, perfil_empresa_id')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -112,6 +114,26 @@ export default function InicioPage() {
       }
 
       setEmpresa(empresaData);
+
+      // Módulos habilitados según el PERFIL de la empresa (comercial,
+      // servicios, producción, mixto). Es lo que hace que una herramienta
+      // como Producción aparezca solo en las empresas que producen, sin
+      // tener que nombrar clientes dentro del código.
+      if (empresaData?.perfil_empresa_id) {
+        const { data: modulosData, error: errorModulos } = await supabase
+          .from('perfil_modulos')
+          .select('modulo')
+          .eq('perfil_empresa_id', empresaData.perfil_empresa_id)
+          .eq('activo', true);
+
+        if (errorModulos) {
+          console.warn('No se pudieron cargar los módulos del perfil:', errorModulos);
+        }
+
+        setModulos((modulosData ?? []).map((fila) => String(fila.modulo)));
+      } else {
+        setModulos([]);
+      }
 
       const { data: configData, error: errorConfig } = await supabase
         .from('configuracion_dashboard')
@@ -192,6 +214,8 @@ export default function InicioPage() {
   });
 
   const logoDisponible = Boolean(empresa?.logo_url?.trim());
+
+  const tieneModulo = (modulo: string) => modulos.includes(modulo);
 
   const mensajeBienvenida =
     configuracion?.mensaje_bienvenida ?? `Hola, ${perfil?.nombre ?? ''} 👋`;
@@ -448,11 +472,14 @@ export default function InicioPage() {
               colorPrincipal={colores.verde}
             />
 
-            <BotonAcceso
-              href="/produccion"
-              titulo="Producción"
-              colorPrincipal={colores.azul}
-            />
+            {/* Solo para empresas de producción (perfil PRODUCCION) */}
+            {tieneModulo('PRODUCCION') && (
+              <BotonAcceso
+                href="/produccion"
+                titulo="Producción"
+                colorPrincipal={colores.azul}
+              />
+            )}
 
             <BotonAcceso
               href="/recursos-humanos"
