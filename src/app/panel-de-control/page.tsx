@@ -221,6 +221,7 @@ export default function MiNegocioPage() {
         if (!fila.fecha) {
           continue;
         }
+
         const fecha = String(fila.fecha);
         periodosUnicos.add(`${fecha.slice(0, 7)}-01`);
       }
@@ -268,11 +269,21 @@ export default function MiNegocioPage() {
       }
 
       const objetivosCalculados = ((data ?? []) as ObjetivoEmpresa[]).map((objetivo) => {
-        const resultado = obtenerResultadoObjetivo(objetivo, gamificacion, periodoSeleccionado);
+        const resultado = obtenerResultadoObjetivo(
+          objetivo,
+          gamificacion,
+          periodoSeleccionado
+        );
 
         const porcentaje =
           objetivo.objetivo > 0
-            ? Math.min(100, Math.max(0, (resultado / Number(objetivo.objetivo)) * 100))
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (resultado / Number(objetivo.objetivo)) * 100
+                )
+              )
             : 0;
 
         return {
@@ -328,10 +339,12 @@ export default function MiNegocioPage() {
   const logoDisponible = Boolean(empresa?.logo_url?.trim());
 
   const mensajeBienvenida =
-    configuracion?.mensaje_bienvenida ?? `Hola, ${perfil?.nombre ?? ''} 👋`;
+    configuracion?.mensaje_bienvenida ??
+    `Hola, ${perfil?.nombre ?? ''} 👋`;
 
   const subtitulo =
-    configuracion?.subtitulo_dashboard ?? 'Tu negocio, tus números y tus próximos objetivos.';
+    configuracion?.subtitulo_dashboard ??
+    'Tu negocio, tus números y tus próximos objetivos.';
 
   return (
     <main
@@ -399,17 +412,35 @@ export default function MiNegocioPage() {
             </div>
 
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: colores.azul }}>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: colores.azul,
+                }}
+              >
                 {empresa?.nombre ?? 'Mi Negocio'}
               </div>
 
-              <div style={{ fontSize: 13, color: COLORES_BASE.gris, marginTop: 3 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: COLORES_BASE.gris,
+                  marginTop: 3,
+                }}
+              >
                 {empresa?.rubro ?? 'Gestión financiera'}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
             {perfil?.es_admin_plataforma && (
               <Link
                 href="/panel-maestro"
@@ -460,9 +491,90 @@ export default function MiNegocioPage() {
           subtitulo={subtitulo}
           hoy={hoy}
           gamificacion={
-            configuracion?.mostrar_gamificacion ? gamificacion : null
+            configuracion?.mostrar_gamificacion
+              ? gamificacion
+              : null
           }
         />
+
+        {/* =================================================
+            HERRAMIENTAS
+        ================================================== */}
+
+        <section
+          style={{
+            background: colores.blanco,
+            borderRadius: 24,
+            padding: 24,
+            marginBottom: 20,
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                marginBottom: 4,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 1.3,
+                color: colores.verde,
+              }}
+            >
+              GESTIÓN
+            </div>
+
+            <h2
+              style={{
+                margin: 0,
+                color: colores.azul,
+                fontSize: 21,
+              }}
+            >
+              Tus herramientas
+            </h2>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <BotonAcceso
+              href="/lanzamientos"
+              titulo="Central de Lanzamientos"
+              principal
+              colorPrincipal={colores.verde}
+            />
+
+            <BotonAcceso
+              href="/registros"
+              titulo="Registro de Operaciones"
+              colorPrincipal={colores.azul}
+            />
+
+            <BotonAcceso
+              href="/stock"
+              titulo="Saldo de Stock"
+              colorPrincipal={colores.azul}
+            />
+
+            <BotonAcceso
+              href="/movimientos-stock"
+              titulo="Movimientos de Stock"
+              colorPrincipal={colores.azul}
+            />
+
+            <BotonAcceso
+              href="/libro-diario"
+              titulo="Libro Diario"
+              destacado
+              colorPrincipal={colores.verde}
+            />
+          </div>
+        </section>
 
         {/* =================================================
             SELECTOR GLOBAL
@@ -495,7 +607,12 @@ export default function MiNegocioPage() {
               PERÍODO DE ANÁLISIS
             </div>
 
-            <div style={{ fontSize: 13, color: COLORES_BASE.gris }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: COLORES_BASE.gris,
+              }}
+            >
               El dashboard utiliza este período para sus objetivos e indicadores.
             </div>
           </div>
@@ -532,15 +649,35 @@ export default function MiNegocioPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(190px, 1fr))',
             gap: 14,
             marginBottom: 20,
           }}
         >
-          <ResumenCard titulo="Ventas hoy" valor="R$ 0,00" color={colores.verde} />
-          <ResumenCard titulo="Caja disponible" valor="R$ 0,00" color={colores.azul} />
-          <ResumenCard titulo="Gastos del mes" valor="R$ 0,00" color="#c2410c" />
-          <ResumenCard titulo="Stock bajo" valor="0 productos" color={colores.acento} />
+          <ResumenCard
+            titulo="Ventas hoy"
+            valor="R$ 0,00"
+            color={colores.verde}
+          />
+
+          <ResumenCard
+            titulo="Caja disponible"
+            valor="R$ 0,00"
+            color={colores.azul}
+          />
+
+          <ResumenCard
+            titulo="Gastos del mes"
+            valor="R$ 0,00"
+            color="#c2410c"
+          />
+
+          <ResumenCard
+            titulo="Stock bajo"
+            valor="0 productos"
+            color={colores.acento}
+          />
         </div>
 
         {/* =================================================
@@ -555,7 +692,8 @@ export default function MiNegocioPage() {
               padding: 24,
               marginBottom: 20,
               border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              boxShadow:
+                '0 10px 28px rgba(31,58,95,0.06)',
             }}
           >
             <div
@@ -581,11 +719,23 @@ export default function MiNegocioPage() {
                   INFORMACIÓN EJECUTIVA
                 </div>
 
-                <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: colores.azul,
+                    fontSize: 23,
+                  }}
+                >
                   Resumen Ejecutivo
                 </h2>
 
-                <p style={{ margin: '5px 0 0', fontSize: 12, color: COLORES_BASE.gris }}>
+                <p
+                  style={{
+                    margin: '5px 0 0',
+                    fontSize: 12,
+                    color: COLORES_BASE.gris,
+                  }}
+                >
                   {esTodosLosPeriodos
                     ? 'Vista histórica'
                     : 'Datos de demostración · Próximamente conectados a la información contable real.'}
@@ -610,50 +760,69 @@ export default function MiNegocioPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(170px, 1fr))',
                 gap: 12,
                 marginBottom: 18,
               }}
             >
               <ResumenEjecutivoCard
                 titulo="Activos"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.activos)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.activos
+                )}`}
                 emoji="💚"
                 color={colores.verde}
               />
+
               <ResumenEjecutivoCard
                 titulo="Pasivos"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.pasivos)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.pasivos
+                )}`}
                 emoji="💗"
                 color="#b91c1c"
               />
+
               <ResumenEjecutivoCard
                 titulo="Capital"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.capital)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.capital
+                )}`}
                 emoji="💙"
                 color={colores.azul}
               />
+
               <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.ingresos)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.ingresos
+                )}`}
                 emoji="💵"
                 color={colores.verde}
               />
+
               <ResumenEjecutivoCard
                 titulo="Lucro"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.lucro)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.lucro
+                )}`}
                 emoji="💰"
                 color={colores.azul}
               />
+
               <ResumenEjecutivoCard
                 titulo="Rentabilidad"
                 valor={`${DATOS_DEMO.rentabilidad}%`}
                 emoji="📈"
                 color={colores.verde}
               />
+
               <ResumenEjecutivoCard
                 titulo="Liquidez disponible"
-                valor={`R$ ${formatearNumero(DATOS_DEMO.liquidez)}`}
+                valor={`R$ ${formatearNumero(
+                  DATOS_DEMO.liquidez
+                )}`}
                 emoji="💧"
                 color="#ca8a04"
               />
@@ -662,7 +831,8 @@ export default function MiNegocioPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(310px, 1fr))',
                 gap: 16,
               }}
             >
@@ -671,8 +841,16 @@ export default function MiNegocioPage() {
                 color={colores.acento}
                 colorSecundario={colores.azul}
               />
-              <CategoryChart datos={DATOS_DEMO.ventasCategorias} color={colores.acento} />
-              <StockChart datos={DATOS_DEMO.stockCategorias} color={colores.acento} />
+
+              <CategoryChart
+                datos={DATOS_DEMO.ventasCategorias}
+                color={colores.acento}
+              />
+
+              <StockChart
+                datos={DATOS_DEMO.stockCategorias}
+                color={colores.acento}
+              />
             </div>
           </section>
         )}
@@ -681,104 +859,113 @@ export default function MiNegocioPage() {
             OBJETIVOS
         ================================================== */}
 
-        {configuracion?.mostrar_objetivos && !esTodosLosPeriodos && (
-          <section
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-            }}
-          >
-            <div
+        {configuracion?.mostrar_objetivos &&
+          !esTodosLosPeriodos && (
+            <section
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 16,
-                flexWrap: 'wrap',
-                marginBottom: 18,
+                background: colores.blanco,
+                borderRadius: 24,
+                padding: 24,
+                marginBottom: 20,
+                border: '1px solid #e5e7eb',
+                boxShadow:
+                  '0 10px 28px rgba(31,58,95,0.06)',
               }}
             >
-              <div>
-                <div
-                  style={{
-                    marginBottom: 5,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: 1.3,
-                    color: colores.verde,
-                  }}
-                >
-                  GESTIÓN
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 16,
+                  flexWrap: 'wrap',
+                  marginBottom: 18,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      marginBottom: 5,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: 1.3,
+                      color: colores.verde,
+                    }}
+                  >
+                    GESTIÓN
+                  </div>
+
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: colores.azul,
+                      fontSize: 22,
+                    }}
+                  >
+                    Objetivos del mes
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: '5px 0 0',
+                      fontSize: 12,
+                      color: COLORES_BASE.gris,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {periodoTexto}
+                  </p>
                 </div>
 
-                <h2 style={{ margin: 0, color: colores.azul, fontSize: 22 }}>
-                  Objetivos del mes
-                </h2>
-
-                <p
+                <div
                   style={{
-                    margin: '5px 0 0',
-                    fontSize: 12,
-                    color: COLORES_BASE.gris,
-                    textTransform: 'capitalize',
+                    padding: '8px 12px',
+                    borderRadius: 999,
+                    background: `${colores.verde}14`,
+                    color: colores.verde,
+                    fontSize: 11,
+                    fontWeight: 700,
                   }}
                 >
-                  {periodoTexto}
-                </p>
+                  Objetivos acordados
+                </div>
               </div>
 
-              <div
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 999,
-                  background: `${colores.verde}14`,
-                  color: colores.verde,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
-                Objetivos acordados
-              </div>
-            </div>
-
-            {!objetivos.length ? (
-              <div
-                style={{
-                  padding: 24,
-                  border: '1px dashed #d6dee5',
-                  borderRadius: 14,
-                  textAlign: 'center',
-                  color: COLORES_BASE.gris,
-                  fontSize: 13,
-                }}
-              >
-                No hay objetivos configurados para este período.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: 14,
-                }}
-              >
-                {objetivos.map((objetivo) => (
-                  <ObjetivoCard
-                    key={objetivo.id}
-                    objetivo={objetivo}
-                    colorPrimario={colores.azul}
-                    colorSecundario={colores.verde}
-                    colorAcento={colores.acento}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+              {!objetivos.length ? (
+                <div
+                  style={{
+                    padding: 24,
+                    border: '1px dashed #d6dee5',
+                    borderRadius: 14,
+                    textAlign: 'center',
+                    color: COLORES_BASE.gris,
+                    fontSize: 13,
+                  }}
+                >
+                  No hay objetivos configurados para este período.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(260px, 1fr))',
+                    gap: 14,
+                  }}
+                >
+                  {objetivos.map((objetivo) => (
+                    <ObjetivoCard
+                      key={objetivo.id}
+                      objetivo={objetivo}
+                      colorPrimario={colores.azul}
+                      colorSecundario={colores.verde}
+                      colorAcento={colores.acento}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
         {/* =================================================
             TODOS LOS PERIODOS
@@ -798,9 +985,15 @@ export default function MiNegocioPage() {
           >
             <strong>📊 Vista histórica</strong>
 
-            <div style={{ marginTop: 5, color: COLORES_BASE.gris }}>
-              En esta vista se analizan todos los períodos. Los objetivos mensuales se
-              muestran únicamente cuando seleccionás un período específico.
+            <div
+              style={{
+                marginTop: 5,
+                color: COLORES_BASE.gris,
+              }}
+            >
+              En esta vista se analizan todos los períodos. Los objetivos
+              mensuales se muestran únicamente cuando seleccionás un período
+              específico.
             </div>
           </section>
         )}
@@ -811,73 +1004,6 @@ export default function MiNegocioPage() {
             dentro del hero, entre el saludo y Sabio.
             Ver: src/components/panel/SabioHero.tsx
         ================================================== */}
-
-        {/* =================================================
-            HERRAMIENTAS
-        ================================================== */}
-
-        <section
-          style={{
-            background: colores.blanco,
-            borderRadius: 24,
-            padding: 24,
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                marginBottom: 4,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 1.3,
-                color: colores.verde,
-              }}
-            >
-              GESTIÓN
-            </div>
-
-            <h2 style={{ margin: 0, color: colores.azul, fontSize: 21 }}>
-              Tus herramientas
-            </h2>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: 12,
-            }}
-          >
-            <BotonAcceso
-              href="/lanzamientos"
-              titulo="Central de Lanzamientos"
-              principal
-              colorPrincipal={colores.verde}
-            />
-            <BotonAcceso
-              href="/registros"
-              titulo="Registro de Operaciones"
-              colorPrincipal={colores.azul}
-            />
-            <BotonAcceso
-              href="/stock"
-              titulo="Saldo de Stock"
-              colorPrincipal={colores.azul}
-            />
-            <BotonAcceso
-              href="/movimientos-stock"
-              titulo="Movimientos de Stock"
-              colorPrincipal={colores.azul}
-            />
-            <BotonAcceso
-              href="/libro-diario"
-              titulo="Libro Diario"
-              destacado
-              colorPrincipal={colores.verde}
-            />
-          </div>
-        </section>
 
         {/* =================================================
             PIE — Marca Visão Financeira
@@ -896,7 +1022,11 @@ function obtenerResultadoObjetivo(
 ): number {
   const indicador = objetivo.indicador.trim().toUpperCase();
 
-  if (indicador === 'OPERACIONES REGISTRADAS' && gamificacion && periodo !== 'TODOS') {
+  if (
+    indicador === 'OPERACIONES REGISTRADAS' &&
+    gamificacion &&
+    periodo !== 'TODOS'
+  ) {
     return gamificacion.operaciones;
   }
 
@@ -915,9 +1045,16 @@ function ObjetivoCard({
   colorAcento: string;
 }) {
   const cumplido = objetivo.porcentaje >= 100;
-  const enCamino = objetivo.porcentaje >= 50 && objetivo.porcentaje < 100;
+  const enCamino =
+    objetivo.porcentaje >= 50 &&
+    objetivo.porcentaje < 100;
 
-  const colorEstado = cumplido ? colorSecundario : enCamino ? '#d97706' : '#dc2626';
+  const colorEstado = cumplido
+    ? colorSecundario
+    : enCamino
+      ? '#d97706'
+      : '#dc2626';
+
   const fondoEstado = cumplido
     ? `${colorSecundario}12`
     : enCamino
@@ -953,11 +1090,23 @@ function ObjetivoCard({
         }}
       >
         <div>
-          <div style={{ color: colorPrimario, fontSize: 13, fontWeight: 800 }}>
+          <div
+            style={{
+              color: colorPrimario,
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
             {formatearIndicador(objetivo.indicador)}
           </div>
 
-          <div style={{ marginTop: 4, fontSize: 12, color: COLORES_BASE.gris }}>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 12,
+              color: COLORES_BASE.gris,
+            }}
+          >
             {resultadoTexto} / {objetivoTexto}
           </div>
         </div>
@@ -973,7 +1122,11 @@ function ObjetivoCard({
             whiteSpace: 'nowrap',
           }}
         >
-          {cumplido ? 'CUMPLIDO' : enCamino ? 'EN CAMINO' : 'PENDIENTE'}
+          {cumplido
+            ? 'CUMPLIDO'
+            : enCamino
+              ? 'EN CAMINO'
+              : 'PENDIENTE'}
         </span>
       </div>
 
@@ -1031,11 +1184,24 @@ function ResumenEjecutivoCard({
         background: '#fbfcfd',
       }}
     >
-      <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginBottom: 8 }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: COLORES_BASE.gris,
+          marginBottom: 8,
+        }}
+      >
         {emoji} {titulo}
       </div>
 
-      <strong style={{ color, fontSize: 21 }}>{valor}</strong>
+      <strong
+        style={{
+          color,
+          fontSize: 21,
+        }}
+      >
+        {valor}
+      </strong>
     </div>
   );
 }
@@ -1070,7 +1236,14 @@ function InfoCard({
         {etiqueta.toUpperCase()}
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 600, color: COLORES_BASE.azul, lineHeight: 1.4 }}>
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: COLORES_BASE.azul,
+          lineHeight: 1.4,
+        }}
+      >
         {valor}
       </div>
     </div>
@@ -1099,8 +1272,23 @@ function ResumenCard({
         justifyContent: 'space-between',
       }}
     >
-      <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{titulo}</span>
-      <strong style={{ color, fontSize: 23 }}>{valor}</strong>
+      <span
+        style={{
+          color: COLORES_BASE.gris,
+          fontSize: 13,
+        }}
+      >
+        {titulo}
+      </span>
+
+      <strong
+        style={{
+          color,
+          fontSize: 23,
+        }}
+      >
+        {valor}
+      </strong>
     </div>
   );
 }
@@ -1128,13 +1316,20 @@ function BotonAcceso({
           : destacado
             ? `${colorPrincipal}18`
             : '#ffffff',
-        color: principal ? '#ffffff' : colorPrincipal,
-        border: principal || destacado ? 'none' : '1px solid #d1d5db',
+        color: principal
+          ? '#ffffff'
+          : colorPrincipal,
+        border:
+          principal || destacado
+            ? 'none'
+            : '1px solid #d1d5db',
         borderRadius: 16,
         padding: '17px 18px',
         textAlign: 'center',
         fontWeight: 700,
-        boxShadow: principal ? `0 8px 20px ${colorPrincipal}33` : 'none',
+        boxShadow: principal
+          ? `0 8px 20px ${colorPrincipal}33`
+          : 'none',
       }}
     >
       {titulo}
@@ -1163,17 +1358,21 @@ function formatearPeriodo(valor: string): string {
     return valor;
   }
 
-  return new Date(year, month - 1, 1).toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  });
+  return new Date(year, month - 1, 1).toLocaleDateString(
+    'es-AR',
+    {
+      month: 'long',
+      year: 'numeric',
+    }
+  );
 }
 
 function formatearIndicador(indicador: string): string {
   const mapa: Record<string, string> = {
     'VENTAS DEL MES': 'Ventas del mes',
     'COMPRAS DEL MES': 'Compras del mes',
-    'OPERACIONES REGISTRADAS': 'Operaciones registradas',
+    'OPERACIONES REGISTRADAS':
+      'Operaciones registradas',
     'VALOR DEL INVENTARIO': 'Valor del inventario',
     PUBLICACIONES: 'Publicaciones',
     HISTORIAS: 'Historias',
@@ -1181,5 +1380,8 @@ function formatearIndicador(indicador: string): string {
     MENSAJES: 'Mensajes',
   };
 
-  return mapa[indicador.trim().toUpperCase()] || indicador;
+  return (
+    mapa[indicador.trim().toUpperCase()] ||
+    indicador
+  );
 }
