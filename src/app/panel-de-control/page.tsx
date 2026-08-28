@@ -8,7 +8,6 @@ import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { SalesChart } from '@/components/panel/SalesChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
-import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 
 const COLORES_BASE = {
@@ -324,12 +323,6 @@ export default function MiNegocioPage() {
     blanco: COLORES_BASE.blanco,
   };
 
-  const hoy = new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
-
   const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';
 
   const periodoTexto = esTodosLosPeriodos
@@ -337,14 +330,6 @@ export default function MiNegocioPage() {
     : formatearPeriodo(periodoSeleccionado);
 
   const logoDisponible = Boolean(empresa?.logo_url?.trim());
-
-  const mensajeBienvenida =
-    configuracion?.mensaje_bienvenida ??
-    `Hola, ${perfil?.nombre ?? ''} 👋`;
-
-  const subtitulo =
-    configuracion?.subtitulo_dashboard ??
-    'Tu negocio, tus números y tus próximos objetivos.';
 
   return (
     <main
@@ -441,6 +426,22 @@ export default function MiNegocioPage() {
               gap: 10,
             }}
           >
+            <Link
+              href="/"
+              style={{
+                background: colores.blanco,
+                border: '1px solid #d1d5db',
+                borderRadius: 12,
+                padding: '11px 16px',
+                color: colores.azul,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-block',
+              }}
+            >
+              ← Inicio
+            </Link>
+
             {perfil?.es_admin_plataforma && (
               <Link
                 href="/panel-maestro"
@@ -479,108 +480,6 @@ export default function MiNegocioPage() {
             </button>
           </div>
         </div>
-
-        {/* =================================================
-            HERO (con Sabio interactivo)
-        ================================================== */}
-
-        <SabioHero
-          colores={colores}
-          nombreEmpresa={empresa?.nombre}
-          mensajeBienvenida={mensajeBienvenida}
-          subtitulo={subtitulo}
-          hoy={hoy}
-          gamificacion={
-            configuracion?.mostrar_gamificacion
-              ? gamificacion
-              : null
-          }
-        />
-
-        {/* =================================================
-            HERRAMIENTAS
-        ================================================== */}
-
-        <section
-          style={{
-            background: colores.blanco,
-            borderRadius: 24,
-            padding: 24,
-            marginBottom: 20,
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                marginBottom: 4,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 1.3,
-                color: colores.verde,
-              }}
-            >
-              GESTIÓN
-            </div>
-
-            <h2
-              style={{
-                margin: 0,
-                color: colores.azul,
-                fontSize: 21,
-              }}
-            >
-              Tus herramientas
-            </h2>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: 12,
-            }}
-          >
-            <BotonAcceso
-              href="/lanzamientos"
-              titulo="Central de Lanzamientos"
-              principal
-              colorPrincipal={colores.verde}
-            />
-
-            <BotonAcceso
-              href="/registros"
-              titulo="Registro de Operaciones"
-              colorPrincipal={colores.azul}
-            />
-
-            <BotonAcceso
-              href="/stock"
-              titulo="Saldo de Stock"
-              colorPrincipal={colores.azul}
-            />
-
-            <BotonAcceso
-              href="/movimientos-stock"
-              titulo="Movimientos de Stock"
-              colorPrincipal={colores.azul}
-            />
-
-            <BotonAcceso
-              href="/libro-diario"
-              titulo="Libro Diario"
-              destacado
-              colorPrincipal={colores.verde}
-            />
-
-            <BotonAcceso
-              href="/recursos-humanos"
-              titulo="Recursos Humanos"
-              colorPrincipal={colores.azul}
-            />
-          </div>
-        </section>
 
         {/* =================================================
             SELECTOR GLOBAL
@@ -1005,10 +904,10 @@ export default function MiNegocioPage() {
         )}
 
         {/* =================================================
-            GAMIFICACIÓN
-            El nivel del emprendedor ahora se muestra ARRIBA,
-            dentro del hero, entre el saludo y Sabio.
-            Ver: src/components/panel/SabioHero.tsx
+            NOTA
+            El saludo, Sabio y el nivel del emprendedor ya no viven acá:
+            ahora están en el Lobby, que es la pantalla de entrada.
+            Ver: src/app/page.tsx
         ================================================== */}
 
         {/* =================================================
@@ -1296,50 +1195,6 @@ function ResumenCard({
         {valor}
       </strong>
     </div>
-  );
-}
-
-function BotonAcceso({
-  href,
-  titulo,
-  principal = false,
-  destacado = false,
-  colorPrincipal,
-}: {
-  href: string;
-  titulo: string;
-  principal?: boolean;
-  destacado?: boolean;
-  colorPrincipal: string;
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        textDecoration: 'none',
-        background: principal
-          ? colorPrincipal
-          : destacado
-            ? `${colorPrincipal}18`
-            : '#ffffff',
-        color: principal
-          ? '#ffffff'
-          : colorPrincipal,
-        border:
-          principal || destacado
-            ? 'none'
-            : '1px solid #d1d5db',
-        borderRadius: 16,
-        padding: '17px 18px',
-        textAlign: 'center',
-        fontWeight: 700,
-        boxShadow: principal
-          ? `0 8px 20px ${colorPrincipal}33`
-          : 'none',
-      }}
-    >
-      {titulo}
-    </Link>
   );
 }
 
