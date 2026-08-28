@@ -9,6 +9,7 @@ import { SalesChart } from '@/components/panel/SalesChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { SabioHero } from '@/components/panel/SabioHero';
+import { PieVisao } from '@/components/panel/PieVisao';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -458,6 +459,9 @@ export default function MiNegocioPage() {
           mensajeBienvenida={mensajeBienvenida}
           subtitulo={subtitulo}
           hoy={hoy}
+          gamificacion={
+            configuracion?.mostrar_gamificacion ? gamificacion : null
+          }
         />
 
         {/* =================================================
@@ -803,126 +807,10 @@ export default function MiNegocioPage() {
 
         {/* =================================================
             GAMIFICACIÓN
+            El nivel del emprendedor ahora se muestra ARRIBA,
+            dentro del hero, entre el saludo y Sabio.
+            Ver: src/components/panel/SabioHero.tsx
         ================================================== */}
-
-        {configuracion?.mostrar_gamificacion && gamificacion && (
-          <section
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: `1px solid ${colores.acento}33`,
-              boxShadow: '0 10px 28px rgba(31,58,95,0.08)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: 20,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 250 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: colores.verde,
-                    letterSpacing: 1.3,
-                    marginBottom: 6,
-                  }}
-                >
-                  PROGRESO DE TU NEGOCIO
-                </div>
-
-                <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-                  {gamificacion.emoji} Nivel {gamificacion.nivel} · {gamificacion.nombre}
-                </h2>
-
-                <p style={{ margin: '8px 0 0', color: COLORES_BASE.gris, fontSize: 14 }}>
-                  {gamificacion.mensaje}
-                </p>
-              </div>
-
-              <div style={{ textAlign: 'right', minWidth: 170 }}>
-                <strong style={{ color: colores.azul, fontSize: 24 }}>
-                  {gamificacion.operaciones}
-                </strong>
-
-                <div style={{ fontSize: 12, color: COLORES_BASE.gris }}>
-                  operaciones registradas
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: 7,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: COLORES_BASE.gris,
-                }}
-              >
-                <span>Progreso</span>
-                <span>{gamificacion.progreso}%</span>
-              </div>
-
-              <div
-                style={{
-                  height: 12,
-                  borderRadius: 999,
-                  background: '#e7edf1',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${gamificacion.progreso}%`,
-                    height: '100%',
-                    borderRadius: 999,
-                    background: `linear-gradient(90deg, ${colores.verde}, ${colores.acento})`,
-                    transition: 'width 0.4s ease',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 12,
-                marginTop: 16,
-              }}
-            >
-              <InfoCard etiqueta="Misión" valor={gamificacion.mision} color={colores.verde} />
-              <InfoCard
-                etiqueta="Próximo objetivo"
-                valor={
-                  gamificacion.operacionesMax === null
-                    ? 'Mantener la excelencia'
-                    : `Alcanzar ${gamificacion.operacionesMax + 1} operaciones`
-                }
-                color={colores.azul}
-              />
-              <InfoCard
-                etiqueta="Faltan"
-                valor={
-                  gamificacion.operacionesMax === null
-                    ? '0 operaciones'
-                    : `${gamificacion.faltan} operaciones`
-                }
-                color={colores.acento}
-              />
-            </div>
-          </section>
-        )}
 
         {/* =================================================
             HERRAMIENTAS
@@ -990,6 +878,12 @@ export default function MiNegocioPage() {
             />
           </div>
         </section>
+
+        {/* =================================================
+            PIE — Marca Visão Financeira
+        ================================================== */}
+
+        <PieVisao colores={colores} />
       </div>
     </main>
   );
