@@ -8,7 +8,7 @@
 // El logo ahora utiliza la imagen oficial alojada en Supabase.
 
 const LOGO_VISAO_FINANCEIRA =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Vision%20financiera.jpeg';
+  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/LOGO%20y%20NOMBRE.jpeg';
 
 const PILARES = [
   {
