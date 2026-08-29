@@ -10,202 +10,82 @@ type DatosCategoria = {
 // GRÁFICO CATEGORÍAS
 // =====================================================
 
-export function CategoryChart({
-  datos,
-  color,
-}: {
-  datos: DatosCategoria[];
-  color: string;
-}) {
+const PALETA = ['#f59e0b', '#0ea5e9', '#a855f7', '#16a34a', '#ec4899', '#6366f1'];
+
+export function CategoryChart({ datos, color }: { datos: DatosCategoria[]; color: string }) {
   const ancho = 520;
   const alto = 270;
 
-  const margenIzq = 70;
+  const margenIzq = 16;
   const margenDer = 16;
-  const margenSup = 30;
-  const margenInf = 62;
+  const margenSup = 40;
+  const margenInf = 66;
 
-  const maxValor = Math.max(
-    ...datos.map(
-      (dato) => dato.valor
-    ),
-    1
-  );
+  const maxValor = Math.max(...datos.map((dato) => dato.valor), 1);
 
-  const anchoUtil =
-    ancho -
-    margenIzq -
-    margenDer;
+  const anchoUtil = ancho - margenIzq - margenDer;
+  const altoUtil = alto - margenSup - margenInf;
 
-  const altoUtil =
-    alto -
-    margenSup -
-    margenInf;
+  const anchoBarra = anchoUtil / Math.max(datos.length, 1);
 
-  const anchoBarra =
-    anchoUtil /
-    datos.length;
+  const paleta = [color, ...PALETA];
 
   return (
-    <ChartCard
-      titulo="Ventas por categoría"
-      subtitulo="Distribución comercial"
-    >
-      <svg
-        viewBox={`0 0 ${ancho} ${alto}`}
-        style={{
-          width: '100%',
-          height: 270,
-          display: 'block',
-        }}
-      >
-        {[
-          0,
-          0.25,
-          0.5,
-          0.75,
-          1,
-        ].map(
-          (factor) => {
-            const y =
-              margenSup +
-              altoUtil -
-              factor *
-                altoUtil;
+    <ChartCard titulo="🛍️ Ventas por categoría" subtitulo="Distribución comercial">
+      <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 270, display: 'block' }}>
+        {/* Líneas de referencia horizontales, sin números */}
+        {[0, 0.25, 0.5, 0.75, 1].map((factor) => {
+          const y = margenSup + altoUtil - factor * altoUtil;
 
-            const valor =
-              Math.round(
-                maxValor *
-                  factor
-              );
+          return (
+            <line
+              key={factor}
+              x1={margenIzq}
+              x2={ancho - margenDer}
+              y1={y}
+              y2={y}
+              stroke="#eef2f6"
+              strokeWidth="1"
+            />
+          );
+        })}
 
-            return (
-              <g
-                key={factor}
+        {datos.map((dato, indice) => {
+          const altura = (dato.valor / maxValor) * altoUtil;
+          const x = margenIzq + indice * anchoBarra + anchoBarra * 0.18;
+          const y = margenSup + altoUtil - altura;
+          const anchoReal = anchoBarra * 0.64;
+          const colorBarra = paleta[indice % paleta.length];
+
+          return (
+            <g key={dato.nombre}>
+              <rect x={x} y={y} width={anchoReal} height={altura} rx="10" fill={colorBarra} />
+
+              <text
+                x={x + anchoReal / 2}
+                y={y - 12}
+                textAnchor="middle"
+                fontSize="16"
+                fontWeight="800"
+                fill="#1f3a5f"
               >
-                <line
-                  x1={
-                    margenIzq
-                  }
-                  x2={
-                    ancho -
-                    margenDer
-                  }
-                  y1={y}
-                  y2={y}
-                  stroke="#e5e7eb"
-                  strokeWidth="1"
-                />
+                R${dato.valor}
+              </text>
 
-                <text
-                  x={
-                    margenIzq -
-                    10
-                  }
-                  y={y + 5}
-                  textAnchor="end"
-                  fontSize="14"
-                  fill="#6e7781"
-                >
-                  R${valor}
-                </text>
-              </g>
-            );
-          }
-        )}
-
-        {datos.map(
-          (
-            dato,
-            indice
-          ) => {
-            const altura =
-              (dato.valor /
-                maxValor) *
-              altoUtil;
-
-            const x =
-              margenIzq +
-              indice *
-                anchoBarra +
-              anchoBarra *
-                0.20;
-
-            const y =
-              margenSup +
-              altoUtil -
-              altura;
-
-            const anchoReal =
-              anchoBarra *
-              0.60;
-
-            return (
-              <g
-                key={
-                  dato.nombre
-                }
+              <text
+                x={x + anchoReal / 2}
+                y={alto - 26}
+                textAnchor="middle"
+                fontSize="15"
+                fontWeight="700"
+                fill="#374151"
               >
-                <rect
-                  x={x}
-                  y={y}
-                  width={
-                    anchoReal
-                  }
-                  height={
-                    altura
-                  }
-                  rx="9"
-                  fill={color}
-                  opacity={
-                    0.76 +
-                    indice *
-                      0.05
-                  }
-                />
-
-                <text
-                  x={
-                    x +
-                    anchoReal /
-                      2
-                  }
-                  y={
-                    y - 10
-                  }
-                  textAnchor="middle"
-                  fontSize="13"
-                  fontWeight="800"
-                  fill="#1f3a5f"
-                >
-                  R${dato.valor}
-                </text>
-
-                <text
-                  x={
-                    x +
-                    anchoReal /
-                      2
-                  }
-                  y={
-                    alto - 23
-                  }
-                  textAnchor="middle"
-                  fontSize="13"
-                  fontWeight="600"
-                  fill="#6e7781"
-                >
-                  {
-                    dato.nombre
-                  }
-                </text>
-              </g>
-            );
-          }
-        )}
+                {dato.nombre}
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </ChartCard>
   );
 }
-
-// =====================================================
