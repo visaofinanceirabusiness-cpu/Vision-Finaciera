@@ -447,14 +447,8 @@ export default function InicioPage() {
             />
 
             <BotonAcceso
-              href="/stock"
-              titulo="Saldo de Stock"
-              colorPrincipal={colores.azul}
-            />
-
-            <BotonAcceso
-              href="/movimientos-stock"
-              titulo="Movimientos de Stock"
+              href="/mercaderia"
+              titulo="Mercadería"
               colorPrincipal={colores.azul}
             />
 
