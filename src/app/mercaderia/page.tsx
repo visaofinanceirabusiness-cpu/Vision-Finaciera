@@ -8,8 +8,10 @@
 //   - Saldo Mercadería: catálogo de productos con su saldo, costo
 //     promedio y valor de inventario. Desde acá también se dan de alta
 //     productos nuevos (igual que se hace con clientes/proveedores).
-//   - Movimientos de Stock: el historial de entradas y salidas generado
-//     por las operaciones (solo lectura).
+//   - Movimientos de Mercadería: el historial de entradas y salidas
+//     generado por las operaciones. Desde acá también se valida cada
+//     movimiento, lo que valida a la vez el registro automático (CMV)
+//     que esa operación generó en el Libro Diario.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -105,6 +107,7 @@ export default function MercaderiaPage() {
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [esAdmin, setEsAdmin] = useState(false);
 
   const [productos, setProductos] = useState<ProductoFila[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -120,6 +123,7 @@ export default function MercaderiaPage() {
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [validando, setValidando] = useState<string | null>(null);
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [formulario, setFormulario] = useState<Formulario>(FORMULARIO_VACIO);
@@ -143,7 +147,7 @@ export default function MercaderiaPage() {
 
     const { data: perfil, error: errorPerfil } = await supabase
       .from('perfiles')
-      .select('empresa_id')
+      .select('empresa_id, es_admin_plataforma')
       .eq('id', userData.user.id)
       .maybeSingle();
 
@@ -154,6 +158,7 @@ export default function MercaderiaPage() {
     }
 
     setEmpresaId(perfil.empresa_id);
+    setEsAdmin(Boolean(perfil.es_admin_plataforma));
 
     const [
       { data: productosData, error: errorProductos },
@@ -381,6 +386,42 @@ export default function MercaderiaPage() {
     }
   }
 
+  // Valida a la vez el movimiento de mercadería y el registro
+  // automático (CMV) que esa operación generó en el Libro Diario,
+  // así los dos quedan sincronizados con un solo clic.
+  async function validarMovimiento(idOperacion: string) {
+    if (!empresaId) return;
+
+    setError('');
+    setValidando(idOperacion);
+
+    try {
+      const [{ error: errorMovimiento }, { error: errorAutomatico }] = await Promise.all([
+        supabase
+          .from('movimientos_stock')
+          .update({ estado: 'VALIDADO' })
+          .eq('empresa_id', empresaId)
+          .eq('id_operacion', idOperacion),
+
+        supabase
+          .from('registros_automaticos')
+          .update({ estado: 'VALIDADO' })
+          .eq('empresa_id', empresaId)
+          .eq('id_operacion', idOperacion),
+      ]);
+
+      if (errorMovimiento) throw errorMovimiento;
+      if (errorAutomatico) throw errorAutomatico;
+
+      await cargarDatos();
+    } catch (errorValidar) {
+      console.error('Error validando movimiento:', errorValidar);
+      setError('No se pudo validar el movimiento.');
+    } finally {
+      setValidando(null);
+    }
+  }
+
   return (
     <div style={fondo}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
@@ -398,7 +439,7 @@ export default function MercaderiaPage() {
           <h1 style={{ margin: 0, fontSize: 32 }}>Mercadería</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Administrá el saldo de tus productos y consultá los movimientos de stock.
+            Administrá el saldo de tus productos y consultá los movimientos de mercadería.
           </p>
         </header>
 
@@ -428,7 +469,7 @@ export default function MercaderiaPage() {
               onClick={() => cambiarPestana('movimientos')}
               style={tabStyle(pestana === 'movimientos')}
             >
-              🔁 Movimientos de Stock
+              🔁 Movimientos de Mercadería
             </button>
           </div>
 
@@ -448,7 +489,7 @@ export default function MercaderiaPage() {
           >
             <div>
               <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
-                {pestana === 'saldo' ? 'Saldo Mercadería' : 'Movimientos de Stock'}
+                {pestana === 'saldo' ? 'Saldo Mercadería' : 'Movimientos de Mercadería'}
               </h2>
 
               <p style={{ margin: '4px 0 0', color: COLORES.gris, fontSize: 12 }}>
@@ -696,30 +737,56 @@ export default function MercaderiaPage() {
                     <Th align="right">Total</Th>
                     <Th>Histórico</Th>
                     <Th>Estado</Th>
+                    {esAdmin && <Th align="right">Validado</Th>}
                   </tr>
                 </thead>
 
                 <tbody>
-                  {movimientosVisibles.map((fila) => (
-                    <tr key={fila.id} style={filaStyle}>
-                      <Td>{fila.id_operacion || '—'}</Td>
-                      <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
-                      <Td>{fila.tipo}</Td>
-                      <Td>{nombresProducto[fila.producto_id] || fila.producto_id}</Td>
-                      <Td>{fila.categoria}</Td>
-                      <Td align="right">{fila.cantidad}</Td>
-                      <Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td>
-                      <Td align="right">
-                        R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}
-                      </Td>
-                      <Td>{fila.historico || '—'}</Td>
-                      <Td>{fila.estado || '—'}</Td>
-                    </tr>
-                  ))}
+                  {movimientosVisibles.map((fila) => {
+                    const validado = (fila.estado || 'PENDIENTE').toUpperCase() === 'VALIDADO';
+
+                    return (
+                      <tr key={fila.id} style={filaStyle}>
+                        <Td>{fila.id_operacion || '—'}</Td>
+                        <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
+                        <Td>{fila.tipo}</Td>
+                        <Td>{nombresProducto[fila.producto_id] || fila.producto_id}</Td>
+                        <Td>{fila.categoria}</Td>
+                        <Td align="right">{fila.cantidad}</Td>
+                        <Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td>
+                        <Td align="right">
+                          R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}
+                        </Td>
+                        <Td>{fila.historico || '—'}</Td>
+
+                        <Td>
+                          <EstadoBadge estado={fila.estado} />
+                        </Td>
+
+                        {esAdmin && (
+                          <Td align="right">
+                            {validado ? (
+                              <span style={{ fontSize: 12, color: COLORES.gris }}>—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => fila.id_operacion && validarMovimiento(fila.id_operacion)}
+                                disabled={!fila.id_operacion || validando === fila.id_operacion}
+                                style={botonValidar}
+                                title="Validar este movimiento y el registro automático que generó en el Libro Diario"
+                              >
+                                {validando === fila.id_operacion ? '...' : 'Validado'}
+                              </button>
+                            )}
+                          </Td>
+                        )}
+                      </tr>
+                    );
+                  })}
 
                   {!movimientosVisibles.length && (
                     <tr>
-                      <td colSpan={10} style={vacioStyle}>
+                      <td colSpan={esAdmin ? 11 : 10} style={vacioStyle}>
                         No se encontraron movimientos.
                       </td>
                     </tr>
@@ -855,6 +922,31 @@ function generarProximoCodigoProducto(productos: ProductoFila[]): string {
 }
 
 /* ==========================================================
+   ESTADO (pastilla)
+========================================================== */
+
+function EstadoBadge({ estado }: { estado: string | null }) {
+  const valor = estado || 'PENDIENTE';
+  const validado = valor.toUpperCase() === 'VALIDADO';
+
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '5px 9px',
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 700,
+        background: validado ? '#dcfce7' : '#fef3c7',
+        color: validado ? '#166534' : '#92400e',
+      }}
+    >
+      {valor}
+    </span>
+  );
+}
+
+/* ==========================================================
    OBTENER NÚMERO DE OPERACIÓN
 ========================================================== */
 
@@ -978,6 +1070,17 @@ const botonNuevo: React.CSSProperties = {
   cursor: 'pointer',
   fontWeight: 800,
   boxShadow: '0 8px 20px rgba(46,139,87,0.20)',
+};
+
+const botonValidar: React.CSSProperties = {
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: '1px solid #bbf7d0',
+  background: '#f0fdf4',
+  color: '#166534',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
 };
 
 const formularioPanel: React.CSSProperties = {
