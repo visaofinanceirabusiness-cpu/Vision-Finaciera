@@ -876,7 +876,9 @@ function RegistroOperacionesTab() {
                   <Td>{fila.operacion}</Td>
                   <Td>{fila.categoria}</Td>
                   <Td>{fila.forma_pago}</Td>
-                  <Td>{fila.historico || '—'}</Td>
+                  <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 220 }}>
+                    {fila.historico || '—'}
+                  </Td>
                   <Td>{fila.cliente_proveedor || '—'}</Td>
                   <Td align="right">R$ {Number(fila.total).toFixed(2)}</Td>
 
@@ -1374,9 +1376,27 @@ function Th({ children, align = 'left' }: { children?: React.ReactNode; align?: 
   );
 }
 
-function Td({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+function Td({
+  children,
+  align = 'left',
+  style,
+}: {
+  children: React.ReactNode;
+  align?: 'left' | 'right';
+  style?: React.CSSProperties;
+}) {
   return (
-    <td style={{ padding: '12px 14px', fontSize: 13, textAlign: align, whiteSpace: 'nowrap' }}>{children}</td>
+    <td
+      style={{
+        padding: '12px 14px',
+        fontSize: 13,
+        textAlign: align,
+        whiteSpace: 'nowrap',
+        ...style,
+      }}
+    >
+      {children}
+    </td>
   );
 }
 
