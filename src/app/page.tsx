@@ -65,6 +65,22 @@ type ProgresoGamificacion = {
   faltan: number;
 };
 
+type ObjetivoResumen = {
+  nombre: string;
+  porcentaje: number;
+};
+
+const NOMBRES_INDICADOR: Record<string, string> = {
+  'VENTAS DEL MES': 'Ventas del mes',
+  'COMPRAS DEL MES': 'Compras del mes',
+  'OPERACIONES REGISTRADAS': 'Operaciones registradas',
+  'VALOR DEL INVENTARIO': 'Valor del inventario',
+  PUBLICACIONES: 'Publicaciones',
+  HISTORIAS: 'Historias',
+  'NUEVOS SEGUIDORES': 'Nuevos seguidores',
+  MENSAJES: 'Mensajes',
+};
+
 export default function InicioPage() {
   const router = useRouter();
 
@@ -72,6 +88,7 @@ export default function InicioPage() {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
+  const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -168,13 +185,53 @@ export default function InicioPage() {
 
       setConfiguracion(configFinal);
 
+      let progresoActual: ProgresoGamificacion | null = null;
+
       try {
-        const progreso = await obtenerProgresoGamificacion(perfilData.empresa_id);
-        setGamificacion(progreso);
+        progresoActual = await obtenerProgresoGamificacion(perfilData.empresa_id);
+        setGamificacion(progresoActual);
       } catch (errorGamificacion) {
         console.warn('No se pudo calcular la gamificación:', errorGamificacion);
         setGamificacion(null);
       }
+
+      // Mismo criterio que usa Panel de Control: objetivos del mes en
+      // curso, activos. Acá solo mostramos un resumen mini (nombre + %).
+      const fechaActual = new Date();
+      const periodoActual = `${fechaActual.getFullYear()}-${String(
+        fechaActual.getMonth() + 1
+      ).padStart(2, '0')}-01`;
+
+      const { data: objetivosData, error: errorObjetivos } = await supabase
+        .from('objetivos_empresa')
+        .select('indicador, objetivo, unidad')
+        .eq('empresa_id', perfilData.empresa_id)
+        .eq('periodo', periodoActual)
+        .eq('activo', true);
+
+      if (errorObjetivos) {
+        console.warn('No se pudieron cargar los objetivos:', errorObjetivos);
+      }
+
+      const objetivosResumen: ObjetivoResumen[] = (objetivosData ?? []).map((objetivo) => {
+        const indicador = String(objetivo.indicador ?? '').trim().toUpperCase();
+
+        const resultado =
+          indicador === 'OPERACIONES REGISTRADAS' && progresoActual
+            ? progresoActual.operaciones
+            : 0;
+
+        const meta = Number(objetivo.objetivo ?? 0);
+
+        const porcentaje = meta > 0 ? Math.min(100, Math.max(0, (resultado / meta) * 100)) : 0;
+
+        return {
+          nombre: NOMBRES_INDICADOR[indicador] ?? String(objetivo.indicador ?? ''),
+          porcentaje: Number(porcentaje.toFixed(0)),
+        };
+      });
+
+      setObjetivos(objetivosResumen);
 
       setCargando(false);
     }
@@ -387,6 +444,7 @@ export default function InicioPage() {
           gamificacion={
             configuracion?.mostrar_gamificacion ? gamificacion : null
           }
+          objetivos={objetivos}
         />
 
         {/* =================================================
@@ -442,35 +500,40 @@ export default function InicioPage() {
 
             <BotonAcceso
               href="/contabilidad"
-              titulo="Contabilidad"
-              colorPrincipal={colores.azul}
+              titulo="🧾 Contabilidad"
+              colorPrincipal="#7c3aed"
+              destacado
             />
 
             <BotonAcceso
               href="/mercaderia"
-              titulo="Mercadería"
-              colorPrincipal={colores.azul}
+              titulo="📦 Mercadería"
+              colorPrincipal="#ea580c"
+              destacado
             />
 
             <BotonAcceso
               href="/informes"
-              titulo="Informes"
-              colorPrincipal={colores.azul}
+              titulo="📈 Informes"
+              colorPrincipal="#0891b2"
+              destacado
             />
 
             {/* Solo para empresas de producción (perfil PRODUCCION) */}
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso
                 href="/produccion"
-                titulo="Producción"
-                colorPrincipal={colores.azul}
+                titulo="🏭 Producción"
+                colorPrincipal="#65a30d"
+                destacado
               />
             )}
 
             <BotonAcceso
               href="/recursos-humanos"
-              titulo="Recursos Humanos"
-              colorPrincipal={colores.azul}
+              titulo="👥 Recursos Humanos"
+              colorPrincipal="#db2777"
+              destacado
             />
           </div>
         </section>
