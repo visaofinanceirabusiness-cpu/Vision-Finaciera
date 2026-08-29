@@ -9,6 +9,7 @@ import { SalesChart } from '@/components/panel/SalesChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
+import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -73,38 +74,6 @@ type PeriodoDisponible = {
   etiqueta: string;
 };
 
-const DATOS_DEMO = {
-  activos: 983,
-  pasivos: 0,
-  capital: 180,
-  ingresos: 2288,
-  lucro: 933,
-  rentabilidad: 41,
-  liquidez: 655.52,
-
-  ventasMensuales: [
-    { mes: 'Abr', valor: 1890 },
-    { mes: 'May', valor: 350 },
-    { mes: 'Jun', valor: 1210 },
-    { mes: 'Jul', valor: 720 },
-    { mes: 'Ago', valor: 1300 },
-  ],
-
-  ventasCategorias: [
-    { nombre: 'Accesorio', valor: 120 },
-    { nombre: 'Perfume', valor: 110 },
-    { nombre: 'Prod. belleza', valor: 1670 },
-    { nombre: 'Ropa', valor: 340 },
-  ],
-
-  stockCategorias: [
-    { nombre: 'Prod. belleza', valor: 78.5 },
-    { nombre: 'Accesorio', valor: 18.2 },
-    { nombre: 'Ropa', valor: 3.0 },
-    { nombre: 'Perfume', valor: 0.3 },
-  ],
-};
-
 export default function MiNegocioPage() {
   const router = useRouter();
 
@@ -113,6 +82,7 @@ export default function MiNegocioPage() {
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoDashboard[]>([]);
+  const [indicadores, setIndicadores] = useState<IndicadoresPanel | null>(null);
   const [periodos, setPeriodos] = useState<PeriodoDisponible[]>([]);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -297,6 +267,25 @@ export default function MiNegocioPage() {
 
     cargarObjetivos();
   }, [perfil?.empresa_id, periodoSeleccionado, gamificacion]);
+
+  // Indicadores reales: se recalculan cada vez que cambia el período.
+  useEffect(() => {
+    async function cargarIndicadores() {
+      if (!perfil?.empresa_id || !periodoSeleccionado) {
+        return;
+      }
+
+      try {
+        const datos = await obtenerIndicadores(perfil.empresa_id, periodoSeleccionado);
+        setIndicadores(datos);
+      } catch (errorIndicadores) {
+        console.warn('No se pudieron calcular los indicadores:', errorIndicadores);
+        setIndicadores(null);
+      }
+    }
+
+    cargarIndicadores();
+  }, [perfil?.empresa_id, periodoSeleccionado]);
 
   if (cargando) {
     return (
@@ -548,6 +537,33 @@ export default function MiNegocioPage() {
         </section>
 
         {/* =================================================
+            AVISO DE CONSISTENCIA CONTABLE
+            Activo debe ser igual a Pasivo + Patrimonio + Resultado.
+            Si no cierra, casi siempre son los saldos iniciales del
+            plan de cuentas los que están descuadrados.
+        ================================================== */}
+
+        {indicadores && Math.abs(indicadores.descuadre) >= 0.01 && (
+          <div
+            style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              color: '#92400e',
+              borderRadius: 16,
+              padding: '13px 18px',
+              marginBottom: 20,
+              fontSize: 13,
+            }}
+          >
+            <strong>⚠️ La ecuación contable no cierra por R${' '}
+            {formatearNumero(Math.abs(indicadores.descuadre))}.</strong>{' '}
+            Activo ({formatearNumero(indicadores.activos)}) no coincide con
+            Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del
+            plan de cuentas.
+          </div>
+        )}
+
+        {/* =================================================
             TARJETAS SUPERIORES
         ================================================== */}
 
@@ -562,25 +578,25 @@ export default function MiNegocioPage() {
         >
           <ResumenCard
             titulo="Ventas hoy"
-            valor="R$ 0,00"
+            valor={`R$ ${formatearNumero(indicadores?.ventasHoy ?? 0)}`}
             color={colores.verde}
           />
 
           <ResumenCard
             titulo="Caja disponible"
-            valor="R$ 0,00"
+            valor={`R$ ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
             color={colores.azul}
           />
 
           <ResumenCard
             titulo="Gastos del mes"
-            valor="R$ 0,00"
+            valor={`R$ ${formatearNumero(indicadores?.gastosDelMes ?? 0)}`}
             color="#c2410c"
           />
 
           <ResumenCard
             titulo="Stock bajo"
-            valor="0 productos"
+            valor={`${indicadores?.stockBajo ?? 0} productos`}
             color={colores.acento}
           />
         </div>
@@ -641,9 +657,9 @@ export default function MiNegocioPage() {
                     color: COLORES_BASE.gris,
                   }}
                 >
-                  {esTodosLosPeriodos
-                    ? 'Vista histórica'
-                    : 'Datos de demostración · Próximamente conectados a la información contable real.'}
+                  Activos, Pasivos y Capital son saldos acumulados a la fecha.
+                  Ingresos, Lucro y Rentabilidad corresponden al período
+                  seleccionado.
                 </p>
               </div>
 
@@ -673,61 +689,49 @@ export default function MiNegocioPage() {
             >
               <ResumenEjecutivoCard
                 titulo="Activos"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.activos
-                )}`}
+                valor={`R$ ${formatearNumero(indicadores?.activos ?? 0)}`}
                 emoji="💚"
                 color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Pasivos"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.pasivos
-                )}`}
+                valor={`R$ ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                 emoji="💗"
                 color="#b91c1c"
               />
 
               <ResumenEjecutivoCard
                 titulo="Capital"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.capital
-                )}`}
+                valor={`R$ ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
                 emoji="💙"
                 color={colores.azul}
               />
 
               <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.ingresos
-                )}`}
+                valor={`R$ ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                 emoji="💵"
                 color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Lucro"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.lucro
-                )}`}
+                valor={`R$ ${formatearNumero(indicadores?.lucro ?? 0)}`}
                 emoji="💰"
                 color={colores.azul}
               />
 
               <ResumenEjecutivoCard
                 titulo="Rentabilidad"
-                valor={`${DATOS_DEMO.rentabilidad}%`}
+                valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                 emoji="📈"
                 color={colores.verde}
               />
 
               <ResumenEjecutivoCard
-                titulo="Liquidez disponible"
-                valor={`R$ ${formatearNumero(
-                  DATOS_DEMO.liquidez
-                )}`}
+                titulo="Liquidez corriente"
+                valor={`${formatearNumero(indicadores?.liquidez ?? 0)}`}
                 emoji="💧"
                 color="#ca8a04"
               />
@@ -742,18 +746,18 @@ export default function MiNegocioPage() {
               }}
             >
               <SalesChart
-                datos={DATOS_DEMO.ventasMensuales}
+                datos={indicadores?.ventasMensuales ?? []}
                 color={colores.acento}
                 colorSecundario={colores.azul}
               />
 
               <CategoryChart
-                datos={DATOS_DEMO.ventasCategorias}
+                datos={indicadores?.ventasCategorias ?? []}
                 color={colores.acento}
               />
 
               <StockChart
-                datos={DATOS_DEMO.stockCategorias}
+                datos={indicadores?.stockCategorias ?? []}
                 color={colores.acento}
               />
             </div>
