@@ -1,9 +1,26 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const SABIO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
+
+// Frases básicas de contabilidad que Sabio va rotando cada 5 minutos,
+// para que el lobby se sienta un poco más vivo e interactivo.
+const FRASES_SABIO = [
+  'El Activo es todo lo que tu negocio tiene y le pertenece.',
+  'El Pasivo es todo lo que tu negocio debe a otros.',
+  'El Patrimonio es lo que te queda a vos después de pagar todas las deudas.',
+  'Registrar cada operación el mismo día evita dolores de cabeza a fin de mes.',
+  'El CMV es el costo de lo que realmente vendiste, no de lo que compraste.',
+  'Un asiento contable siempre tiene un Debe y un Haber que se equilibran.',
+  'La liquidez mide si podés pagar tus deudas de corto plazo con lo que tenés a mano.',
+  'El flujo de caja te dice si entra más plata de la que sale, mes a mes.',
+  'Validar tus operaciones a tiempo mantiene tus informes confiables.',
+  'La rentabilidad muestra qué porcentaje de tus ventas se convierte en ganancia.',
+];
+
+const INTERVALO_FRASE_MS = 5 * 60 * 1000;
 
 type NivelHero = {
   nivel: number;
@@ -17,6 +34,11 @@ type NivelHero = {
   faltan: number;
 };
 
+type ObjetivoHero = {
+  nombre: string;
+  porcentaje: number;
+};
+
 export function SabioHero({
   colores,
   nombreEmpresa,
@@ -24,6 +46,7 @@ export function SabioHero({
   subtitulo,
   hoy,
   gamificacion,
+  objetivos,
 }: {
   colores: {
     azul: string;
@@ -35,8 +58,18 @@ export function SabioHero({
   subtitulo: string;
   hoy: string;
   gamificacion?: NivelHero | null;
+  objetivos?: ObjetivoHero[];
 }) {
   const sabioRef = useRef<HTMLDivElement | null>(null);
+  const [fraseIndex, setFraseIndex] = useState(0);
+
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length);
+    }, INTERVALO_FRASE_MS);
+
+    return () => clearInterval(intervalo);
+  }, []);
 
   useEffect(() => {
     const elemento = sabioRef.current;
@@ -155,6 +188,42 @@ export function SabioHero({
           >
             {hoy}
           </p>
+
+          {/* Mini resumen de objetivos del mes: solo nombre + % */}
+          {objetivos && objetivos.length > 0 && (
+            <div
+              style={{
+                marginTop: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
+              {objetivos.map((objetivo) => (
+                <div
+                  key={objetivo.nombre}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ opacity: 0.85 }}>{objetivo.nombre}</span>
+
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      color: objetivo.porcentaje >= 100 ? '#86efac' : colores.blanco,
+                    }}
+                  >
+                    {objetivo.porcentaje}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* =========================================
@@ -293,7 +362,7 @@ export function SabioHero({
               />
             </div>
 
-            {/* Misión · Próximo objetivo · Faltan */}
+            {/* Misión · Faltan */}
             <div
               style={{
                 display: 'grid',
@@ -306,17 +375,6 @@ export function SabioHero({
               <DatoNivel
                 etiqueta="Misión"
                 valor={gamificacion.mision}
-              />
-
-              <DatoNivel
-                etiqueta="Próximo objetivo"
-                valor={
-                  gamificacion.operacionesMax === null
-                    ? 'Mantener la excelencia'
-                    : `Alcanzar ${
-                        gamificacion.operacionesMax + 1
-                      } operaciones`
-                }
               />
 
               <DatoNivel
@@ -360,6 +418,38 @@ export function SabioHero({
             }}
           >
             SABIO
+          </div>
+
+          {/* Globo de diálogo — va rotando frases básicas de contabilidad */}
+          <div
+            style={{
+              position: 'relative',
+              background: colores.blanco,
+              color: colores.azul,
+              borderRadius: 14,
+              padding: '10px 14px',
+              marginBottom: 12,
+              maxWidth: 220,
+              fontSize: 12.5,
+              fontWeight: 600,
+              lineHeight: 1.4,
+              textAlign: 'center',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.18)',
+            }}
+          >
+            {FRASES_SABIO[fraseIndex]}
+
+            <div
+              style={{
+                position: 'absolute',
+                bottom: -6,
+                left: '50%',
+                transform: 'translateX(-50%) rotate(45deg)',
+                width: 12,
+                height: 12,
+                background: colores.blanco,
+              }}
+            />
           </div>
 
           <div
