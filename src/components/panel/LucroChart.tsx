@@ -109,41 +109,31 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
                 strokeWidth="3"
               />
 
-              {/* Lucro del mes — el número protagonista, arriba de todo */}
-              <text
-                x={puntoIngresos.x}
-                y={Math.max(18, puntoIngresos.y - 18)}
-                textAnchor="middle"
-                fontSize="16"
-                fontWeight="800"
-                fill={lucro >= 0 ? COLOR_INGRESOS : COLOR_GASTOS}
-              >
-                R$ {lucro.toFixed(0)}
-              </text>
-
-              {/* Valor de Costos, pegado a su propio punto */}
-              <text
+              {/* Valor de Costos, separado de su punto y con fondo propio
+                  para no perderse contra la línea ni contra Gastos */}
+              <EtiquetaValor
                 x={puntoCostos.x}
-                y={puntoCostos.y - 12}
-                textAnchor="middle"
-                fontSize="12"
-                fontWeight="700"
-                fill={COLOR_COSTOS}
-              >
-                R$ {dato.costos.toFixed(0)}
-              </text>
+                y={puntoCostos.y - 18}
+                texto={`R$ ${dato.costos.toFixed(0)}`}
+                color={COLOR_COSTOS}
+              />
 
-              {/* Valor de Gastos, pegado a su propio punto */}
-              <text
+              {/* Valor de Gastos, separado hacia abajo */}
+              <EtiquetaValor
                 x={puntoGastos.x}
-                y={puntoGastos.y + 20}
-                textAnchor="middle"
-                fontSize="12"
-                fontWeight="700"
-                fill={COLOR_GASTOS}
-              >
-                R$ {dato.gastos.toFixed(0)}
-              </text>
+                y={puntoGastos.y + 26}
+                texto={`R$ ${dato.gastos.toFixed(0)}`}
+                color={COLOR_GASTOS}
+              />
+
+              {/* Lucro del mes — el número protagonista, arriba de todo */}
+              <EtiquetaValor
+                x={puntoIngresos.x}
+                y={Math.max(22, puntoIngresos.y - 22)}
+                texto={`R$ ${lucro.toFixed(0)}`}
+                color={lucro >= 0 ? COLOR_INGRESOS : COLOR_GASTOS}
+                grande
+              />
 
               <text x={puntoIngresos.x} y={alto - 18} textAnchor="middle" fontSize="15" fontWeight="700" fill="#6e7781">
                 {dato.mes}
@@ -153,6 +143,44 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
         })}
       </svg>
     </ChartCard>
+  );
+}
+
+// Etiqueta de valor con fondo propio, para que no se pierda cuando dos
+// líneas quedan cerca una de la otra (ej. Costos y Gastos casi iguales).
+function EtiquetaValor({
+  x,
+  y,
+  texto,
+  color,
+  grande = false,
+}: {
+  x: number;
+  y: number;
+  texto: string;
+  color: string;
+  grande?: boolean;
+}) {
+  const fontSize = grande ? 16 : 12;
+  const anchoFondo = texto.length * (grande ? 8.5 : 6.6) + 10;
+  const altoFondo = grande ? 22 : 17;
+
+  return (
+    <g>
+      <rect
+        x={x - anchoFondo / 2}
+        y={y - altoFondo + 5}
+        width={anchoFondo}
+        height={altoFondo}
+        rx={altoFondo / 2}
+        fill="#ffffff"
+        opacity={0.92}
+      />
+
+      <text x={x} y={y} textAnchor="middle" fontSize={fontSize} fontWeight="800" fill={color}>
+        {texto}
+      </text>
+    </g>
   );
 }
 
