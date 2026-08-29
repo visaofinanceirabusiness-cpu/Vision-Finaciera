@@ -757,7 +757,9 @@ export default function MercaderiaPage() {
                         <Td align="right">
                           R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}
                         </Td>
-                        <Td>{fila.historico || '—'}</Td>
+                        <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 220 }}>
+                          {fila.historico || '—'}
+                        </Td>
 
                         <Td>
                           <EstadoBadge estado={fila.estado} />
@@ -999,9 +1001,25 @@ function Th({ children, align = 'left' }: { children: React.ReactNode; align?: '
   );
 }
 
-function Td({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+function Td({
+  children,
+  align = 'left',
+  style,
+}: {
+  children: React.ReactNode;
+  align?: 'left' | 'right';
+  style?: React.CSSProperties;
+}) {
   return (
-    <td style={{ padding: '12px 14px', fontSize: 13, textAlign: align, whiteSpace: 'nowrap' }}>
+    <td
+      style={{
+        padding: '12px 14px',
+        fontSize: 13,
+        textAlign: align,
+        whiteSpace: 'nowrap',
+        ...style,
+      }}
+    >
       {children}
     </td>
   );
