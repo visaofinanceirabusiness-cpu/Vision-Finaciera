@@ -724,7 +724,7 @@ export default function MercaderiaPage() {
             </>
           ) : (
             <div style={tablaContenedorSolo}>
-              <table style={{ borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={cabeceraFila}>
                     <Th style={anchoColumna(75)}>ID Registro</Th>
