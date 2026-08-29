@@ -38,6 +38,27 @@ type Pestana = 'lanzamientos' | 'registros' | 'libro';
 
 export default function ContabilidadPage() {
   const [pestana, setPestana] = useState<Pestana>('lanzamientos');
+  const [esAdmin, setEsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function cargarPerfil() {
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!userData.user) {
+        return;
+      }
+
+      const { data: perfil } = await supabase
+        .from('perfiles')
+        .select('es_admin_plataforma')
+        .eq('id', userData.user.id)
+        .maybeSingle();
+
+      setEsAdmin(Boolean(perfil?.es_admin_plataforma));
+    }
+
+    cargarPerfil();
+  }, []);
 
   return (
     <div style={fondo}>
@@ -86,13 +107,15 @@ export default function ContabilidadPage() {
               🚀 Central de Lanzamientos
             </button>
 
-            <button
-              type="button"
-              onClick={() => setPestana('registros')}
-              style={tabStyle(pestana === 'registros')}
-            >
-              📋 Registro de Operaciones
-            </button>
+            {esAdmin && (
+              <button
+                type="button"
+                onClick={() => setPestana('registros')}
+                style={tabStyle(pestana === 'registros')}
+              >
+                📋 Registro de Operaciones
+              </button>
+            )}
 
             <button
               type="button"
@@ -708,6 +731,7 @@ function RegistroOperacionesTab() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
   const [borrando, setBorrando] = useState<string | null>(null);
+  const [validando, setValidando] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   async function cargar(empresa: string) {
@@ -780,6 +804,31 @@ function RegistroOperacionesTab() {
     }
   }
 
+  async function handleValidar(idOperacion: string) {
+    if (!empresaId) return;
+
+    setError('');
+    setValidando(idOperacion);
+
+    try {
+      const { error: errorValidar } = await supabase
+        .from('registro_operaciones')
+        .update({ estado: 'VALIDADO' })
+        .eq('empresa_id', empresaId)
+        .eq('id_operacion', idOperacion);
+
+      if (errorValidar) {
+        throw errorValidar;
+      }
+
+      await cargar(empresaId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo validar la operación.');
+    } finally {
+      setValidando(null);
+    }
+  }
+
   const visibles = filas.filter((fila) =>
     [fila.id_operacion, fila.operacion, fila.categoria, fila.forma_pago, fila.historico, fila.cliente_proveedor]
       .filter(Boolean)
@@ -830,17 +879,33 @@ function RegistroOperacionesTab() {
                   <Td>{fila.historico || '—'}</Td>
                   <Td>{fila.cliente_proveedor || '—'}</Td>
                   <Td align="right">R$ {Number(fila.total).toFixed(2)}</Td>
-                  <Td>{fila.estado || '—'}</Td>
 
                   <Td>
-                    <button
-                      onClick={() => handleEliminar(fila.id_operacion)}
-                      disabled={borrando === fila.id_operacion}
-                      style={botonEliminar}
-                      title="Eliminar operación y sus movimientos de stock"
-                    >
-                      {borrando === fila.id_operacion ? '...' : 'Eliminar'}
-                    </button>
+                    <Estado estado={fila.estado} />
+                  </Td>
+
+                  <Td>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      {(fila.estado || 'PENDIENTE').toUpperCase() !== 'VALIDADO' && (
+                        <button
+                          onClick={() => handleValidar(fila.id_operacion)}
+                          disabled={validando === fila.id_operacion}
+                          style={botonValidar}
+                          title="Marcar operación como validada"
+                        >
+                          {validando === fila.id_operacion ? '...' : 'Validado'}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleEliminar(fila.id_operacion)}
+                        disabled={borrando === fila.id_operacion}
+                        style={botonEliminar}
+                        title="Eliminar operación y sus movimientos de stock"
+                      >
+                        {borrando === fila.id_operacion ? '...' : 'Eliminar'}
+                      </button>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -1496,6 +1561,17 @@ const validacionStyle: React.CSSProperties = {
   color: COLORES.gris,
   fontSize: 12,
   fontWeight: 600,
+};
+
+const botonValidar: React.CSSProperties = {
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: '1px solid #bbf7d0',
+  background: '#f0fdf4',
+  color: '#166534',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
 };
 
 const botonEliminar: React.CSSProperties = {
