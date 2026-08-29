@@ -434,22 +434,15 @@ export default function InicioPage() {
             }}
           >
             <BotonAcceso
-              href="/lanzamientos"
-              titulo="Central de Lanzamientos"
+              href="/panel-de-control"
+              titulo="Panel de Control"
               principal
               colorPrincipal={colores.verde}
             />
 
             <BotonAcceso
-              href="/panel-de-control"
-              titulo="Panel de Control"
-              destacado
-              colorPrincipal={colores.verde}
-            />
-
-            <BotonAcceso
-              href="/registros"
-              titulo="Registro de Operaciones"
+              href="/contabilidad"
+              titulo="Contabilidad"
               colorPrincipal={colores.azul}
             />
 
@@ -463,13 +456,6 @@ export default function InicioPage() {
               href="/movimientos-stock"
               titulo="Movimientos de Stock"
               colorPrincipal={colores.azul}
-            />
-
-            <BotonAcceso
-              href="/libro-diario"
-              titulo="Libro Diario"
-              destacado
-              colorPrincipal={colores.verde}
             />
 
             {/* Solo para empresas de producción (perfil PRODUCCION) */}
