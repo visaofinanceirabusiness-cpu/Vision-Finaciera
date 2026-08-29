@@ -420,8 +420,10 @@ export function SabioHero({
             SABIO
           </div>
 
-          {/* Globo de diálogo — va rotando frases básicas de contabilidad */}
+          {/* Globo de diálogo — va rotando frases básicas de contabilidad,
+              cada 5 minutos solo o al toque con un click */}
           <div
+            onClick={() => setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length)}
             style={{
               position: 'relative',
               background: colores.blanco,
@@ -435,6 +437,7 @@ export function SabioHero({
               lineHeight: 1.4,
               textAlign: 'center',
               boxShadow: '0 8px 16px rgba(0,0,0,0.18)',
+              cursor: 'pointer',
             }}
           >
             {FRASES_SABIO[fraseIndex]}
@@ -454,6 +457,7 @@ export function SabioHero({
 
           <div
             ref={sabioRef}
+            onClick={() => setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length)}
             style={{
               position: 'relative',
               width: 230,
