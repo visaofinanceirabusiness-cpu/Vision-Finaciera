@@ -271,6 +271,7 @@ function formatearPeriodo(clave: string): string {
 
 function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const [busqueda, setBusqueda] = useState('');
+  const [mostrarCeros, setMostrarCeros] = useState(false);
 
   const filas = useMemo(
     () =>
@@ -281,9 +282,15 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
     [hojas, asientos]
   );
 
-  const visibles = filas.filter((fila) =>
-    `${fila.cuenta.codigo} ${fila.cuenta.nombre}`.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const visibles = filas.filter((fila) => {
+    const coincideBusqueda = `${fila.cuenta.codigo} ${fila.cuenta.nombre}`
+      .toLowerCase()
+      .includes(busqueda.toLowerCase());
+
+    const tieneMovimiento = fila.inicial !== 0 || fila.debe !== 0 || fila.haber !== 0 || fila.saldoFinal !== 0;
+
+    return coincideBusqueda && (mostrarCeros || tieneMovimiento);
+  });
 
   const totalInicial = visibles.reduce((s, f) => s + f.inicial, 0);
   const totalDebe = visibles.reduce((s, f) => s + f.debe, 0);
@@ -293,12 +300,21 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
 
   return (
     <div>
-      <input
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar cuenta por código o nombre..."
-        style={{ ...campoInput, maxWidth: 420, marginBottom: 18 }}
-      />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar cuenta por código o nombre..."
+          style={{ ...campoInput, maxWidth: 420, marginBottom: 0 }}
+        />
+
+        <BotonToggle
+          activo={mostrarCeros}
+          onClick={() => setMostrarCeros((actual) => !actual)}
+          etiquetaActivo="Ocultar cuentas en cero"
+          etiquetaInactivo="Mostrar cuentas en cero"
+        />
+      </div>
 
       <div style={tablaContenedor}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -606,21 +622,7 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
         </div>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <div style={{ marginBottom: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: COLORES.verde }}>
-          PANORAMA GENERAL
-        </div>
-
-        <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>
-          Tendencia del Resultado
-        </h3>
-
-        <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES.gris }}>
-          Todo el histórico, mes a mes — no cambia con el período elegido arriba.
-        </p>
-
-        <GraficoTendenciaResultado datos={tendencia} />
-      </div>
+      <SeccionTendencia titulo="Tendencia del Resultado" datos={tendencia} />
     </div>
   );
 }
@@ -650,6 +652,32 @@ function formatearPeriodoCorto(clave: string): string {
 
   const nombre = new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', { month: 'short' });
   return `${nombre.replace('.', '')} ${String(anio).slice(2)}`;
+}
+
+// Bloque "panorama general": título + gráfico de tendencia, siempre
+// con todo el histórico, sin importar el período elegido arriba.
+function SeccionTendencia({
+  titulo,
+  datos,
+}: {
+  titulo: string;
+  datos: { clave: string; etiqueta: string; valor: number }[];
+}) {
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ marginBottom: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: COLORES.verde }}>
+        PANORAMA GENERAL
+      </div>
+
+      <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>{titulo}</h3>
+
+      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES.gris }}>
+        Todo el histórico, mes a mes — no cambia con el período elegido arriba.
+      </p>
+
+      <GraficoTendenciaResultado datos={datos} />
+    </div>
+  );
 }
 
 function GraficoTendenciaResultado({
@@ -834,6 +862,13 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
   const totalSalidas = salidasAgrupadas.reduce((s, f) => s + f.valor, 0);
   const flujoNeto = totalEntradas - totalSalidas;
 
+  // Igual que en Estado de Resultado: la tendencia mira todo el
+  // histórico, sin importar el período elegido arriba.
+  const tendenciaCaja = useMemo(
+    () => calcularTendenciaCaja(nombresCaja, asientos),
+    [nombresCaja, asientos]
+  );
+
   return (
     <div>
       <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -890,8 +925,29 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
           R$ {flujoNeto.toFixed(2)}
         </div>
       </div>
+
+      <SeccionTendencia titulo="Tendencia de Caja" datos={tendenciaCaja} />
     </div>
   );
+}
+
+// Flujo neto de caja (entradas - salidas) de cada mes.
+function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[]) {
+  const claves = Array.from(new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
+
+  return claves.map((clave) => {
+    const delMes = asientos.filter((a) => a.fecha.slice(0, 7) === clave);
+
+    const entradasMes = delMes
+      .filter((a) => a.debito && nombresCaja.has(a.debito) && !(a.credito && nombresCaja.has(a.credito)))
+      .reduce((s, a) => s + a.importe, 0);
+
+    const salidasMes = delMes
+      .filter((a) => a.credito && nombresCaja.has(a.credito) && !(a.debito && nombresCaja.has(a.debito)))
+      .reduce((s, a) => s + a.importe, 0);
+
+    return { clave, etiqueta: formatearPeriodoCorto(clave), valor: entradasMes - salidasMes };
+  });
 }
 
 // Agrupa una lista de asientos por el nombre de la cuenta "contraparte"
@@ -987,6 +1043,8 @@ function BalancePatrimonialTab({
   hojas: CuentaPlan[];
   asientos: Asiento[];
 }) {
+  const [mostrarCeros, setMostrarCeros] = useState(false);
+
   // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
   // (ej. "Caja"/"PIX" bajo "ATIVO CIRCULANTE"), para mostrar el balance
   // con la misma estructura que tiene el Plan de Cuentas.
@@ -1001,15 +1059,20 @@ function BalancePatrimonialTab({
       .map((cuenta) => ({ cuenta, grupo: nombreGrupo(cuenta), ...calcularMovimiento(cuenta, asientos, true) }))
       .filter((fila) => fila.cuenta.tipo_saldo === tipo);
 
+    // El total siempre suma TODAS las cuentas del tipo (los ceros no
+    // aportan nada), pero las filas que se muestran sí respetan el
+    // interruptor de "mostrar cuentas en cero".
+    const total = filas.reduce((s, f) => s + f.saldoFinal, 0);
+
+    const filasVisibles = mostrarCeros ? filas : filas.filter((f) => f.saldoFinal !== 0);
+
     const grupos = new Map<string, typeof filas>();
 
-    for (const fila of filas) {
+    for (const fila of filasVisibles) {
       const lista = grupos.get(fila.grupo) ?? [];
       lista.push(fila);
       grupos.set(fila.grupo, lista);
     }
-
-    const total = filas.reduce((s, f) => s + f.saldoFinal, 0);
 
     return { grupos, total };
   }
@@ -1032,6 +1095,50 @@ function BalancePatrimonialTab({
 
   return (
     <div>
+      <div
+        style={{
+          marginBottom: 18,
+          padding: '18px 20px',
+          borderRadius: 16,
+          background: resultadoDelEjercicio >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
+            RESULTADO DEL EJERCICIO (SIN CERRAR)
+          </div>
+
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 800,
+              color: resultadoDelEjercicio >= 0 ? COLORES.verde : '#dc2626',
+            }}
+          >
+            R$ {resultadoDelEjercicio.toFixed(2)}
+          </div>
+        </div>
+
+        <p style={{ margin: 0, maxWidth: 280, fontSize: 12, color: COLORES.gris }}>
+          Lo que ganó o perdió el negocio hasta hoy, todavía no volcado a Lucros Acumulados. Ya está
+          incluido en el Patrimonio de abajo.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <BotonToggle
+          activo={mostrarCeros}
+          onClick={() => setMostrarCeros((actual) => !actual)}
+          etiquetaActivo="Ocultar cuentas en cero"
+          etiquetaInactivo="Mostrar cuentas en cero"
+        />
+      </div>
+
       <div
         style={{
           display: 'grid',
@@ -1133,13 +1240,15 @@ function BloqueBalance({
         {filaExtra && (
           <div
             style={{
-              padding: '8px 16px',
-              borderTop: '1px solid #f1f5f9',
+              margin: '8px 12px 4px',
+              padding: '9px 12px',
+              borderRadius: 10,
+              background: filaExtra.valor >= 0 ? '#eaf7ee' : '#fef2f2',
               display: 'flex',
               justifyContent: 'space-between',
               fontSize: 13,
-              fontStyle: 'italic',
-              color: COLORES.gris,
+              fontWeight: 800,
+              color: filaExtra.valor >= 0 ? '#247347' : '#dc2626',
             }}
           >
             <span>{filaExtra.nombre}</span>
@@ -1173,6 +1282,38 @@ function tabStyle(activa: boolean): React.CSSProperties {
     borderBottom: activa ? `3px solid ${COLORES.verde}` : '3px solid transparent',
     marginBottom: -1,
   };
+}
+
+function BotonToggle({
+  activo,
+  onClick,
+  etiquetaActivo,
+  etiquetaInactivo,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  etiquetaActivo: string;
+  etiquetaInactivo: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '10px 14px',
+        borderRadius: 10,
+        border: `1px solid ${activo ? COLORES.azul : '#d1d5db'}`,
+        background: activo ? `${COLORES.azul}12` : COLORES.blanco,
+        color: activo ? COLORES.azul : COLORES.gris,
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {activo ? `👁️ ${etiquetaActivo}` : `🙈 ${etiquetaInactivo}`}
+    </button>
+  );
 }
 
 function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
