@@ -411,22 +411,49 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
     });
   }, [movimientos, cuenta]);
 
+  const saldoActual = cuenta
+    ? filasConSaldo.length
+      ? filasConSaldo[filasConSaldo.length - 1].saldo
+      : Number(cuenta.saldo_inicial ?? 0)
+    : 0;
+
   return (
     <div>
-      <div style={{ marginBottom: 18, maxWidth: 420 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-          Cuenta
-        </label>
+      <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: 420, flex: 1, minWidth: 260 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
+            Cuenta
+          </label>
 
-        <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
-          <option value="">Seleccionar cuenta...</option>
+          <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
+            <option value="">Seleccionar cuenta...</option>
 
-          {hojas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.codigo} — {c.nombre}
-            </option>
-          ))}
-        </select>
+            {hojas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.codigo} — {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {cuenta && (
+          <div
+            style={{
+              padding: '11px 18px',
+              borderRadius: 12,
+              background: 'linear-gradient(90deg, #edf6f0, #f7faf8)',
+              minWidth: 200,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
+              SALDO ACTUAL
+            </div>
+
+            <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
+              R$ {saldoActual.toFixed(2)}
+            </div>
+          </div>
+        )}
       </div>
 
       {!cuenta ? (
@@ -521,6 +548,11 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
   const resultado = totalIngresos - totalCostos - totalGastos;
   const rentabilidad = totalIngresos !== 0 ? (resultado / totalIngresos) * 100 : 0;
 
+  // La tendencia mira siempre todo el histórico, sin importar el
+  // período elegido arriba — es el panorama general de la empresa,
+  // no un dato que dependa del filtro.
+  const tendencia = useMemo(() => calcularTendenciaResultado(hojas, asientos), [hojas, asientos]);
+
   return (
     <div>
       <div style={{ marginBottom: 18, maxWidth: 280 }}>
@@ -573,6 +605,110 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
           </div>
         </div>
       </div>
+
+      <div style={{ marginTop: 24 }}>
+        <div style={{ marginBottom: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: COLORES.verde }}>
+          PANORAMA GENERAL
+        </div>
+
+        <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>
+          Tendencia del Resultado
+        </h3>
+
+        <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES.gris }}>
+          Todo el histórico, mes a mes — no cambia con el período elegido arriba.
+        </p>
+
+        <GraficoTendenciaResultado datos={tendencia} />
+      </div>
+    </div>
+  );
+}
+
+// Resultado (Ingresos - Costos - Gastos) de cada mes, calculado solo
+// con el movimiento de ese mes (no acumulado, no incluye saldo inicial).
+function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[]) {
+  const claves = Array.from(new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
+
+  return claves.map((clave) => {
+    const delMes = asientos.filter((a) => a.fecha.slice(0, 7) === clave);
+
+    const sumaTipo = (tipo: string) =>
+      hojas
+        .filter((c) => c.tipo_saldo === tipo)
+        .reduce((s, c) => s + calcularMovimiento(c, delMes, false).saldoFinal, 0);
+
+    const valor = sumaTipo('INGRESO') - sumaTipo('COSTO') - sumaTipo('GASTO');
+
+    return { clave, etiqueta: formatearPeriodoCorto(clave), valor };
+  });
+}
+
+function formatearPeriodoCorto(clave: string): string {
+  const [anio, mes] = clave.split('-').map(Number);
+  if (!anio || !mes) return clave;
+
+  const nombre = new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', { month: 'short' });
+  return `${nombre.replace('.', '')} ${String(anio).slice(2)}`;
+}
+
+function GraficoTendenciaResultado({
+  datos,
+}: {
+  datos: { clave: string; etiqueta: string; valor: number }[];
+}) {
+  if (!datos.length) {
+    return <div style={vacioOperacion}>Todavía no hay historial suficiente para mostrar una tendencia.</div>;
+  }
+
+  const alto = 160;
+  const anchoBarra = 46;
+  const gap = 14;
+  const ancho = datos.length * (anchoBarra + gap) + gap;
+
+  const maxAbs = Math.max(...datos.map((d) => Math.abs(d.valor)), 1);
+  const mitad = alto / 2;
+  const escala = (mitad - 16) / maxAbs;
+
+  return (
+    <div style={{ ...tablaContenedor, padding: '18px 12px', overflowX: 'auto' }}>
+      <svg width={ancho} height={alto + 26} style={{ display: 'block' }}>
+        <line x1={0} y1={mitad} x2={ancho} y2={mitad} stroke="#e5e7eb" strokeWidth={1} />
+
+        {datos.map((dato, indice) => {
+          const x = gap + indice * (anchoBarra + gap);
+          const alturaBarra = Math.abs(dato.valor) * escala;
+          const y = dato.valor >= 0 ? mitad - alturaBarra : mitad;
+          const color = dato.valor >= 0 ? COLORES.verde : '#dc2626';
+
+          return (
+            <g key={dato.clave}>
+              <rect x={x} y={y} width={anchoBarra} height={Math.max(alturaBarra, 2)} rx={4} fill={color} />
+
+              <text
+                x={x + anchoBarra / 2}
+                y={dato.valor >= 0 ? y - 6 : y + alturaBarra + 14}
+                textAnchor="middle"
+                fontSize={10}
+                fontWeight={700}
+                fill={color}
+              >
+                {dato.valor.toFixed(0)}
+              </text>
+
+              <text
+                x={x + anchoBarra / 2}
+                y={alto + 18}
+                textAnchor="middle"
+                fontSize={11}
+                fill={COLORES.gris}
+              >
+                {dato.etiqueta}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
