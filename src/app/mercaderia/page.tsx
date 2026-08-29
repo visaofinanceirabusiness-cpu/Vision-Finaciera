@@ -724,20 +724,30 @@ export default function MercaderiaPage() {
             </>
           ) : (
             <div style={tablaContenedorSolo}>
-              <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
+              <table style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={cabeceraFila}>
-                    <Th>ID Registro</Th>
-                    <Th>Fecha</Th>
-                    <Th>Tipo</Th>
-                    <Th>Producto</Th>
-                    <Th>Categoría</Th>
-                    <Th align="right">Cantidad</Th>
-                    <Th align="right">Monto unitario</Th>
-                    <Th align="right">Total</Th>
-                    <Th>Histórico</Th>
-                    <Th>Estado</Th>
-                    {esAdmin && <Th align="right">Validado</Th>}
+                    <Th style={anchoColumna(75)}>ID Registro</Th>
+                    <Th style={anchoColumna(70)}>Fecha</Th>
+                    <Th style={anchoColumna(60)}>Tipo</Th>
+                    <Th style={anchoColumna(110)}>Producto</Th>
+                    <Th style={anchoColumna(90)}>Categoría</Th>
+                    <Th align="right" style={anchoColumna(65)}>
+                      Cantidad
+                    </Th>
+                    <Th align="right" style={anchoColumna(75)}>
+                      Monto unitario
+                    </Th>
+                    <Th align="right" style={anchoColumna(70)}>
+                      Total
+                    </Th>
+                    <Th style={anchoColumna(150)}>Histórico</Th>
+                    <Th style={anchoColumna(80)}>Estado</Th>
+                    {esAdmin && (
+                      <Th align="right" style={anchoColumna(75)}>
+                        Validado
+                      </Th>
+                    )}
                   </tr>
                 </thead>
 
@@ -750,14 +760,24 @@ export default function MercaderiaPage() {
                         <Td>{fila.id_operacion || '—'}</Td>
                         <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
                         <Td>{fila.tipo}</Td>
-                        <Td>{nombresProducto[fila.producto_id] || fila.producto_id}</Td>
-                        <Td>{fila.categoria}</Td>
+
+                        <Td
+                          style={celdaRecortada(110)}
+                          title={nombresProducto[fila.producto_id] || fila.producto_id}
+                        >
+                          {nombresProducto[fila.producto_id] || fila.producto_id}
+                        </Td>
+
+                        <Td style={celdaRecortada(90)} title={fila.categoria}>
+                          {fila.categoria}
+                        </Td>
+
                         <Td align="right">{fila.cantidad}</Td>
                         <Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td>
                         <Td align="right">
                           R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}
                         </Td>
-                        <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 220 }}>
+                        <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 150 }}>
                           {fila.historico || '—'}
                         </Td>
 
@@ -966,6 +986,13 @@ function extraerNumero(valor: string | null): number {
    TAB
 ========================================================== */
 
+// Fuerza a que el título de la columna salte de línea en vez de
+// estirar la tabla entera solo para que un encabezado largo (ej.
+// "Monto unitario") entre en una sola línea.
+function anchoColumna(maxWidth: number): React.CSSProperties {
+  return { whiteSpace: 'normal', maxWidth };
+}
+
 function tabStyle(activa: boolean): React.CSSProperties {
   return {
     border: 'none',
@@ -984,16 +1011,25 @@ function tabStyle(activa: boolean): React.CSSProperties {
    TABLA
 ========================================================== */
 
-function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+function Th({
+  children,
+  align = 'left',
+  style,
+}: {
+  children: React.ReactNode;
+  align?: 'left' | 'right';
+  style?: React.CSSProperties;
+}) {
   return (
     <th
       style={{
-        padding: '12px 14px',
+        padding: '10px 10px',
         color: '#374151',
         fontSize: 12,
         textAlign: align,
         whiteSpace: 'nowrap',
         fontWeight: 800,
+        ...style,
       }}
     >
       {children}
@@ -1005,15 +1041,18 @@ function Td({
   children,
   align = 'left',
   style,
+  title,
 }: {
   children: React.ReactNode;
   align?: 'left' | 'right';
   style?: React.CSSProperties;
+  title?: string;
 }) {
   return (
     <td
+      title={title}
       style={{
-        padding: '12px 14px',
+        padding: '10px 10px',
         fontSize: 13,
         textAlign: align,
         whiteSpace: 'nowrap',
@@ -1024,6 +1063,14 @@ function Td({
     </td>
   );
 }
+
+// Achica una celda de texto largo (producto, categoría) a un ancho
+// fijo con puntos suspensivos, en vez de estirar la columna entera.
+const celdaRecortada = (maxWidth: number): React.CSSProperties => ({
+  maxWidth,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+});
 
 /* ==========================================================
    ESTILOS
