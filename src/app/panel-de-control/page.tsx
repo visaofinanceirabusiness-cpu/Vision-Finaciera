@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
-import { SalesChart } from '@/components/panel/SalesChart';
+import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
@@ -789,11 +789,7 @@ export default function MiNegocioPage() {
                 gap: 16,
               }}
             >
-              <SalesChart
-                datos={indicadores?.ventasMensuales ?? []}
-                color={colores.acento}
-                colorSecundario={colores.azul}
-              />
+              <LucroChart datos={indicadores?.evolucionLucro ?? []} />
 
               <CategoryChart
                 datos={indicadores?.ventasCategorias ?? []}
