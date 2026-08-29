@@ -212,9 +212,9 @@ export default function InformesPage() {
             <>
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
-              {pestana === 'flujo' && <ProximamenteTab titulo="Flujo de Caja" />}
+              {pestana === 'flujo' && <FlujoDeCajaTab hojas={hojas} asientos={asientos} />}
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} />}
-              {pestana === 'balance' && <ProximamenteTab titulo="Balance Patrimonial" />}
+              {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
             </>
           )}
         </main>
@@ -779,14 +779,380 @@ function SeccionResultado({
 }
 
 /* ==========================================================
-   PESTAÑA · PRÓXIMAMENTE
+   PESTAÑA · FLUJO DE CAJA
 ========================================================== */
 
-function ProximamenteTab({ titulo }: { titulo: string }) {
+function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const cuentasCaja = useMemo(
+    () => hojas.filter((c) => (c.codigo ?? '').startsWith('1.1.1.')),
+    [hojas]
+  );
+
+  const nombresCaja = useMemo(() => new Set(cuentasCaja.map((c) => c.nombre)), [cuentasCaja]);
+
+  const periodos = useMemo(() => obtenerPeriodos(asientos), [asientos]);
+  const [periodo, setPeriodo] = useState('TODOS');
+  const esTodos = periodo === 'TODOS';
+
+  // El saldo de caja actual es siempre acumulado a la fecha — no
+  // depende del período elegido, igual que "Caja disponible" en el
+  // Panel de Control.
+  const saldoCajaActual = useMemo(
+    () => cuentasCaja.reduce((s, c) => s + calcularMovimiento(c, asientos, true).saldoFinal, 0),
+    [cuentasCaja, asientos]
+  );
+
+  const asientosDelPeriodo = useMemo(
+    () => (esTodos ? asientos : asientos.filter((a) => a.fecha.slice(0, 7) === periodo)),
+    [asientos, periodo, esTodos]
+  );
+
+  // Entrada de caja: el débito es una cuenta de caja (la caja aumenta).
+  // Salida de caja: el crédito es una cuenta de caja (la caja baja).
+  // Se excluyen los movimientos entre dos cuentas de caja propias, para
+  // no contar una transferencia interna como entrada y salida a la vez.
+  const entradas = useMemo(
+    () =>
+      asientosDelPeriodo.filter(
+        (a) => a.debito && nombresCaja.has(a.debito) && !(a.credito && nombresCaja.has(a.credito))
+      ),
+    [asientosDelPeriodo, nombresCaja]
+  );
+
+  const salidas = useMemo(
+    () =>
+      asientosDelPeriodo.filter(
+        (a) => a.credito && nombresCaja.has(a.credito) && !(a.debito && nombresCaja.has(a.debito))
+      ),
+    [asientosDelPeriodo, nombresCaja]
+  );
+
+  const entradasAgrupadas = agruparPorContraparte(entradas, (a) => a.credito);
+  const salidasAgrupadas = agruparPorContraparte(salidas, (a) => a.debito);
+
+  const totalEntradas = entradasAgrupadas.reduce((s, f) => s + f.valor, 0);
+  const totalSalidas = salidasAgrupadas.reduce((s, f) => s + f.valor, 0);
+  const flujoNeto = totalEntradas - totalSalidas;
+
   return (
-    <div style={vacioOperacion}>
-      <strong style={{ color: COLORES.azul }}>{titulo}</strong>
-      <div style={{ marginTop: 6 }}>Lo armamos en el próximo paso.</div>
+    <div>
+      <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: 280, flex: 1, minWidth: 220 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
+            Período
+          </label>
+
+          <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
+            <option value="TODOS">Todos los períodos</option>
+
+            {periodos.map((p) => (
+              <option key={p.valor} value={p.valor}>
+                {p.etiqueta}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div
+          style={{
+            padding: '11px 18px',
+            borderRadius: 12,
+            background: 'linear-gradient(90deg, #edf6f0, #f7faf8)',
+            minWidth: 200,
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
+            CAJA DISPONIBLE HOY
+          </div>
+
+          <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
+            R$ {saldoCajaActual.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      <SeccionMontos titulo="Entradas de caja" emoji="⬇️" filas={entradasAgrupadas} total={totalEntradas} color={COLORES.verde} />
+      <SeccionMontos titulo="Salidas de caja" emoji="⬆️" filas={salidasAgrupadas} total={totalSalidas} color="#c2410c" resta />
+
+      <div
+        style={{
+          marginTop: 18,
+          padding: '18px 20px',
+          borderRadius: 16,
+          background: flujoNeto >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
+          FLUJO NETO {esTodos ? '(histórico)' : `— ${formatearPeriodo(periodo)}`}
+        </div>
+
+        <div style={{ fontSize: 24, fontWeight: 800, color: flujoNeto >= 0 ? COLORES.verde : '#dc2626' }}>
+          R$ {flujoNeto.toFixed(2)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Agrupa una lista de asientos por el nombre de la cuenta "contraparte"
+// (la otra punta del asiento), sumando importes iguales.
+function agruparPorContraparte(lista: Asiento[], contraparte: (a: Asiento) => string | null) {
+  const mapa = new Map<string, number>();
+
+  for (const asiento of lista) {
+    const clave = contraparte(asiento) || 'Otro';
+    mapa.set(clave, (mapa.get(clave) ?? 0) + asiento.importe);
+  }
+
+  return Array.from(mapa.entries())
+    .map(([nombre, valor]) => ({ nombre, valor }))
+    .sort((a, b) => b.valor - a.valor);
+}
+
+function SeccionMontos({
+  titulo,
+  emoji,
+  filas,
+  total,
+  color,
+  resta = false,
+}: {
+  titulo: string;
+  emoji: string;
+  filas: { nombre: string; valor: number }[];
+  total: number;
+  color: string;
+  resta?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 14px',
+          background: '#f8fafc',
+          borderRadius: '10px 10px 0 0',
+          border: '1px solid #e5e7eb',
+          borderBottom: 'none',
+        }}
+      >
+        <strong style={{ color: COLORES.azul, fontSize: 13 }}>
+          {emoji} {titulo}
+        </strong>
+
+        <strong style={{ color, fontSize: 13 }}>
+          {resta ? '− ' : ''}R$ {total.toFixed(2)}
+        </strong>
+      </div>
+
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+        {!filas.length ? (
+          <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
+            Sin movimiento en este período.
+          </div>
+        ) : (
+          filas.map((fila, indice) => (
+            <div
+              key={fila.nombre}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '9px 14px',
+                fontSize: 13,
+                borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
+              }}
+            >
+              <span>{fila.nombre}</span>
+              <span>R$ {fila.valor.toFixed(2)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA · BALANCE PATRIMONIAL
+========================================================== */
+
+function BalancePatrimonialTab({
+  cuentas,
+  hojas,
+  asientos,
+}: {
+  cuentas: CuentaPlan[];
+  hojas: CuentaPlan[];
+  asientos: Asiento[];
+}) {
+  // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
+  // (ej. "Caja"/"PIX" bajo "ATIVO CIRCULANTE"), para mostrar el balance
+  // con la misma estructura que tiene el Plan de Cuentas.
+  function nombreGrupo(cuenta: CuentaPlan): string {
+    if (!cuenta.cuenta_padre_id) return cuenta.nombre;
+    const padre = cuentas.find((c) => c.id === cuenta.cuenta_padre_id);
+    return padre ? padre.nombre : cuenta.nombre;
+  }
+
+  function bloque(tipo: string) {
+    const filas = hojas
+      .map((cuenta) => ({ cuenta, grupo: nombreGrupo(cuenta), ...calcularMovimiento(cuenta, asientos, true) }))
+      .filter((fila) => fila.cuenta.tipo_saldo === tipo);
+
+    const grupos = new Map<string, typeof filas>();
+
+    for (const fila of filas) {
+      const lista = grupos.get(fila.grupo) ?? [];
+      lista.push(fila);
+      grupos.set(fila.grupo, lista);
+    }
+
+    const total = filas.reduce((s, f) => s + f.saldoFinal, 0);
+
+    return { grupos, total };
+  }
+
+  const activo = bloque('ACTIVO');
+  const pasivo = bloque('PASIVO');
+  const patrimonio = bloque('PATRIMONIO');
+
+  // Ganancia o pérdida del ejercicio, todavía no cerrada contra
+  // "Lucros Acumulados" — se muestra como una línea más del Patrimonio,
+  // para que Activo = Pasivo + Patrimonio siga cerrando.
+  const resultadoDelEjercicio =
+    hojas.filter((c) => c.tipo_saldo === 'INGRESO').reduce((s, c) => s + calcularMovimiento(c, asientos, true).saldoFinal, 0) -
+    hojas.filter((c) => c.tipo_saldo === 'COSTO').reduce((s, c) => s + calcularMovimiento(c, asientos, true).saldoFinal, 0) -
+    hojas.filter((c) => c.tipo_saldo === 'GASTO').reduce((s, c) => s + calcularMovimiento(c, asientos, true).saldoFinal, 0);
+
+  const totalPatrimonioConResultado = patrimonio.total + resultadoDelEjercicio;
+  const totalPasivoYPatrimonio = pasivo.total + totalPatrimonioConResultado;
+  const diferencia = activo.total - totalPasivoYPatrimonio;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: 18,
+        }}
+      >
+        <BloqueBalance titulo="Activo" emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} />
+
+        <div>
+          <BloqueBalance titulo="Pasivo" emoji="💗" grupos={pasivo.grupos} total={pasivo.total} color="#b91c1c" />
+
+          <div style={{ height: 14 }} />
+
+          <BloqueBalance
+            titulo="Patrimonio"
+            emoji="💙"
+            grupos={patrimonio.grupos}
+            total={patrimonio.total}
+            color={COLORES.azul}
+            filaExtra={{ nombre: 'Resultado del Ejercicio (no cerrado)', valor: resultadoDelEjercicio }}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 18,
+          padding: '12px 16px',
+          borderRadius: 12,
+          fontSize: 13,
+          fontWeight: 700,
+          background: Math.abs(diferencia) < 0.01 ? '#eaf7ee' : '#fef2f2',
+          color: Math.abs(diferencia) < 0.01 ? '#247347' : '#dc2626',
+        }}
+      >
+        {Math.abs(diferencia) < 0.01
+          ? `✓ Activo (R$ ${activo.total.toFixed(2)}) = Pasivo + Patrimonio (R$ ${totalPasivoYPatrimonio.toFixed(2)}).`
+          : `⚠ La ecuación no cierra por R$ ${diferencia.toFixed(2)}. Activo: R$ ${activo.total.toFixed(2)} — Pasivo + Patrimonio: R$ ${totalPasivoYPatrimonio.toFixed(2)}.`}
+      </div>
+    </div>
+  );
+}
+
+function BloqueBalance({
+  titulo,
+  emoji,
+  grupos,
+  total,
+  color,
+  filaExtra,
+}: {
+  titulo: string;
+  emoji: string;
+  grupos: Map<string, { cuenta: CuentaPlan; saldoFinal: number }[]>;
+  total: number;
+  color: string;
+  filaExtra?: { nombre: string; valor: number };
+}) {
+  const entradas = Array.from(grupos.entries());
+
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
+      <div
+        style={{
+          padding: '12px 16px',
+          background: '#f8fafc',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <strong style={{ color: COLORES.azul, fontSize: 14 }}>
+          {emoji} {titulo}
+        </strong>
+
+        <strong style={{ color, fontSize: 14 }}>R$ {(total + (filaExtra?.valor ?? 0)).toFixed(2)}</strong>
+      </div>
+
+      <div style={{ padding: '4px 0' }}>
+        {entradas.map(([grupo, filas]) => (
+          <div key={grupo} style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: COLORES.gris, marginBottom: 4 }}>
+              {grupo.toUpperCase()}
+            </div>
+
+            {filas.map((fila) => (
+              <div
+                key={fila.cuenta.id}
+                style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}
+              >
+                <span>{fila.cuenta.nombre}</span>
+                <span>R$ {fila.saldoFinal.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {filaExtra && (
+          <div
+            style={{
+              padding: '8px 16px',
+              borderTop: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 13,
+              fontStyle: 'italic',
+              color: COLORES.gris,
+            }}
+          >
+            <span>{filaExtra.nombre}</span>
+            <span>R$ {filaExtra.valor.toFixed(2)}</span>
+          </div>
+        )}
+
+        {!entradas.length && !filaExtra && (
+          <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
+            Sin cuentas con movimiento.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
