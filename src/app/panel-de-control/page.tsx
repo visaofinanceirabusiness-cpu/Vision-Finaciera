@@ -787,10 +787,9 @@ export default function MiNegocioPage() {
                 gridTemplateColumns:
                   'repeat(auto-fit, minmax(310px, 1fr))',
                 gap: 16,
+                marginBottom: 16,
               }}
             >
-              <LucroChart datos={indicadores?.evolucionLucro ?? []} />
-
               <CategoryChart
                 datos={indicadores?.ventasCategorias ?? []}
                 color={colores.acento}
@@ -801,6 +800,8 @@ export default function MiNegocioPage() {
                 color={colores.acento}
               />
             </div>
+
+            <LucroChart datos={indicadores?.evolucionLucro ?? []} />
           </section>
         )}
 
