@@ -213,7 +213,7 @@ export default function InformesPage() {
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
               {pestana === 'flujo' && <ProximamenteTab titulo="Flujo de Caja" />}
-              {pestana === 'resultado' && <ProximamenteTab titulo="Estado de Resultado" />}
+              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} />}
               {pestana === 'balance' && <ProximamenteTab titulo="Balance Patrimonial" />}
             </>
           )}
@@ -227,7 +227,7 @@ export default function InformesPage() {
    UTILIDAD COMPARTIDA — saldo de una cuenta según su naturaleza
 ========================================================== */
 
-function calcularMovimiento(cuenta: CuentaPlan, asientos: Asiento[]) {
+function calcularMovimiento(cuenta: CuentaPlan, asientos: Asiento[], incluirInicial = true) {
   let debe = 0;
   let haber = 0;
 
@@ -236,12 +236,33 @@ function calcularMovimiento(cuenta: CuentaPlan, asientos: Asiento[]) {
     if (asiento.credito === cuenta.nombre) haber += asiento.importe;
   }
 
-  const inicial = Number(cuenta.saldo_inicial ?? 0);
+  const inicial = incluirInicial ? Number(cuenta.saldo_inicial ?? 0) : 0;
 
   const saldoFinal =
     cuenta.naturaleza === 'ACREEDORA' ? inicial + haber - debe : inicial + debe - haber;
 
   return { inicial, debe, haber, saldoFinal };
+}
+
+// Agrupa las fechas de los asientos en períodos "AAAA-MM", más la
+// opción "TODOS" para ver el histórico completo.
+function obtenerPeriodos(asientos: Asiento[]) {
+  const claves = new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean));
+
+  return Array.from(claves)
+    .sort((a, b) => b.localeCompare(a))
+    .map((clave) => ({ valor: clave, etiqueta: formatearPeriodo(clave) }));
+}
+
+function formatearPeriodo(clave: string): string {
+  const [anio, mes] = clave.split('-').map(Number);
+
+  if (!anio || !mes) return clave;
+
+  return new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /* ==========================================================
@@ -462,6 +483,161 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA · ESTADO DE RESULTADO
+========================================================== */
+
+function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const periodos = useMemo(() => obtenerPeriodos(asientos), [asientos]);
+  const [periodo, setPeriodo] = useState('TODOS');
+
+  const esTodos = periodo === 'TODOS';
+
+  const asientosDelPeriodo = useMemo(
+    () => (esTodos ? asientos : asientos.filter((a) => a.fecha.slice(0, 7) === periodo)),
+    [asientos, periodo, esTodos]
+  );
+
+  // Con "Todos los períodos" el saldo inicial representa el arrastre
+  // histórico y suma al resultado. Con un mes puntual, se mira solo
+  // lo que pasó ese mes.
+  const filasPorTipo = (tipo: string) =>
+    hojas
+      .map((cuenta) => ({ cuenta, ...calcularMovimiento(cuenta, asientosDelPeriodo, esTodos) }))
+      .filter((fila) => fila.cuenta.tipo_saldo === tipo && fila.saldoFinal !== 0)
+      .sort((a, b) => b.saldoFinal - a.saldoFinal);
+
+  const ingresos = filasPorTipo('INGRESO');
+  const costos = filasPorTipo('COSTO');
+  const gastos = filasPorTipo('GASTO');
+
+  const totalIngresos = ingresos.reduce((s, f) => s + f.saldoFinal, 0);
+  const totalCostos = costos.reduce((s, f) => s + f.saldoFinal, 0);
+  const totalGastos = gastos.reduce((s, f) => s + f.saldoFinal, 0);
+  const resultado = totalIngresos - totalCostos - totalGastos;
+  const rentabilidad = totalIngresos !== 0 ? (resultado / totalIngresos) * 100 : 0;
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18, maxWidth: 280 }}>
+        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
+          Período
+        </label>
+
+        <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
+          <option value="TODOS">Todos los períodos</option>
+
+          {periodos.map((p) => (
+            <option key={p.valor} value={p.valor}>
+              {p.etiqueta}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <SeccionResultado titulo="Ingresos" emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
+      <SeccionResultado titulo="Costos" emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
+      <SeccionResultado titulo="Gastos" emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
+
+      <div
+        style={{
+          marginTop: 18,
+          padding: '18px 20px',
+          borderRadius: 16,
+          background: resultado >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
+            RESULTADO {esTodos ? '(histórico)' : `— ${formatearPeriodo(periodo)}`}
+          </div>
+
+          <div style={{ fontSize: 24, fontWeight: 800, color: resultado >= 0 ? COLORES.verde : '#dc2626' }}>
+            R$ {resultado.toFixed(2)}
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'right', fontSize: 13, color: COLORES.gris }}>
+          Rentabilidad
+          <div style={{ fontSize: 18, fontWeight: 800, color: COLORES.azul }}>
+            {rentabilidad.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SeccionResultado({
+  titulo,
+  emoji,
+  filas,
+  total,
+  color,
+  resta = false,
+}: {
+  titulo: string;
+  emoji: string;
+  filas: { cuenta: CuentaPlan; saldoFinal: number }[];
+  total: number;
+  color: string;
+  resta?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 14px',
+          background: '#f8fafc',
+          borderRadius: '10px 10px 0 0',
+          border: '1px solid #e5e7eb',
+          borderBottom: 'none',
+        }}
+      >
+        <strong style={{ color: COLORES.azul, fontSize: 13 }}>
+          {emoji} {titulo}
+        </strong>
+
+        <strong style={{ color, fontSize: 13 }}>
+          {resta ? '− ' : ''}R$ {total.toFixed(2)}
+        </strong>
+      </div>
+
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+        {!filas.length ? (
+          <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
+            Sin movimiento en este período.
+          </div>
+        ) : (
+          filas.map((fila, indice) => (
+            <div
+              key={fila.cuenta.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '9px 14px',
+                fontSize: 13,
+                borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
+              }}
+            >
+              <span>{fila.cuenta.nombre}</span>
+              <span>R$ {fila.saldoFinal.toFixed(2)}</span>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
