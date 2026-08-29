@@ -471,6 +471,123 @@ export default function MiNegocioPage() {
         </div>
 
         {/* =================================================
+            AVISO DE CONSISTENCIA CONTABLE
+            Activo debe ser igual a Pasivo + Patrimonio + Resultado.
+            Si no cierra, casi siempre son los saldos iniciales del
+            plan de cuentas los que están descuadrados.
+        ================================================== */}
+
+        {indicadores && Math.abs(indicadores.descuadre) >= 0.01 && (
+          <div
+            style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              color: '#92400e',
+              borderRadius: 16,
+              padding: '13px 18px',
+              marginBottom: 20,
+              fontSize: 13,
+            }}
+          >
+            <strong>⚠️ La ecuación contable no cierra por R${' '}
+            {formatearNumero(Math.abs(indicadores.descuadre))}.</strong>{' '}
+            Activo ({formatearNumero(indicadores.activos)}) no coincide con
+            Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del
+            plan de cuentas.
+          </div>
+        )}
+
+        {/* =================================================
+            SITUACIÓN A LA FECHA
+            Estas tarjetas NO dependen del selector de período:
+            son saldos acumulados, o ventanas fijas (hoy / mes en curso).
+            Por eso van ARRIBA del selector.
+        ================================================== */}
+
+        <section
+          style={{
+            background: colores.blanco,
+            borderRadius: 24,
+            padding: 24,
+            marginBottom: 20,
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+          }}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                marginBottom: 5,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 1.3,
+                color: colores.verde,
+              }}
+            >
+              SITUACIÓN ACTUAL
+            </div>
+
+            <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
+              Tu negocio hoy
+            </h2>
+
+            <p
+              style={{
+                margin: '5px 0 0',
+                fontSize: 12,
+                color: COLORES_BASE.gris,
+              }}
+            >
+              Saldos acumulados a la fecha. No cambian con el período que elijas
+              más abajo.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <ResumenEjecutivoCard
+              titulo="Activo"
+              valor={`R$ ${formatearNumero(indicadores?.activos ?? 0)}`}
+              emoji="💚"
+              color={colores.verde}
+            />
+
+            <ResumenEjecutivoCard
+              titulo="Pasivo"
+              valor={`R$ ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+              emoji="💗"
+              color="#b91c1c"
+            />
+
+            <ResumenEjecutivoCard
+              titulo="Capital"
+              valor={`R$ ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
+              emoji="💙"
+              color={colores.azul}
+            />
+
+            <ResumenEjecutivoCard
+              titulo="Saldo en caja"
+              valor={`R$ ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+              emoji="💵"
+              color={colores.azul}
+            />
+
+            <ResumenEjecutivoCard
+              titulo="Stock bajo"
+              valor={`${indicadores?.stockBajo ?? 0} productos`}
+              emoji="📦"
+              color={colores.acento}
+            />
+          </div>
+        </section>
+
+        {/* =================================================
             SELECTOR GLOBAL
         ================================================== */}
 
@@ -537,71 +654,6 @@ export default function MiNegocioPage() {
         </section>
 
         {/* =================================================
-            AVISO DE CONSISTENCIA CONTABLE
-            Activo debe ser igual a Pasivo + Patrimonio + Resultado.
-            Si no cierra, casi siempre son los saldos iniciales del
-            plan de cuentas los que están descuadrados.
-        ================================================== */}
-
-        {indicadores && Math.abs(indicadores.descuadre) >= 0.01 && (
-          <div
-            style={{
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              color: '#92400e',
-              borderRadius: 16,
-              padding: '13px 18px',
-              marginBottom: 20,
-              fontSize: 13,
-            }}
-          >
-            <strong>⚠️ La ecuación contable no cierra por R${' '}
-            {formatearNumero(Math.abs(indicadores.descuadre))}.</strong>{' '}
-            Activo ({formatearNumero(indicadores.activos)}) no coincide con
-            Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del
-            plan de cuentas.
-          </div>
-        )}
-
-        {/* =================================================
-            TARJETAS SUPERIORES
-        ================================================== */}
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(190px, 1fr))',
-            gap: 14,
-            marginBottom: 20,
-          }}
-        >
-          <ResumenCard
-            titulo="Ventas hoy"
-            valor={`R$ ${formatearNumero(indicadores?.ventasHoy ?? 0)}`}
-            color={colores.verde}
-          />
-
-          <ResumenCard
-            titulo="Caja disponible"
-            valor={`R$ ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
-            color={colores.azul}
-          />
-
-          <ResumenCard
-            titulo="Gastos del mes"
-            valor={`R$ ${formatearNumero(indicadores?.gastosDelMes ?? 0)}`}
-            color="#c2410c"
-          />
-
-          <ResumenCard
-            titulo="Stock bajo"
-            valor={`${indicadores?.stockBajo ?? 0} productos`}
-            color={colores.acento}
-          />
-        </div>
-
-        {/* =================================================
             RESUMEN EJECUTIVO
         ================================================== */}
 
@@ -657,9 +709,8 @@ export default function MiNegocioPage() {
                     color: COLORES_BASE.gris,
                   }}
                 >
-                  Activos, Pasivos y Capital son saldos acumulados a la fecha.
-                  Ingresos, Lucro y Rentabilidad corresponden al período
-                  seleccionado.
+                  Resultados del período seleccionado. La situación patrimonial
+                  acumulada está más arriba.
                 </p>
               </div>
 
@@ -688,31 +739,24 @@ export default function MiNegocioPage() {
               }}
             >
               <ResumenEjecutivoCard
-                titulo="Activos"
-                valor={`R$ ${formatearNumero(indicadores?.activos ?? 0)}`}
-                emoji="💚"
-                color={colores.verde}
-              />
-
-              <ResumenEjecutivoCard
-                titulo="Pasivos"
-                valor={`R$ ${formatearNumero(indicadores?.pasivos ?? 0)}`}
-                emoji="💗"
-                color="#b91c1c"
-              />
-
-              <ResumenEjecutivoCard
-                titulo="Capital"
-                valor={`R$ ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
-                emoji="💙"
-                color={colores.azul}
-              />
-
-              <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
                 valor={`R$ ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                 emoji="💵"
                 color={colores.verde}
+              />
+
+              <ResumenEjecutivoCard
+                titulo="Costo de mercadería vendida"
+                valor={`R$ ${formatearNumero(indicadores?.cmv ?? 0)}`}
+                emoji="🏷️"
+                color="#b45309"
+              />
+
+              <ResumenEjecutivoCard
+                titulo="Gastos"
+                valor={`R$ ${formatearNumero(indicadores?.gastos ?? 0)}`}
+                emoji="🧾"
+                color="#c2410c"
               />
 
               <ResumenEjecutivoCard
