@@ -493,9 +493,9 @@ export default function InicioPage() {
           >
             <BotonAcceso
               href="/panel-de-control"
-              titulo="Panel de Control"
-              principal
+              titulo="📊 Panel de Control"
               colorPrincipal={colores.verde}
+              destacado
             />
 
             <BotonAcceso
