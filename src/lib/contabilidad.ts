@@ -60,17 +60,16 @@ export type PuntoMes = {
 };
 
 export type IndicadoresPanel = {
-  // Las 4 tarjetas de arriba
-  ventasHoy: number;
-  cajaDisponible: number;
-  gastosDelMes: number;
-  stockBajo: number;
-
-  // Resumen ejecutivo
+  // ---- "Tu negocio hoy": NO dependen del período ----
   activos: number;
   pasivos: number;
   patrimonio: number;
+  cajaDisponible: number;
+  stockBajo: number;
+
+  // ---- Resumen ejecutivo: SÍ dependen del período ----
   ingresos: number;
+  cmv: number;
   gastos: number;
   costos: number;
   lucro: number;
@@ -193,13 +192,14 @@ export async function obtenerIndicadores(
   const dentroDelPeriodo = (fecha: string) =>
     !rango || (fecha >= rango.desde && fecha <= rango.hasta);
 
-  // Acumula débitos y créditos por nombre de cuenta.
-  function acumular(soloDelPeriodo: boolean) {
+  // Acumula débitos y créditos por nombre de cuenta, tomando solo los
+  // asientos cuya fecha pase el filtro.
+  function acumular(incluir: (fecha: string) => boolean) {
     const debitos = new Map<string, number>();
     const creditos = new Map<string, number>();
 
     for (const asiento of asientos) {
-      if (soloDelPeriodo && !dentroDelPeriodo(asiento.fecha)) {
+      if (!incluir(asiento.fecha)) {
         continue;
       }
 
@@ -215,8 +215,16 @@ export async function obtenerIndicadores(
     return { debitos, creditos };
   }
 
-  const acumuladoTotal = acumular(false);
-  const acumuladoPeriodo = acumular(true);
+  // Tres miradas del mismo libro mayor:
+  //  - total:     todo, sin importar la fecha  -> saldos "a la fecha"
+  //  - periodo:   solo lo que pasó en el mes elegido -> cuentas de resultado
+  //  - hastaFin:  todo hasta el cierre del mes elegido -> ratios de balance
+  //               (la liquidez al cierre de ese mes)
+  const acumuladoTotal = acumular(() => true);
+  const acumuladoPeriodo = acumular(dentroDelPeriodo);
+  const acumuladoHastaFin = rango
+    ? acumular((fecha) => fecha <= rango.hasta)
+    : acumuladoTotal;
 
   // Saldo de una cuenta, según su naturaleza.
   function saldoDe(
@@ -256,8 +264,17 @@ export async function obtenerIndicadores(
   // Financieras, Tarjeta). NO incluye "a Recibir" ni Clientes.
   const cajaDisponible = totalPorPrefijo('1.1.1.');
 
-  const activoCirculante = totalPorPrefijo('1.1.');
-  const pasivoCirculante = totalPorPrefijo('2.1.');
+  // La liquidez SÍ sigue al selector, pero de la única forma que tiene
+  // sentido contable: es el saldo al CIERRE del período elegido, no el
+  // movimiento del mes (un ratio de balance no se "devenga").
+  function circulanteAlCierre(prefijo: string): number {
+    return hojas
+      .filter((cuenta) => (cuenta.codigo ?? '').startsWith(prefijo))
+      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoHastaFin, true), 0);
+  }
+
+  const activoCirculante = circulanteAlCierre('1.1.');
+  const pasivoCirculante = circulanteAlCierre('2.1.');
 
   const liquidez = pasivoCirculante !== 0 ? activoCirculante / pasivoCirculante : 0;
 
@@ -285,6 +302,16 @@ export async function obtenerIndicadores(
   const lucro = ingresos - gastos - costos;
   const rentabilidad = ingresos !== 0 ? (lucro / ingresos) * 100 : 0;
 
+  // Costo de Mercadería Vendida: solo la rama "CUSTOS DAS VENDAS" (5.1.x).
+  // No incluye los costos de locación (5.2.x), que no son CMV.
+  const cmv = hojas
+    .filter((cuenta) => (cuenta.codigo ?? '').startsWith('5.1.'))
+    .reduce(
+      (suma, cuenta) =>
+        suma + saldoDe(cuenta, acumuladoPeriodo, incluirInicialEnResultado),
+      0
+    );
+
   // Control: la ecuación contable debe cerrar.
   // Activo = Pasivo + Patrimonio + Resultado acumulado
   const resultadoAcumulado =
@@ -293,36 +320,8 @@ export async function obtenerIndicadores(
   const descuadre = activos - (pasivos + patrimonio + resultadoAcumulado);
 
   // ---------------------------------------------------------------
-  // 5. Tarjetas rápidas
+  // 5. Stock bajo (no depende del período: es la foto de hoy)
   // ---------------------------------------------------------------
-  const hoy = new Date();
-  const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-  const inicioDelMes = `${fechaHoy.slice(0, 7)}-01`;
-
-  const ventasHoy = operaciones
-    .filter((fila) => fila.operacion === 'VENTA' && String(fila.fecha) === fechaHoy)
-    .reduce((suma, fila) => suma + aNumero(fila.total), 0);
-
-  // Gastos del mes en curso: movimientos contra cuentas de tipo GASTO.
-  // Por definición del cliente, NO incluye los costos (CMV).
-  const nombresGasto = new Set(
-    hojas.filter((cuenta) => cuenta.tipo_saldo === 'GASTO').map((cuenta) => cuenta.nombre)
-  );
-
-  const gastosDelMes = asientos
-    .filter((asiento) => asiento.fecha >= inicioDelMes && asiento.fecha <= fechaHoy)
-    .reduce((suma, asiento) => {
-      if (asiento.debito && nombresGasto.has(asiento.debito)) {
-        return suma + asiento.importe;
-      }
-
-      if (asiento.credito && nombresGasto.has(asiento.credito)) {
-        return suma - asiento.importe;
-      }
-
-      return suma;
-    }, 0);
-
   // Stock bajo: productos con menos de STOCK_MINIMO unidades.
   // Solo se cuentan los que alguna vez tuvieron movimiento — un producto
   // del catálogo que nunca se compró no es "stock bajo", es simplemente
@@ -418,15 +417,16 @@ export async function obtenerIndicadores(
     .sort((a, b) => b.valor - a.valor);
 
   return {
-    ventasHoy: redondear(ventasHoy),
-    cajaDisponible: redondear(cajaDisponible),
-    gastosDelMes: redondear(gastosDelMes),
-    stockBajo,
-
+    // Situación a la fecha
     activos: redondear(activos),
     pasivos: redondear(pasivos),
     patrimonio: redondear(patrimonio),
+    cajaDisponible: redondear(cajaDisponible),
+    stockBajo,
+
+    // Del período seleccionado
     ingresos: redondear(ingresos),
+    cmv: redondear(cmv),
     gastos: redondear(gastos),
     costos: redondear(costos),
     lucro: redondear(lucro),
