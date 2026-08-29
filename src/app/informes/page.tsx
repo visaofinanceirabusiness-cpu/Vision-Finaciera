@@ -400,8 +400,20 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
 
 function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const [cuentaId, setCuentaId] = useState('');
+  const [mostrarCeros, setMostrarCeros] = useState(false);
 
   const cuenta = hojas.find((c) => c.id === cuentaId) ?? null;
+
+  // Antes de buscar la cuenta, sacamos del desplegable las que nunca
+  // tuvieron saldo — ensucian la lista y casi nunca son las que se
+  // necesita mirar.
+  const opciones = useMemo(() => {
+    const lista = mostrarCeros
+      ? hojas
+      : hojas.filter((c) => calcularMovimiento(c, asientos, true).saldoFinal !== 0);
+
+    return lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }, [hojas, asientos, mostrarCeros]);
 
   const movimientos = useMemo(() => {
     if (!cuenta) return [];
@@ -444,13 +456,20 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
           <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
             <option value="">Seleccionar cuenta...</option>
 
-            {hojas.map((c) => (
+            {opciones.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.codigo} — {c.nombre}
+                {c.nombre}
               </option>
             ))}
           </select>
         </div>
+
+        <BotonToggle
+          activo={mostrarCeros}
+          onClick={() => setMostrarCeros((actual) => !actual)}
+          etiquetaActivo="Ocultar cuentas en cero"
+          etiquetaInactivo="Mostrar cuentas en cero"
+        />
 
         {cuenta && (
           <div
