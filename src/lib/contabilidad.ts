@@ -59,6 +59,13 @@ export type PuntoMes = {
   valor: number;
 };
 
+export type PuntoLucroMes = {
+  mes: string;
+  ingresos: number;
+  costos: number;
+  gastos: number;
+};
+
 export type IndicadoresPanel = {
   // ---- "Tu negocio hoy": NO dependen del período ----
   activos: number;
@@ -78,6 +85,7 @@ export type IndicadoresPanel = {
 
   // Gráficos
   ventasMensuales: PuntoMes[];
+  evolucionLucro: PuntoLucroMes[];
   ventasCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
 
@@ -379,6 +387,32 @@ export async function obtenerIndicadores(
       };
     });
 
+  // Evolución del Lucro: Ingresos, Costos y Gastos de cada mes (no
+  // acumulado, no incluye saldo inicial — es el movimiento de ese mes
+  // solo), para que el gráfico muestre de qué se compone el resultado.
+  const clavesMeses = Array.from(
+    new Set(asientos.map((asiento) => asiento.fecha.slice(0, 7)).filter(Boolean))
+  ).sort();
+
+  function totalTipoEnMes(tipo: string, clave: string): number {
+    const acumuladoMes = acumular((fecha) => fecha.slice(0, 7) === clave);
+
+    return hojas
+      .filter((cuenta) => cuenta.tipo_saldo === tipo)
+      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoMes, false), 0);
+  }
+
+  const evolucionLucro: PuntoLucroMes[] = clavesMeses.slice(-12).map((clave) => {
+    const mes = Number(clave.slice(5, 7));
+
+    return {
+      mes: MESES_CORTOS[mes - 1] ?? clave,
+      ingresos: redondear(totalTipoEnMes('INGRESO', clave)),
+      costos: redondear(totalTipoEnMes('COSTO', clave)),
+      gastos: redondear(totalTipoEnMes('GASTO', clave)),
+    };
+  });
+
   // Ventas por categoría: del período seleccionado.
   const ventasPorCategoria = new Map<string, number>();
 
@@ -434,6 +468,7 @@ export async function obtenerIndicadores(
     liquidez: redondear(liquidez),
 
     ventasMensuales,
+    evolucionLucro,
     ventasCategorias,
     stockCategorias,
 
