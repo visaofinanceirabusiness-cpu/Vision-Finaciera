@@ -24,6 +24,7 @@ type Producto = {
   id: string;
   nombre: string;
   categoria: string | null;
+  proveedor_id: string | null;
 };
 
 export default function CentralDeLanzamientos() {
@@ -53,6 +54,8 @@ export default function CentralDeLanzamientos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [saldoPorProducto, setSaldoPorProducto] =
     useState<Record<string, number>>({});
+  const [nombreProveedorPorId, setNombreProveedorPorId] =
+    useState<Record<string, string>>({});
 
   const [lineas, setLineas] = useState<LineaOperacion[]>([
     {
@@ -114,7 +117,7 @@ export default function CentralDeLanzamientos() {
 
       const { data: prods } = await supabase
         .from('productos')
-        .select('id, nombre, categoria')
+        .select('id, nombre, categoria, proveedor_id')
         .eq('empresa_id', perfil.empresa_id);
 
       const { data: saldos } = await supabase
@@ -122,11 +125,25 @@ export default function CentralDeLanzamientos() {
         .select('producto_id, saldo')
         .eq('empresa_id', perfil.empresa_id);
 
+      const { data: proveedoresData } = await supabase
+        .from('proveedores')
+        .select('id, nombre')
+        .eq('empresa_id', perfil.empresa_id);
+
       setSaldoPorProducto(
         Object.fromEntries(
           (saldos ?? []).map((saldo) => [
             saldo.producto_id,
             Number(saldo.saldo ?? 0),
+          ])
+        )
+      );
+
+      setNombreProveedorPorId(
+        Object.fromEntries(
+          (proveedoresData ?? []).map((proveedor) => [
+            proveedor.id,
+            proveedor.nombre,
           ])
         )
       );
@@ -307,6 +324,21 @@ export default function CentralDeLanzamientos() {
           : linea
       )
     );
+
+    // Al elegir un producto en una COMPRA, completamos el Proveedor
+    // con el que ese producto tiene asignado en Mercadería. Si el
+    // producto no tiene proveedor cargado, dejamos el campo como
+    // estaba para no bloquear la carga.
+    if (campo === 'producto' && operacion === 'COMPRA' && valor) {
+      const productoElegido = productos.find((p) => p.id === valor);
+      const nombreProveedor = productoElegido?.proveedor_id
+        ? nombreProveedorPorId[productoElegido.proveedor_id]
+        : undefined;
+
+      if (nombreProveedor) {
+        setClienteProveedor(nombreProveedor);
+      }
+    }
   }
 
   function agregarLinea() {
