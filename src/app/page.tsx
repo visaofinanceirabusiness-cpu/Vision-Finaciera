@@ -452,6 +452,12 @@ export default function InicioPage() {
               colorPrincipal={colores.azul}
             />
 
+            <BotonAcceso
+              href="/informes"
+              titulo="Informes"
+              colorPrincipal={colores.azul}
+            />
+
             {/* Solo para empresas de producción (perfil PRODUCCION) */}
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso
