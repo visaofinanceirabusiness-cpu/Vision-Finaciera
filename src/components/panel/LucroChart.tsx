@@ -22,12 +22,14 @@ const COLOR_COSTOS = '#f59e0b';
 const COLOR_GASTOS = '#dc2626';
 
 export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
-  const ancho = 520;
-  const alto = 300;
+  // Ancho grande a propósito: este gráfico ahora ocupa todo el ancho
+  // de la pantalla y puede mostrar 12 meses o más sin apretarse.
+  const ancho = 1180;
+  const alto = 320;
 
-  const margenIzq = 20;
-  const margenDer = 20;
-  const margenSup = 62;
+  const margenIzq = 30;
+  const margenDer = 30;
+  const margenSup = 60;
   const margenInf = 55;
 
   const maxValor = Math.max(
@@ -59,12 +61,12 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
     <ChartCard titulo="📈 Evolución de Lucro" subtitulo="Ingresos, costos y gastos por mes">
       {/* Referencias de color */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Referencia color={COLOR_INGRESOS} emoji="💵" etiqueta="Ingresos" />
-        <Referencia color={COLOR_COSTOS} emoji="📦" etiqueta="Costos" />
-        <Referencia color={COLOR_GASTOS} emoji="🧾" etiqueta="Gastos" />
+        <Referencia color={COLOR_INGRESOS} etiqueta="Ingresos" />
+        <Referencia color={COLOR_COSTOS} etiqueta="Costos" />
+        <Referencia color={COLOR_GASTOS} etiqueta="Gastos" />
       </div>
 
-      <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 280, display: 'block' }}>
+      <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 320, display: 'block' }}>
         {/* Líneas de referencia horizontales, sin números */}
         {[0, 0.25, 0.5, 0.75, 1].map((factor) => {
           const y = margenSup + altoUtil - factor * altoUtil;
@@ -95,27 +97,52 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
 
           return (
             <g key={dato.mes}>
-              <circle cx={puntoGastos.x} cy={puntoGastos.y} r="5" fill={COLOR_GASTOS}>
-                <title>Gastos: R$ {dato.gastos.toFixed(2)}</title>
-              </circle>
+              <circle cx={puntoGastos.x} cy={puntoGastos.y} r="5" fill={COLOR_GASTOS} />
+              <circle cx={puntoCostos.x} cy={puntoCostos.y} r="5" fill={COLOR_COSTOS} />
 
-              <circle cx={puntoCostos.x} cy={puntoCostos.y} r="5" fill={COLOR_COSTOS}>
-                <title>Costos: R$ {dato.costos.toFixed(2)}</title>
-              </circle>
+              <circle
+                cx={puntoIngresos.x}
+                cy={puntoIngresos.y}
+                r="7"
+                fill={COLOR_INGRESOS}
+                stroke="#ffffff"
+                strokeWidth="3"
+              />
 
-              <circle cx={puntoIngresos.x} cy={puntoIngresos.y} r="7" fill={COLOR_INGRESOS} stroke="#ffffff" strokeWidth="3">
-                <title>Ingresos: R$ {dato.ingresos.toFixed(2)}</title>
-              </circle>
-
+              {/* Lucro del mes — el número protagonista, arriba de todo */}
               <text
                 x={puntoIngresos.x}
-                y={Math.max(16, puntoIngresos.y - 16)}
+                y={Math.max(18, puntoIngresos.y - 18)}
                 textAnchor="middle"
-                fontSize="15"
+                fontSize="16"
                 fontWeight="800"
                 fill={lucro >= 0 ? COLOR_INGRESOS : COLOR_GASTOS}
               >
                 R$ {lucro.toFixed(0)}
+              </text>
+
+              {/* Valor de Costos, pegado a su propio punto */}
+              <text
+                x={puntoCostos.x}
+                y={puntoCostos.y - 12}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="700"
+                fill={COLOR_COSTOS}
+              >
+                R$ {dato.costos.toFixed(0)}
+              </text>
+
+              {/* Valor de Gastos, pegado a su propio punto */}
+              <text
+                x={puntoGastos.x}
+                y={puntoGastos.y + 20}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="700"
+                fill={COLOR_GASTOS}
+              >
+                R$ {dato.gastos.toFixed(0)}
               </text>
 
               <text x={puntoIngresos.x} y={alto - 18} textAnchor="middle" fontSize="15" fontWeight="700" fill="#6e7781">
@@ -129,13 +156,11 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
   );
 }
 
-function Referencia({ color, emoji, etiqueta }: { color: string; emoji: string; etiqueta: string }) {
+function Referencia({ color, etiqueta }: { color: string; etiqueta: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ width: 11, height: 11, borderRadius: '50%', background: color, display: 'inline-block' }} />
-      <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-        {emoji} {etiqueta}
-      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>{etiqueta}</span>
     </div>
   );
 }
