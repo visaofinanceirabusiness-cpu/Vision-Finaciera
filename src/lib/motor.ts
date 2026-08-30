@@ -173,15 +173,28 @@ export async function generarMatrizOperaciones(
       const categoriaProductoId = categoriaProductoPorCodigo.get(regla.categoria_codigo ?? '');
       const cuentas = categoriaProductoId ? cuentasProductoPorCategoriaId.get(categoriaProductoId) : undefined;
       const cuentaId = rol === 'STOCK_CATEGORIA' ? cuentas?.cuenta_stock_id : cuentas?.cuenta_ingreso_id;
-      const nombre = cuentaId ? nombreCuenta.get(cuentaId) : undefined;
+      const nombrePorProducto = cuentaId ? nombreCuenta.get(cuentaId) : undefined;
 
-      if (!nombre) {
+      if (nombrePorProducto) {
+        return nombrePorProducto;
+      }
+
+      // No es una categoría de producto (ej. una venta de servicio, o
+      // un ingreso personal en el perfil Familiar): se resuelve igual
+      // que un rol "propio" de categoría de operación.
+      const rolBaseAlternativo = rol === 'STOCK_CATEGORIA' ? 'STOCK' : 'INGRESO';
+      const categoriaOperacionId = categoriaOperacionPorClave.get(`${regla.operacion}.${regla.categoria_codigo ?? ''}`);
+      const nombrePorOperacion = categoriaOperacionId
+        ? cuentaOperacionPorClaveYRol.get(`${categoriaOperacionId}.${rolBaseAlternativo}`)
+        : undefined;
+
+      if (!nombrePorOperacion) {
         throw new Error(
-          `Falta asignar la cuenta de ${rol === 'STOCK_CATEGORIA' ? 'stock' : 'ingreso'} para la categoría de producto "${regla.categoria_nombre}". Configurala en CONFIGURAÇÕES → Categorias e Formas de Pagamento.`
+          `Falta asignar la cuenta de ${rol === 'STOCK_CATEGORIA' ? 'stock' : 'ingreso'} para "${regla.categoria_nombre}". Configurala en CONFIGURAÇÕES → Categorias e Formas de Pagamento.`
         );
       }
 
-      return nombre;
+      return nombrePorOperacion;
     }
 
     // Roles "propios" de una categoría de operación: GASTO_CATEGORIA,
