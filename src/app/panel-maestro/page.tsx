@@ -18,12 +18,94 @@ type Empresa = {
   logo_url: string | null;
 };
 
+type PendienteRegistro = {
+  tipo: 'registro';
+  empresaId: string;
+  idOperacion: string;
+  fecha: string;
+  operacion: string;
+  categoria: string;
+  total: number;
+  historico: string | null;
+};
+
+type PendienteMovimiento = {
+  tipo: 'movimiento';
+  empresaId: string;
+  idOperacion: string;
+  fecha: string;
+  lineas: number;
+  total: number;
+};
+
+type Pendiente = PendienteRegistro | PendienteMovimiento;
+
 export default function PanelMaestroPage() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [cambiando, setCambiando] = useState<string | null>(null);
+  const [validando, setValidando] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  async function cargarPendientes() {
+    const [{ data: registros, error: errorRegistros }, { data: movimientos, error: errorMovimientos }] =
+      await Promise.all([
+        supabase
+          .from('registro_operaciones')
+          .select('empresa_id, id_operacion, fecha, operacion, categoria, total, historico, estado')
+          .or('estado.is.null,estado.neq.VALIDADO')
+          .order('fecha', { ascending: false }),
+
+        supabase
+          .from('movimientos_stock')
+          .select('empresa_id, id_operacion, fecha, cantidad, costo_unitario, estado')
+          .or('estado.is.null,estado.neq.VALIDADO')
+          .order('fecha', { ascending: false }),
+      ]);
+
+    if (errorRegistros) console.warn('No se pudieron cargar registros pendientes:', errorRegistros);
+    if (errorMovimientos) console.warn('No se pudieron cargar movimientos pendientes:', errorMovimientos);
+
+    const registrosPendientes: Pendiente[] = (registros ?? []).map((r) => ({
+      tipo: 'registro',
+      empresaId: r.empresa_id,
+      idOperacion: r.id_operacion,
+      fecha: r.fecha,
+      operacion: r.operacion,
+      categoria: r.categoria,
+      total: Number(r.total ?? 0),
+      historico: r.historico,
+    }));
+
+    // Un "movimiento de mercadería" pendiente puede tener varias
+    // líneas (varios productos en la misma operación) — se agrupan
+    // por id_operacion porque se validan todas juntas de un clic.
+    const movimientosAgrupados = new Map<string, PendienteMovimiento>();
+
+    for (const m of movimientos ?? []) {
+      const clave = `${m.empresa_id}|${m.id_operacion}`;
+      const actual = movimientosAgrupados.get(clave);
+
+      if (actual) {
+        actual.lineas += 1;
+        actual.total += Number(m.cantidad ?? 0) * Number(m.costo_unitario ?? 0);
+      } else {
+        movimientosAgrupados.set(clave, {
+          tipo: 'movimiento',
+          empresaId: m.empresa_id,
+          idOperacion: m.id_operacion,
+          fecha: m.fecha,
+          lineas: 1,
+          total: Number(m.cantidad ?? 0) * Number(m.costo_unitario ?? 0),
+        });
+      }
+    }
+
+    setPendientes([...registrosPendientes, ...movimientosAgrupados.values()]);
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -59,11 +141,62 @@ export default function PanelMaestroPage() {
       }
 
       setEmpresas(empresasData ?? []);
+      await cargarPendientes();
       setCargando(false);
     }
 
     cargar();
   }, [router]);
+
+  async function validarRegistro(pendiente: PendienteRegistro) {
+    setError('');
+    setMensaje('');
+    setValidando(`registro-${pendiente.idOperacion}`);
+
+    const { error: errorValidar } = await supabase
+      .from('registro_operaciones')
+      .update({ estado: 'VALIDADO' })
+      .eq('empresa_id', pendiente.empresaId)
+      .eq('id_operacion', pendiente.idOperacion);
+
+    if (errorValidar) {
+      setError(`No se pudo validar ${pendiente.idOperacion}.`);
+    } else {
+      setMensaje(`${pendiente.idOperacion} validada.`);
+      await cargarPendientes();
+    }
+
+    setValidando(null);
+  }
+
+  async function validarMovimiento(pendiente: PendienteMovimiento) {
+    setError('');
+    setMensaje('');
+    setValidando(`movimiento-${pendiente.idOperacion}`);
+
+    const [{ error: errorMovimiento }, { error: errorAutomatico }] = await Promise.all([
+      supabase
+        .from('movimientos_stock')
+        .update({ estado: 'VALIDADO' })
+        .eq('empresa_id', pendiente.empresaId)
+        .eq('id_operacion', pendiente.idOperacion),
+
+      supabase
+        .from('registros_automaticos')
+        .update({ estado: 'VALIDADO' })
+        .eq('empresa_id', pendiente.empresaId)
+        .eq('id_operacion', pendiente.idOperacion),
+    ]);
+
+    if (errorMovimiento || errorAutomatico) {
+      setError(`No se pudo validar el movimiento ${pendiente.idOperacion}.`);
+    } else {
+      setMensaje(`Movimiento ${pendiente.idOperacion} validado.`);
+      await cargarPendientes();
+    }
+
+    setValidando(null);
+  }
 
   async function entrarAEmpresa(empresaId: string) {
     setCambiando(empresaId);
@@ -179,6 +312,34 @@ export default function PanelMaestroPage() {
           </div>
         )}
 
+        {mensaje && (
+          <div
+            style={{
+              background: '#f0fdf4',
+              color: '#166534',
+              padding: '12px 16px',
+              borderRadius: 12,
+              marginBottom: 16,
+              fontSize: 14,
+            }}
+          >
+            {mensaje}
+          </div>
+        )}
+
+        {/* =================================================
+            NOTIFICACIONES — pendientes de validar, de todas
+            las empresas, sin tener que entrar a cada una
+        ================================================== */}
+
+        <NotificacionesPendientes
+          pendientes={pendientes}
+          empresas={empresas}
+          validando={validando}
+          onValidarRegistro={validarRegistro}
+          onValidarMovimiento={validarMovimiento}
+        />
+
         {/* LISTA DE EMPRESAS */}
         <div
           style={{
@@ -264,5 +425,160 @@ export default function PanelMaestroPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/* ==========================================================
+   NOTIFICACIONES PENDIENTES DE VALIDAR — todas las empresas
+========================================================== */
+
+function NotificacionesPendientes({
+  pendientes,
+  empresas,
+  validando,
+  onValidarRegistro,
+  onValidarMovimiento,
+}: {
+  pendientes: Pendiente[];
+  empresas: Empresa[];
+  validando: string | null;
+  onValidarRegistro: (p: PendienteRegistro) => void;
+  onValidarMovimiento: (p: PendienteMovimiento) => void;
+}) {
+  const [abierta, setAbierta] = useState(true);
+  const nombrePorEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
+
+  const porEmpresa = new Map<string, Pendiente[]>();
+  for (const p of pendientes) {
+    const lista = porEmpresa.get(p.empresaId) ?? [];
+    lista.push(p);
+    porEmpresa.set(p.empresaId, lista);
+  }
+
+  if (pendientes.length === 0) {
+    return (
+      <div
+        style={{
+          background: COLORES_BASE.blanco,
+          border: '1px solid #e5e7eb',
+          borderRadius: 20,
+          padding: '18px 22px',
+          marginBottom: 24,
+          color: COLORES_BASE.gris,
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        ✅ No hay nada pendiente de validar en ninguna empresa.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        background: COLORES_BASE.blanco,
+        border: '1px solid #fde68a',
+        borderRadius: 20,
+        padding: 22,
+        marginBottom: 24,
+        boxShadow: '0 10px 24px rgba(217,119,6,0.08)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setAbierta((a) => !a)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+          🔔 Pendientes de validar
+          <span
+            style={{
+              background: '#f59e0b',
+              color: '#ffffff',
+              borderRadius: 999,
+              padding: '3px 10px',
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {pendientes.length}
+          </span>
+        </span>
+
+        <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{abierta ? '▾ ocultar' : '▸ mostrar'}</span>
+      </button>
+
+      {abierta && (
+        <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {Array.from(porEmpresa.entries()).map(([empresaId, items]) => (
+            <div key={empresaId}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: COLORES_BASE.azul, marginBottom: 8 }}>
+                {nombrePorEmpresa.get(empresaId) ?? 'Empresa'}{' '}
+                <span style={{ color: COLORES_BASE.gris, fontWeight: 600 }}>· {items.length} pendiente{items.length === 1 ? '' : 's'}</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {items.map((p) => (
+                  <div
+                    key={`${p.tipo}-${p.idOperacion}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '10px 14px',
+                      borderRadius: 12,
+                      background: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ fontSize: 13, color: COLORES_BASE.azul }}>
+                      <strong>{p.idOperacion}</strong>{' '}
+                      <span style={{ color: COLORES_BASE.gris }}>
+                        {p.tipo === 'registro'
+                          ? `· ${p.operacion} · ${p.categoria}${p.historico ? ` · ${p.historico}` : ''}`
+                          : `· Movimiento de mercadería · ${p.lineas} línea${p.lineas === 1 ? '' : 's'}`}
+                      </span>
+                      {' — '}
+                      <span style={{ fontWeight: 700 }}>R$ {p.total.toFixed(2)}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={validando === `${p.tipo}-${p.idOperacion}`}
+                      onClick={() => (p.tipo === 'registro' ? onValidarRegistro(p) : onValidarMovimiento(p))}
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: 8,
+                        border: '1px solid #bbf7d0',
+                        background: '#f0fdf4',
+                        color: '#166534',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {validando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Validado ✓'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
