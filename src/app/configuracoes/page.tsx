@@ -2027,6 +2027,16 @@ const botonGuardar: React.CSSProperties = {
   fontWeight: 800,
 };
 
+const botonSecundario: React.CSSProperties = {
+  background: COLORES.blanco,
+  color: COLORES.azul,
+  border: '1px solid #d1d5db',
+  borderRadius: 10,
+  padding: '10px 16px',
+  cursor: 'pointer',
+  fontWeight: 700,
+};
+
 const errorStyle: React.CSSProperties = {
   background: '#fef2f2',
   color: '#b91c1c',
