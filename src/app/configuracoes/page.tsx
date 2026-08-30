@@ -32,6 +32,7 @@ import {
   eliminarCategoriaProducto,
   eliminarCategoriaOperacion,
   eliminarFormaPago,
+  eliminarCuentaPlan,
 } from '@/lib/categorias';
 
 const COLORES = {
@@ -667,8 +668,10 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
     setMensaje('');
 
     try {
-      await accion();
-      setMensaje(mensajeExito);
+      const resultado = await accion();
+      const avisos = (resultado as { avisos?: string[] } | undefined)?.avisos ?? [];
+
+      setMensaje(avisos.length > 0 ? `${mensajeExito} ${avisos.join(' ')}` : mensajeExito);
       await recargar();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
@@ -1238,6 +1241,19 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
     await recargar();
   }
 
+  async function eliminar(id: string) {
+    setError('');
+    setMensaje('');
+
+    try {
+      await eliminarCuentaPlan(empresaId, id);
+      setMensaje('Cuenta eliminada.');
+      await recargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar la cuenta.');
+    }
+  }
+
   if (cargando) {
     return <div style={cargandoStyle}>Cargando Plan de Cuentas...</div>;
   }
@@ -1286,6 +1302,7 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
             esAdmin={esAdmin}
             onRenombrar={renombrar}
             onCambiarActivo={cambiarActivo}
+            onEliminar={eliminar}
           />
         ))}
       </div>
@@ -1300,6 +1317,7 @@ function NodoPlanDeCuentas({
   esAdmin,
   onRenombrar,
   onCambiarActivo,
+  onEliminar,
 }: {
   nodo: NodoCuenta;
   nivel: number;
@@ -1307,6 +1325,7 @@ function NodoPlanDeCuentas({
   esAdmin: boolean;
   onRenombrar: (id: string, nombreNuevo: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string) => void;
 }) {
   const [nombre, setNombre] = useState(nodo.nombre);
   const esContenedor = Boolean(nodo.rol_contable);
@@ -1353,14 +1372,29 @@ function NodoPlanDeCuentas({
 
         {!tieneHijos && !esContenedor && (
           esAdmin ? (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
-              {nodo.activo ? 'Activa' : 'Inactiva'}
-              <input
-                type="checkbox"
-                checked={nodo.activo}
-                onChange={(e) => onCambiarActivo(nodo.id, e.target.checked)}
-              />
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
+                {nodo.activo ? 'Activa' : 'Inactiva'}
+                <input
+                  type="checkbox"
+                  checked={nodo.activo}
+                  onChange={(e) => onCambiarActivo(nodo.id, e.target.checked)}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`¿Eliminar la cuenta "${nodo.nombre}"? Solo se puede si nunca tuvo movimiento.`)) {
+                    onEliminar(nodo.id);
+                  }
+                }}
+                style={{ border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                title="Eliminar cuenta"
+              >
+                🗑️
+              </button>
+            </div>
           ) : (
             <span style={{ fontSize: 11, color: COLORES.gris }}>{nodo.activo ? 'Activa' : 'Inactiva'}</span>
           )
@@ -1376,6 +1410,7 @@ function NodoPlanDeCuentas({
           esAdmin={esAdmin}
           onRenombrar={onRenombrar}
           onCambiarActivo={onCambiarActivo}
+          onEliminar={onEliminar}
         />
       ))}
     </>
