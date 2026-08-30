@@ -557,7 +557,10 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
     setCuentas(pc ?? []);
     setOperaciones(op ?? []);
     setTieneEsqueleto((pc ?? []).length > 0);
-    setPermiteProducto((plantillas ?? []).some((p) => p.motor === 'COMPRAS'));
+    // Una empresa "vieja" (migrada a mano, sin pasar por un perfil)
+    // puede no tener la plantilla de reglas, pero si ya tiene
+    // categorías de producto cargadas obviamente sí las usa.
+    setPermiteProducto((plantillas ?? []).some((p) => p.motor === 'COMPRAS') || (cp ?? []).length > 0);
     setOperacionServicio(operacionServicioDetectada ? (operacionServicioDetectada.operacion as 'VENTA' | 'COBRO') : null);
 
     if (operacionServicioDetectada) {
