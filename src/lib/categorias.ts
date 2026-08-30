@@ -228,12 +228,17 @@ export async function crearCategoriaProducto(empresaId: string, nombre: string) 
   // PERDIDA que dejó cargadas el perfil (categoria en null).
   // ---------------------------------------------------
 
+  // Se filtra también por "motor" porque en el perfil Mixto hay DOS
+  // plantillas de VENTA: una para producto (motor VENTAS, con stock)
+  // y otra para servicio (motor SERVICIOS, sin stock). Acá solo nos
+  // interesa la de producto.
   const { data: plantillas, error: errorPlantillas } = await supabase
     .from('reglas_contables')
     .select('operacion, rol_debito, rol_credito, stock, libro, cmv, motor')
     .eq('empresa_id', empresaId)
     .is('categoria_codigo', null)
-    .in('operacion', ['COMPRA', 'VENTA', 'PERDIDA']);
+    .in('operacion', ['COMPRA', 'VENTA', 'PERDIDA'])
+    .in('motor', ['COMPRAS', 'VENTAS', 'GASTOS']);
 
   if (errorPlantillas) {
     throw errorPlantillas;
@@ -353,6 +358,105 @@ export async function crearCategoriaGasto(empresaId: string, nombre: string) {
 }
 
 // =====================================================
+// CATEGORÍA DE SERVICIO / INGRESO (sin stock)
+//
+// Sirve para dos casos que son estructuralmente iguales: una venta
+// de servicio (perfil Servicios/Mixto, operación VENTA) y un ingreso
+// personal como un sueldo (perfil Familiar, operación COBRO). En
+// ambos casos se crea UNA cuenta de ingreso, sin stock ni CMV.
+// =====================================================
+
+export async function crearCategoriaIngreso(
+  empresaId: string,
+  nombre: string,
+  operacion: 'VENTA' | 'COBRO'
+) {
+  const nombreLimpio = nombre.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre de la categoría no puede estar vacío.');
+  }
+
+  const { data: existentes, error: errorExistentes } = await supabase
+    .from('categorias_operacion')
+    .select('codigo')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', operacion);
+
+  if (errorExistentes) {
+    throw errorExistentes;
+  }
+
+  const codigo = generarCodigo(nombreLimpio, (existentes ?? []).map((c) => c.codigo));
+
+  const contenedorIngreso = await buscarCuentaContenedora(empresaId, 'CONTENEDOR_INGRESO');
+  const cuentaIngresoId = await crearCuentaHija(empresaId, contenedorIngreso, nombreLimpio, 'ACREEDORA', 'INGRESO');
+
+  const { data: categoriaCreada, error: errorCategoria } = await supabase
+    .from('categorias_operacion')
+    .insert({
+      empresa_id: empresaId,
+      operacion,
+      codigo,
+      nombre: nombreLimpio,
+      tipo: 'INGRESO',
+      activo: true,
+    })
+    .select('id')
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  const { error: errorVinculo } = await supabase.from('categorias_operacion_cuentas').insert({
+    empresa_id: empresaId,
+    categoria_operacion_id: categoriaCreada.id,
+    cuenta_id: cuentaIngresoId,
+    rol: 'INGRESO',
+    activo: true,
+  });
+
+  if (errorVinculo) {
+    throw errorVinculo;
+  }
+
+  const { data: plantilla, error: errorPlantilla } = await supabase
+    .from('reglas_contables')
+    .select('rol_debito, rol_credito, stock, libro, cmv, motor')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', operacion)
+    .is('categoria_codigo', null)
+    .in('motor', ['SERVICIOS', 'INGRESOS'])
+    .maybeSingle();
+
+  if (errorPlantilla) {
+    throw errorPlantilla;
+  }
+
+  if (plantilla) {
+    const { error: errorRegla } = await supabase.from('reglas_contables').insert({
+      empresa_id: empresaId,
+      operacion,
+      categoria_codigo: codigo,
+      categoria_nombre: nombreLimpio,
+      rol_debito: plantilla.rol_debito,
+      rol_credito: plantilla.rol_credito,
+      stock: plantilla.stock,
+      libro: plantilla.libro,
+      cmv: plantilla.cmv,
+      motor: plantilla.motor,
+    });
+
+    if (errorRegla) {
+      throw errorRegla;
+    }
+  }
+
+  return { codigo, nombre: nombreLimpio };
+}
+
+// =====================================================
 // FORMA DE PAGO NUEVA
 //
 // A diferencia de las categorías, una forma de pago no genera una
@@ -452,6 +556,11 @@ export async function cambiarActivoCategoriaGasto(id: string, activo: boolean) {
   const { error } = await supabase.from('categorias_operacion').update({ activo }).eq('id', id);
   if (error) throw error;
 }
+
+// Misma tabla que las categorías de gasto (categorias_operacion) —
+// alias con nombre claro para cuando el ítem es una categoría de
+// servicio/ingreso.
+export const cambiarActivoCategoriaIngreso = cambiarActivoCategoriaGasto;
 
 export async function cambiarActivoFormaPago(id: string, activo: boolean) {
   const { error } = await supabase.from('formas_pago').update({ activo }).eq('id', id);
