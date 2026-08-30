@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
+import { generarMatrizOperaciones } from '@/lib/motor';
 import {
   crearCategoriaProducto,
   crearCategoriaGasto,
@@ -161,8 +162,8 @@ export default function ConfiguracoesPage() {
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} />}
-          {pestana === 'plan' && <ProximamenteTab titulo="Plan de Cuentas" />}
-          {pestana === 'inicializacion' && <ProximamenteTab titulo="Inicialización del Sistema" />}
+          {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} />}
+          {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
       </div>
     </div>
@@ -866,8 +867,363 @@ function FormularioNuevo({
 }
 
 /* ==========================================================
-   PESTAÑAS PENDIENTES (3 y 4 — se construyen en los
-   próximos pasos)
+   PESTAÑA 3 — PLANO DE CONTAS
+========================================================== */
+
+type CuentaPlan = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  cuenta_padre_id: string | null;
+  naturaleza: string | null;
+  tipo_saldo: string | null;
+  rol_contable: string | null;
+  activo: boolean;
+};
+
+type NodoCuenta = CuentaPlan & { hijos: NodoCuenta[] };
+
+const NOMBRE_CONTENEDOR: Record<string, string> = {
+  CONTENEDOR_STOCK: 'cuenta base de Stock',
+  CONTENEDOR_INGRESO: 'cuenta base de Ingresos',
+  CONTENEDOR_COSTO: 'cuenta base de Costos',
+  CONTENEDOR_GASTO: 'cuenta base de Gastos',
+  CONTENEDOR_PERDIDA: 'cuenta de Pérdida y Baja de Stock',
+};
+
+function armarArbol(cuentas: CuentaPlan[]): NodoCuenta[] {
+  const nodos = new Map<string, NodoCuenta>(cuentas.map((c) => [c.id, { ...c, hijos: [] }]));
+  const raices: NodoCuenta[] = [];
+
+  for (const nodo of nodos.values()) {
+    if (nodo.cuenta_padre_id && nodos.has(nodo.cuenta_padre_id)) {
+      nodos.get(nodo.cuenta_padre_id)!.hijos.push(nodo);
+    } else {
+      raices.push(nodo);
+    }
+  }
+
+  const ordenar = (lista: NodoCuenta[]) => {
+    lista.sort((a, b) => a.codigo.localeCompare(b.codigo));
+    lista.forEach((n) => ordenar(n.hijos));
+  };
+
+  ordenar(raices);
+  return raices;
+}
+
+function PlanDeCuentasTab({ empresaId }: { empresaId: string }) {
+  const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [mostrarInactivas, setMostrarInactivas] = useState(false);
+
+  async function recargar() {
+    const { data, error: errorCuentas } = await supabase
+      .from('plan_cuentas')
+      .select('id, codigo, nombre, cuenta_padre_id, naturaleza, tipo_saldo, rol_contable, activo')
+      .eq('empresa_id', empresaId);
+
+    if (errorCuentas) {
+      setError('No se pudo cargar el Plan de Cuentas.');
+      setCargando(false);
+      return;
+    }
+
+    setCuentas((data ?? []) as CuentaPlan[]);
+    setCargando(false);
+  }
+
+  useEffect(() => {
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
+  async function renombrar(id: string, nombreNuevo: string) {
+    const nombreLimpio = nombreNuevo.trim();
+    if (!nombreLimpio) return;
+
+    const { error: errorUpdate } = await supabase.from('plan_cuentas').update({ nombre: nombreLimpio }).eq('id', id);
+
+    if (errorUpdate) {
+      setError('No se pudo renombrar la cuenta.');
+      return;
+    }
+
+    setMensaje('Cuenta renombrada.');
+    await recargar();
+  }
+
+  async function cambiarActivo(id: string, activo: boolean) {
+    const { error: errorUpdate } = await supabase.from('plan_cuentas').update({ activo }).eq('id', id);
+
+    if (errorUpdate) {
+      setError('No se pudo actualizar la cuenta.');
+      return;
+    }
+
+    setMensaje('Cuenta actualizada.');
+    await recargar();
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>Cargando Plan de Cuentas...</div>;
+  }
+
+  if (cuentas.length === 0) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>📒</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>
+          Todavía no hay Plan de Cuentas
+        </div>
+        <p style={{ marginTop: 6, fontSize: 13 }}>
+          Asigná un perfil de empresa en &quot;Datos de la Empresa&quot; para generarlo.
+        </p>
+      </div>
+    );
+  }
+
+  const arbol = armarArbol(cuentas);
+
+  return (
+    <div>
+      {error && <div style={errorStyle}>{error}</div>}
+      {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: COLORES.gris }}>
+          <input type="checkbox" checked={mostrarInactivas} onChange={(e) => setMostrarInactivas(e.target.checked)} />
+          Mostrar cuentas inactivas
+        </label>
+      </div>
+
+      <div style={{ border: '1px solid #eef2f6', borderRadius: 14, overflow: 'hidden' }}>
+        {arbol.map((nodo) => (
+          <NodoPlanDeCuentas
+            key={nodo.id}
+            nodo={nodo}
+            nivel={0}
+            mostrarInactivas={mostrarInactivas}
+            onRenombrar={renombrar}
+            onCambiarActivo={cambiarActivo}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NodoPlanDeCuentas({
+  nodo,
+  nivel,
+  mostrarInactivas,
+  onRenombrar,
+  onCambiarActivo,
+}: {
+  nodo: NodoCuenta;
+  nivel: number;
+  mostrarInactivas: boolean;
+  onRenombrar: (id: string, nombreNuevo: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  const [nombre, setNombre] = useState(nodo.nombre);
+  const esContenedor = Boolean(nodo.rol_contable);
+  const tieneHijos = nodo.hijos.length > 0;
+
+  if (!nodo.activo && !mostrarInactivas) {
+    return null;
+  }
+
+  return (
+    <>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '9px 14px',
+          paddingLeft: 14 + nivel * 22,
+          borderTop: nivel === 0 ? 'none' : '1px solid #f3f4f6',
+          background: nivel === 0 ? '#f8fafc' : COLORES.blanco,
+          opacity: nodo.activo ? 1 : 0.55,
+        }}
+      >
+        <span style={{ fontSize: 11, color: COLORES.gris, minWidth: 78 }}>{nodo.codigo}</span>
+
+        {tieneHijos ? (
+          <span style={{ fontSize: 13, fontWeight: nivel === 0 ? 800 : 700, color: COLORES.azul, flex: 1 }}>
+            {nodo.nombre}
+          </span>
+        ) : (
+          <input
+            style={{ ...inputFormulario, padding: '5px 8px', fontSize: 13, flex: 1, maxWidth: 320 }}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            onBlur={() => nombre !== nodo.nombre && onRenombrar(nodo.id, nombre)}
+          />
+        )}
+
+        {esContenedor && (
+          <span style={{ fontSize: 11, color: COLORES.verde, fontWeight: 700 }}>
+            🔒 {NOMBRE_CONTENEDOR[nodo.rol_contable as string] ?? 'cuenta especial'}
+          </span>
+        )}
+
+        {!tieneHijos && !esContenedor && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
+            {nodo.activo ? 'Activa' : 'Inactiva'}
+            <input
+              type="checkbox"
+              checked={nodo.activo}
+              onChange={(e) => onCambiarActivo(nodo.id, e.target.checked)}
+            />
+          </label>
+        )}
+      </div>
+
+      {nodo.hijos.map((hijo) => (
+        <NodoPlanDeCuentas
+          key={hijo.id}
+          nodo={hijo}
+          nivel={nivel + 1}
+          mostrarInactivas={mostrarInactivas}
+          onRenombrar={onRenombrar}
+          onCambiarActivo={onCambiarActivo}
+        />
+      ))}
+    </>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA 4 — INICIALIZAÇÃO DO SISTEMA
+========================================================== */
+
+function InicializacionTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+  const [matrizGenerada, setMatrizGenerada] = useState(false);
+  const [tieneEsqueleto, setTieneEsqueleto] = useState(false);
+  const [cantidadCategorias, setCantidadCategorias] = useState(0);
+  const [cargando, setCargando] = useState(true);
+  const [generando, setGenerando] = useState(false);
+  const [error, setError] = useState('');
+  const [resultado, setResultado] = useState<{ reglasGeneradas: number } | null>(null);
+
+  async function recargar() {
+    const [
+      { data: empresaData },
+      { count: cuentasCount },
+      { count: categoriasCount },
+    ] = await Promise.all([
+      supabase.from('empresas').select('matriz_generada').eq('id', empresaId).maybeSingle(),
+      supabase.from('plan_cuentas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+      supabase
+        .from('reglas_contables')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .not('categoria_codigo', 'is', null),
+    ]);
+
+    setMatrizGenerada(Boolean(empresaData?.matriz_generada));
+    setTieneEsqueleto(Boolean(cuentasCount && cuentasCount > 0));
+    setCantidadCategorias(categoriasCount ?? 0);
+    setCargando(false);
+  }
+
+  useEffect(() => {
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
+  async function generar() {
+    setGenerando(true);
+    setError('');
+    setResultado(null);
+
+    try {
+      const resultadoGeneracion = await generarMatrizOperaciones(empresaId);
+
+      const { error: errorMarcar } = await supabase
+        .from('empresas')
+        .update({ matriz_generada: true })
+        .eq('id', empresaId);
+
+      if (errorMarcar) {
+        throw errorMarcar;
+      }
+
+      setResultado(resultadoGeneracion);
+      setMatrizGenerada(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado al generar la matriz.');
+    } finally {
+      setGenerando(false);
+    }
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>Cargando...</div>;
+  }
+
+  if (!tieneEsqueleto) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>🚀</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>Falta un paso antes</div>
+        <p style={{ marginTop: 6, fontSize: 13 }}>
+          Asigná un perfil de empresa en &quot;Datos de la Empresa&quot; para poder generar la matriz.
+        </p>
+      </div>
+    );
+  }
+
+  const bloqueado = matrizGenerada && !esAdmin;
+
+  return (
+    <div style={{ textAlign: 'center', padding: '30px 20px' }}>
+      {error && <div style={{ ...errorStyle, textAlign: 'left' }}>{error}</div>}
+
+      {resultado && (
+        <div style={{ ...mensajeOkStyle, textAlign: 'left' }}>
+          Matriz generada correctamente: {resultado.reglasGeneradas} reglas de operación quedaron listas.
+        </div>
+      )}
+
+      <div style={{ fontSize: 40, marginBottom: 10 }}>{matrizGenerada ? '✅' : '🚀'}</div>
+
+      <h3 style={{ margin: '0 0 8px', color: COLORES.azul }}>
+        {matrizGenerada ? 'El sistema ya está inicializado' : 'Generar la Matriz de Operaciones'}
+      </h3>
+
+      <p style={{ maxWidth: 480, margin: '0 auto 22px', fontSize: 13.5, color: COLORES.gris, lineHeight: 1.6 }}>
+        {matrizGenerada
+          ? bloqueado
+            ? 'La matriz ya fue generada. Para volver a generarla hace falta un administrador de plataforma.'
+            : 'La matriz ya fue generada. Como administrador podés volver a generarla si cambiaste categorías o formas de pago.'
+          : `Esto arma la Matriz de Operaciones a partir de tus ${cantidadCategorias} categorías configuradas. Una vez generada, solo un administrador de plataforma podrá volver a generarla.`}
+      </p>
+
+      <button
+        type="button"
+        style={{
+          ...botonGuardar,
+          padding: '13px 26px',
+          fontSize: 14,
+          opacity: bloqueado || generando ? 0.6 : 1,
+          cursor: bloqueado || generando ? 'not-allowed' : 'pointer',
+        }}
+        disabled={bloqueado || generando}
+        onClick={generar}
+      >
+        {generando ? 'Generando...' : matrizGenerada ? '🔒 Regenerar Matriz de Operaciones' : 'Generar Matriz de Operaciones'}
+      </button>
+    </div>
+  );
+}
+
+/* ==========================================================
+   FIN DE PESTAÑAS
 ========================================================== */
 
 function ProximamenteTab({ titulo }: { titulo: string }) {
