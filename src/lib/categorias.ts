@@ -856,3 +856,78 @@ export async function eliminarCuentaPlan(empresaId: string, cuentaId: string) {
     throw new Error(resultado.motivo ?? 'No se pudo borrar la cuenta.');
   }
 }
+
+// =====================================================
+// RENOMBRAR CUENTA (admin, desde Plan de Cuentas)
+//
+// Todo el sistema hace match de cuentas POR NOMBRE (registro_
+// operaciones, registros_automaticos y matriz_operaciones guardan el
+// nombre como texto, no el id de plan_cuentas). Si solo se
+// actualizara plan_cuentas.nombre, cualquier operación ya cargada
+// con el nombre viejo quedaría "huérfana" y desaparecería de los
+// informes. Por eso el rename se propaga a todas esas tablas en el
+// mismo momento.
+// =====================================================
+
+export async function renombrarCuentaPlan(empresaId: string, cuentaId: string, nombreNuevo: string) {
+  const nombreLimpio = nombreNuevo.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+
+  const { data: cuenta, error: errorCuenta } = await supabase
+    .from('plan_cuentas')
+    .select('nombre')
+    .eq('id', cuentaId)
+    .single();
+
+  if (errorCuenta) {
+    throw errorCuenta;
+  }
+
+  const nombreViejo = cuenta.nombre;
+
+  if (nombreViejo === nombreLimpio) {
+    return;
+  }
+
+  const { error: errorUpdate } = await supabase.from('plan_cuentas').update({ nombre: nombreLimpio }).eq('id', cuentaId);
+
+  if (errorUpdate) {
+    throw errorUpdate;
+  }
+
+  await Promise.all([
+    supabase
+      .from('registro_operaciones')
+      .update({ cuenta_debito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_debito', nombreViejo),
+    supabase
+      .from('registro_operaciones')
+      .update({ cuenta_credito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_credito', nombreViejo),
+    supabase
+      .from('registros_automaticos')
+      .update({ cuenta_debito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_debito', nombreViejo),
+    supabase
+      .from('registros_automaticos')
+      .update({ cuenta_credito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_credito', nombreViejo),
+    supabase
+      .from('matriz_operaciones')
+      .update({ cuenta_debito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_debito', nombreViejo),
+    supabase
+      .from('matriz_operaciones')
+      .update({ cuenta_credito: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('cuenta_credito', nombreViejo),
+  ]);
+}
