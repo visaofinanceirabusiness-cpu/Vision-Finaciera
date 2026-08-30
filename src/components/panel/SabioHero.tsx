@@ -46,6 +46,7 @@ export function SabioHero({
   subtitulo,
   hoy,
   gamificacion,
+  antiguedad,
   objetivos,
 }: {
   colores: {
@@ -58,6 +59,7 @@ export function SabioHero({
   subtitulo: string;
   hoy: string;
   gamificacion?: NivelHero | null;
+  antiguedad?: string | null;
   objetivos?: ObjetivoHero[];
 }) {
   const sabioRef = useRef<HTMLDivElement | null>(null);
@@ -285,6 +287,19 @@ export function SabioHero({
                     · {gamificacion.nombre}
                   </span>
                 </div>
+
+                {antiguedad && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      opacity: 0.78,
+                      fontWeight: 600,
+                    }}
+                  >
+                    🕒 {antiguedad} en el sistema
+                  </div>
+                )}
               </div>
 
               <div

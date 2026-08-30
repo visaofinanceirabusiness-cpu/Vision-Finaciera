@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
+import { calcularAntiguedadTexto } from '@/lib/antiguedad';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 
@@ -39,6 +40,7 @@ type Empresa = {
   rubro: string | null;
   logo_url: string | null;
   perfil_empresa_id: string | null;
+  creado_en: string | null;
 };
 
 type ConfiguracionDashboard = {
@@ -120,7 +122,7 @@ export default function InicioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, perfil_empresa_id')
+        .select('nombre, rubro, logo_url, perfil_empresa_id, creado_en')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -269,6 +271,8 @@ export default function InicioPage() {
     day: 'numeric',
     month: 'long',
   });
+
+  const antiguedad = calcularAntiguedadTexto(empresa?.creado_en);
 
   const logoDisponible = Boolean(empresa?.logo_url?.trim());
 
@@ -444,6 +448,7 @@ export default function InicioPage() {
           gamificacion={
             configuracion?.mostrar_gamificacion ? gamificacion : null
           }
+          antiguedad={antiguedad}
           objetivos={objetivos}
         />
 
