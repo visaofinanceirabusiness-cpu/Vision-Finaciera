@@ -127,6 +127,8 @@ export default function MercaderiaPage() {
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [formulario, setFormulario] = useState<Formulario>(FORMULARIO_VACIO);
+  const [editandoProductoId, setEditandoProductoId] = useState<string | null>(null);
+  const [eliminandoProductoId, setEliminandoProductoId] = useState<string | null>(null);
 
   const [error, setError] = useState('');
 
@@ -335,6 +337,21 @@ export default function MercaderiaPage() {
   function cancelarFormulario() {
     setMostrarFormulario(false);
     setFormulario(FORMULARIO_VACIO);
+    setEditandoProductoId(null);
+  }
+
+  function abrirEditarProducto(producto: ProductoFila) {
+    setFormulario({
+      nombre: producto.nombre,
+      categoria_producto_id: producto.categoria_producto_id ?? '',
+      tipo_producto: producto.tipo_producto ?? '',
+      unidad_medida: producto.unidad_medida ?? '',
+      proveedor_id: producto.proveedor_id ?? '',
+      fecha_alta: producto.fecha_alta ?? new Date().toISOString().split('T')[0],
+    });
+    setEditandoProductoId(producto.id);
+    setError('');
+    setMostrarFormulario(true);
   }
 
   async function guardarProducto() {
@@ -357,32 +374,99 @@ export default function MercaderiaPage() {
       (categoria) => categoria.id === formulario.categoria_producto_id
     );
 
-    const codigo = generarProximoCodigoProducto(productos);
-
     try {
-      const { error: errorInsert } = await supabase.from('productos').insert({
-        empresa_id: empresaId,
-        nombre: nombreLimpio,
-        codigo,
-        categoria_producto_id: categoriaElegida?.id ?? null,
-        categoria: categoriaElegida?.nombre ?? null,
-        proveedor_id: formulario.proveedor_id || null,
-        tipo_producto: formulario.tipo_producto || null,
-        unidad_medida: formulario.unidad_medida || null,
-        fecha_alta: formulario.fecha_alta || null,
-      });
+      if (editandoProductoId) {
+        const { error: errorUpdate } = await supabase
+          .from('productos')
+          .update({
+            nombre: nombreLimpio,
+            categoria_producto_id: categoriaElegida?.id ?? null,
+            categoria: categoriaElegida?.nombre ?? null,
+            proveedor_id: formulario.proveedor_id || null,
+            tipo_producto: formulario.tipo_producto || null,
+            unidad_medida: formulario.unidad_medida || null,
+            fecha_alta: formulario.fecha_alta || null,
+          })
+          .eq('id', editandoProductoId);
 
-      if (errorInsert) {
-        throw errorInsert;
+        if (errorUpdate) {
+          throw errorUpdate;
+        }
+      } else {
+        const codigo = generarProximoCodigoProducto(productos);
+
+        const { error: errorInsert } = await supabase.from('productos').insert({
+          empresa_id: empresaId,
+          nombre: nombreLimpio,
+          codigo,
+          categoria_producto_id: categoriaElegida?.id ?? null,
+          categoria: categoriaElegida?.nombre ?? null,
+          proveedor_id: formulario.proveedor_id || null,
+          tipo_producto: formulario.tipo_producto || null,
+          unidad_medida: formulario.unidad_medida || null,
+          fecha_alta: formulario.fecha_alta || null,
+        });
+
+        if (errorInsert) {
+          throw errorInsert;
+        }
       }
 
       await cargarDatos();
       cancelarFormulario();
     } catch (errorGuardar) {
-      console.error('Error creando producto:', errorGuardar);
-      setError('No se pudo crear el producto.');
+      console.error('Error guardando producto:', errorGuardar);
+      setError(editandoProductoId ? 'No se pudo actualizar el producto.' : 'No se pudo crear el producto.');
     } finally {
       setGuardando(false);
+    }
+  }
+
+  // Un producto solo se puede borrar si nunca tuvo movimiento — si
+  // ya tiene compras/ventas cargadas, borrarlo dejaría esas
+  // operaciones apuntando a un producto inexistente.
+  async function eliminarProducto(producto: ProductoFila) {
+    if (!empresaId) return;
+
+    const confirmado = window.confirm(
+      `¿Eliminar el producto "${producto.nombre}"? Solo se puede si nunca tuvo movimiento. No se puede deshacer.`
+    );
+
+    if (!confirmado) return;
+
+    setError('');
+    setEliminandoProductoId(producto.id);
+
+    try {
+      const { count, error: errorConteo } = await supabase
+        .from('movimientos_stock')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('producto_id', producto.id);
+
+      if (errorConteo) {
+        throw errorConteo;
+      }
+
+      if (count && count > 0) {
+        setError(`"${producto.nombre}" ya tiene movimientos cargados — no se puede eliminar.`);
+        return;
+      }
+
+      const { error: errorBorrar } = await supabase.from('productos').delete().eq('id', producto.id);
+
+      if (errorBorrar) {
+        throw errorBorrar;
+      }
+
+      await cargarDatos();
+    } catch (errorEliminar) {
+      console.error('Error eliminando producto:', errorEliminar);
+      setError(
+        `No se pudo eliminar "${producto.nombre}" — puede estar usado en una receta u otra configuración.`
+      );
+    } finally {
+      setEliminandoProductoId(null);
     }
   }
 
@@ -543,9 +627,11 @@ export default function MercaderiaPage() {
                 }}
               >
                 <div>
-                  <div style={formularioEyebrow}>NUEVO REGISTRO</div>
+                  <div style={formularioEyebrow}>{editandoProductoId ? 'EDITANDO' : 'NUEVO REGISTRO'}</div>
 
-                  <h3 style={{ margin: 0, color: COLORES.azul, fontSize: 20 }}>Agregar producto</h3>
+                  <h3 style={{ margin: 0, color: COLORES.azul, fontSize: 20 }}>
+                    {editandoProductoId ? 'Editar producto' : 'Agregar producto'}
+                  </h3>
                 </div>
 
                 <button type="button" onClick={cancelarFormulario} style={cerrarFormulario}>
@@ -668,7 +754,7 @@ export default function MercaderiaPage() {
                     paddingBottom: 12,
                   }}
                 >
-                  El código se genera automáticamente.
+                  {editandoProductoId ? 'El código no se puede cambiar.' : 'El código se genera automáticamente.'}
                 </div>
               </div>
 
@@ -688,7 +774,7 @@ export default function MercaderiaPage() {
                   style={botonGuardar}
                   disabled={guardando}
                 >
-                  {guardando ? 'Guardando...' : 'Crear producto'}
+                  {guardando ? 'Guardando...' : editandoProductoId ? 'Guardar cambios' : 'Crear producto'}
                 </button>
               </div>
             </section>
@@ -709,6 +795,10 @@ export default function MercaderiaPage() {
                 abierta={mostrarConSaldo}
                 onToggle={() => setMostrarConSaldo((actual) => !actual)}
                 mensajeVacio="No hay productos con saldo disponible."
+                esAdmin={esAdmin}
+                onEditar={abrirEditarProducto}
+                onEliminar={eliminarProducto}
+                eliminandoId={eliminandoProductoId}
               />
 
               <div style={{ height: 14 }} />
@@ -720,6 +810,10 @@ export default function MercaderiaPage() {
                 abierta={mostrarSinSaldo}
                 onToggle={() => setMostrarSinSaldo((actual) => !actual)}
                 mensajeVacio="No hay productos sin saldo."
+                esAdmin={esAdmin}
+                onEditar={abrirEditarProducto}
+                onEliminar={eliminarProducto}
+                eliminandoId={eliminandoProductoId}
               />
             </>
           ) : (
@@ -834,6 +928,10 @@ function SeccionProductos({
   abierta,
   onToggle,
   mensajeVacio,
+  esAdmin,
+  onEditar,
+  onEliminar,
+  eliminandoId,
 }: {
   titulo: string;
   emoji: string;
@@ -841,6 +939,10 @@ function SeccionProductos({
   abierta: boolean;
   onToggle: () => void;
   mensajeVacio: string;
+  esAdmin: boolean;
+  onEditar: (producto: ProductoFila) => void;
+  onEliminar: (producto: ProductoFila) => void;
+  eliminandoId: string | null;
 }) {
   const totalUnidades = productos.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventario = productos.reduce((total, producto) => total + producto.valorInventario, 0);
@@ -875,6 +977,7 @@ function SeccionProductos({
                 <Th align="right">Costo promedio</Th>
                 <Th align="right">Valor inventario</Th>
                 <Th>Estado</Th>
+                {esAdmin && <Th align="right">Acciones</Th>}
               </tr>
             </thead>
 
@@ -901,12 +1004,37 @@ function SeccionProductos({
                   <Td>
                     {producto.saldo <= 0 ? 'Sin stock' : producto.saldo <= 1 ? 'Bajo stock' : 'Activo'}
                   </Td>
+
+                  {esAdmin && (
+                    <Td align="right">
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          onClick={() => onEditar(producto)}
+                          style={botonSecundario}
+                          title="Editar producto"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onEliminar(producto)}
+                          disabled={eliminandoId === producto.id}
+                          style={botonEliminar}
+                          title="Eliminar producto (solo si nunca tuvo movimiento)"
+                        >
+                          {eliminandoId === producto.id ? '...' : 'Eliminar'}
+                        </button>
+                      </div>
+                    </Td>
+                  )}
                 </tr>
               ))}
 
               {!productos.length && (
                 <tr>
-                  <td colSpan={7} style={vacioStyle}>
+                  <td colSpan={esAdmin ? 8 : 7} style={vacioStyle}>
                     {mensajeVacio}
                   </td>
                 </tr>
@@ -1143,6 +1271,17 @@ const botonValidar: React.CSSProperties = {
   border: '1px solid #bbf7d0',
   background: '#f0fdf4',
   color: '#166534',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const botonEliminar: React.CSSProperties = {
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: '1px solid #fecaca',
+  background: '#fef2f2',
+  color: '#b91c1c',
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
