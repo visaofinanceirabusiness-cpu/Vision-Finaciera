@@ -10,6 +10,7 @@ import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
+import { obtenerDefiniciones, calcularObjetivos, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -55,19 +56,12 @@ type ProgresoGamificacion = {
   faltan: number;
 };
 
-type ObjetivoEmpresa = {
-  id: string;
-  periodo: string;
-  indicador: string;
-  objetivo: number;
-  unidad: string;
-  activo: boolean;
-};
-
-type ObjetivoDashboard = ObjetivoEmpresa & {
-  resultado: number;
-  porcentaje: number;
-};
+const CATEGORIAS_ORDEN: { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] = [
+  { categoria: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
+  { categoria: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
+  { categoria: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
+  { categoria: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
+];
 
 type PeriodoDisponible = {
   valor: string;
@@ -81,7 +75,7 @@ export default function MiNegocioPage() {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
-  const [objetivos, setObjetivos] = useState<ObjetivoDashboard[]>([]);
+  const [objetivos, setObjetivos] = useState<ObjetivoCalculado[]>([]);
   const [indicadores, setIndicadores] = useState<IndicadoresPanel | null>(null);
   const [periodos, setPeriodos] = useState<PeriodoDisponible[]>([]);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
@@ -216,57 +210,18 @@ export default function MiNegocioPage() {
         return;
       }
 
-      const { data, error: errorObjetivos } = await supabase
-        .from('objetivos_empresa')
-        .select(`
-          id,
-          periodo,
-          indicador,
-          objetivo,
-          unidad,
-          activo
-        `)
-        .eq('empresa_id', perfil.empresa_id)
-        .eq('periodo', periodoSeleccionado)
-        .eq('activo', true)
-        .order('indicador', { ascending: true });
-
-      if (errorObjetivos) {
+      try {
+        const definiciones = await obtenerDefiniciones(perfil.empresa_id);
+        const calculados = await calcularObjetivos(perfil.empresa_id, periodoSeleccionado, definiciones);
+        setObjetivos(calculados);
+      } catch (errorObjetivos) {
         console.warn('No se pudieron cargar los objetivos:', errorObjetivos);
         setObjetivos([]);
-        return;
       }
-
-      const objetivosCalculados = ((data ?? []) as ObjetivoEmpresa[]).map((objetivo) => {
-        const resultado = obtenerResultadoObjetivo(
-          objetivo,
-          gamificacion,
-          periodoSeleccionado
-        );
-
-        const porcentaje =
-          objetivo.objetivo > 0
-            ? Math.min(
-                100,
-                Math.max(
-                  0,
-                  (resultado / Number(objetivo.objetivo)) * 100
-                )
-              )
-            : 0;
-
-        return {
-          ...objetivo,
-          resultado,
-          porcentaje: Number(porcentaje.toFixed(2)),
-        };
-      });
-
-      setObjetivos(objetivosCalculados);
     }
 
     cargarObjetivos();
-  }, [perfil?.empresa_id, periodoSeleccionado, gamificacion]);
+  }, [perfil?.empresa_id, periodoSeleccionado]);
 
   // Indicadores reales: se recalculan cada vez que cambia el período.
   useEffect(() => {
@@ -881,7 +836,64 @@ export default function MiNegocioPage() {
                 </div>
               </div>
 
-              {!objetivos.length ? (
+              {CATEGORIAS_ORDEN.map(({ categoria, titulo, emoji }) => {
+                const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
+
+                if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
+                  return (
+                    <div key={categoria} style={{ marginBottom: 22 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
+                        {emoji} {titulo}
+                      </div>
+
+                      <div
+                        style={{
+                          padding: 20,
+                          border: '1px dashed #d6dee5',
+                          borderRadius: 14,
+                          textAlign: 'center',
+                          color: COLORES_BASE.gris,
+                          fontSize: 13,
+                        }}
+                      >
+                        🔒 Próximamente — objetivos conectados a Instagram/WhatsApp.
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (deLaCategoria.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <div key={categoria} style={{ marginBottom: 22 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
+                      {emoji} {titulo}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                        gap: 14,
+                      }}
+                    >
+                      {deLaCategoria.map((objetivo) => (
+                        <ObjetivoCard
+                          key={objetivo.id}
+                          objetivo={objetivo}
+                          colorPrimario={colores.azul}
+                          colorSecundario={colores.verde}
+                          colorAcento={colores.acento}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!objetivos.length && (
                 <div
                   style={{
                     padding: 24,
@@ -892,26 +904,7 @@ export default function MiNegocioPage() {
                     fontSize: 13,
                   }}
                 >
-                  No hay objetivos configurados para este período.
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: 14,
-                  }}
-                >
-                  {objetivos.map((objetivo) => (
-                    <ObjetivoCard
-                      key={objetivo.id}
-                      objetivo={objetivo}
-                      colorPrimario={colores.azul}
-                      colorSecundario={colores.verde}
-                      colorAcento={colores.acento}
-                    />
-                  ))}
+                  No hay objetivos configurados todavía.
                 </div>
               )}
             </section>
@@ -965,36 +958,36 @@ export default function MiNegocioPage() {
   );
 }
 
-function obtenerResultadoObjetivo(
-  objetivo: ObjetivoEmpresa,
-  gamificacion: ProgresoGamificacion | null,
-  periodo: string
-): number {
-  const indicador = objetivo.indicador.trim().toUpperCase();
-
-  if (
-    indicador === 'OPERACIONES REGISTRADAS' &&
-    gamificacion &&
-    periodo !== 'TODOS'
-  ) {
-    return gamificacion.operaciones;
-  }
-
-  return 0;
-}
-
 function ObjetivoCard({
   objetivo,
   colorPrimario,
   colorSecundario,
   colorAcento,
 }: {
-  objetivo: ObjetivoDashboard;
+  objetivo: ObjetivoCalculado;
   colorPrimario: string;
   colorSecundario: string;
   colorAcento: string;
 }) {
-  const cumplido = objetivo.porcentaje >= 100;
+  if (!objetivo.aplica) {
+    return (
+      <div
+        style={{
+          background: '#fbfcfd',
+          border: '1px dashed #d6dee5',
+          borderRadius: 16,
+          padding: 16,
+          color: COLORES_BASE.gris,
+          fontSize: 12,
+        }}
+      >
+        <strong style={{ color: colorPrimario, fontSize: 13 }}>{objetivo.nombre}</strong>
+        <div style={{ marginTop: 6 }}>No aplica para "Todos los períodos" — elegí un mes.</div>
+      </div>
+    );
+  }
+
+  const cumplido = objetivo.cumplido;
   const enCamino =
     objetivo.porcentaje >= 50 &&
     objetivo.porcentaje < 100;
@@ -1011,15 +1004,17 @@ function ObjetivoCard({
       ? '#fff7ed'
       : '#fef2f2';
 
-  const resultadoTexto =
+  const formatearValor = (valor: number) =>
     objetivo.unidad === 'R$'
-      ? `R$ ${objetivo.resultado.toFixed(2)}`
-      : `${objetivo.resultado}`;
+      ? `R$ ${valor.toFixed(2)}`
+      : objetivo.unidad === 'veces'
+        ? `${valor.toFixed(2)}x`
+        : objetivo.unidad === '%'
+          ? `${valor.toFixed(1)}%`
+          : `${valor}`;
 
-  const objetivoTexto =
-    objetivo.unidad === 'R$'
-      ? `R$ ${Number(objetivo.objetivo).toFixed(2)}`
-      : `${Number(objetivo.objetivo)}`;
+  const resultadoTexto = formatearValor(objetivo.resultado);
+  const objetivoTexto = formatearValor(objetivo.metaResuelta);
 
   return (
     <div
@@ -1047,7 +1042,7 @@ function ObjetivoCard({
               fontWeight: 800,
             }}
           >
-            {formatearIndicador(objetivo.indicador)}
+            {objetivo.nombre}
           </div>
 
           <div
@@ -1270,24 +1265,5 @@ function formatearPeriodo(valor: string): string {
       month: 'long',
       year: 'numeric',
     }
-  );
-}
-
-function formatearIndicador(indicador: string): string {
-  const mapa: Record<string, string> = {
-    'VENTAS DEL MES': 'Ventas del mes',
-    'COMPRAS DEL MES': 'Compras del mes',
-    'OPERACIONES REGISTRADAS':
-      'Operaciones registradas',
-    'VALOR DEL INVENTARIO': 'Valor del inventario',
-    PUBLICACIONES: 'Publicaciones',
-    HISTORIAS: 'Historias',
-    'NUEVOS SEGUIDORES': 'Nuevos seguidores',
-    MENSAJES: 'Mensajes',
-  };
-
-  return (
-    mapa[indicador.trim().toUpperCase()] ||
-    indicador
   );
 }
