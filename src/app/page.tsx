@@ -535,6 +535,13 @@ export default function InicioPage() {
               colorPrincipal="#db2777"
               destacado
             />
+
+            <BotonAcceso
+              href="/configuracoes"
+              titulo="⚙️ Configurações"
+              colorPrincipal="#475569"
+              destacado
+            />
           </div>
         </section>
 
