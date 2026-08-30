@@ -29,6 +29,9 @@ import {
   cambiarActivoCategoriaGasto,
   cambiarActivoCategoriaIngreso,
   cambiarActivoFormaPago,
+  eliminarCategoriaProducto,
+  eliminarCategoriaOperacion,
+  eliminarFormaPago,
 } from '@/lib/categorias';
 
 const COLORES = {
@@ -186,6 +189,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
 
   useEffect(() => {
     async function cargar() {
@@ -193,6 +197,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         { data: empresaData, error: errorEmpresa },
         { data: perfilesData },
         { count: cuentasCount },
+        { data: componentesData },
       ] = await Promise.all([
         supabase
           .from('empresas')
@@ -210,6 +215,8 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
           .from('plan_cuentas')
           .select('id', { count: 'exact', head: true })
           .eq('empresa_id', empresaId),
+
+        supabase.from('empresa_mixto_componentes').select('componente').eq('empresa_id', empresaId),
       ]);
 
       if (errorEmpresa || !empresaData) {
@@ -221,11 +228,18 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       setEmpresa(empresaData as DatosEmpresa);
       setPerfiles(perfilesData ?? []);
       setTieneEsqueleto(Boolean(cuentasCount && cuentasCount > 0));
+      setComponentesMixto((componentesData ?? []).map((c) => c.componente));
       setCargando(false);
     }
 
     cargar();
   }, [empresaId]);
+
+  function alternarComponenteMixto(componente: string) {
+    setComponentesMixto((actual) =>
+      actual.includes(componente) ? actual.filter((c) => c !== componente) : [...actual, componente]
+    );
+  }
 
   function actualizarCampo<K extends keyof DatosEmpresa>(campo: K, valor: DatosEmpresa[K]) {
     setEmpresa((actual) => (actual ? { ...actual, [campo]: valor } : actual));
@@ -314,6 +328,18 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
             : 'Se guardó el perfil pero falló la inicialización del Plano de Contas.'
         );
         return;
+      }
+    }
+
+    const perfilMixto = perfiles.find((p) => p.codigo === 'MIXTO');
+
+    if (!errorGuardar && esAdmin && perfilMixto && empresa.perfil_empresa_id === perfilMixto.id) {
+      await supabase.from('empresa_mixto_componentes').delete().eq('empresa_id', empresaId);
+
+      if (componentesMixto.length > 0) {
+        await supabase.from('empresa_mixto_componentes').insert(
+          componentesMixto.map((componente) => ({ empresa_id: empresaId, componente }))
+        );
       }
     }
 
@@ -496,6 +522,34 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
       </div>
 
+      {esAdmin && perfiles.find((p) => p.codigo === 'MIXTO')?.id === empresa.perfil_empresa_id && (
+        <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: COLORES.azul, marginBottom: 4 }}>
+            ¿Qué combina este negocio Mixto?
+          </div>
+          <p style={{ margin: '0 0 10px', fontSize: 12, color: COLORES.gris }}>
+            Elegí los componentes que aplican — determina qué categorías se ofrecen en la pestaña siguiente.
+          </p>
+
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            {[
+              { codigo: 'COMERCIAL', etiqueta: 'Comercial (compra/venta de mercadería)' },
+              { codigo: 'SERVICIOS', etiqueta: 'Servicios (venta sin stock)' },
+              { codigo: 'PRODUCCION', etiqueta: 'Producción (transforma insumos)' },
+            ].map((opcion) => (
+              <label key={opcion.codigo} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: COLORES.azul, fontWeight: 600, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={componentesMixto.includes(opcion.codigo)}
+                  onChange={() => alternarComponenteMixto(opcion.codigo)}
+                />
+                {opcion.etiqueta}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginTop: 26, display: 'flex', justifyContent: 'flex-end' }}>
         <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
           {guardando ? 'Guardando...' : 'Guardar cambios'}
@@ -539,6 +593,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       { data: pc },
       { data: op },
       { data: plantillas },
+      { data: empresaData },
     ] = await Promise.all([
       supabase.from('categorias_productos').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('categorias_operacion').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).eq('operacion', 'PAGO').order('nombre'),
@@ -546,11 +601,31 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
       supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
       supabase.from('reglas_contables').select('operacion, motor').eq('empresa_id', empresaId).is('categoria_codigo', null),
+      supabase.from('empresas').select('perfil_empresa_id, perfiles_empresa(codigo)').eq('id', empresaId).maybeSingle(),
     ]);
 
-    const operacionServicioDetectada = (plantillas ?? []).find(
-      (p) => p.motor === 'SERVICIOS' || p.motor === 'INGRESOS'
-    );
+    // Si el perfil es Mixto, lo que se ofrece depende de qué
+    // componentes tildó el admin en "Datos de la Empresa" (no todo
+    // Mixto vende productos Y servicios a la vez).
+    const perfilCodigo = (empresaData as { perfiles_empresa?: { codigo: string } | null } | null)?.perfiles_empresa
+      ?.codigo;
+
+    let componentesMixto: string[] = [];
+    if (perfilCodigo === 'MIXTO') {
+      const { data: comp } = await supabase
+        .from('empresa_mixto_componentes')
+        .select('componente')
+        .eq('empresa_id', empresaId);
+      componentesMixto = (comp ?? []).map((c) => c.componente);
+    }
+
+    const esMixto = perfilCodigo === 'MIXTO';
+    const mixtoHabilitaProducto = !esMixto || componentesMixto.includes('COMERCIAL') || componentesMixto.includes('PRODUCCION');
+    const mixtoHabilitaServicio = !esMixto || componentesMixto.includes('SERVICIOS');
+
+    const operacionServicioDetectada = mixtoHabilitaServicio
+      ? (plantillas ?? []).find((p) => p.motor === 'SERVICIOS' || p.motor === 'INGRESOS')
+      : undefined;
 
     setCategoriasProducto(cp ?? []);
     setCategoriasGasto(cg ?? []);
@@ -561,7 +636,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
     // Una empresa "vieja" (migrada a mano, sin pasar por un perfil)
     // puede no tener la plantilla de reglas, pero si ya tiene
     // categorías de producto cargadas obviamente sí las usa.
-    setPermiteProducto((plantillas ?? []).some((p) => p.motor === 'COMPRAS') || (cp ?? []).length > 0);
+    setPermiteProducto(
+      mixtoHabilitaProducto && ((plantillas ?? []).some((p) => p.motor === 'COMPRAS') || (cp ?? []).length > 0)
+    );
     setOperacionServicio(operacionServicioDetectada ? (operacionServicioDetectada.operacion as 'VENTA' | 'COBRO') : null);
 
     if (operacionServicioDetectada) {
@@ -631,6 +708,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
           onCambiarActivo={(id, activo) =>
             manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), 'Categoría actualizada.')
           }
+          onEliminar={(id, nombre) =>
+            manejarAccion(() => eliminarCategoriaProducto(id), `Categoría "${nombre}" eliminada.`)
+          }
         />
       )}
 
@@ -653,6 +733,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
           onCambiarActivo={(id, activo) =>
             manejarAccion(() => cambiarActivoCategoriaIngreso(id, activo), 'Categoría actualizada.')
           }
+          onEliminar={(id, nombre) =>
+            manejarAccion(() => eliminarCategoriaOperacion(id), `Categoría "${nombre}" eliminada.`)
+          }
         />
       )}
 
@@ -664,6 +747,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
         }
         onCambiarActivo={(id, activo) =>
           manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), 'Categoría actualizada.')
+        }
+        onEliminar={(id, nombre) =>
+          manejarAccion(() => eliminarCategoriaOperacion(id), `Categoría "${nombre}" eliminada.`)
         }
       />
 
@@ -681,6 +767,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
           }, `Forma de pago "${nombre}" creada.`)
         }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), 'Forma de pago actualizada.')}
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), `Forma de pago "${nombre}" eliminada.`)}
       />
     </div>
   );
@@ -691,17 +778,19 @@ function BloqueCategoriaProducto({
   esAdmin,
   onCrear,
   onCambiarActivo,
+  onEliminar,
 }: {
   categorias: CategoriaProducto[];
   esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
     <SeccionCategoria titulo="🛍️ Categorías de Producto" subtitulo="Habilitan Compra, Venta y Pérdida. Cada una genera su cuenta de Stock, Venta y Costo automáticamente.">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre de la categoría (ej. Perfumería)"
@@ -724,6 +813,7 @@ function BloqueCategoriaServicio({
   esAdmin,
   onCrear,
   onCambiarActivo,
+  onEliminar,
 }: {
   titulo: string;
   subtitulo: string;
@@ -731,12 +821,13 @@ function BloqueCategoriaServicio({
   esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
     <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre (ej. Sueldo, Consultoría)"
@@ -757,17 +848,19 @@ function BloqueCategoriaGasto({
   esAdmin,
   onCrear,
   onCambiarActivo,
+  onEliminar,
 }: {
   categorias: CategoriaGasto[];
   esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
     <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago (si el nombre ya existe en el plan, se reutiliza esa cuenta en vez de duplicar).">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre del gasto (ej. Alquiler del local)"
@@ -803,6 +896,7 @@ function BloqueFormasDePago({
     operacionesElegidas: string[]
   ) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [cuentaElegida, setCuentaElegida] = useState('');
@@ -824,7 +918,7 @@ function BloqueFormasDePago({
 
   return (
     <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.">
-      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
+      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -934,10 +1028,12 @@ function SeccionCategoria({
 function ListaConToggle<T extends { id: string; codigo: string; nombre: string; activo: boolean }>({
   items,
   onCambiarActivo,
+  onEliminar,
   soloLectura = false,
 }: {
   items: T[];
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar?: (id: string, nombre: string) => void;
   soloLectura?: boolean;
 }) {
   if (items.length === 0) {
@@ -971,14 +1067,38 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
               {item.activo ? 'Activa' : 'Inactiva'}
             </span>
           ) : (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
-              {item.activo ? 'Activa' : 'Inactiva'}
-              <input
-                type="checkbox"
-                checked={item.activo}
-                onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
-              />
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
+                {item.activo ? 'Activa' : 'Inactiva'}
+                <input
+                  type="checkbox"
+                  checked={item.activo}
+                  onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
+                />
+              </label>
+
+              {onEliminar && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`¿Eliminar "${item.nombre}"? Esto no borra la cuenta contable, solo la categoría/forma de pago y sus reglas.`)) {
+                      onEliminar(item.id, item.nombre);
+                    }
+                  }}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#b91c1c',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    padding: 0,
+                  }}
+                  title="Eliminar"
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
           )}
         </div>
       ))}
