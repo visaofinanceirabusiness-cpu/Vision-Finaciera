@@ -23,6 +23,7 @@
 // exclusivamente generarMatrizInicial(), más abajo.
 
 import { supabase } from './supabase';
+import { crearObjetivosModelo } from './objetivos';
 
 export async function empresaYaTieneEsqueleto(empresaId: string) {
   const { count, error } = await supabase
@@ -289,17 +290,15 @@ export async function inicializarEmpresaDesdePerfil(
   }
 
   // ---------------------------------------------------
-  // 7. MARCAR LA EMPRESA COMO INICIALIZADA
+  // 7. SEMBRAR LOS OBJETIVOS MODELO
+  //
+  // No tiene nada que ver con el Plano de Contas, pero es el mismo
+  // momento en el que una empresa nueva queda lista para operar —
+  // así arranca con sus 9 objetivos base (editables/borrables
+  // después solo por un admin).
   // ---------------------------------------------------
 
-  const { error: errorMarcar } = await supabase
-    .from('empresas')
-    .update({ matriz_generada: true })
-    .eq('id', empresaId);
-
-  if (errorMarcar) {
-    throw errorMarcar;
-  }
+  await crearObjetivosModelo(empresaId);
 
   return {
     cuentasCreadas: filasCuentas.length,
