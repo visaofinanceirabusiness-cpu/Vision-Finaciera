@@ -885,6 +885,7 @@ function BloqueFormasDePago({
   esAdmin,
   onCrear,
   onCambiarActivo,
+  onEliminar,
 }: {
   formasPago: FormaPago[];
   cuentas: CuentaOpcion[];
