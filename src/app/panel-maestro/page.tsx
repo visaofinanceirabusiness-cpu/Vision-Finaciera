@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -43,6 +44,7 @@ type Pendiente = PendienteRegistro | PendienteMovimiento;
 export default function PanelMaestroPage() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [nivelesPorEmpresa, setNivelesPorEmpresa] = useState<Record<string, ProgresoGamificacion>>({});
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [cambiando, setCambiando] = useState<string | null>(null);
@@ -141,6 +143,23 @@ export default function PanelMaestroPage() {
       }
 
       setEmpresas(empresasData ?? []);
+
+      const resultados = await Promise.all(
+        (empresasData ?? []).map(async (empresa) => {
+          try {
+            const progreso = await obtenerProgresoGamificacion(empresa.id);
+            return [empresa.id, progreso] as const;
+          } catch (errorGamificacion) {
+            console.warn(`No se pudo calcular el nivel de ${empresa.nombre}:`, errorGamificacion);
+            return null;
+          }
+        })
+      );
+
+      setNivelesPorEmpresa(
+        Object.fromEntries(resultados.filter((r): r is readonly [string, ProgresoGamificacion] => r !== null))
+      );
+
       await cargarPendientes();
       setCargando(false);
     }
@@ -406,6 +425,54 @@ export default function PanelMaestroPage() {
                   </div>
                 </div>
               </div>
+
+              {nivelesPorEmpresa[empresa.id] && (
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: COLORES_BASE.azul,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span>
+                      {nivelesPorEmpresa[empresa.id].emoji} Nivel {nivelesPorEmpresa[empresa.id].nivel} ·{' '}
+                      {nivelesPorEmpresa[empresa.id].nombre}
+                    </span>
+                    <span style={{ color: COLORES_BASE.gris, fontWeight: 600 }}>
+                      {nivelesPorEmpresa[empresa.id].operaciones} op.
+                    </span>
+                  </div>
+
+                  <div style={{ height: 7, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${nivelesPorEmpresa[empresa.id].progreso}%`,
+                        height: '100%',
+                        borderRadius: 999,
+                        background: COLORES_BASE.verde,
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: 6, fontSize: 11, color: COLORES_BASE.gris }}>
+                    {nivelesPorEmpresa[empresa.id].operacionesMax === null
+                      ? 'Nivel máximo alcanzado'
+                      : `Faltan ${nivelesPorEmpresa[empresa.id].faltan} operaciones para el próximo nivel`}
+                  </div>
+                </div>
+              )}
 
               <div
                 style={{
