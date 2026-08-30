@@ -17,7 +17,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
-import { calcularAntiguedadTexto } from '@/lib/antiguedad';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 
@@ -40,7 +39,6 @@ type Empresa = {
   rubro: string | null;
   logo_url: string | null;
   perfil_empresa_id: string | null;
-  creado_en: string | null;
 };
 
 type ConfiguracionDashboard = {
@@ -94,6 +92,7 @@ export default function InicioPage() {
   const [modulos, setModulos] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [estadoSolicitud, setEstadoSolicitud] = useState<'PENDIENTE' | 'RECHAZADA' | null>(null);
 
   useEffect(() => {
     async function cargarBase() {
@@ -113,7 +112,22 @@ export default function InicioPage() {
         .maybeSingle();
 
       if (errorPerfil || !perfilData?.empresa_id) {
-        setError('No se pudo identificar la empresa del usuario.');
+        // Todavía no tiene un perfil asignado — probablemente está
+        // esperando que un admin apruebe su solicitud de alta.
+        const { data: solicitud } = await supabase
+          .from('solicitudes_alta')
+          .select('estado')
+          .eq('user_id', userData.user.id)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (solicitud?.estado === 'PENDIENTE' || solicitud?.estado === 'RECHAZADA') {
+          setEstadoSolicitud(solicitud.estado);
+        } else {
+          setError('No se pudo identificar la empresa del usuario.');
+        }
+
         setCargando(false);
         return;
       }
@@ -122,7 +136,7 @@ export default function InicioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, perfil_empresa_id, creado_en')
+        .select('nombre, rubro, logo_url, perfil_empresa_id')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -259,6 +273,62 @@ export default function InicioPage() {
     );
   }
 
+  if (estadoSolicitud) {
+    const pendiente = estadoSolicitud === 'PENDIENTE';
+
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f5f7f9',
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            background: COLORES_BASE.blanco,
+            borderRadius: 24,
+            padding: '36px 32px',
+            maxWidth: 440,
+            textAlign: 'center',
+            boxShadow: '0 18px 40px rgba(31,58,95,0.10)',
+          }}
+        >
+          <div style={{ fontSize: 42, marginBottom: 10 }}>{pendiente ? '⏳' : '🚫'}</div>
+          <h1 style={{ color: COLORES_BASE.azul, fontSize: 21, margin: '0 0 10px' }}>
+            {pendiente ? 'Tu cuenta está esperando aprobación' : 'Tu solicitud fue rechazada'}
+          </h1>
+          <p style={{ color: COLORES_BASE.gris, fontSize: 14, lineHeight: 1.6 }}>
+            {pendiente
+              ? 'Un administrador todavía tiene que revisar tu solicitud de alta. En cuanto la apruebe, vas a poder entrar acá mismo con tu email y contraseña.'
+              : 'Ponete en contacto con el administrador si creés que esto es un error.'}
+          </p>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/login');
+            }}
+            style={{
+              marginTop: 16,
+              background: 'transparent',
+              border: '1px solid #d1d5db',
+              borderRadius: 12,
+              padding: '10px 18px',
+              cursor: 'pointer',
+              color: COLORES_BASE.azul,
+              fontWeight: 700,
+            }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const colores = {
     azul: configuracion?.color_primario ?? COLORES_BASE.azul,
     verde: configuracion?.color_secundario ?? COLORES_BASE.verde,
@@ -271,8 +341,6 @@ export default function InicioPage() {
     day: 'numeric',
     month: 'long',
   });
-
-  const antiguedad = calcularAntiguedadTexto(empresa?.creado_en);
 
   const logoDisponible = Boolean(empresa?.logo_url?.trim());
 
@@ -448,7 +516,6 @@ export default function InicioPage() {
           gamificacion={
             configuracion?.mostrar_gamificacion ? gamificacion : null
           }
-          antiguedad={antiguedad}
           objetivos={objetivos}
         />
 
