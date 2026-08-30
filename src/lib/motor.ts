@@ -23,11 +23,6 @@ type ReglaContable = {
   motor: string;
 };
 
-type MedioFinanciero = {
-  codigo: string;
-  nombre: string;
-};
-
 export type LineaOperacion = {
   producto: string;
   cantidad: number;
@@ -45,96 +40,214 @@ export type FormularioOperacion = {
 };
 
 // =====================================================
-// MEDIOS VÁLIDOS POR OPERACIÓN
-// =====================================================
-
-function mediosValidosParaOperacion(
-  operacion: string,
-  medios: MedioFinanciero[]
-): MedioFinanciero[] {
-  return medios.filter((medio) => {
-    const codigo = medio.codigo.toUpperCase();
-
-    if (codigo === 'PIX' || codigo === 'DIN') {
-      return true;
-    }
-
-    if (
-      codigo === 'CLI' &&
-      (operacion === 'VENTA' || operacion === 'SERVICIO')
-    ) {
-      return true;
-    }
-
-    if (codigo === 'PRO' && operacion === 'COMPRA') {
-      return true;
-    }
-
-    if (codigo === 'TAR' && operacion === 'VENTA') {
-      return true;
-    }
-
-    return false;
-  });
-}
-
-// =====================================================
 // GENERAR MATRIZ DE OPERACIONES
 // =====================================================
+//
+// IMPORTANTE — LEER ANTES DE TOCAR ESTA FUNCIÓN:
+//
+// Los roles genéricos de reglas_contables (STOCK_CATEGORIA,
+// INGRESO_CATEGORIA, GASTO_CATEGORIA, RETIRO_PERSONAL, APORTE_SOCIA,
+// PERDIDA_STOCK, MEDIO_FINANCIERO) se resuelven acá contra cuentas
+// reales del Plan de Contas, usando las tablas de vínculo que ya
+// existen y se configuran en CONFIGURAÇÕES → Categorias e Formas de
+// Pagamento:
+//
+//   - MEDIO_FINANCIERO              → forma_pago_cuentas
+//   - STOCK_CATEGORIA / INGRESO_CATEGORIA → categorias_productos_cuentas
+//   - cualquier otro rol (ej. GASTO_CATEGORIA, RETIRO_PERSONAL,
+//     APORTE_SOCIA, PERDIDA_STOCK) → categorias_operacion_cuentas,
+//     buscando por el "rol base" (todo antes del primer "_": GASTO,
+//     RETIRO, APORTE, PERDIDA)
+//
+// Las formas de pago válidas para cada operación salen de
+// formas_pago_operacion (no de una lista fija en el código). Si una
+// operación no tiene ninguna forma de pago asociada (ej. PERDIDA,
+// que es un ajuste de stock sin movimiento de dinero), se genera una
+// única fila con forma_pago = "Ajustes".
+//
+// Si falta alguna configuración (una categoría sin cuenta asignada,
+// una forma de pago sin cuenta asignada, etc.) esta función lanza un
+// error explícito en vez de grabar una matriz a medias — así nunca
+// queda un rol sin resolver escrito como texto literal en
+// matriz_operaciones (ese fue el bug original: ver memoria
+// "project-visao-matriz-roles-sin-resolver").
 
 export async function generarMatrizOperaciones(
   empresaId: string
 ) {
-  const { data: reglas, error: errorReglas } =
-    await supabase
-      .from('reglas_contables')
-      .select('*')
-      .eq('empresa_id', empresaId);
+  const [
+    { data: reglas, error: errorReglas },
+    { data: operaciones, error: errorOperaciones },
+    { data: formasPagoOperacion, error: errorFPO },
+    { data: formasPago, error: errorFormasPago },
+    { data: formaPagoCuentas, error: errorFPC },
+    { data: categoriasProductos, error: errorCatProd },
+    { data: categoriasProductosCuentas, error: errorCatProdCuentas },
+    { data: categoriasOperacion, error: errorCatOp },
+    { data: categoriasOperacionCuentas, error: errorCatOpCuentas },
+    { data: planCuentas, error: errorPlan },
+  ] = await Promise.all([
+    supabase.from('reglas_contables').select('*').eq('empresa_id', empresaId),
+    supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
+    supabase.from('formas_pago_operacion').select('operacion_id, forma_pago_id').eq('empresa_id', empresaId).eq('activo', true),
+    supabase.from('formas_pago').select('id, codigo, nombre').eq('empresa_id', empresaId),
+    supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaId).eq('activo', true),
+    supabase.from('categorias_productos').select('id, codigo').eq('empresa_id', empresaId),
+    supabase.from('categorias_productos_cuentas').select('categoria_producto_id, cuenta_stock_id, cuenta_ingreso_id').eq('empresa_id', empresaId).eq('activo', true),
+    supabase.from('categorias_operacion').select('id, operacion, codigo').eq('empresa_id', empresaId),
+    supabase.from('categorias_operacion_cuentas').select('categoria_operacion_id, cuenta_id, rol').eq('empresa_id', empresaId).eq('activo', true),
+    supabase.from('plan_cuentas').select('id, nombre').eq('empresa_id', empresaId),
+  ]);
 
-  if (errorReglas) {
-    throw errorReglas;
+  const primerError =
+    errorReglas || errorOperaciones || errorFPO || errorFormasPago ||
+    errorFPC || errorCatProd || errorCatProdCuentas || errorCatOp ||
+    errorCatOpCuentas || errorPlan;
+
+  if (primerError) {
+    throw primerError;
   }
 
-  const { data: medios, error: errorMedios } =
-    await supabase
-      .from('medios_financieros')
-      .select('*')
-      .eq('empresa_id', empresaId);
+  // ---------------------------------------------------
+  // MAPAS DE BÚSQUEDA
+  // ---------------------------------------------------
 
-  if (errorMedios) {
-    throw errorMedios;
+  const nombreCuenta = new Map(
+    (planCuentas ?? []).map((c) => [c.id, c.nombre])
+  );
+
+  const formaPagoPorId = new Map(
+    (formasPago ?? []).map((f) => [f.id, f])
+  );
+
+  const cuentaPorFormaPago = new Map(
+    (formaPagoCuentas ?? []).map((f) => [f.forma_pago_id, nombreCuenta.get(f.cuenta_id)])
+  );
+
+  const operacionIdPorNombre = new Map(
+    (operaciones ?? []).map((o) => [o.nombre, o.id])
+  );
+
+  const formasPagoPorOperacionId = new Map<string, string[]>();
+  for (const fila of formasPagoOperacion ?? []) {
+    const lista = formasPagoPorOperacionId.get(fila.operacion_id) ?? [];
+    lista.push(fila.forma_pago_id);
+    formasPagoPorOperacionId.set(fila.operacion_id, lista);
   }
+
+  const categoriaProductoPorCodigo = new Map(
+    (categoriasProductos ?? []).map((c) => [c.codigo, c.id])
+  );
+
+  const cuentasProductoPorCategoriaId = new Map(
+    (categoriasProductosCuentas ?? []).map((c) => [c.categoria_producto_id, c])
+  );
+
+  const categoriaOperacionPorClave = new Map(
+    (categoriasOperacion ?? []).map((c) => [`${c.operacion}.${c.codigo}`, c.id])
+  );
+
+  const cuentaOperacionPorClaveYRol = new Map(
+    (categoriasOperacionCuentas ?? []).map((c) => [`${c.categoria_operacion_id}.${c.rol}`, nombreCuenta.get(c.cuenta_id)])
+  );
+
+  // ---------------------------------------------------
+  // RESOLVER UN ROL A UN NOMBRE DE CUENTA REAL
+  // ---------------------------------------------------
+
+  function resolverRol(
+    rol: string,
+    regla: ReglaContable,
+    cuentaDelMedio: string | undefined
+  ): string {
+    if (rol === 'MEDIO_FINANCIERO') {
+      if (!cuentaDelMedio) {
+        throw new Error(
+          `La forma de pago usada en "${regla.operacion} / ${regla.categoria_nombre}" no tiene una cuenta contable asignada. Configurala en CONFIGURAÇÕES → Categorias e Formas de Pagamento.`
+        );
+      }
+      return cuentaDelMedio;
+    }
+
+    if (rol === 'STOCK_CATEGORIA' || rol === 'INGRESO_CATEGORIA') {
+      const categoriaProductoId = categoriaProductoPorCodigo.get(regla.categoria_codigo ?? '');
+      const cuentas = categoriaProductoId ? cuentasProductoPorCategoriaId.get(categoriaProductoId) : undefined;
+      const cuentaId = rol === 'STOCK_CATEGORIA' ? cuentas?.cuenta_stock_id : cuentas?.cuenta_ingreso_id;
+      const nombre = cuentaId ? nombreCuenta.get(cuentaId) : undefined;
+
+      if (!nombre) {
+        throw new Error(
+          `Falta asignar la cuenta de ${rol === 'STOCK_CATEGORIA' ? 'stock' : 'ingreso'} para la categoría de producto "${regla.categoria_nombre}". Configurala en CONFIGURAÇÕES → Categorias e Formas de Pagamento.`
+        );
+      }
+
+      return nombre;
+    }
+
+    // Roles "propios" de una categoría de operación: GASTO_CATEGORIA,
+    // RETIRO_PERSONAL, APORTE_SOCIA, PERDIDA_STOCK, o cualquier rol
+    // nuevo que se agregue con la misma convención "BASE_algo".
+    const rolBase = rol.split('_')[0];
+    const categoriaOperacionId = categoriaOperacionPorClave.get(`${regla.operacion}.${regla.categoria_codigo ?? ''}`);
+    const nombre = categoriaOperacionId
+      ? cuentaOperacionPorClaveYRol.get(`${categoriaOperacionId}.${rolBase}`)
+      : undefined;
+
+    if (!nombre) {
+      throw new Error(
+        `Falta asignar la cuenta contable para "${regla.categoria_nombre}" (rol ${rol}) en "${regla.operacion}". Configurala en CONFIGURAÇÕES → Categorias e Formas de Pagamento.`
+      );
+    }
+
+    return nombre;
+  }
+
+  // ---------------------------------------------------
+  // ARMAR LAS FILAS DE LA MATRIZ
+  // ---------------------------------------------------
 
   const filas: Record<string, unknown>[] = [];
 
   for (const regla of (reglas as ReglaContable[]) ?? []) {
-    const operacion = regla.operacion
-      .trim()
-      .toUpperCase();
+    const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
+    const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
 
-    const mediosValidos =
-      mediosValidosParaOperacion(
-        operacion,
-        (medios as MedioFinanciero[]) ?? []
-      );
+    const mediosValidos = formasPagoIds
+      .map((id) => formaPagoPorId.get(id))
+      .filter((forma): forma is { id: string; codigo: string; nombre: string } => Boolean(forma));
 
-    for (const medio of mediosValidos) {
-      const cuentaDebito =
-        regla.rol_debito === 'MEDIO_FINANCIERO'
-          ? medio.nombre
-          : regla.rol_debito;
-
-      const cuentaCredito =
-        regla.rol_credito === 'MEDIO_FINANCIERO'
-          ? medio.nombre
-          : regla.rol_credito;
-
-      const clave =
-        `${regla.operacion}.${regla.categoria_codigo ?? ''}.${medio.codigo}`;
+    // Operación sin forma de pago asociada (ej. PERDIDA): una sola
+    // fila de ajuste, sin depender de ningún medio financiero.
+    if (mediosValidos.length === 0) {
+      const cuentaDebito = resolverRol(regla.rol_debito, regla, undefined);
+      const cuentaCredito = resolverRol(regla.rol_credito, regla, undefined);
 
       filas.push({
         empresa_id: empresaId,
-        clave,
+        clave: `${regla.operacion}.${regla.categoria_nombre ?? ''}.Ajustes`,
+        operacion: regla.operacion,
+        categoria: regla.categoria_nombre,
+        forma_pago: 'Ajustes',
+        cuenta_debito: cuentaDebito,
+        cuenta_credito: cuentaCredito,
+        stock: regla.stock,
+        libro: regla.libro,
+        cmv: regla.cmv,
+        motor: regla.motor,
+      });
+
+      continue;
+    }
+
+    for (const medio of mediosValidos) {
+      const cuentaDelMedio = cuentaPorFormaPago.get(medio.id);
+
+      const cuentaDebito = resolverRol(regla.rol_debito, regla, cuentaDelMedio);
+      const cuentaCredito = resolverRol(regla.rol_credito, regla, cuentaDelMedio);
+
+      filas.push({
+        empresa_id: empresaId,
+        clave: `${regla.operacion}.${regla.categoria_nombre ?? ''}.${medio.nombre}`,
         operacion: regla.operacion,
         categoria: regla.categoria_nombre,
         forma_pago: medio.nombre,
@@ -147,6 +260,10 @@ export async function generarMatrizOperaciones(
       });
     }
   }
+
+  // ---------------------------------------------------
+  // GRABAR — recién acá, con todo ya resuelto sin errores
+  // ---------------------------------------------------
 
   const { error: errorBorrar } =
     await supabase
