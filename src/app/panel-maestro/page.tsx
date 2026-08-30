@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
+import { calcularAntiguedadTexto } from '@/lib/antiguedad';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -17,6 +18,7 @@ type Empresa = {
   nombre: string;
   rubro: string | null;
   logo_url: string | null;
+  creado_en: string | null;
 };
 
 type PendienteRegistro = {
@@ -132,7 +134,7 @@ export default function PanelMaestroPage() {
 
       const { data: empresasData, error: errorEmpresas } = await supabase
         .from('empresas')
-        .select('id, nombre, rubro, logo_url')
+        .select('id, nombre, rubro, logo_url, creado_en')
         .eq('activo', true)
         .order('nombre', { ascending: true });
 
@@ -454,6 +456,19 @@ export default function PanelMaestroPage() {
                       {nivelesPorEmpresa[empresa.id].operaciones} op.
                     </span>
                   </div>
+
+                  {calcularAntiguedadTexto(empresa.creado_en) && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: COLORES_BASE.gris,
+                        fontWeight: 600,
+                        marginBottom: 8,
+                      }}
+                    >
+                      🕒 {calcularAntiguedadTexto(empresa.creado_en)} en el sistema
+                    </div>
+                  )}
 
                   <div style={{ height: 7, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
                     <div
