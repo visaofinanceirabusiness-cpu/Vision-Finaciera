@@ -453,7 +453,8 @@ async function limpiarOperacion(
 
 export async function registrarOperacion(
   empresaId: string,
-  formulario: FormularioOperacion
+  formulario: FormularioOperacion,
+  idOperacionForzado?: string
 ) {
   const total = formulario.lineas.reduce(
     (suma, linea) =>
@@ -486,8 +487,12 @@ export async function registrarOperacion(
     );
   }
 
+  // Al editar una operación existente, se reutiliza el mismo
+  // id_operacion en vez de generar uno nuevo — así el hilo conductor
+  // (registro_operaciones + movimientos_stock + registros_automaticos)
+  // no cambia, solo su contenido.
   const idOperacion =
-    await generarIdOperacion(empresaId);
+    idOperacionForzado ?? (await generarIdOperacion(empresaId));
 
   // ===================================================
   // 2. PREPARAR MOVIMIENTOS Y CMV
@@ -905,4 +910,49 @@ export async function eliminarOperacion(
     empresaId,
     idOperacion
   );
+}
+
+// =====================================================
+// EDITAR OPERACIÓN (admin)
+//
+// No existe un "UPDATE" quirúrgico posible acá: cambiar la
+// categoría, la forma de pago o las cantidades puede cambiar qué
+// cuentas corresponden y qué costo promedio aplica, así que la
+// única forma correcta de editar es recalcular todo de cero. Se
+// valida la regla ANTES de borrar nada (para no dejar el
+// id_operacion vacío si los datos nuevos son inválidos), se borra
+// lo viejo, y se vuelve a generar todo bajo el MISMO id_operacion
+// — así el hilo conductor con Libro Diario, Registros Automáticos
+// (CMV) y Movimientos de Stock no se pierde.
+// =====================================================
+
+export async function editarOperacion(
+  empresaId: string,
+  idOperacion: string,
+  formulario: FormularioOperacion
+) {
+  const regla = await buscarRegla(
+    empresaId,
+    formulario.operacion.trim(),
+    formulario.categoria.trim(),
+    formulario.formaPago.trim()
+  );
+
+  if (!regla) {
+    throw new Error(
+      `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones antes de editar.`
+    );
+  }
+
+  await limpiarOperacion(empresaId, idOperacion);
+
+  try {
+    return await registrarOperacion(empresaId, formulario, idOperacion);
+  } catch (error) {
+    throw new Error(
+      `La operación ${idOperacion} se borró para editarla pero no se pudo volver a generar (${
+        error instanceof Error ? error.message : 'error desconocido'
+      }). Cargala de nuevo manualmente con los datos correctos.`
+    );
+  }
 }
