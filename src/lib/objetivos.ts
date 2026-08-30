@@ -28,7 +28,7 @@ export type IndicadorCodigo =
   | 'VALOR_INVENTARIO'
   | 'COMPRAS_CONTROLADAS'
   | 'RENTABILIDAD'
-  | 'LIQUIDEZ'
+  | 'VOLUMEN_VENTAS'
   | 'FONDO_EMERGENCIA';
 
 export type ObjetivoDefinicion = {
@@ -118,12 +118,12 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
     ayuda: 'Lucro sobre los ingresos del período.',
     inverso: false,
   },
-  LIQUIDEZ: {
+  VOLUMEN_VENTAS: {
     categoria: 'FINANCIERO',
-    nombreDefault: 'Liquidez',
-    unidadDefault: 'veces',
-    objetivoDefault: 1.5,
-    ayuda: 'Activo corriente sobre pasivo corriente.',
+    nombreDefault: 'Volumen de Ventas',
+    unidadDefault: 'R$',
+    objetivoDefault: 2000,
+    ayuda: 'Alcanzar al menos este monto de ventas en el período.',
     inverso: false,
   },
   FONDO_EMERGENCIA: {
@@ -345,8 +345,8 @@ export async function calcularObjetivos(
         resultado = indicadoresActuales.rentabilidad;
         break;
 
-      case 'LIQUIDEZ':
-        resultado = indicadoresActuales.liquidez;
+      case 'VOLUMEN_VENTAS':
+        resultado = indicadoresActuales.ingresos;
         break;
 
       case 'FONDO_EMERGENCIA':
@@ -444,7 +444,7 @@ export async function crearObjetivosModelo(empresaId: string) {
     { categoria: 'MERCADERIA', indicador: 'VALOR_INVENTARIO', orden: 2 },
     { categoria: 'MERCADERIA', indicador: 'COMPRAS_CONTROLADAS', orden: 3 },
     { categoria: 'FINANCIERO', indicador: 'RENTABILIDAD', orden: 1 },
-    { categoria: 'FINANCIERO', indicador: 'LIQUIDEZ', orden: 2 },
+    { categoria: 'FINANCIERO', indicador: 'VOLUMEN_VENTAS', orden: 2 },
     { categoria: 'FINANCIERO', indicador: 'FONDO_EMERGENCIA', orden: 3 },
   ];
 
