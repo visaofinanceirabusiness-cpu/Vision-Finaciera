@@ -542,7 +542,7 @@ function CentralDeLanzamientosTab({
 
       {modoEdicion && (
         <p style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
-          ⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID. Si es una Venta o Pérdida, revisá el Monto de cada línea — no se puede recuperar el valor original, solo la cantidad.
+          ⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID.
         </p>
       )}
 
@@ -747,7 +747,7 @@ function CentralDeLanzamientosTab({
           <img src={SABIO_URL} alt="Sabio" style={sabioLogoChico} />
         </div>
 
-        {modoEdicion && (
+        {onCancelar && (
           <button
             type="button"
             onClick={onCancelar}
@@ -810,6 +810,13 @@ function RegistroOperacionesTab() {
   const [validando, setValidando] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [editando, setEditando] = useState<{ idOperacion: string; valores: ValoresIniciales } | null>(null);
+  const [mostrandoNuevo, setMostrandoNuevo] = useState(false);
+
+  // Venta y Pérdida no guardan el precio/monto original por línea
+  // (solo el costo promedio, para el CMV) — reconstruirlo al editar
+  // sería adivinar. Para esas dos, es más seguro eliminar y cargar
+  // de nuevo a mano que "editar" con un valor estimado.
+  const OPERACIONES_EDITABLES = ['COMPRA', 'PAGO', 'INVERSION', 'EXTRACCION'];
 
   async function cargar(empresa: string) {
     const { data, error } = await supabase
@@ -900,20 +907,13 @@ function RegistroOperacionesTab() {
     let lineas: LineaOperacion[];
 
     if (movimientos && movimientos.length > 0) {
+      // "Editar" solo está habilitado para Compra (Pago/Inversión/
+      // Extracción no tocan stock) — ahí el monto original se guarda
+      // tal cual en costo_unitario, así que se recupera exacto.
       lineas = movimientos.map((m) => ({
         producto: m.producto_id,
         cantidad: Number(m.cantidad),
-        // En Compra y Pérdida el "monto" original se guarda tal cual
-        // en costo_unitario. Solo en Venta se pierde: ahí el costo
-        // guardado es el costo promedio ponderado (para el CMV), no
-        // el precio de venta, así que se estima repartiendo el total
-        // entre las líneas — hay que revisarlo a mano.
-        monto:
-          fila.operacion !== 'VENTA'
-            ? Number(m.costo_unitario)
-            : Number(m.cantidad) > 0
-              ? Number(fila.total) / movimientos.length / Number(m.cantidad)
-              : 0,
+        monto: Number(m.costo_unitario),
       }));
     } else {
       lineas = [{ producto: '', cantidad: 1, monto: Number(fila.total) }];
@@ -931,6 +931,31 @@ function RegistroOperacionesTab() {
         lineas,
       },
     });
+  }
+
+  async function handleEliminarYRecargar(idOperacion: string) {
+    if (!empresaId) return;
+
+    const confirmado = window.confirm(
+      `¿Eliminar la operación ${idOperacion} para volver a cargarla?\n\n` +
+        'Esto borra la operación y sus movimientos de stock. Se abre el formulario en blanco para cargarla de nuevo. ' +
+        'No se puede deshacer.'
+    );
+
+    if (!confirmado) return;
+
+    setError('');
+    setBorrando(idOperacion);
+
+    try {
+      await eliminarOperacion(empresaId, idOperacion);
+      await cargar(empresaId);
+      setMostrandoNuevo(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo eliminar la operación.');
+    } finally {
+      setBorrando(null);
+    }
   }
 
   async function handleValidar(idOperacion: string) {
@@ -974,6 +999,18 @@ function RegistroOperacionesTab() {
         onCancelar={() => setEditando(null)}
         onGuardado={() => {
           setEditando(null);
+          if (empresaId) cargar(empresaId);
+        }}
+      />
+    );
+  }
+
+  if (mostrandoNuevo) {
+    return (
+      <CentralDeLanzamientosTab
+        onCancelar={() => setMostrandoNuevo(false)}
+        onGuardado={() => {
+          setMostrandoNuevo(false);
           if (empresaId) cargar(empresaId);
         }}
       />
@@ -1042,13 +1079,24 @@ function RegistroOperacionesTab() {
                         </button>
                       )}
 
-                      <button
-                        onClick={() => handleEditar(fila)}
-                        style={botonSecundario}
-                        title="Editar operación"
-                      >
-                        Editar
-                      </button>
+                      {OPERACIONES_EDITABLES.includes(fila.operacion) ? (
+                        <button
+                          onClick={() => handleEditar(fila)}
+                          style={botonSecundario}
+                          title="Editar operación"
+                        >
+                          Editar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleEliminarYRecargar(fila.id_operacion)}
+                          disabled={borrando === fila.id_operacion}
+                          style={botonSecundario}
+                          title="Venta/Pérdida no se puede editar de forma exacta: se elimina y se abre el formulario en blanco"
+                        >
+                          {borrando === fila.id_operacion ? '...' : 'Eliminar y recargar'}
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleEliminar(fila.id_operacion)}
