@@ -86,6 +86,7 @@ type DatosEmpresa = {
   logo_url: string | null;
   perfil_empresa_id: string | null;
   matriz_generada: boolean;
+  numero_cliente: number;
 };
 
 export default function ConfiguracoesPage() {
@@ -218,7 +219,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       ] = await Promise.all([
         supabase
           .from('empresas')
-          .select('id, nombre, rubro, telefono, email, direccion, identificacion_fiscal, moneda, idioma, logo_url, perfil_empresa_id, matriz_generada')
+          .select('id, nombre, rubro, telefono, email, direccion, identificacion_fiscal, moneda, idioma, logo_url, perfil_empresa_id, matriz_generada, numero_cliente')
           .eq('id', empresaId)
           .maybeSingle(),
 
@@ -386,6 +387,22 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     <div>
       {error && <div style={errorStyle}>{error}</div>}
       {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      <div
+        style={{
+          display: 'inline-block',
+          marginBottom: 16,
+          padding: '6px 14px',
+          borderRadius: 999,
+          background: '#f8fafc',
+          border: '1px solid #e5e7eb',
+          fontSize: 12,
+          fontWeight: 700,
+          color: COLORES.gris,
+        }}
+      >
+        Cliente Nº {empresa.numero_cliente}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
         <div style={campo}>
