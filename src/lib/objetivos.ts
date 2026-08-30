@@ -29,7 +29,7 @@ export type IndicadorCodigo =
   | 'COMPRAS_CONTROLADAS'
   | 'RENTABILIDAD'
   | 'LIQUIDEZ'
-  | 'ROE';
+  | 'FONDO_EMERGENCIA';
 
 export type ObjetivoDefinicion = {
   id: string;
@@ -83,15 +83,15 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
     nombreDefault: 'Gastos Controlados',
     unidadDefault: 'R$',
     objetivoDefault: 0,
-    ayuda: 'No gastar más que el mes anterior.',
+    ayuda: 'Que los gastos del período no superen lo que ingresó a Caja en ese mismo período — así evitás quedarte con flujo de caja negativo.',
     inverso: true,
   },
   STOCK_ESTANCADO: {
     categoria: 'MERCADERIA',
     nombreDefault: 'Productos Estancados',
-    unidadDefault: 'días',
-    objetivoDefault: 30,
-    ayuda: 'Productos con saldo que no tuvieron movimiento hace más de este número de días (30/60/120).',
+    unidadDefault: 'R$',
+    objetivoDefault: 0,
+    ayuda: 'Valor en R$ de la mercadería con más de 90 días sin moverse. Cumplido cuando no hay nada estancado — si aparece un valor, conviene liquidar esos productos (promoción, descuento) antes de que sigan sumando.',
     inverso: true,
   },
   VALOR_INVENTARIO: {
@@ -126,12 +126,12 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
     ayuda: 'Activo corriente sobre pasivo corriente.',
     inverso: false,
   },
-  ROE: {
+  FONDO_EMERGENCIA: {
     categoria: 'FINANCIERO',
-    nombreDefault: 'Retorno sobre el Patrimonio',
-    unidadDefault: '%',
-    objetivoDefault: 5,
-    ayuda: 'Lucro del período sobre el Patrimonio total.',
+    nombreDefault: 'Fondo de Emergencia',
+    unidadDefault: 'R$',
+    objetivoDefault: 2000,
+    ayuda: 'Tener siempre disponible al menos este monto en Caja/Banco, aparte de lo que necesitás para operar — un colchón para un mes flojo o un imprevisto.',
     inverso: false,
   },
 };
@@ -171,65 +171,62 @@ function periodoAnteriorDe(periodo: string): string | null {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-async function obtenerDiasSinMovimientoPorProducto(empresaId: string): Promise<Map<string, number>> {
+// Umbral fijo: a partir de 90 días sin movimiento, un producto con
+// saldo se considera "estancado" (plata inmovilizada que conviene
+// liquidar). No es configurable por objetivo — es una convención.
+const DIAS_ESTANCAMIENTO = 90;
+
+type ItemInventario = {
+  productoId: string;
+  saldo: number;
+  costoPromedio: number;
+  diasSinMovimiento: number | null;
+};
+
+async function obtenerInventarioConAntiguedad(empresaId: string): Promise<ItemInventario[]> {
   const [{ data: saldos }, { data: movimientos }] = await Promise.all([
     supabase.from('saldo_stock').select('producto_id, saldo').eq('empresa_id', empresaId),
-    supabase.from('movimientos_stock').select('producto_id, fecha').eq('empresa_id', empresaId),
+    supabase
+      .from('movimientos_stock')
+      .select('producto_id, fecha, tipo, cantidad, costo_unitario')
+      .eq('empresa_id', empresaId),
   ]);
 
   const ultimaFechaPorProducto = new Map<string, string>();
+  const costoPorProducto = new Map<string, { cantidad: number; valor: number }>();
 
   for (const m of movimientos ?? []) {
-    const actual = ultimaFechaPorProducto.get(m.producto_id);
-    if (!actual || m.fecha > actual) {
+    const fechaActual = ultimaFechaPorProducto.get(m.producto_id);
+    if (!fechaActual || m.fecha > fechaActual) {
       ultimaFechaPorProducto.set(m.producto_id, m.fecha);
+    }
+
+    if (m.tipo === 'ENTRADA') {
+      const actual = costoPorProducto.get(m.producto_id) ?? { cantidad: 0, valor: 0 };
+      actual.cantidad += Number(m.cantidad ?? 0);
+      actual.valor += Number(m.cantidad ?? 0) * Number(m.costo_unitario ?? 0);
+      costoPorProducto.set(m.producto_id, actual);
     }
   }
 
   const hoy = new Date();
-  const dias = new Map<string, number>();
 
-  for (const s of saldos ?? []) {
-    if (Number(s.saldo) <= 0) continue;
-
-    const ultima = ultimaFechaPorProducto.get(s.producto_id);
-    if (!ultima) continue;
-
-    const diferenciaMs = hoy.getTime() - new Date(`${ultima}T12:00:00`).getTime();
-    dias.set(s.producto_id, Math.floor(diferenciaMs / (1000 * 60 * 60 * 24)));
-  }
-
-  return dias;
-}
-
-async function obtenerValorInventario(empresaId: string): Promise<number> {
-  const [{ data: saldos }, { data: entradas }] = await Promise.all([
-    supabase.from('saldo_stock').select('producto_id, saldo').eq('empresa_id', empresaId),
-    supabase
-      .from('movimientos_stock')
-      .select('producto_id, cantidad, costo_unitario')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'ENTRADA'),
-  ]);
-
-  const costoPorProducto = new Map<string, { cantidad: number; valor: number }>();
-
-  for (const e of entradas ?? []) {
-    const actual = costoPorProducto.get(e.producto_id) ?? { cantidad: 0, valor: 0 };
-    actual.cantidad += Number(e.cantidad ?? 0);
-    actual.valor += Number(e.cantidad ?? 0) * Number(e.costo_unitario ?? 0);
-    costoPorProducto.set(e.producto_id, actual);
-  }
-
-  let total = 0;
-
-  for (const s of saldos ?? []) {
+  return (saldos ?? []).map((s) => {
     const costo = costoPorProducto.get(s.producto_id);
     const costoPromedio = costo && costo.cantidad > 0 ? costo.valor / costo.cantidad : 0;
-    total += Number(s.saldo ?? 0) * costoPromedio;
-  }
+    const ultima = ultimaFechaPorProducto.get(s.producto_id);
 
-  return total;
+    const diasSinMovimiento = ultima
+      ? Math.floor((hoy.getTime() - new Date(`${ultima}T12:00:00`).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      productoId: s.producto_id,
+      saldo: Number(s.saldo ?? 0),
+      costoPromedio,
+      diasSinMovimiento,
+    };
+  });
 }
 
 async function obtenerComprasDelPeriodo(empresaId: string, periodo: string): Promise<number> {
@@ -279,23 +276,24 @@ export async function calcularObjetivos(
   const codigos = new Set(activas.map((d) => d.indicador));
   const periodoAnterior = periodoAnteriorDe(periodo);
 
-  const [indicadoresActuales, indicadoresAnteriores, diasSinMovimiento, valorInventario, comprasDelMes] =
-    await Promise.all([
-      obtenerIndicadores(empresaId, periodo),
-      codigos.has('VENTAS_10PCT') || codigos.has('GASTOS_CONTROLADOS')
-        ? periodoAnterior
-          ? obtenerIndicadores(empresaId, periodoAnterior)
-          : Promise.resolve(null)
-        : Promise.resolve(null),
-      codigos.has('STOCK_ESTANCADO') ? obtenerDiasSinMovimientoPorProducto(empresaId) : Promise.resolve(null),
-      codigos.has('VALOR_INVENTARIO') ? obtenerValorInventario(empresaId) : Promise.resolve(0),
-      codigos.has('COMPRAS_CONTROLADAS') ? obtenerComprasDelPeriodo(empresaId, periodo) : Promise.resolve(0),
-    ]);
+  const [indicadoresActuales, indicadoresAnteriores, inventario, comprasDelMes] = await Promise.all([
+    obtenerIndicadores(empresaId, periodo),
+    codigos.has('VENTAS_10PCT')
+      ? periodoAnterior
+        ? obtenerIndicadores(empresaId, periodoAnterior)
+        : Promise.resolve(null)
+      : Promise.resolve(null),
+    codigos.has('STOCK_ESTANCADO') || codigos.has('VALOR_INVENTARIO')
+      ? obtenerInventarioConAntiguedad(empresaId)
+      : Promise.resolve<ItemInventario[]>([]),
+    codigos.has('COMPRAS_CONTROLADAS') ? obtenerComprasDelPeriodo(empresaId, periodo) : Promise.resolve(0),
+  ]);
 
   return activas.map((def) => {
     let resultado = 0;
     let metaResuelta = def.objetivo;
     let aplica = true;
+    let porcentajeManual: number | null = null;
 
     switch (def.indicador) {
       case 'CAJA_MINIMA':
@@ -312,27 +310,31 @@ export async function calcularObjetivos(
         break;
 
       case 'GASTOS_CONTROLADOS':
-        if (indicadoresAnteriores) {
-          metaResuelta = indicadoresAnteriores.gastos;
-          resultado = indicadoresActuales.gastos;
-        } else {
-          aplica = false;
-        }
+        // Que los gastos del período no superen lo que entró a caja
+        // en ese mismo período — evita flujo de caja negativo.
+        metaResuelta = indicadoresActuales.ingresos;
+        resultado = indicadoresActuales.gastos;
         break;
 
       case 'STOCK_ESTANCADO': {
-        const umbral = def.objetivo;
-        let cantidad = 0;
-        (diasSinMovimiento ?? new Map()).forEach((dias) => {
-          if (dias >= umbral) cantidad += 1;
-        });
-        resultado = cantidad;
+        const valorTotal = inventario.reduce((suma, item) => suma + item.saldo * item.costoPromedio, 0);
+
+        const valorEstancado = inventario
+          .filter((item) => item.saldo > 0 && (item.diasSinMovimiento ?? Infinity) >= DIAS_ESTANCAMIENTO)
+          .reduce((suma, item) => suma + item.saldo * item.costoPromedio, 0);
+
+        resultado = valorEstancado;
         metaResuelta = 0;
+        // Va bajando gradualmente a medida que más valor cruza los
+        // 90 días (proporción del inventario total), en vez de
+        // saltar de golpe a 0% apenas aparece el primer producto
+        // estancado.
+        porcentajeManual = valorTotal > 0 ? Math.max(0, (1 - valorEstancado / valorTotal) * 100) : 100;
         break;
       }
 
       case 'VALOR_INVENTARIO':
-        resultado = valorInventario;
+        resultado = inventario.reduce((suma, item) => suma + item.saldo * item.costoPromedio, 0);
         break;
 
       case 'COMPRAS_CONTROLADAS':
@@ -347,8 +349,8 @@ export async function calcularObjetivos(
         resultado = indicadoresActuales.liquidez;
         break;
 
-      case 'ROE':
-        resultado = indicadoresActuales.patrimonio > 0 ? (indicadoresActuales.lucro / indicadoresActuales.patrimonio) * 100 : 0;
+      case 'FONDO_EMERGENCIA':
+        resultado = indicadoresActuales.cajaDisponible;
         break;
 
       default:
@@ -360,7 +362,9 @@ export async function calcularObjetivos(
     let porcentaje = 0;
 
     if (aplica) {
-      if (info.inverso) {
+      if (porcentajeManual !== null) {
+        porcentaje = porcentajeManual;
+      } else if (info.inverso) {
         porcentaje = metaResuelta > 0 ? Math.min(100, (metaResuelta / Math.max(resultado, 0.01)) * 100) : resultado <= 0 ? 100 : 0;
       } else {
         porcentaje = metaResuelta > 0 ? Math.min(100, Math.max(0, (resultado / metaResuelta) * 100)) : 0;
@@ -441,7 +445,7 @@ export async function crearObjetivosModelo(empresaId: string) {
     { categoria: 'MERCADERIA', indicador: 'COMPRAS_CONTROLADAS', orden: 3 },
     { categoria: 'FINANCIERO', indicador: 'RENTABILIDAD', orden: 1 },
     { categoria: 'FINANCIERO', indicador: 'LIQUIDEZ', orden: 2 },
-    { categoria: 'FINANCIERO', indicador: 'ROE', orden: 3 },
+    { categoria: 'FINANCIERO', indicador: 'FONDO_EMERGENCIA', orden: 3 },
   ];
 
   const filas = modelo.map((m) => ({
