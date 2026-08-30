@@ -10,7 +10,7 @@ import { CategoryChart } from '@/components/panel/CategoryChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
-import { obtenerDefiniciones, calcularObjetivos, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
+import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -1040,9 +1040,31 @@ function ObjetivoCard({
               color: colorPrimario,
               fontSize: 13,
               fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
             {objetivo.nombre}
+
+            <span
+              title={CATALOGO_INDICADORES[objetivo.indicador]?.ayuda ?? ''}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 15,
+                height: 15,
+                borderRadius: '50%',
+                background: '#e7edf1',
+                color: COLORES_BASE.gris,
+                fontSize: 10,
+                fontWeight: 800,
+                cursor: 'help',
+              }}
+            >
+              i
+            </span>
           </div>
 
           <div
@@ -1052,7 +1074,7 @@ function ObjetivoCard({
               color: COLORES_BASE.gris,
             }}
           >
-            {resultadoTexto} / {objetivoTexto}
+            Ahora: {resultadoTexto}
           </div>
         </div>
 
@@ -1097,13 +1119,15 @@ function ObjetivoCard({
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          marginTop: 7,
-          fontSize: 10,
-          color: COLORES_BASE.gris,
+          alignItems: 'center',
+          marginTop: 9,
         }}
       >
-        <span>{objetivo.porcentaje}%</span>
-        <span>Meta: {objetivoTexto}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: colorEstado }}>{objetivo.porcentaje}%</span>
+
+        <span style={{ fontSize: 13, fontWeight: 800, color: colorPrimario }}>
+          Meta: {objetivoTexto}
+        </span>
       </div>
     </div>
   );
