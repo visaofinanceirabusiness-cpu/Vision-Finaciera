@@ -35,6 +35,16 @@ import {
   eliminarCuentaPlan,
   renombrarCuentaPlan,
 } from '@/lib/categorias';
+import {
+  obtenerDefiniciones,
+  crearObjetivo,
+  actualizarObjetivo,
+  cambiarActivoObjetivo,
+  eliminarObjetivo,
+  CATALOGO_INDICADORES,
+  type CategoriaObjetivo,
+  type IndicadorCodigo,
+} from '@/lib/objetivos';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -54,7 +64,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos';
 
 type PerfilEmpresa = {
   id: string;
@@ -166,12 +176,17 @@ export default function ConfiguracoesPage() {
             <button type="button" onClick={() => setPestana('inicializacion')} style={tabStyle(pestana === 'inicializacion')}>
               🚀 Inicialización del Sistema
             </button>
+
+            <button type="button" onClick={() => setPestana('objetivos')} style={tabStyle(pestana === 'objetivos')}>
+              🎯 Objetivos
+            </button>
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
       </div>
     </div>
@@ -1579,6 +1594,365 @@ function tabStyle(activa: boolean): React.CSSProperties {
     borderBottom: activa ? `3px solid ${COLORES.verde}` : '3px solid transparent',
     marginBottom: -1,
   };
+}
+
+/* ==========================================================
+   PESTAÑA 5 — OBJETIVOS
+========================================================== */
+
+type ObjetivoFila = {
+  id: string;
+  categoria: CategoriaObjetivo;
+  indicador: IndicadorCodigo;
+  nombre: string;
+  objetivo: number;
+  unidad: string;
+  activo: boolean;
+  orden: number;
+};
+
+const CATEGORIAS_OBJETIVO: { valor: CategoriaObjetivo; titulo: string; emoji: string }[] = [
+  { valor: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
+  { valor: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
+  { valor: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
+  { valor: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
+];
+
+function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+  const [objetivos, setObjetivos] = useState<ObjetivoFila[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [editando, setEditando] = useState<ObjetivoFila | null>(null);
+  const [creandoNuevo, setCreandoNuevo] = useState<CategoriaObjetivo | null>(null);
+
+  async function recargar() {
+    try {
+      const data = await obtenerDefiniciones(empresaId);
+      setObjetivos(data as ObjetivoFila[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los objetivos.');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
+  async function manejarAccion(accion: () => Promise<unknown>, mensajeExito: string) {
+    setError('');
+    setMensaje('');
+
+    try {
+      await accion();
+      setMensaje(mensajeExito);
+      await recargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+    }
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>Cargando objetivos...</div>;
+  }
+
+  return (
+    <div>
+      {error && <div style={errorStyle}>{error}</div>}
+      {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      {!esAdmin && (
+        <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 14 }}>
+          Solo un administrador de plataforma puede crear, editar o borrar objetivos acá.
+        </p>
+      )}
+
+      {CATEGORIAS_OBJETIVO.map(({ valor, titulo, emoji }) => {
+        const deLaCategoria = objetivos.filter((o) => o.categoria === valor);
+
+        return (
+          <SeccionCategoria
+            key={valor}
+            titulo={`${emoji} ${titulo}`}
+            subtitulo={
+              valor === 'MARKETING'
+                ? 'Todavía no hay indicadores conectables (Instagram/WhatsApp) — quedan como "Próximamente" en el Panel de Control.'
+                : 'Se calculan solos contra la contabilidad real — no hace falta cargarlos a mano cada mes.'
+            }
+          >
+            {deLaCategoria.length === 0 ? (
+              <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>Ninguno cargado todavía.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                {deLaCategoria.map((obj) => (
+                  <div
+                    key={obj.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '9px 12px',
+                      borderRadius: 10,
+                      background: obj.activo ? '#f8fafc' : '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: obj.activo ? COLORES.azul : COLORES.gris }}>
+                        {obj.nombre}
+                      </span>
+                      <span style={{ fontSize: 11.5, color: COLORES.gris, marginLeft: 8 }}>
+                        meta: {obj.objetivo} {obj.unidad}
+                      </span>
+                    </div>
+
+                    {esAdmin ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditando(obj)}
+                          style={{ border: 'none', background: 'transparent', color: COLORES.azul, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}
+                        >
+                          Editar
+                        </button>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
+                          {obj.activo ? 'Activo' : 'Inactivo'}
+                          <input
+                            type="checkbox"
+                            checked={obj.activo}
+                            onChange={(e) =>
+                              manejarAccion(() => cambiarActivoObjetivo(obj.id, e.target.checked), 'Objetivo actualizado.')
+                            }
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`¿Eliminar el objetivo "${obj.nombre}"?`)) {
+                              manejarAccion(() => eliminarObjetivo(obj.id), 'Objetivo eliminado.');
+                            }
+                          }}
+                          style={{ border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11.5, color: COLORES.gris }}>{obj.activo ? 'Activo' : 'Inactivo'}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {esAdmin && creandoNuevo !== valor && (
+              <button type="button" style={botonGuardar} onClick={() => setCreandoNuevo(valor)}>
+                + Agregar objetivo
+              </button>
+            )}
+
+            {esAdmin && creandoNuevo === valor && (
+              <FormularioObjetivo
+                categoria={valor}
+                onCancelar={() => setCreandoNuevo(null)}
+                onGuardar={(datos) =>
+                  manejarAccion(async () => {
+                    const orden = deLaCategoria.length + 1;
+                    await crearObjetivo(empresaId, { ...datos, categoria: valor, orden });
+                    setCreandoNuevo(null);
+                  }, `Objetivo "${datos.nombre}" creado.`)
+                }
+              />
+            )}
+          </SeccionCategoria>
+        );
+      })}
+
+      {editando && (
+        <ModalEditarObjetivo
+          objetivo={editando}
+          onCancelar={() => setEditando(null)}
+          onGuardar={(datos) =>
+            manejarAccion(async () => {
+              await actualizarObjetivo(editando.id, datos);
+              setEditando(null);
+            }, 'Objetivo actualizado.')
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function FormularioObjetivo({
+  categoria,
+  onCancelar,
+  onGuardar,
+}: {
+  categoria: CategoriaObjetivo;
+  onCancelar: () => void;
+  onGuardar: (datos: { indicador: IndicadorCodigo; nombre: string; objetivo: number; unidad: string }) => void;
+}) {
+  const opciones = (Object.keys(CATALOGO_INDICADORES) as IndicadorCodigo[]).filter(
+    (codigo) => CATALOGO_INDICADORES[codigo].categoria === categoria
+  );
+
+  const [indicador, setIndicador] = useState<IndicadorCodigo>(opciones[0]);
+  const [nombre, setNombre] = useState(CATALOGO_INDICADORES[opciones[0]]?.nombreDefault ?? '');
+  const [meta, setMeta] = useState(String(CATALOGO_INDICADORES[opciones[0]]?.objetivoDefault ?? 0));
+  const [unidad, setUnidad] = useState(CATALOGO_INDICADORES[opciones[0]]?.unidadDefault ?? '');
+
+  if (opciones.length === 0) {
+    return (
+      <p style={{ fontSize: 12.5, color: COLORES.gris, marginTop: 10 }}>
+        Todavía no hay indicadores disponibles para esta categoría.
+      </p>
+    );
+  }
+
+  function elegirIndicador(codigo: IndicadorCodigo) {
+    setIndicador(codigo);
+    setNombre(CATALOGO_INDICADORES[codigo].nombreDefault);
+    setMeta(String(CATALOGO_INDICADORES[codigo].objetivoDefault));
+    setUnidad(CATALOGO_INDICADORES[codigo].unidadDefault);
+  }
+
+  return (
+    <div style={{ marginTop: 14, display: 'grid', gap: 10, background: '#f8fafc', padding: 14, borderRadius: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <select
+          style={{ ...inputFormulario, flex: '1 1 220px' }}
+          value={indicador}
+          onChange={(e) => elegirIndicador(e.target.value as IndicadorCodigo)}
+        >
+          {opciones.map((codigo) => (
+            <option key={codigo} value={codigo}>
+              {CATALOGO_INDICADORES[codigo].nombreDefault}
+            </option>
+          ))}
+        </select>
+
+        <input
+          style={{ ...inputFormulario, flex: '1 1 220px' }}
+          placeholder="Nombre a mostrar"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+        />
+      </div>
+
+      <p style={{ margin: 0, fontSize: 11.5, color: COLORES.gris }}>{CATALOGO_INDICADORES[indicador].ayuda}</p>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input
+          type="number"
+          style={{ ...inputFormulario, flex: '1 1 140px' }}
+          placeholder="Meta"
+          value={meta}
+          onChange={(e) => setMeta(e.target.value)}
+        />
+
+        <input
+          style={{ ...inputFormulario, flex: '1 1 140px' }}
+          placeholder="Unidad"
+          value={unidad}
+          onChange={(e) => setUnidad(e.target.value)}
+        />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <button type="button" style={botonSecundario} onClick={onCancelar}>
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          style={botonGuardar}
+          onClick={() => {
+            if (!nombre.trim() || !unidad.trim()) return;
+            onGuardar({ indicador, nombre: nombre.trim(), objetivo: Number(meta) || 0, unidad: unidad.trim() });
+          }}
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModalEditarObjetivo({
+  objetivo,
+  onCancelar,
+  onGuardar,
+}: {
+  objetivo: ObjetivoFila;
+  onCancelar: () => void;
+  onGuardar: (datos: { nombre: string; objetivo: number; unidad: string }) => void;
+}) {
+  const [nombre, setNombre] = useState(objetivo.nombre);
+  const [meta, setMeta] = useState(String(objetivo.objetivo));
+  const [unidad, setUnidad] = useState(objetivo.unidad);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+        padding: 16,
+      }}
+    >
+      <div style={{ background: COLORES.blanco, borderRadius: 16, padding: 22, width: '100%', maxWidth: 420 }}>
+        <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>Editar objetivo</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 11.5, color: COLORES.gris }}>{CATALOGO_INDICADORES[objetivo.indicador].ayuda}</p>
+
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={campo}>
+            <label style={label}>Nombre</label>
+            <input style={inputFormulario} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ ...campo, flex: 1 }}>
+              <label style={label}>Meta</label>
+              <input type="number" style={inputFormulario} value={meta} onChange={(e) => setMeta(e.target.value)} />
+            </div>
+
+            <div style={{ ...campo, flex: 1 }}>
+              <label style={label}>Unidad</label>
+              <input style={inputFormulario} value={unidad} onChange={(e) => setUnidad(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+          <button type="button" style={botonSecundario} onClick={onCancelar}>
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            style={botonGuardar}
+            onClick={() => {
+              if (!nombre.trim() || !unidad.trim()) return;
+              onGuardar({ nombre: nombre.trim(), objetivo: Number(meta) || 0, unidad: unidad.trim() });
+            }}
+          >
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const fondo: React.CSSProperties = {
