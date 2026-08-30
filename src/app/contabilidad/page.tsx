@@ -11,12 +11,13 @@
 //   - Libro Diario: vista contable unificada (Debe/Haber) agrupada
 //     por operación.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
   registrarOperacion,
+  editarOperacion,
   eliminarOperacion,
   LineaOperacion,
 } from '@/lib/motor';
@@ -146,25 +147,46 @@ type Producto = {
   proveedor_id: string | null;
 };
 
-function CentralDeLanzamientosTab() {
+type ValoresIniciales = {
+  fecha: string;
+  operacion: string;
+  categoria: string;
+  formaPago: string;
+  historico: string;
+  clienteProveedor: string;
+  lineas: LineaOperacion[];
+};
+
+function CentralDeLanzamientosTab({
+  idOperacionEditar,
+  valoresIniciales,
+  onGuardado,
+  onCancelar,
+}: {
+  idOperacionEditar?: string;
+  valoresIniciales?: ValoresIniciales;
+  onGuardado?: () => void;
+  onCancelar?: () => void;
+} = {}) {
   const router = useRouter();
+  const modoEdicion = Boolean(idOperacionEditar);
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [cargandoInicial, setCargandoInicial] = useState(true);
 
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => valoresIniciales?.fecha ?? new Date().toISOString().slice(0, 10));
 
   const [operaciones, setOperaciones] = useState<string[]>([]);
-  const [operacion, setOperacion] = useState('');
+  const [operacion, setOperacion] = useState(valoresIniciales?.operacion ?? '');
 
   const [categorias, setCategorias] = useState<string[]>([]);
-  const [categoria, setCategoria] = useState('');
+  const [categoria, setCategoria] = useState(valoresIniciales?.categoria ?? '');
 
   const [formasPago, setFormasPago] = useState<string[]>([]);
-  const [formaPago, setFormaPago] = useState('');
+  const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
 
-  const [historico, setHistorico] = useState('');
-  const [clienteProveedor, setClienteProveedor] = useState('');
+  const [historico, setHistorico] = useState(valoresIniciales?.historico ?? '');
+  const [clienteProveedor, setClienteProveedor] = useState(valoresIniciales?.clienteProveedor ?? '');
 
   const [contactos, setContactos] = useState<string[]>([]);
 
@@ -172,11 +194,21 @@ function CentralDeLanzamientosTab() {
   const [saldoPorProducto, setSaldoPorProducto] = useState<Record<string, number>>({});
   const [nombreProveedorPorId, setNombreProveedorPorId] = useState<Record<string, string>>({});
 
-  const [lineas, setLineas] = useState<LineaOperacion[]>([
-    { producto: '', cantidad: 0, monto: 0 },
-  ]);
+  const [lineas, setLineas] = useState<LineaOperacion[]>(
+    valoresIniciales?.lineas ?? [{ producto: '', cantidad: 0, monto: 0 }]
+  );
 
-  const [mensajeSabio, setMensajeSabio] = useState('Elegí una operación para empezar.');
+  // Al editar, las 3 combos encadenados (categoría → forma de pago →
+  // contacto) recién arman sus listas después de un fetch — sin esto,
+  // ese primer fetch los pisaría con '' antes de que el usuario llegue
+  // a verlos precargados. Cada ref se "consume" una sola vez.
+  const hidratarCategoria = useRef(Boolean(valoresIniciales));
+  const hidratarFormaPago = useRef(Boolean(valoresIniciales));
+  const hidratarContacto = useRef(Boolean(valoresIniciales));
+
+  const [mensajeSabio, setMensajeSabio] = useState(
+    modoEdicion ? `Editando la operación ${idOperacionEditar}.` : 'Elegí una operación para empezar.'
+  );
 
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -276,7 +308,14 @@ function CentralDeLanzamientosTab() {
       const unicas = Array.from(new Set((data ?? []).map((f) => f.categoria).filter(Boolean))) as string[];
 
       setCategorias(unicas);
-      setCategoria('');
+
+      if (hidratarCategoria.current) {
+        hidratarCategoria.current = false;
+        setCategoria(valoresIniciales?.categoria ?? '');
+      } else {
+        setCategoria('');
+      }
+
       setFormaPago('');
       setFormasPago([]);
 
@@ -311,7 +350,13 @@ function CentralDeLanzamientosTab() {
       const unicas = Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
 
       setFormasPago(unicas);
-      setFormaPago('');
+
+      if (hidratarFormaPago.current) {
+        hidratarFormaPago.current = false;
+        setFormaPago(valoresIniciales?.formaPago ?? '');
+      } else {
+        setFormaPago('');
+      }
 
       setError('');
     }
@@ -344,7 +389,12 @@ function CentralDeLanzamientosTab() {
         setContactos([]);
       }
 
-      setClienteProveedor('');
+      if (hidratarContacto.current) {
+        hidratarContacto.current = false;
+        setClienteProveedor(valoresIniciales?.clienteProveedor ?? '');
+      } else {
+        setClienteProveedor('');
+      }
     }
 
     cargarContactos();
@@ -423,6 +473,13 @@ function CentralDeLanzamientosTab() {
         })),
       };
 
+      if (modoEdicion && idOperacionEditar) {
+        await editarOperacion(empresaId, idOperacionEditar, formulario);
+        setMensajeSabio('¡Operación actualizada con éxito!');
+        onGuardado?.();
+        return;
+      }
+
       await registrarOperacion(empresaId, formulario);
 
       setMensajeSabio('¡Operación registrada con éxito!');
@@ -473,13 +530,21 @@ function CentralDeLanzamientosTab() {
     <div>
       <div style={panelTitulo}>
         <div>
-          <p style={eyebrowVerde}>NUEVO REGISTRO</p>
+          <p style={eyebrowVerde}>{modoEdicion ? 'EDITANDO OPERACIÓN' : 'NUEVO REGISTRO'}</p>
 
-          <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>Cargá una operación</h2>
+          <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
+            {modoEdicion ? `Operación ${idOperacionEditar}` : 'Cargá una operación'}
+          </h2>
         </div>
 
         <span style={estadoActivo}>Sistema activo</span>
       </div>
+
+      {modoEdicion && (
+        <p style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
+          ⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID. Si es una Venta o Pérdida, revisá el Monto de cada línea — no se puede recuperar el valor original, solo la cantidad.
+        </p>
+      )}
 
       <div style={grid2}>
         <Campo label="Fecha">
@@ -682,12 +747,23 @@ function CentralDeLanzamientosTab() {
           <img src={SABIO_URL} alt="Sabio" style={sabioLogoChico} />
         </div>
 
+        {modoEdicion && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            disabled={guardando}
+            style={botonSecundario}
+          >
+            Cancelar
+          </button>
+        )}
+
         <button
           onClick={handleRegistrar}
           disabled={guardando || !camposCompletos}
           style={{ ...botonPrincipal, flex: 1 }}
         >
-          {guardando ? 'Registrando...' : 'Registrar Operación'}
+          {guardando ? 'Guardando...' : modoEdicion ? 'Guardar cambios' : 'Registrar Operación'}
         </button>
       </div>
     </div>
@@ -733,6 +809,7 @@ function RegistroOperacionesTab() {
   const [borrando, setBorrando] = useState<string | null>(null);
   const [validando, setValidando] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [editando, setEditando] = useState<{ idOperacion: string; valores: ValoresIniciales } | null>(null);
 
   async function cargar(empresa: string) {
     const { data, error } = await supabase
@@ -804,6 +881,58 @@ function RegistroOperacionesTab() {
     }
   }
 
+  async function handleEditar(fila: Registro) {
+    if (!empresaId) return;
+
+    setError('');
+
+    const { data: movimientos, error: errorMovimientos } = await supabase
+      .from('movimientos_stock')
+      .select('producto_id, cantidad, costo_unitario')
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', fila.id_operacion);
+
+    if (errorMovimientos) {
+      setError('No se pudieron cargar los detalles de la operación para editarla.');
+      return;
+    }
+
+    let lineas: LineaOperacion[];
+
+    if (movimientos && movimientos.length > 0) {
+      lineas = movimientos.map((m) => ({
+        producto: m.producto_id,
+        cantidad: Number(m.cantidad),
+        // En Compra y Pérdida el "monto" original se guarda tal cual
+        // en costo_unitario. Solo en Venta se pierde: ahí el costo
+        // guardado es el costo promedio ponderado (para el CMV), no
+        // el precio de venta, así que se estima repartiendo el total
+        // entre las líneas — hay que revisarlo a mano.
+        monto:
+          fila.operacion !== 'VENTA'
+            ? Number(m.costo_unitario)
+            : Number(m.cantidad) > 0
+              ? Number(fila.total) / movimientos.length / Number(m.cantidad)
+              : 0,
+      }));
+    } else {
+      lineas = [{ producto: '', cantidad: 1, monto: Number(fila.total) }];
+    }
+
+    setEditando({
+      idOperacion: fila.id_operacion,
+      valores: {
+        fecha: fila.fecha,
+        operacion: fila.operacion,
+        categoria: fila.categoria,
+        formaPago: fila.forma_pago,
+        historico: fila.historico ?? '',
+        clienteProveedor: fila.cliente_proveedor ?? '',
+        lineas,
+      },
+    });
+  }
+
   async function handleValidar(idOperacion: string) {
     if (!empresaId) return;
 
@@ -836,6 +965,20 @@ function RegistroOperacionesTab() {
       .toLowerCase()
       .includes(busqueda.toLowerCase())
   );
+
+  if (editando) {
+    return (
+      <CentralDeLanzamientosTab
+        idOperacionEditar={editando.idOperacion}
+        valoresIniciales={editando.valores}
+        onCancelar={() => setEditando(null)}
+        onGuardado={() => {
+          setEditando(null);
+          if (empresaId) cargar(empresaId);
+        }}
+      />
+    );
+  }
 
   return (
     <div>
@@ -898,6 +1041,14 @@ function RegistroOperacionesTab() {
                           {validando === fila.id_operacion ? '...' : 'Validado'}
                         </button>
                       )}
+
+                      <button
+                        onClick={() => handleEditar(fila)}
+                        style={botonSecundario}
+                        title="Editar operación"
+                      >
+                        Editar
+                      </button>
 
                       <button
                         onClick={() => handleEliminar(fila.id_operacion)}
