@@ -222,6 +222,14 @@ export async function generarMatrizOperaciones(
   const filas: Record<string, unknown>[] = [];
 
   for (const regla of (reglas as ReglaContable[]) ?? []) {
+    // Las filas con categoria_codigo null son "plantillas" (quedan
+    // así al aplicar un perfil, esperando a que el usuario cree una
+    // categoría real desde CONFIGURAÇÕES) — no generan ninguna fila
+    // de matriz por sí solas.
+    if (!regla.categoria_codigo) {
+      continue;
+    }
+
     const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
     const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
 
