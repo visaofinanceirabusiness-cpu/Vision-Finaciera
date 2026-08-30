@@ -623,13 +623,78 @@ export async function cambiarActivoFormaPago(id: string, activo: boolean) {
 }
 
 // =====================================================
-// ELIMINAR (admin) — borra la categoría/forma de pago y sus
-// vínculos, pero NUNCA la cuenta contable del Plan de Cuentas: esa
-// cuenta puede seguir apareciendo en operaciones ya cargadas
-// (registro_operaciones/registros_automaticos la referencian por
-// nombre, no por id), así que borrarla rompería el historial. Si
-// sobra, se desactiva a mano en la pestaña Plan de Cuentas.
+// ELIMINAR (admin) — borra la categoría/forma de pago, sus vínculos
+// Y la(s) cuenta(s) contable(s) que había creado, PERO solo si esa
+// cuenta nunca se usó en una operación real (registro_operaciones o
+// registros_automaticos la referencian por nombre, no por id — si
+// tiene historial y la borráramos, esas operaciones quedarían
+// apuntando a una cuenta inexistente). Si tiene historial, se deja
+// la cuenta intacta y se avisa.
 // =====================================================
+
+async function cuentaTieneMovimiento(empresaId: string, nombreCuenta: string) {
+  const [{ count: enRegistros }, { count: enAutomaticos }] = await Promise.all([
+    supabase
+      .from('registro_operaciones')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
+      .or(`cuenta_debito.eq.${nombreCuenta},cuenta_credito.eq.${nombreCuenta}`),
+    supabase
+      .from('registros_automaticos')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
+      .or(`cuenta_debito.eq.${nombreCuenta},cuenta_credito.eq.${nombreCuenta}`),
+  ]);
+
+  return Boolean((enRegistros ?? 0) > 0 || (enAutomaticos ?? 0) > 0);
+}
+
+// Intenta borrar una cuenta del Plan de Cuentas. Si tiene movimiento
+// real, tiene hijas, o es una cuenta contenedora, NO la borra y
+// devuelve el motivo en vez de tirar error (para que el que llama
+// decida si avisar o seguir).
+async function intentarEliminarCuenta(empresaId: string, cuentaId: string | undefined) {
+  if (!cuentaId) {
+    return { borrada: false, motivo: null };
+  }
+
+  const { data: cuenta } = await supabase
+    .from('plan_cuentas')
+    .select('nombre, rol_contable')
+    .eq('id', cuentaId)
+    .maybeSingle();
+
+  if (!cuenta) {
+    return { borrada: false, motivo: null };
+  }
+
+  if (cuenta.rol_contable) {
+    return { borrada: false, motivo: `"${cuenta.nombre}" es una cuenta contenedora, no se borra.` };
+  }
+
+  const { count: hijas } = await supabase
+    .from('plan_cuentas')
+    .select('id', { count: 'exact', head: true })
+    .eq('cuenta_padre_id', cuentaId);
+
+  if (hijas && hijas > 0) {
+    return { borrada: false, motivo: `"${cuenta.nombre}" tiene sub-cuentas debajo, no se borra.` };
+  }
+
+  const tieneMovimiento = await cuentaTieneMovimiento(empresaId, cuenta.nombre);
+
+  if (tieneMovimiento) {
+    return { borrada: false, motivo: `"${cuenta.nombre}" ya tiene operaciones cargadas — se deja, se puede desactivar.` };
+  }
+
+  const { error } = await supabase.from('plan_cuentas').delete().eq('id', cuentaId);
+
+  if (error) {
+    return { borrada: false, motivo: `No se pudo borrar "${cuenta.nombre}": ${error.message}` };
+  }
+
+  return { borrada: true, motivo: null };
+}
 
 export async function eliminarCategoriaProducto(categoriaProductoId: string) {
   const { data: categoria, error: errorCategoria } = await supabase
@@ -655,6 +720,12 @@ export async function eliminarCategoriaProducto(categoriaProductoId: string) {
     await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionPerdida.id);
   }
 
+  const { data: vinculo } = await supabase
+    .from('categorias_productos_cuentas')
+    .select('cuenta_stock_id, cuenta_ingreso_id, cuenta_cmv_id')
+    .eq('categoria_producto_id', categoriaProductoId)
+    .maybeSingle();
+
   await supabase.from('categorias_productos_cuentas').delete().eq('categoria_producto_id', categoriaProductoId);
 
   await supabase
@@ -675,6 +746,19 @@ export async function eliminarCategoriaProducto(categoriaProductoId: string) {
   if (errorBorrar) {
     throw errorBorrar;
   }
+
+  const avisos: string[] = [];
+
+  if (vinculo) {
+    for (const cuentaId of [vinculo.cuenta_stock_id, vinculo.cuenta_ingreso_id, vinculo.cuenta_cmv_id]) {
+      const resultado = await intentarEliminarCuenta(categoria.empresa_id, cuentaId);
+      if (!resultado.borrada && resultado.motivo) {
+        avisos.push(resultado.motivo);
+      }
+    }
+  }
+
+  return { avisos };
 }
 
 // Sirve para categorías de gasto, de servicio y de ingreso — todas
@@ -689,6 +773,12 @@ export async function eliminarCategoriaOperacion(categoriaOperacionId: string) {
   if (errorCategoria) {
     throw errorCategoria;
   }
+
+  const { data: vinculo } = await supabase
+    .from('categorias_operacion_cuentas')
+    .select('cuenta_id')
+    .eq('categoria_operacion_id', categoriaOperacionId)
+    .maybeSingle();
 
   await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionId);
 
@@ -711,6 +801,17 @@ export async function eliminarCategoriaOperacion(categoriaOperacionId: string) {
   if (errorBorrar) {
     throw errorBorrar;
   }
+
+  const avisos: string[] = [];
+
+  if (vinculo) {
+    const resultado = await intentarEliminarCuenta(categoria.empresa_id, vinculo.cuenta_id);
+    if (!resultado.borrada && resultado.motivo) {
+      avisos.push(resultado.motivo);
+    }
+  }
+
+  return { avisos };
 }
 
 export async function eliminarFormaPago(formaPagoId: string) {
@@ -737,5 +838,21 @@ export async function eliminarFormaPago(formaPagoId: string) {
 
   if (errorBorrar) {
     throw errorBorrar;
+  }
+
+  // A una forma de pago, a propósito, NO le borramos la cuenta: es
+  // habitual que la misma cuenta (ej. "Banco") quede compartida con
+  // otra forma de pago o se siga usando desde otro lado.
+}
+
+// =====================================================
+// ELIMINAR CUENTA (admin, desde la pestaña Plan de Cuentas)
+// =====================================================
+
+export async function eliminarCuentaPlan(empresaId: string, cuentaId: string) {
+  const resultado = await intentarEliminarCuenta(empresaId, cuentaId);
+
+  if (!resultado.borrada) {
+    throw new Error(resultado.motivo ?? 'No se pudo borrar la cuenta.');
   }
 }
