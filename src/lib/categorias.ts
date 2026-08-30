@@ -621,3 +621,121 @@ export async function cambiarActivoFormaPago(id: string, activo: boolean) {
   const { error } = await supabase.from('formas_pago').update({ activo }).eq('id', id);
   if (error) throw error;
 }
+
+// =====================================================
+// ELIMINAR (admin) — borra la categoría/forma de pago y sus
+// vínculos, pero NUNCA la cuenta contable del Plan de Cuentas: esa
+// cuenta puede seguir apareciendo en operaciones ya cargadas
+// (registro_operaciones/registros_automaticos la referencian por
+// nombre, no por id), así que borrarla rompería el historial. Si
+// sobra, se desactiva a mano en la pestaña Plan de Cuentas.
+// =====================================================
+
+export async function eliminarCategoriaProducto(categoriaProductoId: string) {
+  const { data: categoria, error: errorCategoria } = await supabase
+    .from('categorias_productos')
+    .select('empresa_id, codigo, nombre')
+    .eq('id', categoriaProductoId)
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  const { data: categoriaOperacionPerdida } = await supabase
+    .from('categorias_operacion')
+    .select('id')
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('operacion', 'PERDIDA')
+    .eq('codigo', categoria.codigo)
+    .maybeSingle();
+
+  if (categoriaOperacionPerdida) {
+    await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionPerdida.id);
+    await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionPerdida.id);
+  }
+
+  await supabase.from('categorias_productos_cuentas').delete().eq('categoria_producto_id', categoriaProductoId);
+
+  await supabase
+    .from('reglas_contables')
+    .delete()
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('categoria_codigo', categoria.codigo)
+    .in('operacion', ['COMPRA', 'VENTA', 'PERDIDA']);
+
+  await supabase
+    .from('matriz_operaciones')
+    .delete()
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('categoria', categoria.nombre);
+
+  const { error: errorBorrar } = await supabase.from('categorias_productos').delete().eq('id', categoriaProductoId);
+
+  if (errorBorrar) {
+    throw errorBorrar;
+  }
+}
+
+// Sirve para categorías de gasto, de servicio y de ingreso — todas
+// viven en categorias_operacion.
+export async function eliminarCategoriaOperacion(categoriaOperacionId: string) {
+  const { data: categoria, error: errorCategoria } = await supabase
+    .from('categorias_operacion')
+    .select('empresa_id, operacion, codigo, nombre')
+    .eq('id', categoriaOperacionId)
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionId);
+
+  await supabase
+    .from('reglas_contables')
+    .delete()
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('operacion', categoria.operacion)
+    .eq('categoria_codigo', categoria.codigo);
+
+  await supabase
+    .from('matriz_operaciones')
+    .delete()
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('operacion', categoria.operacion)
+    .eq('categoria', categoria.nombre);
+
+  const { error: errorBorrar } = await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionId);
+
+  if (errorBorrar) {
+    throw errorBorrar;
+  }
+}
+
+export async function eliminarFormaPago(formaPagoId: string) {
+  const { data: formaPago, error: errorFormaPago } = await supabase
+    .from('formas_pago')
+    .select('empresa_id, nombre')
+    .eq('id', formaPagoId)
+    .single();
+
+  if (errorFormaPago) {
+    throw errorFormaPago;
+  }
+
+  await supabase.from('forma_pago_cuentas').delete().eq('forma_pago_id', formaPagoId);
+  await supabase.from('formas_pago_operacion').delete().eq('forma_pago_id', formaPagoId);
+
+  await supabase
+    .from('matriz_operaciones')
+    .delete()
+    .eq('empresa_id', formaPago.empresa_id)
+    .eq('forma_pago', formaPago.nombre);
+
+  const { error: errorBorrar } = await supabase.from('formas_pago').delete().eq('id', formaPagoId);
+
+  if (errorBorrar) {
+    throw errorBorrar;
+  }
+}
