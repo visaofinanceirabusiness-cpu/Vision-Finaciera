@@ -24,6 +24,7 @@ import {
   crearCategoriaGasto,
   crearCategoriaIngreso,
   crearFormaPago,
+  crearCuentaParaMedioPago,
   cambiarActivoCategoriaProducto,
   cambiarActivoCategoriaGasto,
   cambiarActivoCategoriaIngreso,
@@ -163,8 +164,8 @@ export default function ConfiguracoesPage() {
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
-          {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} />}
-          {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} />}
+          {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
       </div>
@@ -516,7 +517,7 @@ type OperacionOpcion = { id: string; nombre: string };
 
 const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO'];
 
-function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
+function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
   const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
   const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
@@ -623,6 +624,7 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
       {permiteProducto && (
         <BloqueCategoriaProducto
           categorias={categoriasProducto}
+          esAdmin={esAdmin}
           onCrear={(nombre) =>
             manejarAccion(() => crearCategoriaProducto(empresaId, nombre), `Categoría "${nombre}" creada con sus cuentas.`)
           }
@@ -641,6 +643,7 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
               : 'Habilitan la venta de un servicio (sin stock). Cada una genera su propia cuenta de ingreso.'
           }
           categorias={categoriasServicio}
+          esAdmin={esAdmin}
           onCrear={(nombre) =>
             manejarAccion(
               () => crearCategoriaIngreso(empresaId, nombre, operacionServicio),
@@ -655,6 +658,7 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
 
       <BloqueCategoriaGasto
         categorias={categoriasGasto}
+        esAdmin={esAdmin}
         onCrear={(nombre) =>
           manejarAccion(() => crearCategoriaGasto(empresaId, nombre), `Categoría de gasto "${nombre}" creada.`)
         }
@@ -667,11 +671,14 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
         formasPago={formasPago}
         cuentas={cuentas}
         operaciones={operaciones}
-        onCrear={(nombre, cuentaId, operacionesElegidas) =>
-          manejarAccion(
-            () => crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas),
-            `Forma de pago "${nombre}" creada.`
-          )
+        esAdmin={esAdmin}
+        onCrear={(nombre, cuenta, operacionesElegidas) =>
+          manejarAccion(async () => {
+            const cuentaId =
+              'id' in cuenta ? cuenta.id : await crearCuentaParaMedioPago(empresaId, cuenta.nombre, cuenta.tipoSaldo);
+
+            await crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas);
+          }, `Forma de pago "${nombre}" creada.`)
         }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), 'Forma de pago actualizada.')}
       />
@@ -681,10 +688,12 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
 
 function BloqueCategoriaProducto({
   categorias,
+  esAdmin,
   onCrear,
   onCambiarActivo,
 }: {
   categorias: CategoriaProducto[];
+  esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
 }) {
@@ -692,7 +701,7 @@ function BloqueCategoriaProducto({
 
   return (
     <SeccionCategoria titulo="🛍️ Categorías de Producto" subtitulo="Habilitan Compra, Venta y Pérdida. Cada una genera su cuenta de Stock, Venta y Costo automáticamente.">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre de la categoría (ej. Perfumería)"
@@ -712,12 +721,14 @@ function BloqueCategoriaServicio({
   titulo,
   subtitulo,
   categorias,
+  esAdmin,
   onCrear,
   onCambiarActivo,
 }: {
   titulo: string;
   subtitulo: string;
   categorias: CategoriaGasto[];
+  esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
 }) {
@@ -725,7 +736,7 @@ function BloqueCategoriaServicio({
 
   return (
     <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre (ej. Sueldo, Consultoría)"
@@ -743,18 +754,20 @@ function BloqueCategoriaServicio({
 
 function BloqueCategoriaGasto({
   categorias,
+  esAdmin,
   onCrear,
   onCambiarActivo,
 }: {
   categorias: CategoriaGasto[];
+  esAdmin: boolean;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago. Cada una genera su propia cuenta de gasto.">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+    <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago (si el nombre ya existe en el plan, se reutiliza esa cuenta en vez de duplicar).">
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
 
       <FormularioNuevo
         placeholder="Nombre del gasto (ej. Alquiler del local)"
@@ -770,26 +783,38 @@ function BloqueCategoriaGasto({
   );
 }
 
+const OPCION_CUENTA_NUEVA = '__nueva__';
+
 function BloqueFormasDePago({
   formasPago,
   cuentas,
   operaciones,
+  esAdmin,
   onCrear,
   onCambiarActivo,
 }: {
   formasPago: FormaPago[];
   cuentas: CuentaOpcion[];
   operaciones: OperacionOpcion[];
-  onCrear: (nombre: string, cuentaId: string, operacionesElegidas: string[]) => void;
+  esAdmin: boolean;
+  onCrear: (
+    nombre: string,
+    cuenta: { id: string } | { nueva: true; nombre: string; tipoSaldo: 'ACTIVO' | 'PASIVO' },
+    operacionesElegidas: string[]
+  ) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
 }) {
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [cuentaElegida, setCuentaElegida] = useState('');
+  const [nombreCuentaNueva, setNombreCuentaNueva] = useState('');
+  const [tipoCuentaNueva, setTipoCuentaNueva] = useState<'ACTIVO' | 'PASIVO'>('ACTIVO');
   const [operacionesElegidas, setOperacionesElegidas] = useState<string[]>([]);
 
   const operacionesDisponibles = operaciones
     .map((o) => o.nombre)
     .filter((nombre) => OPERACIONES_FORMA_PAGO.includes(nombre));
+
+  const esCuentaNueva = cuentaElegida === OPCION_CUENTA_NUEVA;
 
   function alternarOperacion(nombre: string) {
     setOperacionesElegidas((actual) =>
@@ -798,8 +823,8 @@ function BloqueFormasDePago({
   }
 
   return (
-    <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente y a las operaciones donde se puede usar.">
-      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} />
+    <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.">
+      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} soloLectura={!esAdmin} />
 
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -821,8 +846,29 @@ function BloqueFormasDePago({
                 {cuenta.codigo} — {cuenta.nombre}
               </option>
             ))}
+            <option value={OPCION_CUENTA_NUEVA}>➕ La cuenta no existe — crear una nueva</option>
           </select>
         </div>
+
+        {esCuentaNueva && (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
+            <input
+              style={{ ...inputFormulario, flex: '1 1 220px' }}
+              placeholder="Nombre de la cuenta nueva (ej. Billetera Mercado Pago)"
+              value={nombreCuentaNueva}
+              onChange={(e) => setNombreCuentaNueva(e.target.value)}
+            />
+
+            <select
+              style={{ ...inputFormulario, flex: '0 1 180px' }}
+              value={tipoCuentaNueva}
+              onChange={(e) => setTipoCuentaNueva(e.target.value as 'ACTIVO' | 'PASIVO')}
+            >
+              <option value="ACTIVO">Activo (tengo esa plata)</option>
+              <option value="PASIVO">Pasivo (debo esa plata)</option>
+            </select>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {operacionesDisponibles.map((nombre) => (
@@ -843,9 +889,19 @@ function BloqueFormasDePago({
             style={botonGuardar}
             onClick={() => {
               if (!nombreNuevo.trim() || !cuentaElegida) return;
-              onCrear(nombreNuevo, cuentaElegida, operacionesElegidas);
+              if (esCuentaNueva && !nombreCuentaNueva.trim()) return;
+
+              onCrear(
+                nombreNuevo,
+                esCuentaNueva
+                  ? { nueva: true, nombre: nombreCuentaNueva, tipoSaldo: tipoCuentaNueva }
+                  : { id: cuentaElegida },
+                operacionesElegidas
+              );
+
               setNombreNuevo('');
               setCuentaElegida('');
+              setNombreCuentaNueva('');
               setOperacionesElegidas([]);
             }}
           >
@@ -878,9 +934,11 @@ function SeccionCategoria({
 function ListaConToggle<T extends { id: string; codigo: string; nombre: string; activo: boolean }>({
   items,
   onCambiarActivo,
+  soloLectura = false,
 }: {
   items: T[];
   onCambiarActivo: (id: string, activo: boolean) => void;
+  soloLectura?: boolean;
 }) {
   if (items.length === 0) {
     return <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>Todavía no hay ninguna cargada.</p>;
@@ -908,14 +966,20 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
             </span>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
-            {item.activo ? 'Activa' : 'Inactiva'}
-            <input
-              type="checkbox"
-              checked={item.activo}
-              onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
-            />
-          </label>
+          {soloLectura ? (
+            <span style={{ fontSize: 11.5, color: COLORES.gris, fontWeight: 700 }}>
+              {item.activo ? 'Activa' : 'Inactiva'}
+            </span>
+          ) : (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
+              {item.activo ? 'Activa' : 'Inactiva'}
+              <input
+                type="checkbox"
+                checked={item.activo}
+                onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
+              />
+            </label>
+          )}
         </div>
       ))}
     </div>
@@ -998,7 +1062,7 @@ function armarArbol(cuentas: CuentaPlan[]): NodoCuenta[] {
   return raices;
 }
 
-function PlanDeCuentasTab({ empresaId }: { empresaId: string }) {
+function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -1085,6 +1149,12 @@ function PlanDeCuentasTab({ empresaId }: { empresaId: string }) {
         </label>
       </div>
 
+      {!esAdmin && (
+        <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
+          Solo un administrador de plataforma puede renombrar o desactivar cuentas acá.
+        </p>
+      )}
+
       <div style={{ border: '1px solid #eef2f6', borderRadius: 14, overflow: 'hidden' }}>
         {arbol.map((nodo) => (
           <NodoPlanDeCuentas
@@ -1092,6 +1162,7 @@ function PlanDeCuentasTab({ empresaId }: { empresaId: string }) {
             nodo={nodo}
             nivel={0}
             mostrarInactivas={mostrarInactivas}
+            esAdmin={esAdmin}
             onRenombrar={renombrar}
             onCambiarActivo={cambiarActivo}
           />
@@ -1105,12 +1176,14 @@ function NodoPlanDeCuentas({
   nodo,
   nivel,
   mostrarInactivas,
+  esAdmin,
   onRenombrar,
   onCambiarActivo,
 }: {
   nodo: NodoCuenta;
   nivel: number;
   mostrarInactivas: boolean;
+  esAdmin: boolean;
   onRenombrar: (id: string, nombreNuevo: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
 }) {
@@ -1138,7 +1211,7 @@ function NodoPlanDeCuentas({
       >
         <span style={{ fontSize: 11, color: COLORES.gris, minWidth: 78 }}>{nodo.codigo}</span>
 
-        {tieneHijos ? (
+        {tieneHijos || !esAdmin ? (
           <span style={{ fontSize: 13, fontWeight: nivel === 0 ? 800 : 700, color: COLORES.azul, flex: 1 }}>
             {nodo.nombre}
           </span>
@@ -1158,14 +1231,18 @@ function NodoPlanDeCuentas({
         )}
 
         {!tieneHijos && !esContenedor && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
-            {nodo.activo ? 'Activa' : 'Inactiva'}
-            <input
-              type="checkbox"
-              checked={nodo.activo}
-              onChange={(e) => onCambiarActivo(nodo.id, e.target.checked)}
-            />
-          </label>
+          esAdmin ? (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
+              {nodo.activo ? 'Activa' : 'Inactiva'}
+              <input
+                type="checkbox"
+                checked={nodo.activo}
+                onChange={(e) => onCambiarActivo(nodo.id, e.target.checked)}
+              />
+            </label>
+          ) : (
+            <span style={{ fontSize: 11, color: COLORES.gris }}>{nodo.activo ? 'Activa' : 'Inactiva'}</span>
+          )
         )}
       </div>
 
@@ -1175,6 +1252,7 @@ function NodoPlanDeCuentas({
           nodo={hijo}
           nivel={nivel + 1}
           mostrarInactivas={mostrarInactivas}
+          esAdmin={esAdmin}
           onRenombrar={onRenombrar}
           onCambiarActivo={onCambiarActivo}
         />
