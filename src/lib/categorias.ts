@@ -267,7 +267,13 @@ export async function crearCategoriaProducto(empresaId: string, nombre: string) 
     throw errorPlantillas;
   }
 
-  if (plantillas && plantillas.length > 0) {
+  if (!plantillas || plantillas.length === 0) {
+    throw new Error(
+      `La categoría "${nombreLimpio}" se creó junto con sus cuentas, pero le faltan las reglas contables — el perfil de esta empresa no tiene plantillas de Compra/Venta/Pérdida. Avisale al administrador de plataforma.`
+    );
+  }
+
+  {
     const { error: errorReglas } = await supabase.from('reglas_contables').insert(
       plantillas.map((p) => ({
         empresa_id: empresaId,
@@ -369,7 +375,13 @@ export async function crearCategoriaGasto(empresaId: string, nombre: string) {
     throw errorPlantilla;
   }
 
-  if (plantilla) {
+  if (!plantilla) {
+    throw new Error(
+      `La categoría "${nombreLimpio}" se creó junto con su cuenta, pero le falta la regla contable — el perfil de esta empresa no tiene una plantilla de Pago. Avisale al administrador de plataforma.`
+    );
+  }
+
+  {
     const { error: errorRegla } = await supabase.from('reglas_contables').insert({
       empresa_id: empresaId,
       operacion: 'PAGO',
@@ -468,7 +480,13 @@ export async function crearCategoriaIngreso(
     throw errorPlantilla;
   }
 
-  if (plantilla) {
+  if (!plantilla) {
+    throw new Error(
+      `La categoría "${nombreLimpio}" se creó junto con su cuenta, pero le falta la regla contable — el perfil de esta empresa no tiene una plantilla de ${operacion === 'COBRO' ? 'ingreso' : 'venta de servicio'}. Avisale al administrador de plataforma.`
+    );
+  }
+
+  {
     const { error: errorRegla } = await supabase.from('reglas_contables').insert({
       empresa_id: empresaId,
       operacion,
