@@ -217,6 +217,18 @@ function CentralDeLanzamientosTab({
     ['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) ||
     (operacion === 'INVERSION' && formaPago === 'Mercadería');
 
+  // Pago, Inversión y Extracción no tienen "cantidad" ni un
+  // histórico separado que aporte algo — confunden más de lo que
+  // ayudan. Se simplifica a: categoría + monto + a quién.
+  const formularioSimple = ['PAGO', 'INVERSION', 'EXTRACCION'].includes(operacion);
+
+  useEffect(() => {
+    if (formularioSimple) {
+      setLineas((prev) => (prev.some((l) => l.cantidad !== 1) ? prev.map((l) => ({ ...l, cantidad: 1 })) : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formularioSimple]);
+
   const etiquetaRelacion = ['INVERSION', 'PERDIDA'].includes(operacion)
     ? 'Socia'
     : operacion === 'COMPRA' || operacion === 'PAGO'
@@ -446,7 +458,7 @@ function CentralDeLanzamientosTab({
       operacion &&
       categoria &&
       formaPago &&
-      historico.trim() &&
+      (formularioSimple || historico.trim()) &&
       clienteProveedor.trim() &&
       lineasCompletas &&
       !stockInsuficiente
@@ -464,7 +476,9 @@ function CentralDeLanzamientosTab({
         operacion: operacion.trim(),
         categoria: categoria.trim(),
         formaPago: formaPago.trim(),
-        historico: historico.trim(),
+        historico: formularioSimple
+          ? historico.trim() || lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
+          : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
         lineas: lineas.map((linea) => ({
           producto: linea.producto.trim(),
@@ -603,14 +617,16 @@ function CentralDeLanzamientosTab({
         </Campo>
       </div>
 
-      <Campo label="Histórico">
-        <input
-          type="text"
-          value={historico}
-          onChange={(e) => setHistorico(e.target.value)}
-          style={campoInput}
-        />
-      </Campo>
+      {!formularioSimple && (
+        <Campo label="Histórico">
+          <input
+            type="text"
+            value={historico}
+            onChange={(e) => setHistorico(e.target.value)}
+            style={campoInput}
+          />
+        </Campo>
+      )}
 
       <Campo label={etiquetaRelacion}>
         <select
@@ -668,13 +684,15 @@ function CentralDeLanzamientosTab({
                 />
               )}
 
-              <input
-                type="number"
-                placeholder="Cant."
-                value={linea.cantidad || ''}
-                onChange={(e) => actualizarLinea(i, 'cantidad', e.target.value)}
-                style={{ ...campoInput, flex: 1 }}
-              />
+              {!formularioSimple && (
+                <input
+                  type="number"
+                  placeholder="Cant."
+                  value={linea.cantidad || ''}
+                  onChange={(e) => actualizarLinea(i, 'cantidad', e.target.value)}
+                  style={{ ...campoInput, flex: 1 }}
+                />
+              )}
 
               <input
                 type="number"
