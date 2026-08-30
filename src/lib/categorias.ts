@@ -99,6 +99,29 @@ async function siguienteCodigoDeCuenta(empresaId: string, prefijoPadreId: string
   return [...partesPadre.slice(0, -1), String(siguiente)].join('.');
 }
 
+// Busca si ya existe una cuenta con ese nombre y tipo en el Plan de
+// Cuentas de la empresa, SIN importar en qué encabezado esté (los
+// gastos que trae el perfil maestro a veces quedan repartidos entre
+// varios sub-grupos: Comerciales, Generales, Financieras, etc.).
+// Evita crear duplicados cuando el usuario escribe el nombre de una
+// cuenta que el plan ya trae de fábrica.
+async function buscarCuentaExistentePorNombre(empresaId: string, nombre: string, tipoSaldo: string) {
+  const { data, error } = await supabase
+    .from('plan_cuentas')
+    .select('id')
+    .eq('empresa_id', empresaId)
+    .eq('tipo_saldo', tipoSaldo)
+    .ilike('nombre', nombre.trim())
+    .eq('activo', true)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id as string | undefined;
+}
+
 async function crearCuentaHija(
   empresaId: string,
   padreId: string,
@@ -291,8 +314,19 @@ export async function crearCategoriaGasto(empresaId: string, nombre: string) {
 
   const codigo = generarCodigo(nombreLimpio, (existentes ?? []).map((c) => c.codigo));
 
-  const contenedorGasto = await buscarCuentaContenedora(empresaId, 'CONTENEDOR_GASTO');
-  const cuentaGastoId = await crearCuentaHija(empresaId, contenedorGasto, nombreLimpio, 'DEUDORA', 'GASTO');
+  // Si el plan de cuentas ya trae una cuenta de gasto con ese nombre
+  // (por ejemplo "Alquiler", cargada por el perfil), la reutilizamos
+  // en vez de crear una cuenta duplicada.
+  const cuentaExistente = await buscarCuentaExistentePorNombre(empresaId, nombreLimpio, 'GASTO');
+  const cuentaGastoId =
+    cuentaExistente ??
+    (await crearCuentaHija(
+      empresaId,
+      await buscarCuentaContenedora(empresaId, 'CONTENEDOR_GASTO'),
+      nombreLimpio,
+      'DEUDORA',
+      'GASTO'
+    ));
 
   const { data: categoriaCreada, error: errorCategoria } = await supabase
     .from('categorias_operacion')
@@ -464,6 +498,27 @@ export async function crearCategoriaIngreso(
 // las que ya existen en su Plano de Contas (normalmente una cuenta
 // de Activo: un banco, una billetera virtual nueva, etc.).
 // =====================================================
+
+// Crea una cuenta nueva para una forma de pago que todavía no tiene
+// dónde imputarse (ej. "Mercado Pago" cuando no existe una cuenta de
+// billetera virtual separada de "Banco"). Se cuelga de la cuenta
+// contenedora CONTENEDOR_MEDIO_PAGO (Activo Corriente).
+export async function crearCuentaParaMedioPago(
+  empresaId: string,
+  nombre: string,
+  tipoSaldo: 'ACTIVO' | 'PASIVO'
+) {
+  const nombreLimpio = nombre.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre de la cuenta no puede estar vacío.');
+  }
+
+  const contenedor = await buscarCuentaContenedora(empresaId, 'CONTENEDOR_MEDIO_PAGO');
+  const naturaleza = tipoSaldo === 'ACTIVO' ? 'DEUDORA' : 'ACREEDORA';
+
+  return crearCuentaHija(empresaId, contenedor, nombreLimpio, naturaleza, tipoSaldo);
+}
 
 export async function crearFormaPago(
   empresaId: string,
