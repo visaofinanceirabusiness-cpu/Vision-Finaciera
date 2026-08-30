@@ -17,6 +17,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
+import {
+  crearCategoriaProducto,
+  crearCategoriaGasto,
+  crearFormaPago,
+  cambiarActivoCategoriaProducto,
+  cambiarActivoCategoriaGasto,
+  cambiarActivoFormaPago,
+} from '@/lib/categorias';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -151,7 +160,7 @@ export default function ConfiguracoesPage() {
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
-          {pestana === 'categorias' && <ProximamenteTab titulo="Categorías y Formas de Pago" />}
+          {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} />}
           {pestana === 'plan' && <ProximamenteTab titulo="Plan de Cuentas" />}
           {pestana === 'inicializacion' && <ProximamenteTab titulo="Inicialización del Sistema" />}
         </main>
@@ -219,6 +228,13 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
   }
 
   async function subirLogo(archivo: File) {
+    const TAMANO_MAXIMO = 3 * 1024 * 1024; // 3 MB
+
+    if (archivo.size > TAMANO_MAXIMO) {
+      setError('El logo pesa demasiado — subí una imagen de hasta 3 MB.');
+      return;
+    }
+
     setSubiendoLogo(true);
     setError('');
     setMensaje('');
@@ -264,6 +280,8 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     setError('');
     setMensaje('');
 
+    const asignandoPerfilPorPrimeraVez = Boolean(empresa.perfil_empresa_id) && !tieneEsqueleto;
+
     const { error: errorGuardar } = await supabase
       .from('empresas')
       .update({
@@ -280,6 +298,21 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       })
       .eq('id', empresaId);
 
+    if (!errorGuardar && asignandoPerfilPorPrimeraVez && empresa.perfil_empresa_id) {
+      try {
+        await inicializarEmpresaDesdePerfil(empresaId, empresa.perfil_empresa_id, empresa.idioma);
+        setTieneEsqueleto(true);
+      } catch (errorInit) {
+        setGuardando(false);
+        setError(
+          errorInit instanceof Error
+            ? `Se guardó el perfil pero falló la inicialización: ${errorInit.message}`
+            : 'Se guardó el perfil pero falló la inicialización del Plano de Contas.'
+        );
+        return;
+      }
+    }
+
     setGuardando(false);
 
     if (errorGuardar) {
@@ -287,7 +320,11 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       return;
     }
 
-    setMensaje('Datos guardados correctamente.');
+    setMensaje(
+      asignandoPerfilPorPrimeraVez
+        ? 'Datos guardados y Plano de Contas inicializado — ya podés cargar categorías en la pestaña siguiente.'
+        : 'Datos guardados correctamente.'
+    );
   }
 
   if (cargando) {
@@ -465,7 +502,371 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
 }
 
 /* ==========================================================
-   PESTAÑAS PENDIENTES (2, 3 y 4 — se construyen en los
+   PESTAÑA 2 — CATEGORIAS E FORMAS DE PAGAMENTO
+========================================================== */
+
+type CategoriaProducto = { id: string; codigo: string; nombre: string; activo: boolean };
+type CategoriaGasto = { id: string; codigo: string; nombre: string; activo: boolean };
+type FormaPago = { id: string; codigo: string; nombre: string; activo: boolean };
+type CuentaOpcion = { id: string; codigo: string; nombre: string };
+type OperacionOpcion = { id: string; nombre: string };
+
+const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION'];
+
+function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
+  const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
+  const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
+  const [operaciones, setOperaciones] = useState<OperacionOpcion[]>([]);
+  const [tieneEsqueleto, setTieneEsqueleto] = useState(true);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  async function recargar() {
+    const [
+      { data: cp },
+      { data: cg },
+      { data: fp },
+      { data: pc },
+      { data: op },
+    ] = await Promise.all([
+      supabase.from('categorias_productos').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
+      supabase.from('categorias_operacion').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).eq('operacion', 'PAGO').order('nombre'),
+      supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
+      supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
+      supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
+    ]);
+
+    setCategoriasProducto(cp ?? []);
+    setCategoriasGasto(cg ?? []);
+    setFormasPago(fp ?? []);
+    setCuentas(pc ?? []);
+    setOperaciones(op ?? []);
+    setTieneEsqueleto((pc ?? []).length > 0);
+    setCargando(false);
+  }
+
+  useEffect(() => {
+    recargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
+  async function manejarAccion(accion: () => Promise<unknown>, mensajeExito: string) {
+    setError('');
+    setMensaje('');
+
+    try {
+      await accion();
+      setMensaje(mensajeExito);
+      await recargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+    }
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>Cargando categorías...</div>;
+  }
+
+  if (!tieneEsqueleto) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>
+          Todavía no hay un Plano de Contas cargado
+        </div>
+        <p style={{ marginTop: 6, fontSize: 13 }}>
+          Asigná un perfil de empresa en la pestaña &quot;Datos de la Empresa&quot; para poder crear categorías acá.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {error && <div style={errorStyle}>{error}</div>}
+      {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      <BloqueCategoriaProducto
+        categorias={categoriasProducto}
+        onCrear={(nombre) =>
+          manejarAccion(() => crearCategoriaProducto(empresaId, nombre), `Categoría "${nombre}" creada con sus cuentas.`)
+        }
+        onCambiarActivo={(id, activo) =>
+          manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), 'Categoría actualizada.')
+        }
+      />
+
+      <BloqueCategoriaGasto
+        categorias={categoriasGasto}
+        onCrear={(nombre) =>
+          manejarAccion(() => crearCategoriaGasto(empresaId, nombre), `Categoría de gasto "${nombre}" creada.`)
+        }
+        onCambiarActivo={(id, activo) =>
+          manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), 'Categoría actualizada.')
+        }
+      />
+
+      <BloqueFormasDePago
+        formasPago={formasPago}
+        cuentas={cuentas}
+        operaciones={operaciones}
+        onCrear={(nombre, cuentaId, operacionesElegidas) =>
+          manejarAccion(
+            () => crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas),
+            `Forma de pago "${nombre}" creada.`
+          )
+        }
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), 'Forma de pago actualizada.')}
+      />
+    </div>
+  );
+}
+
+function BloqueCategoriaProducto({
+  categorias,
+  onCrear,
+  onCambiarActivo,
+}: {
+  categorias: CategoriaProducto[];
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo="🛍️ Categorías de Producto" subtitulo="Habilitan Compra, Venta y Pérdida. Cada una genera su cuenta de Stock, Venta y Costo automáticamente.">
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+
+      <FormularioNuevo
+        placeholder="Nombre de la categoría (ej. Perfumería)"
+        valor={nombreNuevo}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+function BloqueCategoriaGasto({
+  categorias,
+  onCrear,
+  onCambiarActivo,
+}: {
+  categorias: CategoriaGasto[];
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago. Cada una genera su propia cuenta de gasto.">
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+
+      <FormularioNuevo
+        placeholder="Nombre del gasto (ej. Alquiler del local)"
+        valor={nombreNuevo}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+function BloqueFormasDePago({
+  formasPago,
+  cuentas,
+  operaciones,
+  onCrear,
+  onCambiarActivo,
+}: {
+  formasPago: FormaPago[];
+  cuentas: CuentaOpcion[];
+  operaciones: OperacionOpcion[];
+  onCrear: (nombre: string, cuentaId: string, operacionesElegidas: string[]) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  const [nombreNuevo, setNombreNuevo] = useState('');
+  const [cuentaElegida, setCuentaElegida] = useState('');
+  const [operacionesElegidas, setOperacionesElegidas] = useState<string[]>([]);
+
+  const operacionesDisponibles = operaciones
+    .map((o) => o.nombre)
+    .filter((nombre) => OPERACIONES_FORMA_PAGO.includes(nombre));
+
+  function alternarOperacion(nombre: string) {
+    setOperacionesElegidas((actual) =>
+      actual.includes(nombre) ? actual.filter((n) => n !== nombre) : [...actual, nombre]
+    );
+  }
+
+  return (
+    <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente y a las operaciones donde se puede usar.">
+      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} />
+
+      <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            style={{ ...inputFormulario, flex: '1 1 220px' }}
+            placeholder="Nombre (ej. Mercado Pago)"
+            value={nombreNuevo}
+            onChange={(e) => setNombreNuevo(e.target.value)}
+          />
+
+          <select
+            style={{ ...inputFormulario, flex: '1 1 220px' }}
+            value={cuentaElegida}
+            onChange={(e) => setCuentaElegida(e.target.value)}
+          >
+            <option value="">Cuenta contable...</option>
+            {cuentas.map((cuenta) => (
+              <option key={cuenta.id} value={cuenta.id}>
+                {cuenta.codigo} — {cuenta.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          {operacionesDisponibles.map((nombre) => (
+            <label key={nombre} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.azul, fontWeight: 700 }}>
+              <input
+                type="checkbox"
+                checked={operacionesElegidas.includes(nombre)}
+                onChange={() => alternarOperacion(nombre)}
+              />
+              {nombre}
+            </label>
+          ))}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            style={botonGuardar}
+            onClick={() => {
+              if (!nombreNuevo.trim() || !cuentaElegida) return;
+              onCrear(nombreNuevo, cuentaElegida, operacionesElegidas);
+              setNombreNuevo('');
+              setCuentaElegida('');
+              setOperacionesElegidas([]);
+            }}
+          >
+            + Agregar forma de pago
+          </button>
+        </div>
+      </div>
+    </SeccionCategoria>
+  );
+}
+
+function SeccionCategoria({
+  titulo,
+  subtitulo,
+  children,
+}: {
+  titulo: string;
+  subtitulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 30, paddingBottom: 24, borderBottom: '1px solid #eef2f6' }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: COLORES.azul }}>{titulo}</div>
+      <p style={{ margin: '4px 0 14px', fontSize: 12.5, color: COLORES.gris }}>{subtitulo}</p>
+      {children}
+    </div>
+  );
+}
+
+function ListaConToggle<T extends { id: string; codigo: string; nombre: string; activo: boolean }>({
+  items,
+  onCambiarActivo,
+}: {
+  items: T[];
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  if (items.length === 0) {
+    return <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>Todavía no hay ninguna cargada.</p>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '9px 12px',
+            borderRadius: 10,
+            background: item.activo ? '#f8fafc' : '#f3f4f6',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div>
+            <span style={{ fontSize: 11, color: COLORES.gris, marginRight: 8 }}>{item.codigo}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: item.activo ? COLORES.azul : COLORES.gris }}>
+              {item.nombre}
+            </span>
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
+            {item.activo ? 'Activa' : 'Inactiva'}
+            <input
+              type="checkbox"
+              checked={item.activo}
+              onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
+            />
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FormularioNuevo({
+  placeholder,
+  valor,
+  onCambiar,
+  onAgregar,
+}: {
+  placeholder: string;
+  valor: string;
+  onCambiar: (valor: string) => void;
+  onAgregar: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 10 }}>
+      <input
+        style={{ ...inputFormulario, flex: 1 }}
+        placeholder={placeholder}
+        value={valor}
+        onChange={(e) => onCambiar(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onAgregar();
+        }}
+      />
+
+      <button type="button" style={botonGuardar} onClick={onAgregar}>
+        + Agregar
+      </button>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑAS PENDIENTES (3 y 4 — se construyen en los
    próximos pasos)
 ========================================================== */
 
