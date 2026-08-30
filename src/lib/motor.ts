@@ -412,6 +412,8 @@ async function limpiarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
+  const errores: string[] = [];
+
   const { error: errorAutomaticos } =
     await supabase
       .from('registros_automaticos')
@@ -424,6 +426,7 @@ async function limpiarOperacion(
       'Error limpiando registros automáticos:',
       errorAutomaticos
     );
+    errores.push(`registros automáticos (${errorAutomaticos.message})`);
   }
 
   const { error: errorStock } =
@@ -438,6 +441,7 @@ async function limpiarOperacion(
       'Error limpiando movimientos de stock:',
       errorStock
     );
+    errores.push(`movimientos de stock (${errorStock.message})`);
   }
 
   const { error: errorRegistro } =
@@ -452,7 +456,10 @@ async function limpiarOperacion(
       'Error limpiando registro de operación:',
       errorRegistro
     );
+    errores.push(`registro de operación (${errorRegistro.message})`);
   }
+
+  return errores;
 }
 
 // =====================================================
@@ -982,10 +989,16 @@ export async function eliminarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
-  await limpiarOperacion(
+  const errores = await limpiarOperacion(
     empresaId,
     idOperacion
   );
+
+  if (errores.length > 0) {
+    throw new Error(
+      `La operación ${idOperacion} se borró solo en parte — quedó pendiente: ${errores.join(', ')}. Revisalo con un administrador.`
+    );
+  }
 }
 
 // =====================================================
@@ -1020,7 +1033,13 @@ export async function editarOperacion(
     );
   }
 
-  await limpiarOperacion(empresaId, idOperacion);
+  const erroresLimpieza = await limpiarOperacion(empresaId, idOperacion);
+
+  if (erroresLimpieza.length > 0) {
+    throw new Error(
+      `No se pudo borrar por completo la versión anterior de ${idOperacion} (quedó pendiente: ${erroresLimpieza.join(', ')}) — se canceló la edición para no dejar datos duplicados. Revisalo con un administrador.`
+    );
+  }
 
   try {
     return await registrarOperacion(empresaId, formulario, idOperacion);
