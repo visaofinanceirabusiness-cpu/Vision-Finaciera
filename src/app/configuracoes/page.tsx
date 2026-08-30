@@ -22,9 +22,11 @@ import { generarMatrizOperaciones } from '@/lib/motor';
 import {
   crearCategoriaProducto,
   crearCategoriaGasto,
+  crearCategoriaIngreso,
   crearFormaPago,
   cambiarActivoCategoriaProducto,
   cambiarActivoCategoriaGasto,
+  cambiarActivoCategoriaIngreso,
   cambiarActivoFormaPago,
 } from '@/lib/categorias';
 
@@ -512,15 +514,18 @@ type FormaPago = { id: string; codigo: string; nombre: string; activo: boolean }
 type CuentaOpcion = { id: string; codigo: string; nombre: string };
 type OperacionOpcion = { id: string; nombre: string };
 
-const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION'];
+const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO'];
 
 function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
   const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
+  const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
   const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
   const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
   const [operaciones, setOperaciones] = useState<OperacionOpcion[]>([]);
   const [tieneEsqueleto, setTieneEsqueleto] = useState(true);
+  const [permiteProducto, setPermiteProducto] = useState(false);
+  const [operacionServicio, setOperacionServicio] = useState<'VENTA' | 'COBRO' | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -532,13 +537,19 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
       { data: fp },
       { data: pc },
       { data: op },
+      { data: plantillas },
     ] = await Promise.all([
       supabase.from('categorias_productos').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('categorias_operacion').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).eq('operacion', 'PAGO').order('nombre'),
       supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
       supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
+      supabase.from('reglas_contables').select('operacion, motor').eq('empresa_id', empresaId).is('categoria_codigo', null),
     ]);
+
+    const operacionServicioDetectada = (plantillas ?? []).find(
+      (p) => p.motor === 'SERVICIOS' || p.motor === 'INGRESOS'
+    );
 
     setCategoriasProducto(cp ?? []);
     setCategoriasGasto(cg ?? []);
@@ -546,6 +557,22 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
     setCuentas(pc ?? []);
     setOperaciones(op ?? []);
     setTieneEsqueleto((pc ?? []).length > 0);
+    setPermiteProducto((plantillas ?? []).some((p) => p.motor === 'COMPRAS'));
+    setOperacionServicio(operacionServicioDetectada ? (operacionServicioDetectada.operacion as 'VENTA' | 'COBRO') : null);
+
+    if (operacionServicioDetectada) {
+      const { data: cs } = await supabase
+        .from('categorias_operacion')
+        .select('id, codigo, nombre, activo')
+        .eq('empresa_id', empresaId)
+        .eq('operacion', operacionServicioDetectada.operacion)
+        .order('nombre');
+
+      setCategoriasServicio(cs ?? []);
+    } else {
+      setCategoriasServicio([]);
+    }
+
     setCargando(false);
   }
 
@@ -590,15 +617,38 @@ function CategoriasYFormasDePagoTab({ empresaId }: { empresaId: string }) {
       {error && <div style={errorStyle}>{error}</div>}
       {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
 
-      <BloqueCategoriaProducto
-        categorias={categoriasProducto}
-        onCrear={(nombre) =>
-          manejarAccion(() => crearCategoriaProducto(empresaId, nombre), `Categoría "${nombre}" creada con sus cuentas.`)
-        }
-        onCambiarActivo={(id, activo) =>
-          manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), 'Categoría actualizada.')
-        }
-      />
+      {permiteProducto && (
+        <BloqueCategoriaProducto
+          categorias={categoriasProducto}
+          onCrear={(nombre) =>
+            manejarAccion(() => crearCategoriaProducto(empresaId, nombre), `Categoría "${nombre}" creada con sus cuentas.`)
+          }
+          onCambiarActivo={(id, activo) =>
+            manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), 'Categoría actualizada.')
+          }
+        />
+      )}
+
+      {operacionServicio && (
+        <BloqueCategoriaServicio
+          titulo={operacionServicio === 'COBRO' ? '💰 Categorías de Ingreso' : '🧑‍💼 Categorías de Servicio'}
+          subtitulo={
+            operacionServicio === 'COBRO'
+              ? 'Habilitan la operación Cobro (sueldo, otros ingresos). Cada una genera su propia cuenta de ingreso.'
+              : 'Habilitan la venta de un servicio (sin stock). Cada una genera su propia cuenta de ingreso.'
+          }
+          categorias={categoriasServicio}
+          onCrear={(nombre) =>
+            manejarAccion(
+              () => crearCategoriaIngreso(empresaId, nombre, operacionServicio),
+              `Categoría "${nombre}" creada.`
+            )
+          }
+          onCambiarActivo={(id, activo) =>
+            manejarAccion(() => cambiarActivoCategoriaIngreso(id, activo), 'Categoría actualizada.')
+          }
+        />
+      )}
 
       <BloqueCategoriaGasto
         categorias={categoriasGasto}
@@ -643,6 +693,39 @@ function BloqueCategoriaProducto({
 
       <FormularioNuevo
         placeholder="Nombre de la categoría (ej. Perfumería)"
+        valor={nombreNuevo}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+function BloqueCategoriaServicio({
+  titulo,
+  subtitulo,
+  categorias,
+  onCrear,
+  onCambiarActivo,
+}: {
+  titulo: string;
+  subtitulo: string;
+  categorias: CategoriaGasto[];
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+}) {
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} />
+
+      <FormularioNuevo
+        placeholder="Nombre (ej. Sueldo, Consultoría)"
         valor={nombreNuevo}
         onCambiar={setNombreNuevo}
         onAgregar={() => {
