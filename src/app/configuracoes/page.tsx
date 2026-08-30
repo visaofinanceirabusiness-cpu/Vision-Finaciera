@@ -33,6 +33,7 @@ import {
   eliminarCategoriaOperacion,
   eliminarFormaPago,
   eliminarCuentaPlan,
+  renombrarCuentaPlan,
 } from '@/lib/categorias';
 
 const COLORES = {
@@ -1218,14 +1219,14 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
     const nombreLimpio = nombreNuevo.trim();
     if (!nombreLimpio) return;
 
-    const { error: errorUpdate } = await supabase.from('plan_cuentas').update({ nombre: nombreLimpio }).eq('id', id);
-
-    if (errorUpdate) {
-      setError('No se pudo renombrar la cuenta.');
+    try {
+      await renombrarCuentaPlan(empresaId, id, nombreLimpio);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo renombrar la cuenta.');
       return;
     }
 
-    setMensaje('Cuenta renombrada.');
+    setMensaje('Cuenta renombrada — se actualizó en todas las operaciones que ya la usaban.');
     await recargar();
   }
 
