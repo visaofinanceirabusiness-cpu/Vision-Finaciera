@@ -114,9 +114,9 @@ export default function ConfiguracoesPage() {
             ← Volver a Mi Negocio
           </Link>
 
-          <div style={eyebrow}>CONFIGURAÇÕES</div>
+          <div style={eyebrow}>CONFIGURACIÓN</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Deixe sua empresa pronta</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>Dejá tu empresa lista</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
             Configurá → Generá → Tu sistema queda listo para operar.
@@ -134,26 +134,26 @@ export default function ConfiguracoesPage() {
             }}
           >
             <button type="button" onClick={() => setPestana('empresa')} style={tabStyle(pestana === 'empresa')}>
-              🏢 Dados da Empresa
+              🏢 Datos de la Empresa
             </button>
 
             <button type="button" onClick={() => setPestana('categorias')} style={tabStyle(pestana === 'categorias')}>
-              🗂️ Categorias e Formas de Pagamento
+              🗂️ Categorías y Formas de Pago
             </button>
 
             <button type="button" onClick={() => setPestana('plan')} style={tabStyle(pestana === 'plan')}>
-              📒 Plano de Contas
+              📒 Plan de Cuentas
             </button>
 
             <button type="button" onClick={() => setPestana('inicializacion')} style={tabStyle(pestana === 'inicializacion')}>
-              🚀 Inicialização do Sistema
+              🚀 Inicialización del Sistema
             </button>
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
-          {pestana === 'categorias' && <ProximamenteTab titulo="Categorias e Formas de Pagamento" />}
-          {pestana === 'plan' && <ProximamenteTab titulo="Plano de Contas" />}
-          {pestana === 'inicializacion' && <ProximamenteTab titulo="Inicialização do Sistema" />}
+          {pestana === 'categorias' && <ProximamenteTab titulo="Categorías y Formas de Pago" />}
+          {pestana === 'plan' && <ProximamenteTab titulo="Plan de Cuentas" />}
+          {pestana === 'inicializacion' && <ProximamenteTab titulo="Inicialización del Sistema" />}
         </main>
       </div>
     </div>
@@ -172,6 +172,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
   const [tieneEsqueleto, setTieneEsqueleto] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -217,6 +218,45 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     setEmpresa((actual) => (actual ? { ...actual, [campo]: valor } : actual));
   }
 
+  async function subirLogo(archivo: File) {
+    setSubiendoLogo(true);
+    setError('');
+    setMensaje('');
+
+    const extension = archivo.name.split('.').pop() || 'png';
+    const ruta = `empresas/${empresaId}.${extension}`;
+
+    const { error: errorSubida } = await supabase.storage
+      .from('Logos')
+      .upload(ruta, archivo, { upsert: true, cacheControl: '3600' });
+
+    if (errorSubida) {
+      setError('No se pudo subir el logo.');
+      setSubiendoLogo(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage.from('Logos').getPublicUrl(ruta);
+    // Le agregamos la fecha como parámetro para que el navegador no
+    // muestre el logo viejo desde caché al reemplazarlo.
+    const urlConVersion = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+    const { error: errorGuardar } = await supabase
+      .from('empresas')
+      .update({ logo_url: urlConVersion })
+      .eq('id', empresaId);
+
+    setSubiendoLogo(false);
+
+    if (errorGuardar) {
+      setError('El logo se subió pero no se pudo guardar en la empresa.');
+      return;
+    }
+
+    actualizarCampo('logo_url', urlConVersion);
+    setMensaje('Logo actualizado — ya se ve en el lobby.');
+  }
+
   async function guardar() {
     if (!empresa) return;
 
@@ -257,8 +297,6 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
   if (!empresa) {
     return <div style={errorStyle}>No se encontró la empresa.</div>;
   }
-
-  const perfilBloqueado = tieneEsqueleto && !esAdmin;
 
   return (
     <div>
@@ -322,12 +360,33 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Logo (URL)</label>
-          <input
-            style={inputFormulario}
-            value={empresa.logo_url ?? ''}
-            onChange={(e) => actualizarCampo('logo_url', e.target.value)}
-          />
+          <label style={label}>Logo</label>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {empresa.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={empresa.logo_url}
+                alt="Logo actual"
+                style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid #d6dee5' }}
+              />
+            )}
+
+            <input
+              type="file"
+              accept="image/*"
+              disabled={subiendoLogo}
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) subirLogo(archivo);
+              }}
+              style={{ fontSize: 12 }}
+            />
+          </div>
+
+          {subiendoLogo && (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>Subiendo logo...</p>
+          )}
         </div>
 
         <div style={campo}>
@@ -362,23 +421,35 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
 
         <div style={campo}>
           <label style={label}>Perfil de empresa</label>
-          <select
-            style={{ ...inputFormulario, opacity: perfilBloqueado ? 0.6 : 1 }}
-            value={empresa.perfil_empresa_id ?? ''}
-            disabled={perfilBloqueado}
-            onChange={(e) => actualizarCampo('perfil_empresa_id', e.target.value || null)}
-          >
-            <option value="">Sin definir</option>
-            {perfiles.map((perfil) => (
-              <option key={perfil.id} value={perfil.id}>
-                {perfil.nombre}
-              </option>
-            ))}
-          </select>
 
-          {perfilBloqueado && (
+          {esAdmin ? (
+            <select
+              style={inputFormulario}
+              value={empresa.perfil_empresa_id ?? ''}
+              onChange={(e) => actualizarCampo('perfil_empresa_id', e.target.value || null)}
+            >
+              <option value="">Sin definir</option>
+              {perfiles.map((perfil) => (
+                <option key={perfil.id} value={perfil.id}>
+                  {perfil.nombre}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div style={{ ...inputFormulario, background: '#f3f4f6', color: COLORES.gris }}>
+              {perfiles.find((p) => p.id === empresa.perfil_empresa_id)?.nombre ?? 'Sin definir'}
+            </div>
+          )}
+
+          {esAdmin && tieneEsqueleto && (
             <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>
-              Ya existe un Plano de Contas cargado — cambiar el perfil queda reservado a un administrador de plataforma.
+              Ya existe un Plan de Cuentas cargado — cambiarlo acá no lo regenera, solo actualiza la etiqueta.
+            </p>
+          )}
+
+          {!esAdmin && (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>
+              El perfil lo define un administrador de la plataforma.
             </p>
           )}
         </div>
