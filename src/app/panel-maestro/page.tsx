@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
+import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -42,14 +43,29 @@ type PendienteMovimiento = {
 
 type Pendiente = PendienteRegistro | PendienteMovimiento;
 
+type SolicitudAlta = {
+  id: string;
+  user_id: string;
+  email: string;
+  nombre: string;
+  nombre_empresa: string;
+  rubro: string | null;
+  perfil_empresa_id: string;
+  componentes_mixto: string[];
+  creado_en: string;
+  perfiles_empresa: { nombre: string; codigo: string } | null;
+};
+
 export default function PanelMaestroPage() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [nivelesPorEmpresa, setNivelesPorEmpresa] = useState<Record<string, ProgresoGamificacion>>({});
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudAlta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [validando, setValidando] = useState<string | null>(null);
+  const [resolviendoSolicitud, setResolviendoSolicitud] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -141,6 +157,21 @@ export default function PanelMaestroPage() {
     );
   }
 
+  async function cargarSolicitudes() {
+    const { data, error: errorSolicitudes } = await supabase
+      .from('solicitudes_alta')
+      .select('id, user_id, email, nombre, nombre_empresa, rubro, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
+      .eq('estado', 'PENDIENTE')
+      .order('creado_en', { ascending: true });
+
+    if (errorSolicitudes) {
+      console.warn('No se pudieron cargar las solicitudes de alta:', errorSolicitudes);
+      return;
+    }
+
+    setSolicitudes((data ?? []) as unknown as SolicitudAlta[]);
+  }
+
   useEffect(() => {
     async function cargar() {
       const { data: userData } = await supabase.auth.getUser();
@@ -164,11 +195,103 @@ export default function PanelMaestroPage() {
 
       await cargarEmpresas();
       await cargarPendientes();
+      await cargarSolicitudes();
       setCargando(false);
     }
 
     cargar();
   }, [router]);
+
+  async function aprobarSolicitud(solicitud: SolicitudAlta) {
+    setError('');
+    setMensaje('');
+    setResolviendoSolicitud(solicitud.id);
+
+    try {
+      const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
+        .from('empresas')
+        .insert({ nombre: solicitud.nombre_empresa, rubro: solicitud.rubro })
+        .select('id, numero_cliente')
+        .single();
+
+      if (errorEmpresa || !nuevaEmpresa) {
+        throw new Error(errorEmpresa?.message ?? 'No se pudo crear la empresa.');
+      }
+
+      const { error: errorPerfilEmpresa } = await supabase
+        .from('empresas')
+        .update({ perfil_empresa_id: solicitud.perfil_empresa_id })
+        .eq('id', nuevaEmpresa.id);
+
+      if (errorPerfilEmpresa) {
+        throw new Error(errorPerfilEmpresa.message);
+      }
+
+      if (solicitud.componentes_mixto.length > 0) {
+        const { error: errorComponentes } = await supabase.from('empresa_mixto_componentes').insert(
+          solicitud.componentes_mixto.map((componente) => ({ empresa_id: nuevaEmpresa.id, componente }))
+        );
+
+        if (errorComponentes) {
+          throw new Error(errorComponentes.message);
+        }
+      }
+
+      await inicializarEmpresaDesdePerfil(nuevaEmpresa.id, solicitud.perfil_empresa_id, 'ES');
+
+      const { error: errorVincular } = await supabase.rpc('vincular_usuario_a_empresa', {
+        p_email: solicitud.email,
+        p_empresa_id: nuevaEmpresa.id,
+        p_rol: 'Cliente',
+        p_nombre: solicitud.nombre,
+      });
+
+      if (errorVincular) {
+        throw new Error(errorVincular.message);
+      }
+
+      const { error: errorCerrarSolicitud } = await supabase
+        .from('solicitudes_alta')
+        .update({ estado: 'APROBADA', empresa_id: nuevaEmpresa.id, resuelto_en: new Date().toISOString() })
+        .eq('id', solicitud.id);
+
+      if (errorCerrarSolicitud) {
+        throw new Error(errorCerrarSolicitud.message);
+      }
+
+      setMensaje(`${solicitud.nombre_empresa} quedó dado de alta como Cliente #${nuevaEmpresa.numero_cliente}, con su plan de cuentas listo.`);
+      await cargarEmpresas();
+      await cargarSolicitudes();
+    } catch (errorAprobar) {
+      setError(
+        `No se pudo aprobar la solicitud de ${solicitud.nombre_empresa}: ${
+          errorAprobar instanceof Error ? errorAprobar.message : 'error desconocido'
+        }`
+      );
+    }
+
+    setResolviendoSolicitud(null);
+  }
+
+  async function rechazarSolicitud(solicitud: SolicitudAlta) {
+    setError('');
+    setMensaje('');
+    setResolviendoSolicitud(solicitud.id);
+
+    const { error: errorRechazar } = await supabase
+      .from('solicitudes_alta')
+      .update({ estado: 'RECHAZADA', resuelto_en: new Date().toISOString() })
+      .eq('id', solicitud.id);
+
+    if (errorRechazar) {
+      setError(`No se pudo rechazar la solicitud: ${errorRechazar.message}`);
+    } else {
+      setMensaje(`Solicitud de ${solicitud.nombre_empresa} rechazada.`);
+      await cargarSolicitudes();
+    }
+
+    setResolviendoSolicitud(null);
+  }
 
   async function validarRegistro(pendiente: PendienteRegistro) {
     setError('');
@@ -350,6 +473,18 @@ export default function PanelMaestroPage() {
         )}
 
         {/* =================================================
+            SOLICITUDES DE ALTA — pedidos de cuenta nueva hechos
+            por el propio cliente desde /crear-cuenta
+        ================================================== */}
+
+        <SolicitudesAlta
+          solicitudes={solicitudes}
+          resolviendo={resolviendoSolicitud}
+          onAprobar={aprobarSolicitud}
+          onRechazar={rechazarSolicitud}
+        />
+
+        {/* =================================================
             ALTA DE CLIENTES — vincular un usuario ya creado
             en Supabase Auth a una empresa (existente o nueva)
         ================================================== */}
@@ -516,6 +651,126 @@ export default function PanelMaestroPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/* ==========================================================
+   SOLICITUDES DE ALTA — pedidos hechos desde /crear-cuenta
+========================================================== */
+
+function SolicitudesAlta({
+  solicitudes,
+  resolviendo,
+  onAprobar,
+  onRechazar,
+}: {
+  solicitudes: SolicitudAlta[];
+  resolviendo: string | null;
+  onAprobar: (s: SolicitudAlta) => void;
+  onRechazar: (s: SolicitudAlta) => void;
+}) {
+  if (solicitudes.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        background: COLORES_BASE.blanco,
+        border: '1px solid #bfdbfe',
+        borderRadius: 20,
+        padding: 22,
+        marginBottom: 24,
+        boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul, marginBottom: 16 }}>
+        📥 Solicitudes de alta nuevas
+        <span
+          style={{
+            background: '#2563eb',
+            color: '#ffffff',
+            borderRadius: 999,
+            padding: '3px 10px',
+            fontSize: 13,
+            fontWeight: 800,
+          }}
+        >
+          {solicitudes.length}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {solicitudes.map((s) => (
+          <div
+            key={s.id}
+            style={{
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ fontSize: 13.5, color: COLORES_BASE.azul, lineHeight: 1.6 }}>
+              <strong>{s.nombre_empresa}</strong>
+              {s.rubro && <span style={{ color: COLORES_BASE.gris }}> · {s.rubro}</span>}
+              <br />
+              <span style={{ color: COLORES_BASE.gris }}>
+                {s.nombre} · {s.email}
+              </span>
+              <br />
+              Perfil elegido: <strong>{s.perfiles_empresa?.nombre ?? '—'}</strong>
+              {s.componentes_mixto.length > 0 && (
+                <span style={{ color: COLORES_BASE.gris }}> ({s.componentes_mixto.join(', ')})</span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                disabled={resolviendo === s.id}
+                onClick={() => onAprobar(s)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: '1px solid #bbf7d0',
+                  background: '#f0fdf4',
+                  color: '#166534',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {resolviendo === s.id ? 'Aprobando...' : 'Aprobar ✓'}
+              </button>
+
+              <button
+                type="button"
+                disabled={resolviendo === s.id}
+                onClick={() => onRechazar(s)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: '1px solid #fecaca',
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Rechazar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
