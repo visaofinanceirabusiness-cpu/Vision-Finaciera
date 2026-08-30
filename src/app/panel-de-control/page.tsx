@@ -1088,8 +1088,14 @@ function ObjetivoCard({
           ? `${valor.toFixed(1)}%`
           : `${valor}`;
 
+  const info = CATALOGO_INDICADORES[objetivo.indicador];
+  const etiquetaMeta = info?.inverso ? 'Tope' : 'Meta';
+
   const resultadoTexto = formatearValor(objetivo.resultado);
-  const objetivoTexto = formatearValor(objetivo.metaResuelta);
+  // Productos Estancados usa un umbral fijo de días, no un valor en
+  // R$ — mostrar el tope como "90 días" es lo que tiene sentido acá,
+  // aunque por dentro se calcule contra un monto.
+  const objetivoTexto = objetivo.indicador === 'STOCK_ESTANCADO' ? '90 días' : formatearValor(objetivo.metaResuelta);
 
   return (
     <div
@@ -1184,7 +1190,7 @@ function ObjetivoCard({
         <span style={{ fontSize: 11, fontWeight: 700, color: colorEstado }}>{objetivo.porcentaje}%</span>
 
         <span style={{ fontSize: 13, fontWeight: 800, color: colorPrimario }}>
-          Meta: {objetivoTexto}
+          {etiquetaMeta}: {objetivoTexto}
         </span>
       </div>
     </div>
