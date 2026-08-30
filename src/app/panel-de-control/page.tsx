@@ -958,6 +958,81 @@ export default function MiNegocioPage() {
   );
 }
 
+// Tooltip propio (no el "title" nativo del navegador): así se puede
+// separar del cursor y agrandar el ícono, cosas que un title nativo
+// no permite controlar.
+function IconoAyuda({ texto, color }: { texto: string; color: string }) {
+  const [mostrar, setMostrar] = useState(false);
+
+  if (!texto) return null;
+
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex' }}
+      onMouseEnter={() => setMostrar(true)}
+      onMouseLeave={() => setMostrar(false)}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: color,
+          color: '#ffffff',
+          fontSize: 14,
+          fontWeight: 900,
+          fontStyle: 'italic',
+          cursor: 'help',
+          flexShrink: 0,
+        }}
+      >
+        i
+      </span>
+
+      {mostrar && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 14px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 240,
+            background: '#1f2937',
+            color: '#ffffff',
+            fontSize: 12,
+            fontWeight: 500,
+            lineHeight: 1.5,
+            padding: '10px 12px',
+            borderRadius: 10,
+            boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
+            zIndex: 20,
+            textAlign: 'left',
+          }}
+        >
+          {texto}
+
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '7px solid transparent',
+              borderRight: '7px solid transparent',
+              borderBottom: '7px solid #1f2937',
+            }}
+          />
+        </div>
+      )}
+    </span>
+  );
+}
+
 function ObjetivoCard({
   objetivo,
   colorPrimario,
@@ -1047,24 +1122,7 @@ function ObjetivoCard({
           >
             {objetivo.nombre}
 
-            <span
-              title={CATALOGO_INDICADORES[objetivo.indicador]?.ayuda ?? ''}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 15,
-                height: 15,
-                borderRadius: '50%',
-                background: '#e7edf1',
-                color: COLORES_BASE.gris,
-                fontSize: 10,
-                fontWeight: 800,
-                cursor: 'help',
-              }}
-            >
-              i
-            </span>
+            <IconoAyuda texto={CATALOGO_INDICADORES[objetivo.indicador]?.ayuda ?? ''} color={colorPrimario} />
           </div>
 
           <div
