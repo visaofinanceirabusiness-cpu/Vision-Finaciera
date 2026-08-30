@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
-import { calcularAntiguedadTexto } from '@/lib/antiguedad';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -18,7 +17,7 @@ type Empresa = {
   nombre: string;
   rubro: string | null;
   logo_url: string | null;
-  creado_en: string | null;
+  numero_cliente: number;
 };
 
 type PendienteRegistro = {
@@ -111,6 +110,37 @@ export default function PanelMaestroPage() {
     setPendientes([...registrosPendientes, ...movimientosAgrupados.values()]);
   }
 
+  async function cargarEmpresas() {
+    const { data: empresasData, error: errorEmpresas } = await supabase
+      .from('empresas')
+      .select('id, nombre, rubro, logo_url, numero_cliente')
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
+
+    if (errorEmpresas) {
+      setError('No se pudieron cargar las empresas.');
+      return;
+    }
+
+    setEmpresas(empresasData ?? []);
+
+    const resultados = await Promise.all(
+      (empresasData ?? []).map(async (empresa) => {
+        try {
+          const progreso = await obtenerProgresoGamificacion(empresa.id);
+          return [empresa.id, progreso] as const;
+        } catch (errorGamificacion) {
+          console.warn(`No se pudo calcular el nivel de ${empresa.nombre}:`, errorGamificacion);
+          return null;
+        }
+      })
+    );
+
+    setNivelesPorEmpresa(
+      Object.fromEntries(resultados.filter((r): r is readonly [string, ProgresoGamificacion] => r !== null))
+    );
+  }
+
   useEffect(() => {
     async function cargar() {
       const { data: userData } = await supabase.auth.getUser();
@@ -132,36 +162,7 @@ export default function PanelMaestroPage() {
         return;
       }
 
-      const { data: empresasData, error: errorEmpresas } = await supabase
-        .from('empresas')
-        .select('id, nombre, rubro, logo_url, creado_en')
-        .eq('activo', true)
-        .order('nombre', { ascending: true });
-
-      if (errorEmpresas) {
-        setError('No se pudieron cargar las empresas.');
-        setCargando(false);
-        return;
-      }
-
-      setEmpresas(empresasData ?? []);
-
-      const resultados = await Promise.all(
-        (empresasData ?? []).map(async (empresa) => {
-          try {
-            const progreso = await obtenerProgresoGamificacion(empresa.id);
-            return [empresa.id, progreso] as const;
-          } catch (errorGamificacion) {
-            console.warn(`No se pudo calcular el nivel de ${empresa.nombre}:`, errorGamificacion);
-            return null;
-          }
-        })
-      );
-
-      setNivelesPorEmpresa(
-        Object.fromEntries(resultados.filter((r): r is readonly [string, ProgresoGamificacion] => r !== null))
-      );
-
+      await cargarEmpresas();
       await cargarPendientes();
       setCargando(false);
     }
@@ -349,6 +350,24 @@ export default function PanelMaestroPage() {
         )}
 
         {/* =================================================
+            ALTA DE CLIENTES — vincular un usuario ya creado
+            en Supabase Auth a una empresa (existente o nueva)
+        ================================================== */}
+
+        <VincularUsuario
+          empresas={empresas}
+          onCreado={(mensajeExito) => {
+            setMensaje(mensajeExito);
+            setError('');
+            cargarEmpresas();
+          }}
+          onError={(mensajeError) => {
+            setError(mensajeError);
+            setMensaje('');
+          }}
+        />
+
+        {/* =================================================
             NOTIFICACIONES — pendientes de validar, de todas
             las empresas, sin tener que entrar a cada una
         ================================================== */}
@@ -420,7 +439,10 @@ export default function PanelMaestroPage() {
 
                 <div>
                   <div style={{ fontSize: 19, fontWeight: 800, color: COLORES_BASE.azul }}>
-                    {empresa.nombre}
+                    {empresa.nombre}{' '}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: COLORES_BASE.gris }}>
+                      · Cliente #{empresa.numero_cliente}
+                    </span>
                   </div>
                   <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
                     {empresa.rubro ?? 'Sin rubro definido'}
@@ -456,19 +478,6 @@ export default function PanelMaestroPage() {
                       {nivelesPorEmpresa[empresa.id].operaciones} op.
                     </span>
                   </div>
-
-                  {calcularAntiguedadTexto(empresa.creado_en) && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: COLORES_BASE.gris,
-                        fontWeight: 600,
-                        marginBottom: 8,
-                      }}
-                    >
-                      🕒 {calcularAntiguedadTexto(empresa.creado_en)} en el sistema
-                    </div>
-                  )}
 
                   <div style={{ height: 7, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
                     <div
@@ -507,6 +516,243 @@ export default function PanelMaestroPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/* ==========================================================
+   VINCULAR USUARIO A EMPRESA — alta de clientes nuevos
+========================================================== */
+
+const inputStyle: CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid #d7dde3',
+  fontSize: 14,
+  boxSizing: 'border-box',
+};
+
+const labelStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: COLORES_BASE.gris,
+  marginBottom: 4,
+  display: 'block',
+};
+
+function VincularUsuario({
+  empresas,
+  onCreado,
+  onError,
+}: {
+  empresas: Empresa[];
+  onCreado: (mensaje: string) => void;
+  onError: (mensaje: string) => void;
+}) {
+  const [abierta, setAbierta] = useState(false);
+  const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [rol, setRol] = useState<'Cliente' | 'Admin'>('Cliente');
+  const [empresaId, setEmpresaId] = useState<string>('__nueva__');
+  const [nombreNuevaEmpresa, setNombreNuevaEmpresa] = useState('');
+  const [rubroNuevaEmpresa, setRubroNuevaEmpresa] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  function limpiar() {
+    setEmail('');
+    setNombre('');
+    setRol('Cliente');
+    setEmpresaId('__nueva__');
+    setNombreNuevaEmpresa('');
+    setRubroNuevaEmpresa('');
+  }
+
+  async function vincular() {
+    if (!email.trim() || !nombre.trim()) {
+      onError('Completá el email y el nombre de la persona.');
+      return;
+    }
+
+    if (empresaId === '__nueva__' && !nombreNuevaEmpresa.trim()) {
+      onError('Ponele un nombre a la empresa nueva.');
+      return;
+    }
+
+    setEnviando(true);
+
+    let empresaDestinoId = empresaId;
+    let numeroClienteNuevo: number | null = null;
+
+    if (empresaId === '__nueva__') {
+      const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
+        .from('empresas')
+        .insert({ nombre: nombreNuevaEmpresa.trim(), rubro: rubroNuevaEmpresa.trim() || null })
+        .select('id, numero_cliente')
+        .single();
+
+      if (errorEmpresa || !nuevaEmpresa) {
+        onError(`No se pudo crear la empresa: ${errorEmpresa?.message ?? 'error desconocido'}.`);
+        setEnviando(false);
+        return;
+      }
+
+      empresaDestinoId = nuevaEmpresa.id;
+      numeroClienteNuevo = nuevaEmpresa.numero_cliente;
+    }
+
+    const { error: errorVincular } = await supabase.rpc('vincular_usuario_a_empresa', {
+      p_email: email.trim(),
+      p_empresa_id: empresaDestinoId,
+      p_rol: rol,
+      p_nombre: nombre.trim(),
+    });
+
+    if (errorVincular) {
+      onError(`No se pudo vincular: ${errorVincular.message}`);
+      setEnviando(false);
+      return;
+    }
+
+    onCreado(
+      numeroClienteNuevo !== null
+        ? `${nombre.trim()} quedó vinculado/a correctamente a la empresa nueva (Cliente #${numeroClienteNuevo}).`
+        : `${nombre.trim()} quedó vinculado/a correctamente.`
+    );
+    limpiar();
+    setEnviando(false);
+  }
+
+  return (
+    <div
+      style={{
+        background: COLORES_BASE.blanco,
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        padding: 22,
+        marginBottom: 24,
+        boxShadow: '0 10px 24px rgba(31,58,95,0.06)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setAbierta((a) => !a)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        <span style={{ fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+          👤 Vincular usuario a empresa
+        </span>
+        <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{abierta ? '▾ ocultar' : '▸ mostrar'}</span>
+      </button>
+
+      {abierta && (
+        <div style={{ marginTop: 18 }}>
+          <p style={{ fontSize: 13, color: COLORES_BASE.gris, marginTop: 0, marginBottom: 16 }}>
+            Primero creá el usuario en Supabase Auth con su email y contraseña. Después pegá ese mismo email
+            acá y elegí a qué empresa pertenece — si la empresa todavía no existe, la creás desde el mismo
+            formulario.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+            <div>
+              <label style={labelStyle}>Email (el mismo del usuario en Supabase Auth)</label>
+              <input
+                style={inputStyle}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="cliente@email.com"
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Nombre de la persona</label>
+              <input
+                style={inputStyle}
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej: Brenda"
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Rol</label>
+              <select style={inputStyle} value={rol} onChange={(e) => setRol(e.target.value as 'Cliente' | 'Admin')}>
+                <option value="Cliente">Cliente</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Empresa</label>
+              <select style={inputStyle} value={empresaId} onChange={(e) => setEmpresaId(e.target.value)}>
+                <option value="__nueva__">+ Crear empresa nueva</option>
+                {empresas.map((empresa) => (
+                  <option key={empresa.id} value={empresa.id}>
+                    {empresa.nombre} (#{empresa.numero_cliente})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {empresaId === '__nueva__' && (
+              <>
+                <div>
+                  <label style={labelStyle}>Nombre de la empresa nueva</label>
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    value={nombreNuevaEmpresa}
+                    onChange={(e) => setNombreNuevaEmpresa(e.target.value)}
+                    placeholder="Ej: Mi Nuevo Cliente"
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Rubro (opcional)</label>
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    value={rubroNuevaEmpresa}
+                    onChange={(e) => setRubroNuevaEmpresa(e.target.value)}
+                    placeholder="Ej: Venta de ropa"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={enviando}
+            onClick={vincular}
+            style={{
+              marginTop: 18,
+              padding: '11px 22px',
+              borderRadius: 10,
+              border: 'none',
+              background: COLORES_BASE.verde,
+              color: COLORES_BASE.blanco,
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: enviando ? 'wait' : 'pointer',
+              opacity: enviando ? 0.7 : 1,
+            }}
+          >
+            {enviando ? 'Vinculando...' : 'Vincular'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
