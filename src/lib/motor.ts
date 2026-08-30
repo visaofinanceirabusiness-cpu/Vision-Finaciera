@@ -456,6 +456,52 @@ async function limpiarOperacion(
 }
 
 // =====================================================
+// SALDO ACTUAL DE UNA CUENTA (para no dejarla en negativo)
+// =====================================================
+
+async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string) {
+  const { data: cuenta } = await supabase
+    .from('plan_cuentas')
+    .select('naturaleza, tipo_saldo, saldo_inicial')
+    .eq('empresa_id', empresaId)
+    .eq('nombre', nombreCuenta)
+    .maybeSingle();
+
+  if (!cuenta) {
+    return null;
+  }
+
+  const [
+    { data: comoDebito },
+    { data: comoCredito },
+    { data: autoComoDebito },
+    { data: autoComoCredito },
+  ] = await Promise.all([
+    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta),
+    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta),
+    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta),
+    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta),
+  ]);
+
+  const sumar = (filas: { total?: unknown; importe?: unknown }[] | null, campo: 'total' | 'importe') =>
+    (filas ?? []).reduce((suma, fila) => suma + Number(fila[campo] ?? 0), 0);
+
+  const debe = sumar(comoDebito, 'total') + sumar(autoComoDebito, 'importe');
+  const haber = sumar(comoCredito, 'total') + sumar(autoComoCredito, 'importe');
+
+  const saldo =
+    cuenta.naturaleza === 'ACREEDORA'
+      ? Number(cuenta.saldo_inicial ?? 0) + haber - debe
+      : Number(cuenta.saldo_inicial ?? 0) + debe - haber;
+
+  return {
+    saldo,
+    naturaleza: cuenta.naturaleza as string,
+    tipoSaldo: cuenta.tipo_saldo as string,
+  };
+}
+
+// =====================================================
 // REGISTRAR OPERACIÓN
 // =====================================================
 
@@ -493,6 +539,28 @@ export async function registrarOperacion(
     throw new Error(
       `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones.`
     );
+  }
+
+  // ---------------------------------------------------
+  // 1.b VALIDAR QUE NO DEJE UNA CUENTA DE CAJA/BANCO EN NEGATIVO
+  //
+  // Solo aplica al lado que se ACREDITA (sale plata) de una cuenta
+  // de Activo (Caja, Banco, PIX, etc.) — una cuenta de Pasivo como
+  // "Proveedor" puede crecer sin límite, eso es una deuda normal.
+  // ---------------------------------------------------
+
+  if (regla.cuenta_credito) {
+    const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito);
+
+    if (cuentaCredito && cuentaCredito.tipoSaldo === 'ACTIVO' && cuentaCredito.naturaleza === 'DEUDORA') {
+      const saldoResultante = cuentaCredito.saldo - total;
+
+      if (saldoResultante < 0) {
+        throw new Error(
+          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación. Saldo actual: R$ ${cuentaCredito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+        );
+      }
+    }
   }
 
   // Al editar una operación existente, se reutiliza el mismo
