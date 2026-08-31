@@ -88,6 +88,13 @@ export default function CrearCuentaPage() {
     const { data: signUpData, error: errorSignUp } = await supabase.auth.signUp({
       email: email.trim(),
       password: contrasena,
+      options: {
+        // Sin esto, el link del mail de confirmación usa el "Site URL"
+        // configurado en Supabase — que hoy apunta a localhost (quedó
+        // así de cuando se armó el proyecto). Forzando el destino acá
+        // el link funciona sin depender de esa configuración.
+        emailRedirectTo: 'https://vision-finaciera.vercel.app/login',
+      },
     });
 
     if (errorSignUp || !signUpData.user) {
