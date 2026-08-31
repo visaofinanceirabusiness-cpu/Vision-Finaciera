@@ -72,6 +72,7 @@ export type IndicadoresPanel = {
   pasivos: number;
   patrimonio: number;
   cajaDisponible: number;
+  ahorroInversiones: number;
   stockBajo: number;
 
   // ---- Resumen ejecutivo: SÍ dependen del período ----
@@ -273,6 +274,11 @@ export async function obtenerIndicadores(
   // Caja disponible: solo el grupo 1.1.1.x (Caja, PIX, Aplicaciones
   // Financieras, Tarjeta). NO incluye "a Recibir" ni Clientes.
   const cajaDisponible = totalPorPrefijo('1.1.1.');
+
+  // Ahorro e inversiones: grupo 1.2.x del plan de Familia (Plazo
+  // Fijo, Inversiones). Es lo que alimenta metas libres tipo "Viaje
+  // en Familia" — no existe en perfiles sin ese grupo, da 0 y ya.
+  const ahorroInversiones = totalPorPrefijo('1.2.');
 
   // La liquidez SÍ sigue al selector, pero de la única forma que tiene
   // sentido contable: es el saldo al CIERRE del período elegido, no el
@@ -515,6 +521,7 @@ export async function obtenerIndicadores(
     pasivos: redondear(pasivos),
     patrimonio: redondear(patrimonio),
     cajaDisponible: redondear(cajaDisponible),
+    ahorroInversiones: redondear(ahorroInversiones),
     stockBajo,
 
     // Del período seleccionado
