@@ -35,6 +35,7 @@ import {
   eliminarCuentaPlan,
   renombrarCuentaPlan,
 } from '@/lib/categorias';
+import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
 import {
   obtenerDefiniciones,
   crearObjetivo,
@@ -602,6 +603,7 @@ type CategoriaGasto = { id: string; codigo: string; nombre: string; activo: bool
 type FormaPago = { id: string; codigo: string; nombre: string; activo: boolean };
 type CuentaOpcion = { id: string; codigo: string; nombre: string };
 type OperacionOpcion = { id: string; nombre: string };
+type Socio = { id: string; codigo: string; nombre: string; activo: boolean };
 
 const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO'];
 
@@ -610,6 +612,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
   const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
   const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
+  const [socios, setSocios] = useState<Socio[]>([]);
   const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
   const [operaciones, setOperaciones] = useState<OperacionOpcion[]>([]);
   const [tieneEsqueleto, setTieneEsqueleto] = useState(true);
@@ -624,6 +627,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       { data: cp },
       { data: cg },
       { data: fp },
+      { data: soc },
       { data: pc },
       { data: op },
       { data: plantillas },
@@ -632,6 +636,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       supabase.from('categorias_productos').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('categorias_operacion').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).eq('operacion', 'PAGO').order('nombre'),
       supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
+      supabase.from('socios').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
       supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
       supabase.from('reglas_contables').select('operacion, motor').eq('empresa_id', empresaId).is('categoria_codigo', null),
@@ -664,6 +669,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
     setCategoriasProducto(cp ?? []);
     setCategoriasGasto(cg ?? []);
     setFormasPago(fp ?? []);
+    setSocios(soc ?? []);
     setCuentas(pc ?? []);
     setOperaciones(op ?? []);
     setTieneEsqueleto((pc ?? []).length > 0);
@@ -805,7 +811,51 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), 'Forma de pago actualizada.')}
         onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), `Forma de pago "${nombre}" eliminada.`)}
       />
+
+      <BloqueSocios
+        socios={socios}
+        esAdmin={esAdmin}
+        onCrear={(nombre) => manejarAccion(() => crearSocio(empresaId, nombre), `"${nombre}" agregado/a.`)}
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoSocio(id, activo), 'Actualizado.')}
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarSocio(id), `"${nombre}" eliminado/a.`)}
+      />
     </div>
+  );
+}
+
+function BloqueSocios({
+  socios,
+  esAdmin,
+  onCrear,
+  onCambiarActivo,
+  onEliminar,
+}: {
+  socios: Socio[];
+  esAdmin: boolean;
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
+}) {
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria
+      titulo="🤝 Socios/as"
+      subtitulo="Quiénes pueden aparecer como 'a quién' en Inversión (aporte), Extracción (retiro) y Pérdida. No hace falta que tengan usuario propio para entrar al sistema."
+    >
+      <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+
+      <FormularioNuevo
+        placeholder="Nombre del socio/a (ej. Ezequiel)"
+        valor={nombreNuevo}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
   );
 }
 
