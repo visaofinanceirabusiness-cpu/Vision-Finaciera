@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
-import { GastosPieChart } from '@/components/panel/GastosPieChart';
+import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
@@ -702,7 +702,23 @@ export default function MiNegocioPage() {
               }}
             >
               {esFamiliar ? (
-                <GastosPieChart datos={indicadores?.gastosCategorias ?? []} simbolo={simbolo} />
+                <>
+                  <DistribucionPieChart
+                    datos={indicadores?.gastosCategorias ?? []}
+                    simbolo={simbolo}
+                    titulo="🧾 Distribución de gastos"
+                    subtitulo="En qué se fue la plata este período"
+                    mensajeVacio="Todavía no hay gastos registrados en este período."
+                  />
+
+                  <DistribucionPieChart
+                    datos={indicadores?.ingresosSocios ?? []}
+                    simbolo={simbolo}
+                    titulo="👥 Distribución de ingresos"
+                    subtitulo="Cuánto aportó cada socio/a este período"
+                    mensajeVacio="Todavía no hay ingresos con socio/a asignado en este período."
+                  />
+                </>
               ) : (
                 <>
                   <CategoryChart
