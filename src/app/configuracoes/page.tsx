@@ -36,6 +36,7 @@ import {
   renombrarCuentaPlan,
 } from '@/lib/categorias';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import {
   obtenerDefiniciones,
   crearObjetivo,
@@ -140,9 +141,13 @@ export default function ConfiguracoesPage() {
     <div style={fondo}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <header style={encabezado}>
-          <Link href="/" style={volver}>
-            ← Volver a Mi Negocio
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <Link href="/" style={volver}>
+              ← Volver a Mi Negocio
+            </Link>
+
+            <AccesosHerramientas />
+          </div>
 
           <div style={eyebrow}>CONFIGURACIÓN</div>
 
