@@ -23,6 +23,7 @@ import {
 } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
 // de moneda como prop por cada pestaña y sub-componente.
@@ -99,9 +100,13 @@ export default function ContabilidadPage() {
         ================================================== */}
 
         <header style={encabezado}>
-          <Link href="/" style={volver}>
-            ← Volver a Mi Negocio
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <Link href="/" style={volver}>
+              ← Volver a Mi Negocio
+            </Link>
+
+            <AccesosHerramientas />
+          </div>
 
           <div style={eyebrow}>GESTIÓN FINANCIERA</div>
 
