@@ -503,25 +503,27 @@ export default function PanelMaestroPage() {
         >
           <div
             style={{
-              position: 'absolute',
-              top: 24,
-              right: 28,
-            }}
-          >
-            <NotificacionesPush />
-          </div>
-
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: 1.4,
-              textTransform: 'uppercase',
-              opacity: 0.75,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: 12,
+              flexWrap: 'wrap',
               marginBottom: 8,
             }}
           >
-            PANEL MAESTRO · VISÃO FINANCEIRA
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.4,
+                textTransform: 'uppercase',
+                opacity: 0.75,
+              }}
+            >
+              PANEL MAESTRO · VISÃO FINANCEIRA
+            </div>
+
+            <NotificacionesPush />
           </div>
 
           <h1 style={{ margin: 0, fontSize: 34, display: 'flex', alignItems: 'center', gap: 12 }}>

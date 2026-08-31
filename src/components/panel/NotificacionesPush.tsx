@@ -122,10 +122,16 @@ export function NotificacionesPush() {
         style={{
           fontSize: 12.5,
           fontWeight: 700,
-          color: '#2e8b57',
+          color: '#ffffff',
+          background: 'rgba(255,255,255,0.14)',
+          border: '1px solid rgba(255,255,255,0.25)',
+          borderRadius: 12,
+          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           gap: 6,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
         }}
       >
         🔔 Notificaciones activadas
@@ -134,7 +140,15 @@ export function NotificacionesPush() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 4,
+        flexShrink: 0,
+      }}
+    >
       <button
         onClick={activarNotificaciones}
         disabled={cargando}
@@ -147,6 +161,8 @@ export function NotificacionesPush() {
           color: '#ffffff',
           fontWeight: 700,
           fontSize: 13,
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
         }}
       >
         {cargando ? 'Activando...' : '🔔 Activar notificaciones'}

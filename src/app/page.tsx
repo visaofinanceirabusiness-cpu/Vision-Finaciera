@@ -134,6 +134,13 @@ export default function InicioPage() {
         return;
       }
 
+      // El admin de la plataforma entra directo a su panel maestro — el
+      // lobby de "mi negocio" es para los emprendedores.
+      if (perfilData.es_admin_plataforma) {
+        router.push('/panel-maestro');
+        return;
+      }
+
       setPerfil(perfilData);
 
       const { data: empresaData, error: errorEmpresa } = await supabase
