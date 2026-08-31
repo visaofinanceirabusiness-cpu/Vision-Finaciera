@@ -969,19 +969,26 @@ export async function registrarOperacion(
     // TODO SALIÓ CORRECTAMENTE
     // =================================================
 
-    supabase
-      .from('empresas')
-      .select('nombre')
-      .eq('id', empresaId)
-      .maybeSingle()
-      .then(({ data: empresaNotif }) => {
+    (async () => {
+      try {
+        const { data: empresaNotif } = await supabase
+          .from('empresas')
+          .select('nombre')
+          .eq('id', empresaId)
+          .maybeSingle();
+
         const nombreEmpresa = empresaNotif?.nombre ?? 'Un emprendedor';
 
-        notificarPendienteAlAdmin({
+        await notificarPendienteAlAdmin({
           titulo: `${nombreEmpresa} · Nueva operación pendiente`,
           cuerpo: `${formulario.operacion} · ${formulario.categoria} · Total: ${total.toFixed(2)}`,
         });
-      });
+      } catch (errorNotificacion) {
+        // Nunca debe romper el registro de la operación en sí — si
+        // falla el aviso, solo se pierde la notificación push.
+        console.warn('No se pudo notificar la operación pendiente:', errorNotificacion);
+      }
+    })();
 
     return {
       total,
