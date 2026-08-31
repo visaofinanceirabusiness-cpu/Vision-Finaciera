@@ -36,6 +36,12 @@ export type FormularioOperacion = {
   formaPago: string;
   historico: string;
   clienteProveedor: string;
+  // Quién de la familia generó ese ingreso — separado de
+  // clienteProveedor (que en un COBRO es la "Fuente de ingreso": el
+  // empleador o quien pagó, no la persona de la familia). Solo se usa
+  // hoy en perfil Familia, para poder armar "Distribución de ingresos
+  // por socio". Opcional: si no se envía, se guarda vacío.
+  socio?: string;
   lineas: LineaOperacion[];
 };
 
@@ -895,6 +901,8 @@ export async function registrarOperacion(
               formulario.historico,
             cliente_proveedor:
               formulario.clienteProveedor,
+            socio:
+              formulario.socio?.trim() || null,
             cuenta_debito:
               regla.cuenta_debito,
             cuenta_credito:
