@@ -845,16 +845,18 @@ function BloqueSocios({
     >
       <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
-      <FormularioNuevo
-        placeholder="Nombre del socio/a (ej. Ezequiel)"
-        valor={nombreNuevo}
-        onCambiar={setNombreNuevo}
-        onAgregar={() => {
-          if (!nombreNuevo.trim()) return;
-          onCrear(nombreNuevo);
-          setNombreNuevo('');
-        }}
-      />
+      {esAdmin && (
+        <FormularioNuevo
+          placeholder="Nombre del socio/a (ej. Ezequiel)"
+          valor={nombreNuevo}
+          onCambiar={setNombreNuevo}
+          onAgregar={() => {
+            if (!nombreNuevo.trim()) return;
+            onCrear(nombreNuevo);
+            setNombreNuevo('');
+          }}
+        />
+      )}
     </SeccionCategoria>
   );
 }
@@ -878,16 +880,18 @@ function BloqueCategoriaProducto({
     <SeccionCategoria titulo="🛍️ Categorías de Producto" subtitulo="Habilitan Compra, Venta y Pérdida. Cada una genera su cuenta de Stock, Venta y Costo automáticamente.">
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
-      <FormularioNuevo
-        placeholder="Nombre de la categoría (ej. Perfumería)"
-        valor={nombreNuevo}
-        onCambiar={setNombreNuevo}
-        onAgregar={() => {
-          if (!nombreNuevo.trim()) return;
-          onCrear(nombreNuevo);
-          setNombreNuevo('');
-        }}
-      />
+      {esAdmin && (
+        <FormularioNuevo
+          placeholder="Nombre de la categoría (ej. Perfumería)"
+          valor={nombreNuevo}
+          onCambiar={setNombreNuevo}
+          onAgregar={() => {
+            if (!nombreNuevo.trim()) return;
+            onCrear(nombreNuevo);
+            setNombreNuevo('');
+          }}
+        />
+      )}
     </SeccionCategoria>
   );
 }
@@ -915,16 +919,18 @@ function BloqueCategoriaServicio({
     <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
-      <FormularioNuevo
-        placeholder="Nombre (ej. Sueldo, Consultoría)"
-        valor={nombreNuevo}
-        onCambiar={setNombreNuevo}
-        onAgregar={() => {
-          if (!nombreNuevo.trim()) return;
-          onCrear(nombreNuevo);
-          setNombreNuevo('');
-        }}
-      />
+      {esAdmin && (
+        <FormularioNuevo
+          placeholder="Nombre (ej. Sueldo, Consultoría)"
+          valor={nombreNuevo}
+          onCambiar={setNombreNuevo}
+          onAgregar={() => {
+            if (!nombreNuevo.trim()) return;
+            onCrear(nombreNuevo);
+            setNombreNuevo('');
+          }}
+        />
+      )}
     </SeccionCategoria>
   );
 }
@@ -948,16 +954,18 @@ function BloqueCategoriaGasto({
     <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago (si el nombre ya existe en el plan, se reutiliza esa cuenta en vez de duplicar).">
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
-      <FormularioNuevo
-        placeholder="Nombre del gasto (ej. Alquiler del local)"
-        valor={nombreNuevo}
-        onCambiar={setNombreNuevo}
-        onAgregar={() => {
-          if (!nombreNuevo.trim()) return;
-          onCrear(nombreNuevo);
-          setNombreNuevo('');
-        }}
-      />
+      {esAdmin && (
+        <FormularioNuevo
+          placeholder="Nombre del gasto (ej. Alquiler del local)"
+          valor={nombreNuevo}
+          onCambiar={setNombreNuevo}
+          onAgregar={() => {
+            if (!nombreNuevo.trim()) return;
+            onCrear(nombreNuevo);
+            setNombreNuevo('');
+          }}
+        />
+      )}
     </SeccionCategoria>
   );
 }
@@ -1007,6 +1015,7 @@ function BloqueFormasDePago({
     <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.">
       <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
 
+      {esAdmin && (
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
@@ -1090,6 +1099,7 @@ function BloqueFormasDePago({
           </button>
         </div>
       </div>
+      )}
     </SeccionCategoria>
   );
 }
