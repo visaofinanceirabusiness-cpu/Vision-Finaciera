@@ -38,21 +38,45 @@ export async function POST(request: NextRequest) {
 
   const { titulo, cuerpo, url } = await request.json();
 
-  const { data: admins } = await supabaseAdmin
+  const { data: admins, error: errorAdmins } = await supabaseAdmin
     .from('perfiles')
     .select('id')
     .eq('es_admin_plataforma', true);
 
+  if (errorAdmins) {
+    console.error('Error consultando admins:', errorAdmins);
+  }
+
   const idsAdmin = (admins ?? []).map((admin) => admin.id);
 
   if (idsAdmin.length === 0) {
-    return NextResponse.json({ enviadas: 0 });
+    return NextResponse.json({
+      enviadas: 0,
+      totalSuscripciones: 0,
+      fallidas: [],
+      debug: {
+        paso: 'buscar_admins',
+        adminsEncontrados: admins?.length ?? 0,
+        errorAdmins: errorAdmins?.message ?? null,
+      },
+    });
   }
 
-  const { data: suscripciones } = await supabaseAdmin
+  const { data: suscripciones, error: errorSuscripciones } = await supabaseAdmin
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth_key')
     .in('user_id', idsAdmin);
+
+  if (errorSuscripciones) {
+    console.error('Error consultando suscripciones:', errorSuscripciones);
+
+    return NextResponse.json({
+      enviadas: 0,
+      totalSuscripciones: 0,
+      fallidas: [],
+      debug: { paso: 'buscar_suscripciones', errorSuscripciones: errorSuscripciones.message },
+    });
+  }
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 

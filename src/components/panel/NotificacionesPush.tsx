@@ -152,6 +152,8 @@ export function NotificacionesPush() {
         setResultadoPrueba(`✅ Enviada (${resultado.enviadas}/${resultado.totalSuscripciones}). Si no te llegó, revisá los permisos de notificaciones de Chrome para esta app en el celular.`);
       } else if (resultado.fallidas?.length > 0) {
         setResultadoPrueba(`❌ Falló: ${resultado.fallidas[0].statusCode ?? ''} ${resultado.fallidas[0].body ?? ''}`.trim());
+      } else if (resultado.debug) {
+        setResultadoPrueba(`⚠️ Diagnóstico: ${JSON.stringify(resultado.debug)}`);
       } else {
         setResultadoPrueba('⚠️ No hay ninguna suscripción activa en el servidor.');
       }
