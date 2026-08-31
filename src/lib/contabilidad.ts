@@ -451,13 +451,19 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
-  // Gastos por categoría: del período seleccionado. Misma lógica que
-  // ventas por categoría, pero mirando los PAGO (Vivienda, Alimentación,
-  // Transporte, etc.) — es lo que arma "Distribución de gastos".
+  // Gastos por categoría: del período seleccionado. Se agrupa por
+  // CUENTA de tipo GASTO (no por tipo de operación) para que el total
+  // coincida siempre con la tarjeta "Gastos" — no todo lo que es
+  // GASTO viene de un PAGO (ej. un Retiro Personal también puede
+  // estar clasificado como gasto en el plan de cuentas).
+  const cuentasGasto = new Set(
+    hojas.filter((cuenta) => cuenta.tipo_saldo === 'GASTO').map((cuenta) => cuenta.nombre)
+  );
+
   const gastosPorCategoria = new Map<string, number>();
 
   for (const fila of operaciones) {
-    if (fila.operacion !== 'PAGO' || !dentroDelPeriodo(String(fila.fecha ?? ''))) {
+    if (!dentroDelPeriodo(String(fila.fecha ?? '')) || !fila.cuenta_debito || !cuentasGasto.has(fila.cuenta_debito)) {
       continue;
     }
 
