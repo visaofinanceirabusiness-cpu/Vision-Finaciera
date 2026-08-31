@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { fechaLocalHoy } from '@/lib/fecha';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -36,7 +37,7 @@ const FORMULARIO_VACIO: Formulario = {
   nombre: '',
   telefono: '',
   direccion: '',
-  fecha_alta: new Date().toISOString().split('T')[0],
+  fecha_alta: fechaLocalHoy(),
 };
 
 // ==========================================================
@@ -190,7 +191,7 @@ export default function RecursosHumanosPage() {
 
     setFormulario({
       ...FORMULARIO_VACIO,
-      fecha_alta: new Date().toISOString().split('T')[0],
+      fecha_alta: fechaLocalHoy(),
     });
 
     setError('');
@@ -204,7 +205,7 @@ export default function RecursosHumanosPage() {
       nombre: persona.nombre ?? '',
       telefono: persona.telefono ?? '',
       direccion: persona.direccion ?? '',
-      fecha_alta: persona.fecha_alta ?? new Date().toISOString().split('T')[0],
+      fecha_alta: persona.fecha_alta ?? fechaLocalHoy(),
     });
 
     setError('');
