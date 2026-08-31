@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { fechaLocalHoy } from '@/lib/fecha';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -86,7 +87,7 @@ const FORMULARIO_VACIO: Formulario = {
   tipo_producto: '',
   unidad_medida: '',
   proveedor_id: '',
-  fecha_alta: new Date().toISOString().split('T')[0],
+  fecha_alta: fechaLocalHoy(),
 };
 
 const OPCIONES_TIPO = [
@@ -339,7 +340,7 @@ export default function MercaderiaPage() {
   function abrirNuevoProducto() {
     setFormulario({
       ...FORMULARIO_VACIO,
-      fecha_alta: new Date().toISOString().split('T')[0],
+      fecha_alta: fechaLocalHoy(),
     });
     setError('');
     setMostrarFormulario(true);
@@ -358,7 +359,7 @@ export default function MercaderiaPage() {
       tipo_producto: producto.tipo_producto ?? '',
       unidad_medida: producto.unidad_medida ?? '',
       proveedor_id: producto.proveedor_id ?? '',
-      fecha_alta: producto.fecha_alta ?? new Date().toISOString().split('T')[0],
+      fecha_alta: producto.fecha_alta ?? fechaLocalHoy(),
     });
     setEditandoProductoId(producto.id);
     setError('');
