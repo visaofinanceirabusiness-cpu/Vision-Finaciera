@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
+import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 
@@ -90,6 +91,7 @@ export default function InicioPage() {
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
+  const [manejaMercaderia, setManejaMercaderia] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [estadoSolicitud, setEstadoSolicitud] = useState<'PENDIENTE' | 'RECHAZADA' | null>(null);
@@ -166,6 +168,12 @@ export default function InicioPage() {
         setModulos((modulosData ?? []).map((fila) => String(fila.modulo)));
       } else {
         setModulos([]);
+      }
+
+      try {
+        setManejaMercaderia(await empresaManejaMercaderia(perfilData.empresa_id));
+      } catch (errorMercaderia) {
+        console.warn('No se pudo determinar si la empresa maneja mercadería:', errorMercaderia);
       }
 
       const { data: configData, error: errorConfig } = await supabase
@@ -577,12 +585,14 @@ export default function InicioPage() {
               destacado
             />
 
-            <BotonAcceso
-              href="/mercaderia"
-              titulo="📦 Mercadería"
-              colorPrincipal="#ea580c"
-              destacado
-            />
+            {manejaMercaderia && (
+              <BotonAcceso
+                href="/mercaderia"
+                titulo="📦 Mercadería"
+                colorPrincipal="#ea580c"
+                destacado
+              />
+            )}
 
             <BotonAcceso
               href="/informes"
