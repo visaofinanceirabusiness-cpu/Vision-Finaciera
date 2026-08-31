@@ -627,7 +627,14 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
       </div>
 
       <SeccionResultado titulo="Ingresos" emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
-      <SeccionResultado titulo="Costos" emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
+
+      {/* Una empresa sin cuentas de Costo (Familiar, Servicios puro)
+          nunca va a tener nada acá — mostrar la sección igual sería
+          solo ruido ("Costos: $0" sin ninguna fila debajo). */}
+      {costos.length > 0 && (
+        <SeccionResultado titulo="Costos" emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
+      )}
+
       <SeccionResultado titulo="Gastos" emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
 
       <div
