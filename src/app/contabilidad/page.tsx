@@ -229,8 +229,8 @@ function CentralDeLanzamientosTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formularioSimple]);
 
-  const etiquetaRelacion = ['INVERSION', 'PERDIDA'].includes(operacion)
-    ? 'Socia'
+  const etiquetaRelacion = ['INVERSION', 'PERDIDA', 'EXTRACCION'].includes(operacion)
+    ? 'Socia/o'
     : operacion === 'COMPRA' || operacion === 'PAGO'
       ? 'Proveedor'
       : operacion === 'VENTA' || operacion === 'COBRO'
@@ -388,9 +388,13 @@ function CentralDeLanzamientosTab({
       const esCliente = operacion === 'VENTA' || operacion === 'COBRO';
 
       if (operacion === 'INVERSION' || operacion === 'EXTRACCION' || operacion === 'PERDIDA') {
-        const { data } = await supabase.from('perfiles').select('nombre').eq('empresa_id', empresaId);
+        const { data } = await supabase
+          .from('socios')
+          .select('nombre')
+          .eq('empresa_id', empresaId)
+          .eq('activo', true);
 
-        setContactos(Array.from(new Set((data ?? []).map((p) => p.nombre).filter(Boolean))));
+        setContactos(Array.from(new Set((data ?? []).map((s) => s.nombre).filter(Boolean))));
       } else if (esProveedor || esCliente) {
         const tabla = esProveedor ? 'proveedores' : 'clientes';
 
