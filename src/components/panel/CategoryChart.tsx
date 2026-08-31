@@ -12,7 +12,19 @@ type DatosCategoria = {
 
 const PALETA = ['#f59e0b', '#0ea5e9', '#a855f7', '#16a34a', '#ec4899', '#6366f1'];
 
-export function CategoryChart({ datos, color, simbolo = 'R$' }: { datos: DatosCategoria[]; color: string; simbolo?: string }) {
+export function CategoryChart({
+  datos,
+  color,
+  simbolo = 'R$',
+  titulo = '🛍️ Ventas por categoría',
+  subtitulo = 'Distribución comercial',
+}: {
+  datos: DatosCategoria[];
+  color: string;
+  simbolo?: string;
+  titulo?: string;
+  subtitulo?: string;
+}) {
   const ancho = 520;
   const alto = 270;
 
@@ -31,7 +43,7 @@ export function CategoryChart({ datos, color, simbolo = 'R$' }: { datos: DatosCa
   const paleta = [color, ...PALETA];
 
   return (
-    <ChartCard titulo="🛍️ Ventas por categoría" subtitulo="Distribución comercial">
+    <ChartCard titulo={titulo} subtitulo={subtitulo}>
       <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 270, display: 'block' }}>
         {/* Líneas de referencia horizontales, sin números */}
         {[0, 0.25, 0.5, 0.75, 1].map((factor) => {
