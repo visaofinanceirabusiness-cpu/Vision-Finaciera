@@ -28,6 +28,8 @@ export function NotificacionesPush() {
   const [estado, setEstado] = useState<'inactivo' | 'activo' | 'no_disponible'>('inactivo');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
+  const [probando, setProbando] = useState(false);
+  const [resultadoPrueba, setResultadoPrueba] = useState('');
 
   useEffect(() => {
     async function verificarEstado() {
@@ -116,25 +118,100 @@ export function NotificacionesPush() {
     return null;
   }
 
+  async function enviarPrueba() {
+    setResultadoPrueba('');
+    setProbando(true);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        throw new Error('Sesión no encontrada.');
+      }
+
+      const respuesta = await fetch('/api/push/notificar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          titulo: 'Prueba de notificación',
+          cuerpo: 'Si ves esto, las notificaciones push están funcionando.',
+        }),
+      });
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(resultado?.error ?? `Error del servidor (${respuesta.status})`);
+      }
+
+      if (resultado.enviadas > 0) {
+        setResultadoPrueba(`✅ Enviada (${resultado.enviadas}/${resultado.totalSuscripciones}). Si no te llegó, revisá los permisos de notificaciones de Chrome para esta app en el celular.`);
+      } else if (resultado.fallidas?.length > 0) {
+        setResultadoPrueba(`❌ Falló: ${resultado.fallidas[0].statusCode ?? ''} ${resultado.fallidas[0].body ?? ''}`.trim());
+      } else {
+        setResultadoPrueba('⚠️ No hay ninguna suscripción activa en el servidor.');
+      }
+    } catch (errorPrueba) {
+      setResultadoPrueba(
+        errorPrueba instanceof Error ? `❌ ${errorPrueba.message}` : '❌ No se pudo enviar la prueba.'
+      );
+    } finally {
+      setProbando(false);
+    }
+  }
+
   if (estado === 'activo') {
     return (
-      <div
-        style={{
-          fontSize: 12.5,
-          fontWeight: 700,
-          color: '#ffffff',
-          background: 'rgba(255,255,255,0.14)',
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderRadius: 12,
-          padding: '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        🔔 Notificaciones activadas
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: '#ffffff',
+              background: 'rgba(255,255,255,0.14)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: 12,
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🔔 Notificaciones activadas
+          </div>
+
+          <button
+            onClick={enviarPrueba}
+            disabled={probando}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 12,
+              padding: '10px 14px',
+              cursor: probando ? 'wait' : 'pointer',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: 12,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {probando ? 'Enviando...' : 'Probar'}
+          </button>
+        </div>
+
+        {resultadoPrueba && (
+          <span style={{ fontSize: 11.5, color: '#ffffff', maxWidth: 260, textAlign: 'right' }}>
+            {resultadoPrueba}
+          </span>
+        )}
       </div>
     );
   }

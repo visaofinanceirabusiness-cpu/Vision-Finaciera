@@ -969,10 +969,19 @@ export async function registrarOperacion(
     // TODO SALIÓ CORRECTAMENTE
     // =================================================
 
-    notificarPendienteAlAdmin({
-      titulo: 'Nueva operación pendiente',
-      cuerpo: `${formulario.operacion} · ${formulario.categoria} · Total: ${total.toFixed(2)}`,
-    });
+    supabase
+      .from('empresas')
+      .select('nombre')
+      .eq('id', empresaId)
+      .maybeSingle()
+      .then(({ data: empresaNotif }) => {
+        const nombreEmpresa = empresaNotif?.nombre ?? 'Un emprendedor';
+
+        notificarPendienteAlAdmin({
+          titulo: `${nombreEmpresa} · Nueva operación pendiente`,
+          cuerpo: `${formulario.operacion} · ${formulario.categoria} · Total: ${total.toFixed(2)}`,
+        });
+      });
 
     return {
       total,
