@@ -1,10 +1,25 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import React from 'react';
+import { RegistrarServiceWorker } from '@/components/RegistrarServiceWorker';
 
 export const metadata: Metadata = {
   title: 'Visão Financeira',
   description: 'Claridad para decidir. Seguridad para crecer.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Visão Financeira',
+  },
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/apple-touch-icon.png',
+  },
+};
+
+export const viewport = {
+  themeColor: '#1f3a5f',
 };
 
 export default function RootLayout({
@@ -21,6 +36,7 @@ export default function RootLayout({
           background: '#f5f7f9',
         }}
       >
+        <RegistrarServiceWorker />
         {children}
       </body>
     </html>

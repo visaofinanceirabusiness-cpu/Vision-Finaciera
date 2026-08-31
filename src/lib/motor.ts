@@ -6,6 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { supabase } from './supabase';
+import { notificarPendienteAlAdmin } from './notificarPush';
 
 // =====================================================
 // TIPOS
@@ -967,6 +968,11 @@ export async function registrarOperacion(
     // =================================================
     // TODO SALIÓ CORRECTAMENTE
     // =================================================
+
+    notificarPendienteAlAdmin({
+      titulo: 'Nueva operación pendiente',
+      cuerpo: `${formulario.operacion} · ${formulario.categoria} · Total: ${total.toFixed(2)}`,
+    });
 
     return {
       total,

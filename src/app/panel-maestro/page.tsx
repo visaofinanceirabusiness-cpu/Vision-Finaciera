@@ -7,6 +7,7 @@ import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/ga
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { eliminarOperacion } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -500,6 +501,16 @@ export default function PanelMaestroPage() {
             overflow: 'hidden',
           }}
         >
+          <div
+            style={{
+              position: 'absolute',
+              top: 24,
+              right: 28,
+            }}
+          >
+            <NotificacionesPush />
+          </div>
+
           <div
             style={{
               fontSize: 11,
