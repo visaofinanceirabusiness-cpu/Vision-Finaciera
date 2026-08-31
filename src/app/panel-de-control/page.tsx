@@ -8,6 +8,7 @@ import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { GastosPieChart } from '@/components/panel/GastosPieChart';
+import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -718,13 +719,11 @@ export default function MiNegocioPage() {
               )}
             </div>
 
-            <LucroChart
-              datos={indicadores?.evolucionLucro ?? []}
-              simbolo={simbolo}
-              titulo={esFamiliar ? '📈 Evolución de ingresos, gastos y ahorro' : undefined}
-              subtitulo={esFamiliar ? 'Mes a mes' : undefined}
-              mostrarCostos={!esFamiliar}
-            />
+            {esFamiliar ? (
+              <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
+            ) : (
+              <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
+            )}
           </section>
         )}
 
