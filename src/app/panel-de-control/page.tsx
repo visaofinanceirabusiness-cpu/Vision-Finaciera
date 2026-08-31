@@ -12,6 +12,7 @@ import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -277,8 +278,6 @@ export default function MiNegocioPage() {
     ? 'Todos los períodos'
     : formatearPeriodo(periodoSeleccionado);
 
-  const logoDisponible = Boolean(empresa?.logo_url?.trim());
-
   return (
     <main
       style={{
@@ -290,144 +289,27 @@ export default function MiNegocioPage() {
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         {/* =================================================
-            CABECERA
+            ENCABEZADO — mismo estilo que el resto de las
+            herramientas (Contabilidad, Mercadería, Informes...).
         ================================================== */}
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 16,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div
-              style={{
-                width: 78,
-                height: 78,
-                borderRadius: 20,
-                background: colores.blanco,
-                border: `2px solid ${colores.acento}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                boxShadow: '0 8px 20px rgba(31,58,95,0.10)',
-                flexShrink: 0,
-              }}
-            >
-              {logoDisponible ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={empresa!.logo_url!}
-                  alt={`Logo de ${empresa?.nombre ?? 'empresa'}`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    padding: 6,
-                  }}
-                />
-              ) : (
-                <span
-                  style={{
-                    fontSize: 30,
-                    fontWeight: 800,
-                    color: colores.azul,
-                  }}
-                >
-                  {(empresa?.nombre ?? 'M').charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color: colores.azul,
-                }}
-              >
-                {empresa?.nombre ?? 'Mi Negocio'}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 13,
-                  color: COLORES_BASE.gris,
-                  marginTop: 3,
-                }}
-              >
-                {empresa?.rubro ?? 'Gestión financiera'}
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <Link
-              href="/"
-              style={{
-                background: colores.blanco,
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: '11px 16px',
-                color: colores.azul,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-block',
-              }}
-            >
-              ← Inicio
+        <header style={encabezadoEstandar}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <Link href="/" style={volverEstandar}>
+              ← Volver a Mi Negocio
             </Link>
 
-            {perfil?.es_admin_plataforma && (
-              <Link
-                href="/panel-maestro"
-                style={{
-                  background: colores.azul,
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '11px 16px',
-                  cursor: 'pointer',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  display: 'inline-block',
-                }}
-              >
-                🔱 Volver a mi Panel
-              </Link>
-            )}
-
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                router.push('/login');
-              }}
-              style={{
-                background: colores.blanco,
-                border: '1px solid #d1d5db',
-                borderRadius: 12,
-                padding: '11px 16px',
-                cursor: 'pointer',
-                color: colores.azul,
-                fontWeight: 700,
-              }}
-            >
-              Cerrar sesión
-            </button>
+            <AccesosHerramientas />
           </div>
-        </div>
+
+          <div style={eyebrowEstandar}>GESTIÓN FINANCIERA</div>
+
+          <h1 style={{ margin: 0, fontSize: 32 }}>Panel de Control</h1>
+
+          <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
+            Indicadores, objetivos y evolución de {empresa?.nombre ?? 'tu negocio'}.
+          </p>
+        </header>
 
         {/* =================================================
             AVISO DE CONSISTENCIA CONTABLE
@@ -1334,6 +1216,34 @@ function formatearNumero(valor: number): string {
     maximumFractionDigits: 0,
   });
 }
+
+// Mismo encabezado que usan Contabilidad, Mercadería, Informes,
+// Recursos Humanos y Configurações — para que las 6 herramientas se
+// sientan como una sola app, no pantallas sueltas con estilos propios.
+const encabezadoEstandar: React.CSSProperties = {
+  background: 'linear-gradient(125deg, #142a47 0%, #1f3a5f 58%, #245a52 100%)',
+  borderRadius: 24,
+  padding: '28px 34px',
+  color: COLORES_BASE.blanco,
+  marginBottom: 24,
+  boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+};
+
+const volverEstandar: React.CSSProperties = {
+  color: '#cbd5e1',
+  fontSize: 13,
+  textDecoration: 'none',
+  display: 'inline-block',
+  marginBottom: 18,
+};
+
+const eyebrowEstandar: React.CSSProperties = {
+  color: '#86efac',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 1.4,
+  marginBottom: 8,
+};
 
 function formatearPeriodo(valor: string): string {
   const partes = valor.split('-');
