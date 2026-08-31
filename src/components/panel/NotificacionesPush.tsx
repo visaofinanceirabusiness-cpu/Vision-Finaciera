@@ -91,11 +91,22 @@ export function NotificacionesPush() {
 
       setEstado('activo');
     } catch (errorActivar) {
-      setError(
-        errorActivar instanceof Error
-          ? errorActivar.message
-          : 'No se pudieron activar las notificaciones.'
-      );
+      console.error('Error activando notificaciones push:', errorActivar);
+
+      let detalle = 'No se pudieron activar las notificaciones.';
+
+      if (errorActivar instanceof Error) {
+        detalle = errorActivar.message;
+      } else if (
+        errorActivar &&
+        typeof errorActivar === 'object' &&
+        'message' in errorActivar &&
+        typeof (errorActivar as { message?: unknown }).message === 'string'
+      ) {
+        detalle = (errorActivar as { message: string }).message;
+      }
+
+      setError(detalle);
     } finally {
       setCargando(false);
     }
