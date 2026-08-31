@@ -860,6 +860,16 @@ export default function MiNegocioPage() {
               {CATEGORIAS_ORDEN.map(({ categoria, titulo, emoji }) => {
                 const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
 
+                // En Familia, los objetivos Contables y Financieros
+                // (Ventas +10%, Rentabilidad, Fondo de Emergencia...)
+                // no tienen sentido todavía en nivel 1 — recién
+                // aparecen desde nivel 2, cuando ya hay historial de
+                // meses para comparar. "Primeros pasos" es lo único
+                // que corresponde mientras el usuario recién arranca.
+                if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO') && (gamificacion?.nivel ?? 1) < 2) {
+                  return null;
+                }
+
                 if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
                   return (
                     <div key={categoria} style={{ marginBottom: 22 }}>
