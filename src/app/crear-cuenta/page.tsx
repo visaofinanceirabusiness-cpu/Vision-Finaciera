@@ -107,6 +107,18 @@ export default function CrearCuentaPage() {
       return;
     }
 
+    // Por seguridad, si el email YA existe Supabase no tira error acá
+    // (para no revelar qué emails están registrados) — devuelve un
+    // usuario "de mentira" que nunca se guarda de verdad. La única
+    // forma de detectarlo es que "identities" venga vacío. Sin este
+    // chequeo, quedaba creada una solicitud apuntando a un usuario
+    // que no existe, imposible de vincular después.
+    if (signUpData.user.identities && signUpData.user.identities.length === 0) {
+      setError('Ya existe una cuenta con ese email — probá iniciar sesión, o pedí que te reenvíen la confirmación.');
+      setEnviando(false);
+      return;
+    }
+
     const { error: errorSolicitud } = await supabase.from('solicitudes_alta').insert({
       user_id: signUpData.user.id,
       email: email.trim(),
