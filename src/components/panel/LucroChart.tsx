@@ -21,7 +21,7 @@ const COLOR_INGRESOS = '#2e8b57';
 const COLOR_COSTOS = '#f59e0b';
 const COLOR_GASTOS = '#dc2626';
 
-export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
+export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; simbolo?: string }) {
   // Ancho grande a propósito: este gráfico ahora ocupa todo el ancho
   // de la pantalla y puede mostrar 12 meses o más sin apretarse.
   const ancho = 1180;
@@ -114,7 +114,7 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
               <EtiquetaValor
                 x={puntoCostos.x}
                 y={puntoCostos.y - 18}
-                texto={`R$ ${dato.costos.toFixed(0)}`}
+                texto={`${simbolo} ${dato.costos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
                 color={COLOR_COSTOS}
               />
 
@@ -122,7 +122,7 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
               <EtiquetaValor
                 x={puntoGastos.x}
                 y={puntoGastos.y + 26}
-                texto={`R$ ${dato.gastos.toFixed(0)}`}
+                texto={`${simbolo} ${dato.gastos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
                 color={COLOR_GASTOS}
               />
 
@@ -130,7 +130,7 @@ export function LucroChart({ datos }: { datos: PuntoLucroMes[] }) {
               <EtiquetaValor
                 x={puntoIngresos.x}
                 y={Math.max(22, puntoIngresos.y - 22)}
-                texto={`R$ ${lucro.toFixed(0)}`}
+                texto={`${simbolo} ${lucro.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
                 color={lucro >= 0 ? COLOR_INGRESOS : COLOR_GASTOS}
                 grande
               />
