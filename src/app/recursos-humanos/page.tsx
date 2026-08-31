@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -289,9 +290,13 @@ export default function RecursosHumanosPage() {
         ================================================== */}
 
         <header style={encabezado}>
-          <Link href="/" style={volver}>
-            ← Volver a Mi Negocio
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <Link href="/" style={volver}>
+              ← Volver a Mi Negocio
+            </Link>
+
+            <AccesosHerramientas />
+          </div>
 
           <div style={eyebrow}>GESTIÓN FINANCIERA</div>
 
