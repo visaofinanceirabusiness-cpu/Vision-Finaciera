@@ -88,6 +88,7 @@ export type IndicadoresPanel = {
   evolucionLucro: PuntoLucroMes[];
   ventasCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
+  gastosCategorias: PuntoGrafico[];
 
   // Control de consistencia contable
   descuadre: number;
@@ -450,6 +451,27 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
+  // Gastos por categoría: del período seleccionado. Misma lógica que
+  // ventas por categoría, pero mirando los PAGO (Vivienda, Alimentación,
+  // Transporte, etc.) — es lo que arma "Distribución de gastos".
+  const gastosPorCategoria = new Map<string, number>();
+
+  for (const fila of operaciones) {
+    if (fila.operacion !== 'PAGO' || !dentroDelPeriodo(String(fila.fecha ?? ''))) {
+      continue;
+    }
+
+    const categoria = String(fila.categoria ?? 'Sin categoría');
+    gastosPorCategoria.set(
+      categoria,
+      (gastosPorCategoria.get(categoria) ?? 0) + aNumero(fila.total)
+    );
+  }
+
+  const gastosCategorias: PuntoGrafico[] = Array.from(gastosPorCategoria.entries())
+    .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
+    .sort((a, b) => b.valor - a.valor);
+
   return {
     // Situación a la fecha
     activos: redondear(activos),
@@ -471,6 +493,7 @@ export async function obtenerIndicadores(
     evolucionLucro,
     ventasCategorias,
     stockCategorias,
+    gastosCategorias,
 
     descuadre: redondear(descuadre),
   };
