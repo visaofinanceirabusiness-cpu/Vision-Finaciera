@@ -12,7 +12,7 @@ type DatosCategoria = {
 
 const PALETA = ['#f59e0b', '#0ea5e9', '#a855f7', '#16a34a', '#ec4899', '#6366f1'];
 
-export function CategoryChart({ datos, color }: { datos: DatosCategoria[]; color: string }) {
+export function CategoryChart({ datos, color, simbolo = 'R$' }: { datos: DatosCategoria[]; color: string; simbolo?: string }) {
   const ancho = 520;
   const alto = 270;
 
@@ -69,7 +69,7 @@ export function CategoryChart({ datos, color }: { datos: DatosCategoria[]; color
                 fontWeight="800"
                 fill="#1f3a5f"
               >
-                R${dato.valor}
+                {simbolo}{dato.valor.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </text>
 
               <text
