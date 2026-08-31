@@ -35,6 +35,14 @@ type Empresa = {
   moneda: string | null;
 };
 
+const CATEGORIAS_ORDEN: { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] = [
+  { categoria: 'ACTIVIDAD', titulo: 'Primeros pasos', emoji: '🚀' },
+  { categoria: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
+  { categoria: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
+  { categoria: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
+  { categoria: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
+];
+
 type ConfiguracionDashboard = {
   color_primario: string;
   color_secundario: string;
@@ -59,13 +67,6 @@ type ProgresoGamificacion = {
   faltan: number;
 };
 
-const CATEGORIAS_ORDEN: { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] = [
-  { categoria: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
-  { categoria: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
-  { categoria: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
-  { categoria: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
-];
-
 type PeriodoDisponible = {
   valor: string;
   etiqueta: string;
@@ -76,6 +77,7 @@ export default function MiNegocioPage() {
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [esFamiliar, setEsFamiliar] = useState(false);
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoCalculado[]>([]);
@@ -117,7 +119,7 @@ export default function MiNegocioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, moneda')
+        .select('nombre, rubro, logo_url, moneda, perfil_empresa_id, perfiles_empresa(codigo)')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -128,6 +130,11 @@ export default function MiNegocioPage() {
       }
 
       setEmpresa(empresaData);
+
+      const perfilCodigo = (empresaData as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
+        ?.perfiles_empresa?.codigo;
+
+      setEsFamiliar(perfilCodigo === 'FAMILIAR');
 
       const { data: configData, error: errorConfig } = await supabase
         .from('configuracion_dashboard')
@@ -369,7 +376,7 @@ export default function MiNegocioPage() {
             </div>
 
             <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-              Tu negocio hoy
+              {esFamiliar ? 'Tu familia hoy' : 'Tu negocio hoy'}
             </h2>
 
             <p
@@ -391,40 +398,67 @@ export default function MiNegocioPage() {
               gap: 12,
             }}
           >
-            <ResumenEjecutivoCard
-              titulo="Activo"
-              valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
-              emoji="💚"
-              color={colores.verde}
-            />
+            {esFamiliar ? (
+              <>
+                <ResumenEjecutivoCard
+                  titulo="Dinero disponible"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+                  emoji="💵"
+                  color={colores.verde}
+                />
 
-            <ResumenEjecutivoCard
-              titulo="Pasivo"
-              valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
-              emoji="💗"
-              color="#b91c1c"
-            />
+                <ResumenEjecutivoCard
+                  titulo="Deuda total"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+                  emoji="💗"
+                  color="#b91c1c"
+                />
 
-            <ResumenEjecutivoCard
-              titulo="Capital"
-              valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
-              emoji="💙"
-              color={colores.azul}
-            />
+                <ResumenEjecutivoCard
+                  titulo="Patrimonio neto"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
+                  emoji="💙"
+                  color={colores.azul}
+                />
+              </>
+            ) : (
+              <>
+                <ResumenEjecutivoCard
+                  titulo="Activo"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
+                  emoji="💚"
+                  color={colores.verde}
+                />
 
-            <ResumenEjecutivoCard
-              titulo="Saldo en caja"
-              valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
-              emoji="💵"
-              color={colores.azul}
-            />
+                <ResumenEjecutivoCard
+                  titulo="Pasivo"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+                  emoji="💗"
+                  color="#b91c1c"
+                />
 
-            <ResumenEjecutivoCard
-              titulo="Stock bajo"
-              valor={`${indicadores?.stockBajo ?? 0} productos`}
-              emoji="📦"
-              color={colores.acento}
-            />
+                <ResumenEjecutivoCard
+                  titulo="Capital"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
+                  emoji="💙"
+                  color={colores.azul}
+                />
+
+                <ResumenEjecutivoCard
+                  titulo="Saldo en caja"
+                  valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+                  emoji="💵"
+                  color={colores.azul}
+                />
+
+                <ResumenEjecutivoCard
+                  titulo="Stock bajo"
+                  valor={`${indicadores?.stockBajo ?? 0} productos`}
+                  emoji="📦"
+                  color={colores.acento}
+                />
+              </>
+            )}
           </div>
         </section>
 
@@ -579,47 +613,81 @@ export default function MiNegocioPage() {
                 marginBottom: 18,
               }}
             >
-              <ResumenEjecutivoCard
-                titulo="Ingreso operativo"
-                valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
-                emoji="💵"
-                color={colores.verde}
-              />
+              {esFamiliar ? (
+                <>
+                  <ResumenEjecutivoCard
+                    titulo="Ingresos del período"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
+                    emoji="💵"
+                    color={colores.verde}
+                  />
 
-              <ResumenEjecutivoCard
-                titulo="Costo de mercadería vendida"
-                valor={`${simbolo} ${formatearNumero(indicadores?.cmv ?? 0)}`}
-                emoji="🏷️"
-                color="#b45309"
-              />
+                  <ResumenEjecutivoCard
+                    titulo="Gastos del período"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
+                    emoji="🧾"
+                    color="#c2410c"
+                  />
 
-              <ResumenEjecutivoCard
-                titulo="Gastos"
-                valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
-                emoji="🧾"
-                color="#c2410c"
-              />
+                  <ResumenEjecutivoCard
+                    titulo="Ahorro del período"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
+                    emoji="🐷"
+                    color={colores.azul}
+                  />
 
-              <ResumenEjecutivoCard
-                titulo="Lucro"
-                valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
-                emoji="💰"
-                color={colores.azul}
-              />
+                  <ResumenEjecutivoCard
+                    titulo="Tasa de ahorro"
+                    valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
+                    emoji="📈"
+                    color={colores.verde}
+                  />
+                </>
+              ) : (
+                <>
+                  <ResumenEjecutivoCard
+                    titulo="Ingreso operativo"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
+                    emoji="💵"
+                    color={colores.verde}
+                  />
 
-              <ResumenEjecutivoCard
-                titulo="Rentabilidad"
-                valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
-                emoji="📈"
-                color={colores.verde}
-              />
+                  <ResumenEjecutivoCard
+                    titulo="Costo de mercadería vendida"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.cmv ?? 0)}`}
+                    emoji="🏷️"
+                    color="#b45309"
+                  />
 
-              <ResumenEjecutivoCard
-                titulo="Liquidez corriente"
-                valor={`${formatearNumero(indicadores?.liquidez ?? 0)}`}
-                emoji="💧"
-                color="#ca8a04"
-              />
+                  <ResumenEjecutivoCard
+                    titulo="Gastos"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
+                    emoji="🧾"
+                    color="#c2410c"
+                  />
+
+                  <ResumenEjecutivoCard
+                    titulo="Lucro"
+                    valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
+                    emoji="💰"
+                    color={colores.azul}
+                  />
+
+                  <ResumenEjecutivoCard
+                    titulo="Rentabilidad"
+                    valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
+                    emoji="📈"
+                    color={colores.verde}
+                  />
+
+                  <ResumenEjecutivoCard
+                    titulo="Liquidez corriente"
+                    valor={`${formatearNumero(indicadores?.liquidez ?? 0)}`}
+                    emoji="💧"
+                    color="#ca8a04"
+                  />
+                </>
+              )}
             </div>
 
             <div
@@ -631,19 +699,71 @@ export default function MiNegocioPage() {
                 marginBottom: 16,
               }}
             >
-              <CategoryChart
-                datos={indicadores?.ventasCategorias ?? []}
-                color={colores.acento}
-                simbolo={simbolo}
-              />
+              {esFamiliar ? (
+                <CategoryChart
+                  datos={indicadores?.gastosCategorias ?? []}
+                  color={colores.acento}
+                  simbolo={simbolo}
+                  titulo="🧾 Distribución de gastos"
+                  subtitulo="En qué se fue la plata este período"
+                />
+              ) : (
+                <>
+                  <CategoryChart
+                    datos={indicadores?.ventasCategorias ?? []}
+                    color={colores.acento}
+                    simbolo={simbolo}
+                  />
 
-              <StockChart
-                datos={indicadores?.stockCategorias ?? []}
-                color={colores.acento}
-              />
+                  <StockChart
+                    datos={indicadores?.stockCategorias ?? []}
+                    color={colores.acento}
+                  />
+                </>
+              )}
             </div>
 
-            <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
+            <LucroChart
+              datos={indicadores?.evolucionLucro ?? []}
+              simbolo={simbolo}
+              titulo={esFamiliar ? '📈 Evolución de ingresos, gastos y ahorro' : undefined}
+              subtitulo={esFamiliar ? 'Mes a mes' : undefined}
+              mostrarCostos={!esFamiliar}
+            />
+          </section>
+        )}
+
+        {/* =================================================
+            ENDEUDAMIENTO Y FONDO DE RESPALDO (perfil Familia)
+        ================================================== */}
+
+        {esFamiliar && configuracion?.mostrar_graficos && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: 20,
+            }}
+          >
+            <SeccionEndeudamiento
+              deuda={indicadores?.pasivos ?? 0}
+              patrimonio={indicadores?.patrimonio ?? 0}
+              simbolo={simbolo}
+              colores={colores}
+            />
+
+            <SeccionFondoRespaldo
+              cajaDisponible={indicadores?.cajaDisponible ?? 0}
+              meta={objetivos.find((o) => o.indicador === 'FONDO_EMERGENCIA')}
+              simbolo={simbolo}
+              colores={colores}
+            />
           </section>
         )}
 
@@ -694,7 +814,7 @@ export default function MiNegocioPage() {
                       fontSize: 22,
                     }}
                   >
-                    Objetivos del mes
+                    {esFamiliar ? 'Objetivos familiares' : 'Objetivos del mes'}
                   </h2>
 
                   <p
@@ -722,6 +842,10 @@ export default function MiNegocioPage() {
                   Objetivos acordados
                 </div>
               </div>
+
+              {esFamiliar && gamificacion && (
+                <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} />
+              )}
 
               {CATEGORIAS_ORDEN.map(({ categoria, titulo, emoji }) => {
                 const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
@@ -971,7 +1095,9 @@ function ObjetivoCard({
       ? `${valor.toFixed(1)}%`
       : objetivo.unidad === 'veces'
         ? `${valor.toFixed(2)}x`
-        : `${objetivo.unidad} ${formatearNumeroEntero(valor)}`;
+        : objetivo.unidad === 'unidades'
+          ? `${formatearNumeroEntero(valor)}`
+          : `${objetivo.unidad} ${formatearNumeroEntero(valor)}`;
 
   const info = CATALOGO_INDICADORES[objetivo.indicador];
   const etiquetaMeta = info?.inverso ? 'Tope' : 'Meta';
@@ -1077,6 +1203,153 @@ function ObjetivoCard({
         <span style={{ fontSize: 13, fontWeight: 800, color: colorPrimario }}>
           {etiquetaMeta}: {objetivoTexto}
         </span>
+      </div>
+    </div>
+  );
+}
+
+function SeccionEndeudamiento({
+  deuda,
+  patrimonio,
+  simbolo,
+  colores,
+}: {
+  deuda: number;
+  patrimonio: number;
+  simbolo: string;
+  colores: { azul: string; verde: string; acento: string; blanco: string };
+}) {
+  const total = deuda + Math.max(patrimonio, 0);
+  const proporcionDeuda = total > 0 ? (deuda / total) * 100 : 0;
+
+  const salud =
+    proporcionDeuda < 30
+      ? { texto: 'Endeudamiento sano', color: colores.verde }
+      : proporcionDeuda < 60
+        ? { texto: 'Endeudamiento moderado', color: '#d97706' }
+        : { texto: 'Endeudamiento alto', color: '#dc2626' };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+        EQUILIBRIO
+      </div>
+
+      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>Endeudamiento</h3>
+
+      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
+        Cuánto de lo que tenés depende de deuda.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+        <InfoCard etiqueta="Deuda total" valor={`${simbolo} ${formatearNumero(deuda)}`} color="#b91c1c" />
+        <InfoCard etiqueta="Patrimonio neto" valor={`${simbolo} ${formatearNumero(patrimonio)}`} color={colores.azul} />
+      </div>
+
+      <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+        <div style={{ width: `${Math.min(100, proporcionDeuda)}%`, height: '100%', borderRadius: 999, background: salud.color }} />
+      </div>
+
+      <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: salud.color }}>
+        {salud.texto} — la deuda es el {formatearNumero(proporcionDeuda)}% de deuda + patrimonio.
+      </div>
+    </div>
+  );
+}
+
+function SeccionFondoRespaldo({
+  cajaDisponible,
+  meta,
+  simbolo,
+  colores,
+}: {
+  cajaDisponible: number;
+  meta: ObjetivoCalculado | undefined;
+  simbolo: string;
+  colores: { azul: string; verde: string; acento: string; blanco: string };
+}) {
+  const objetivoMonto = meta?.objetivo ?? 0;
+  const porcentaje = objetivoMonto > 0 ? Math.min(100, (cajaDisponible / objetivoMonto) * 100) : 0;
+  const cumplido = objetivoMonto > 0 && cajaDisponible >= objetivoMonto;
+
+  return (
+    <div>
+      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+        COLCHÓN
+      </div>
+
+      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>Fondo de respaldo</h3>
+
+      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
+        Plata disponible aparte de lo que necesitás para el día a día.
+      </p>
+
+      {objetivoMonto > 0 ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+            <strong style={{ color: colores.azul }}>{simbolo} {formatearNumero(cajaDisponible)}</strong>
+            <span style={{ color: COLORES_BASE.gris }}>Meta: {simbolo} {formatearNumero(objetivoMonto)}</span>
+          </div>
+
+          <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${porcentaje}%`,
+                height: '100%',
+                borderRadius: 999,
+                background: cumplido ? colores.verde : '#d97706',
+              }}
+            />
+          </div>
+
+          <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: cumplido ? colores.verde : '#d97706' }}>
+            {cumplido ? '¡Fondo completo!' : `${formatearNumero(porcentaje)}% del fondo objetivo`}
+          </div>
+        </>
+      ) : (
+        <div style={{ padding: 16, border: '1px dashed #d6dee5', borderRadius: 14, fontSize: 12, color: COLORES_BASE.gris }}>
+          Configurá una meta de "Fondo de Respaldo" en Objetivos para hacer seguimiento acá.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProgresoNivelBanner({
+  gamificacion,
+  colores,
+}: {
+  gamificacion: ProgresoGamificacion;
+  colores: { azul: string; verde: string; acento: string; blanco: string };
+}) {
+  return (
+    <div
+      style={{
+        background: `${colores.azul}08`,
+        border: `1px solid ${colores.azul}22`,
+        borderRadius: 16,
+        padding: 18,
+        marginBottom: 22,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: colores.azul }}>
+          {gamificacion.emoji} Nivel {gamificacion.nivel} — {gamificacion.nombre}
+        </div>
+
+        <span style={{ fontSize: 12, fontWeight: 700, color: colores.verde }}>
+          {gamificacion.operaciones} operaciones registradas
+        </span>
+      </div>
+
+      <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+        <div style={{ width: `${Math.min(100, gamificacion.progreso)}%`, height: '100%', borderRadius: 999, background: colores.verde }} />
+      </div>
+
+      <div style={{ marginTop: 8, fontSize: 12, color: COLORES_BASE.gris }}>
+        {gamificacion.faltan > 0
+          ? `Te faltan ${gamificacion.faltan} operaciones para subir de nivel.`
+          : '¡Nivel máximo alcanzado por ahora!'}
       </div>
     </div>
   );
