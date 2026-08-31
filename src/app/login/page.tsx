@@ -20,7 +20,11 @@ export default function LoginPage() {
     setCargando(false);
 
       if (errorAuth) {
-      setError('No pudimos iniciar sesión. Revisá tu email y contraseña.');
+      setError(
+        errorAuth.message.toLowerCase().includes('email not confirmed')
+          ? 'Todavía no confirmaste tu email — revisá tu casilla (y la carpeta de spam) y hacé clic en el link que te mandamos.'
+          : 'No pudimos iniciar sesión. Revisá tu email y contraseña.'
+      );
       return;
     }
 
