@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
+import { GastosPieChart } from '@/components/panel/GastosPieChart';
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -700,13 +701,7 @@ export default function MiNegocioPage() {
               }}
             >
               {esFamiliar ? (
-                <CategoryChart
-                  datos={indicadores?.gastosCategorias ?? []}
-                  color={colores.acento}
-                  simbolo={simbolo}
-                  titulo="🧾 Distribución de gastos"
-                  subtitulo="En qué se fue la plata este período"
-                />
+                <GastosPieChart datos={indicadores?.gastosCategorias ?? []} simbolo={simbolo} />
               ) : (
                 <>
                   <CategoryChart
