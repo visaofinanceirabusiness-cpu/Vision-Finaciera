@@ -457,7 +457,7 @@ export default function PanelMaestroPage() {
       return;
     }
 
-    router.push('/');
+    router.push('/?vista=empresa');
   }
 
   if (cargando) {

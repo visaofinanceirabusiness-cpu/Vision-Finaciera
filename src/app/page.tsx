@@ -135,8 +135,13 @@ export default function InicioPage() {
       }
 
       // El admin de la plataforma entra directo a su panel maestro — el
-      // lobby de "mi negocio" es para los emprendedores.
-      if (perfilData.es_admin_plataforma) {
+      // lobby de "mi negocio" es para los emprendedores. Excepción: si
+      // vino desde "entrar a esa empresa" en el panel maestro, se queda
+      // acá viendo el negocio del cliente en lugar de rebotar de vuelta.
+      const vieneDeEntrarAEmpresa =
+        new URLSearchParams(window.location.search).get('vista') === 'empresa';
+
+      if (perfilData.es_admin_plataforma && !vieneDeEntrarAEmpresa) {
         router.push('/panel-maestro');
         return;
       }

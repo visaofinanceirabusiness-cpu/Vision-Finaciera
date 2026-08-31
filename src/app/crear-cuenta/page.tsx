@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { notificarPendienteAlAdmin } from '@/lib/notificarPush';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -134,6 +135,12 @@ export default function CrearCuentaPage() {
       setEnviando(false);
       return;
     }
+
+    notificarPendienteAlAdmin({
+      titulo: 'Nueva solicitud de alta',
+      cuerpo: `${nombreEmpresa.trim()} · ${nombre.trim()}`,
+      url: '/panel-maestro',
+    });
 
     setEnviado(true);
     setEnviando(false);
