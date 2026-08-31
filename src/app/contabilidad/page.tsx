@@ -191,6 +191,7 @@ type ValoresIniciales = {
   formaPago: string;
   historico: string;
   clienteProveedor: string;
+  socio?: string;
   lineas: LineaOperacion[];
 };
 
@@ -226,8 +227,10 @@ function CentralDeLanzamientosTab({
 
   const [historico, setHistorico] = useState(valoresIniciales?.historico ?? '');
   const [clienteProveedor, setClienteProveedor] = useState(valoresIniciales?.clienteProveedor ?? '');
+  const [socio, setSocio] = useState(valoresIniciales?.socio ?? '');
 
   const [contactos, setContactos] = useState<string[]>([]);
+  const [sociosIngreso, setSociosIngreso] = useState<string[]>([]);
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [saldoPorProducto, setSaldoPorProducto] = useState<Record<string, number>>({});
@@ -461,6 +464,35 @@ function CentralDeLanzamientosTab({
     cargarContactos();
   }, [empresaId, operacion]);
 
+  // Socio/a que generó el ingreso — solo aplica a Cobro en perfil
+  // Familia. Es un dato aparte de la Fuente de ingreso: la fuente es
+  // quién pagó (empleador, cliente), el socio es quién de la familia
+  // lo cobró. Se resuelve en el mismo efecto que "contactos" (no en
+  // uno propio) porque ambos leen la misma bandera hidratarContacto,
+  // y dos efectos async separados podrían resolverla en cualquier
+  // orden y pisarse entre sí al editar una operación existente.
+  useEffect(() => {
+    if (!empresaId || operacion !== 'COBRO' || !esFamiliar) {
+      setSociosIngreso([]);
+      setSocio('');
+      return;
+    }
+
+    async function cargarSociosIngreso() {
+      const { data } = await supabase
+        .from('socios')
+        .select('nombre')
+        .eq('empresa_id', empresaId)
+        .eq('activo', true);
+
+      setSociosIngreso(Array.from(new Set((data ?? []).map((s) => s.nombre).filter(Boolean))));
+      setSocio(valoresIniciales?.socio ?? '');
+    }
+
+    cargarSociosIngreso();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, operacion, esFamiliar]);
+
   function actualizarLinea(indice: number, campo: keyof LineaOperacion, valor: string) {
     setLineas((prev) =>
       prev.map((linea, i) =>
@@ -502,6 +534,8 @@ function CentralDeLanzamientosTab({
     lineas.length > 0 &&
     lineas.every((linea) => linea.producto.trim() && linea.cantidad > 0 && linea.monto > 0);
 
+  const requiereSocio = esFamiliar && operacion === 'COBRO';
+
   const camposCompletos = Boolean(
     fecha &&
       operacion &&
@@ -509,6 +543,7 @@ function CentralDeLanzamientosTab({
       formaPago &&
       (formularioSimple || historico.trim()) &&
       clienteProveedor.trim() &&
+      (!requiereSocio || socio.trim()) &&
       lineasCompletas &&
       !stockInsuficiente
   );
@@ -529,6 +564,7 @@ function CentralDeLanzamientosTab({
           ? historico.trim() || lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
           : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
+        socio: requiereSocio ? socio.trim() : '',
         lineas: lineas.map((linea) => ({
           producto: linea.producto.trim(),
           cantidad: Number(linea.cantidad),
@@ -552,6 +588,7 @@ function CentralDeLanzamientosTab({
       setFormaPago('');
       setHistorico('');
       setClienteProveedor('');
+      setSocio('');
 
       setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
     } catch (e: unknown) {
@@ -693,6 +730,25 @@ function CentralDeLanzamientosTab({
           ))}
         </select>
       </Campo>
+
+      {requiereSocio && (
+        <Campo label="Socio/a">
+          <select
+            value={socio}
+            onChange={(e) => setSocio(e.target.value)}
+            disabled={sociosIngreso.length === 0}
+            style={campoInput}
+          >
+            <option value="">Seleccionar...</option>
+
+            {sociosIngreso.map((nombre) => (
+              <option key={nombre} value={nombre}>
+                {nombre}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      )}
 
       {operacion && (
         <div style={{ marginTop: 20 }}>
