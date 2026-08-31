@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
   });
 
   let enviadas = 0;
+  const fallidas: { endpoint: string; statusCode?: number; body?: string }[] = [];
 
   await Promise.all(
     (suscripciones ?? []).map(async (suscripcion) => {
@@ -76,16 +77,24 @@ export async function POST(request: NextRequest) {
         );
         enviadas += 1;
       } catch (errorEnvio) {
-        const statusCode = (errorEnvio as { statusCode?: number })?.statusCode;
+        const detalle = errorEnvio as { statusCode?: number; body?: string; message?: string };
+
+        console.error('Error enviando push a', suscripcion.endpoint, detalle);
+
+        fallidas.push({
+          endpoint: suscripcion.endpoint,
+          statusCode: detalle?.statusCode,
+          body: detalle?.body ?? detalle?.message,
+        });
 
         // Suscripción vencida o revocada por el navegador: se borra para
         // no seguir intentando enviarle en vano.
-        if (statusCode === 404 || statusCode === 410) {
+        if (detalle?.statusCode === 404 || detalle?.statusCode === 410) {
           await supabaseAdmin.from('push_subscriptions').delete().eq('id', suscripcion.id);
         }
       }
     })
   );
 
-  return NextResponse.json({ enviadas });
+  return NextResponse.json({ enviadas, totalSuscripciones: (suscripciones ?? []).length, fallidas });
 }
