@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
+import { eliminarOperacion } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 
 const COLORES_BASE = {
@@ -67,6 +68,8 @@ export default function PanelMaestroPage() {
   const [cargando, setCargando] = useState(true);
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [validando, setValidando] = useState<string | null>(null);
+  const [rechazando, setRechazando] = useState<string | null>(null);
+  const [eliminandoEmpresa, setEliminandoEmpresa] = useState<string | null>(null);
   const [resolviendoSolicitud, setResolviendoSolicitud] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -345,6 +348,96 @@ export default function PanelMaestroPage() {
     setValidando(null);
   }
 
+  // Rechazar = anular la operación por completo, con el mismo efecto
+  // cadena que ya usa "Eliminar y recargar" en Registro de
+  // Operaciones (borra registro_operaciones, movimientos_stock y
+  // registros_automaticos ligados al mismo id_operacion). No hay
+  // "estado RECHAZADO" — la operación deja de existir, tal como si
+  // nunca se hubiera cargado.
+  async function rechazarRegistro(pendiente: PendienteRegistro) {
+    if (!window.confirm(`¿Rechazar y borrar por completo la operación ${pendiente.idOperacion}? No se puede deshacer.`)) {
+      return;
+    }
+
+    setError('');
+    setMensaje('');
+    setRechazando(`registro-${pendiente.idOperacion}`);
+
+    try {
+      await eliminarOperacion(pendiente.empresaId, pendiente.idOperacion);
+      setMensaje(`${pendiente.idOperacion} rechazada y borrada.`);
+      await cargarPendientes();
+    } catch (errorRechazar) {
+      setError(
+        errorRechazar instanceof Error
+          ? errorRechazar.message
+          : `No se pudo rechazar ${pendiente.idOperacion}.`
+      );
+    }
+
+    setRechazando(null);
+  }
+
+  async function rechazarMovimiento(pendiente: PendienteMovimiento) {
+    if (!window.confirm(`¿Rechazar y borrar por completo el movimiento ${pendiente.idOperacion}? No se puede deshacer.`)) {
+      return;
+    }
+
+    setError('');
+    setMensaje('');
+    setRechazando(`movimiento-${pendiente.idOperacion}`);
+
+    try {
+      await eliminarOperacion(pendiente.empresaId, pendiente.idOperacion);
+      setMensaje(`Movimiento ${pendiente.idOperacion} rechazado y borrado.`);
+      await cargarPendientes();
+    } catch (errorRechazar) {
+      setError(
+        errorRechazar instanceof Error
+          ? errorRechazar.message
+          : `No se pudo rechazar el movimiento ${pendiente.idOperacion}.`
+      );
+    }
+
+    setRechazando(null);
+  }
+
+  // Borra la empresa entera y TODO lo que cuelga de ella (plan de
+  // cuentas, categorías, operaciones, socios, productos, etc.) — la
+  // misma limpieza que hasta ahora se hacía a mano por SQL cuando se
+  // descartaba una empresa de prueba. Pide escribir el nombre exacto
+  // para confirmar, porque no hay forma de deshacerlo.
+  async function eliminarEmpresa(empresa: Empresa) {
+    const confirmacion = window.prompt(
+      `Esto borra "${empresa.nombre}" y absolutamente todo lo conectado (plan de cuentas, operaciones, productos, socios, usuarios vinculados...). No se puede deshacer.\n\nEscribí el nombre exacto de la empresa para confirmar:`
+    );
+
+    if (confirmacion !== empresa.nombre) {
+      if (confirmacion !== null) {
+        setError('El nombre no coincide — no se borró nada.');
+      }
+      return;
+    }
+
+    setError('');
+    setMensaje('');
+    setEliminandoEmpresa(empresa.id);
+
+    const { error: errorEliminar } = await supabase.rpc('eliminar_empresa_completa', {
+      p_empresa_id: empresa.id,
+    });
+
+    if (errorEliminar) {
+      setError(`No se pudo borrar "${empresa.nombre}": ${errorEliminar.message}`);
+    } else {
+      setMensaje(`"${empresa.nombre}" se borró por completo.`);
+      await cargarEmpresas();
+      await cargarPendientes();
+    }
+
+    setEliminandoEmpresa(null);
+  }
+
   async function entrarAEmpresa(empresaId: string) {
     setCambiando(empresaId);
     setError('');
@@ -513,8 +606,11 @@ export default function PanelMaestroPage() {
           pendientes={pendientes}
           empresas={empresas}
           validando={validando}
+          rechazando={rechazando}
           onValidarRegistro={validarRegistro}
           onValidarMovimiento={validarMovimiento}
+          onRechazarRegistro={rechazarRegistro}
+          onRechazarMovimiento={rechazarMovimiento}
         />
 
         {/* LISTA DE EMPRESAS */}
@@ -526,10 +622,9 @@ export default function PanelMaestroPage() {
           }}
         >
           {empresas.map((empresa) => (
-            <button
+            <div
               key={empresa.id}
-              onClick={() => entrarAEmpresa(empresa.id)}
-              disabled={cambiando !== null}
+              onClick={() => cambiando === null && entrarAEmpresa(empresa.id)}
               style={{
                 background: COLORES_BASE.blanco,
                 border: '1px solid #e5e7eb',
@@ -543,8 +638,37 @@ export default function PanelMaestroPage() {
                 gap: 14,
                 opacity: cambiando && cambiando !== empresa.id ? 0.5 : 1,
                 transition: 'opacity 0.2s ease',
+                position: 'relative',
               }}
             >
+              <button
+                type="button"
+                title={`Eliminar ${empresa.nombre} y todo lo conectado`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  eliminarEmpresa(empresa);
+                }}
+                disabled={eliminandoEmpresa !== null}
+                style={{
+                  position: 'absolute',
+                  top: 14,
+                  right: 14,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  border: '1px solid #fecaca',
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {eliminandoEmpresa === empresa.id ? '...' : '🗑️'}
+              </button>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
                   style={{
@@ -648,7 +772,7 @@ export default function PanelMaestroPage() {
               >
                 {cambiando === empresa.id ? 'Entrando...' : 'Entrar a este universo →'}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -1021,14 +1145,20 @@ function NotificacionesPendientes({
   pendientes,
   empresas,
   validando,
+  rechazando,
   onValidarRegistro,
   onValidarMovimiento,
+  onRechazarRegistro,
+  onRechazarMovimiento,
 }: {
   pendientes: Pendiente[];
   empresas: Empresa[];
   validando: string | null;
+  rechazando: string | null;
   onValidarRegistro: (p: PendienteRegistro) => void;
   onValidarMovimiento: (p: PendienteMovimiento) => void;
+  onRechazarRegistro: (p: PendienteRegistro) => void;
+  onRechazarMovimiento: (p: PendienteMovimiento) => void;
 }) {
   const [abierta, setAbierta] = useState(true);
   const nombrePorEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
@@ -1142,24 +1272,45 @@ function NotificacionesPendientes({
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={validando === `${p.tipo}-${p.idOperacion}`}
-                      onClick={() => (p.tipo === 'registro' ? onValidarRegistro(p) : onValidarMovimiento(p))}
-                      style={{
-                        padding: '7px 14px',
-                        borderRadius: 8,
-                        border: '1px solid #bbf7d0',
-                        background: '#f0fdf4',
-                        color: '#166534',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {validando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Validado ✓'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        disabled={validando === `${p.tipo}-${p.idOperacion}` || rechazando === `${p.tipo}-${p.idOperacion}`}
+                        onClick={() => (p.tipo === 'registro' ? onValidarRegistro(p) : onValidarMovimiento(p))}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: 8,
+                          border: '1px solid #bbf7d0',
+                          background: '#f0fdf4',
+                          color: '#166534',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {validando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Validado ✓'}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={validando === `${p.tipo}-${p.idOperacion}` || rechazando === `${p.tipo}-${p.idOperacion}`}
+                        onClick={() => (p.tipo === 'registro' ? onRechazarRegistro(p) : onRechazarMovimiento(p))}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: 8,
+                          border: '1px solid #fecaca',
+                          background: '#fef2f2',
+                          color: '#b91c1c',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {rechazando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Rechazar ✗'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
