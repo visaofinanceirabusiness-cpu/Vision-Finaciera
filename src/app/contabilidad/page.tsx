@@ -259,10 +259,16 @@ function CentralDeLanzamientosTab({
     ['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) ||
     (operacion === 'INVERSION' && formaPago === 'Mercadería');
 
-  // Pago, Inversión y Extracción no tienen "cantidad" ni un
-  // histórico separado que aporte algo — confunden más de lo que
-  // ayudan. Se simplifica a: categoría + monto + a quién.
-  const formularioSimple = ['PAGO', 'INVERSION', 'EXTRACCION'].includes(operacion);
+  // Pago, Inversión, Extracción y Transferencia no tienen "cantidad"
+  // ni un histórico separado que aporte algo — confunden más de lo
+  // que ayudan. Se simplifica a: categoría + monto (+ a quién, salvo
+  // en Transferencia).
+  const formularioSimple = ['PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'].includes(operacion);
+
+  // Transferencia es un movimiento entre cuentas propias (ej. de
+  // Cuenta Bancaria a Plazo Fijo) — no hay un tercero involucrado,
+  // así que no corresponde pedir Cliente/Proveedor/Socio acá.
+  const esTransferencia = operacion === 'TRANSFERENCIA';
 
   useEffect(() => {
     if (formularioSimple) {
@@ -542,7 +548,7 @@ function CentralDeLanzamientosTab({
       categoria &&
       formaPago &&
       (formularioSimple || historico.trim()) &&
-      clienteProveedor.trim() &&
+      (esTransferencia || clienteProveedor.trim()) &&
       (!requiereSocio || socio.trim()) &&
       lineasCompletas &&
       !stockInsuficiente
@@ -668,7 +674,7 @@ function CentralDeLanzamientosTab({
           </select>
         </Campo>
 
-        <Campo label="Categoría">
+        <Campo label={esTransferencia ? 'Hacia (cuenta de ahorro)' : 'Categoría'}>
           <select
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
@@ -685,7 +691,7 @@ function CentralDeLanzamientosTab({
           </select>
         </Campo>
 
-        <Campo label="Forma de Pago">
+        <Campo label={esTransferencia ? 'Desde (cuenta de origen)' : 'Forma de Pago'}>
           <select
             value={formaPago}
             onChange={(e) => setFormaPago(e.target.value)}
@@ -703,6 +709,12 @@ function CentralDeLanzamientosTab({
         </Campo>
       </div>
 
+      {esTransferencia && (
+        <p style={{ fontSize: 12.5, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
+          💡 Esto mueve plata entre tus propias cuentas — no es un gasto ni un ingreso. Usalo cada vez que guardes o inviertas dinero para una meta (ej. un viaje): elegí a qué cuenta de ahorro va, de dónde sale la plata, y el monto. Así el progreso de tu meta en "Objetivos familiares" se actualiza solo.
+        </p>
+      )}
+
       {!formularioSimple && (
         <Campo label="Histórico">
           <input
@@ -714,22 +726,24 @@ function CentralDeLanzamientosTab({
         </Campo>
       )}
 
-      <Campo label={etiquetaRelacion}>
-        <select
-          value={clienteProveedor}
-          onChange={(e) => setClienteProveedor(e.target.value)}
-          disabled={!operacion || contactos.length === 0}
-          style={campoInput}
-        >
-          <option value="">Seleccionar...</option>
+      {!esTransferencia && (
+        <Campo label={etiquetaRelacion}>
+          <select
+            value={clienteProveedor}
+            onChange={(e) => setClienteProveedor(e.target.value)}
+            disabled={!operacion || contactos.length === 0}
+            style={campoInput}
+          >
+            <option value="">Seleccionar...</option>
 
-          {contactos.map((contacto) => (
-            <option key={contacto} value={contacto}>
-              {contacto}
-            </option>
-          ))}
-        </select>
-      </Campo>
+            {contactos.map((contacto) => (
+              <option key={contacto} value={contacto}>
+                {contacto}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      )}
 
       {requiereSocio && (
         <Campo label="Socio/a">
@@ -941,7 +955,7 @@ function RegistroOperacionesTab() {
   // (solo el costo promedio, para el CMV) — reconstruirlo al editar
   // sería adivinar. Para esas dos, es más seguro eliminar y cargar
   // de nuevo a mano que "editar" con un valor estimado.
-  const OPERACIONES_EDITABLES = ['COMPRA', 'PAGO', 'INVERSION', 'EXTRACCION'];
+  const OPERACIONES_EDITABLES = ['COMPRA', 'PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'];
 
   async function cargar(empresa: string) {
     const { data, error } = await supabase
