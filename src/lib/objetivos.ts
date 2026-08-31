@@ -18,7 +18,7 @@
 import { supabase } from './supabase';
 import { obtenerIndicadores } from './contabilidad';
 
-export type CategoriaObjetivo = 'CONTABLE' | 'MERCADERIA' | 'FINANCIERO' | 'MARKETING' | 'ACTIVIDAD';
+export type CategoriaObjetivo = 'CONTABLE' | 'MERCADERIA' | 'FINANCIERO' | 'MARKETING' | 'ACTIVIDAD' | 'METAS';
 
 export type IndicadorCodigo =
   | 'CAJA_MINIMA'
@@ -34,7 +34,8 @@ export type IndicadorCodigo =
   | 'PRIMEROS_INGRESOS'
   | 'PRIMEROS_GASTOS'
   | 'PRIMEROS_CLIENTES'
-  | 'PRIMEROS_PROVEEDORES';
+  | 'PRIMEROS_PROVEEDORES'
+  | 'META_AHORRO_LIBRE';
 
 export type ObjetivoDefinicion = {
   id: string;
@@ -177,6 +178,14 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Cargá tus primeros 5 proveedores en Recursos Humanos.',
+    inverso: false,
+  },
+  META_AHORRO_LIBRE: {
+    categoria: 'METAS',
+    nombreDefault: 'Meta de Ahorro',
+    unidadDefault: 'R$',
+    objetivoDefault: 0,
+    ayuda: 'Vos elegís el monto que necesitás juntar. Se mide contra lo acumulado en Plazo Fijo + Inversiones — cada vez que guardes plata para esta meta, registrá una operación de Transferencia hacia esa cuenta en Contabilidad. Si no registrás la transferencia, el progreso no se actualiza.',
     inverso: false,
   },
 };
@@ -478,6 +487,13 @@ export async function calcularObjetivos(
 
       case 'PRIMEROS_PROVEEDORES':
         resultado = conteosActividad?.proveedores ?? 0;
+        break;
+
+      case 'META_AHORRO_LIBRE':
+        // Acumulado a la fecha (no depende del período elegido),
+        // igual que Caja o Patrimonio — es "cuánto llevo juntado
+        // hasta hoy para esta meta", no un movimiento del mes.
+        resultado = indicadoresActuales.ahorroInversiones ?? 0;
         break;
 
       default:
