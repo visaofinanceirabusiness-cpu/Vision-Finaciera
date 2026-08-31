@@ -435,14 +435,53 @@ export async function eliminarObjetivo(id: string) {
 // Los 9 objetivos "modelo" que arrancan activados para cualquier
 // empresa nueva. El admin después puede editarlos, desactivarlos,
 // borrarlos o agregar otros — esto es solo el punto de partida.
+//
+// Dos ajustes según la empresa real (no todos los negocios son
+// iguales):
+//   - Moneda: el catálogo trae "R$" como default (el sistema arrancó
+//     con un cliente brasileño), pero acá se reemplaza por el
+//     símbolo real de la empresa (moneda ARS/USD/BRL).
+//   - Mercadería: los 3 objetivos de esa categoría no tienen sentido
+//     si la empresa no maneja stock (perfil Servicios o Familiar, o
+//     Mixto sin componente Comercial/Producción) — se omiten en ese
+//     caso.
 export async function crearObjetivosModelo(empresaId: string) {
+  const { data: empresa } = await supabase
+    .from('empresas')
+    .select('moneda, perfil_empresa_id, perfiles_empresa(codigo)')
+    .eq('id', empresaId)
+    .maybeSingle();
+
+  const simboloMoneda =
+    empresa?.moneda === 'ARS' ? '$' : empresa?.moneda === 'USD' ? 'US$' : 'R$';
+
+  const perfilCodigo = (empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
+    ?.perfiles_empresa?.codigo;
+
+  let manejaMercaderia = perfilCodigo !== 'SERVICIOS' && perfilCodigo !== 'FAMILIAR';
+
+  if (perfilCodigo === 'MIXTO') {
+    const { data: componentes } = await supabase
+      .from('empresa_mixto_componentes')
+      .select('componente')
+      .eq('empresa_id', empresaId);
+
+    manejaMercaderia = (componentes ?? []).some(
+      (c) => c.componente === 'COMERCIAL' || c.componente === 'PRODUCCION'
+    );
+  }
+
   const modelo: { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[] = [
     { categoria: 'CONTABLE', indicador: 'CAJA_MINIMA', orden: 1 },
     { categoria: 'CONTABLE', indicador: 'VENTAS_10PCT', orden: 2 },
     { categoria: 'CONTABLE', indicador: 'GASTOS_CONTROLADOS', orden: 3 },
-    { categoria: 'MERCADERIA', indicador: 'STOCK_ESTANCADO', orden: 1 },
-    { categoria: 'MERCADERIA', indicador: 'VALOR_INVENTARIO', orden: 2 },
-    { categoria: 'MERCADERIA', indicador: 'COMPRAS_CONTROLADAS', orden: 3 },
+    ...(manejaMercaderia
+      ? ([
+          { categoria: 'MERCADERIA', indicador: 'STOCK_ESTANCADO', orden: 1 },
+          { categoria: 'MERCADERIA', indicador: 'VALOR_INVENTARIO', orden: 2 },
+          { categoria: 'MERCADERIA', indicador: 'COMPRAS_CONTROLADAS', orden: 3 },
+        ] as { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[])
+      : []),
     { categoria: 'FINANCIERO', indicador: 'RENTABILIDAD', orden: 1 },
     { categoria: 'FINANCIERO', indicador: 'VOLUMEN_VENTAS', orden: 2 },
     { categoria: 'FINANCIERO', indicador: 'FONDO_EMERGENCIA', orden: 3 },
@@ -454,7 +493,7 @@ export async function crearObjetivosModelo(empresaId: string) {
     indicador: m.indicador,
     nombre: CATALOGO_INDICADORES[m.indicador].nombreDefault,
     objetivo: CATALOGO_INDICADORES[m.indicador].objetivoDefault,
-    unidad: CATALOGO_INDICADORES[m.indicador].unidadDefault,
+    unidad: CATALOGO_INDICADORES[m.indicador].unidadDefault === 'R$' ? simboloMoneda : CATALOGO_INDICADORES[m.indicador].unidadDefault,
     orden: m.orden,
     activo: true,
   }));
