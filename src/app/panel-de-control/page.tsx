@@ -11,6 +11,7 @@ import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
+import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -30,6 +31,7 @@ type Empresa = {
   nombre: string;
   rubro: string | null;
   logo_url: string | null;
+  moneda: string | null;
 };
 
 type ConfiguracionDashboard = {
@@ -114,7 +116,7 @@ export default function MiNegocioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url')
+        .select('nombre, rubro, logo_url, moneda')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -266,6 +268,8 @@ export default function MiNegocioPage() {
     acento: configuracion?.color_acento ?? COLORES_BASE.gris,
     blanco: COLORES_BASE.blanco,
   };
+
+  const simbolo = simboloMoneda(empresa?.moneda);
 
   const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';
 
@@ -444,7 +448,7 @@ export default function MiNegocioPage() {
               fontSize: 13,
             }}
           >
-            <strong>⚠️ La ecuación contable no cierra por R${' '}
+            <strong>⚠️ La ecuación contable no cierra por {simbolo}{' '}
             {formatearNumero(Math.abs(indicadores.descuadre))}.</strong>{' '}
             Activo ({formatearNumero(indicadores.activos)}) no coincide con
             Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del
@@ -507,28 +511,28 @@ export default function MiNegocioPage() {
           >
             <ResumenEjecutivoCard
               titulo="Activo"
-              valor={`R$ ${formatearNumero(indicadores?.activos ?? 0)}`}
+              valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
               emoji="💚"
               color={colores.verde}
             />
 
             <ResumenEjecutivoCard
               titulo="Pasivo"
-              valor={`R$ ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+              valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
               emoji="💗"
               color="#b91c1c"
             />
 
             <ResumenEjecutivoCard
               titulo="Capital"
-              valor={`R$ ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
+              valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
               emoji="💙"
               color={colores.azul}
             />
 
             <ResumenEjecutivoCard
               titulo="Saldo en caja"
-              valor={`R$ ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+              valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
               emoji="💵"
               color={colores.azul}
             />
@@ -695,28 +699,28 @@ export default function MiNegocioPage() {
             >
               <ResumenEjecutivoCard
                 titulo="Ingreso operativo"
-                valor={`R$ ${formatearNumero(indicadores?.ingresos ?? 0)}`}
+                valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                 emoji="💵"
                 color={colores.verde}
               />
 
               <ResumenEjecutivoCard
                 titulo="Costo de mercadería vendida"
-                valor={`R$ ${formatearNumero(indicadores?.cmv ?? 0)}`}
+                valor={`${simbolo} ${formatearNumero(indicadores?.cmv ?? 0)}`}
                 emoji="🏷️"
                 color="#b45309"
               />
 
               <ResumenEjecutivoCard
                 titulo="Gastos"
-                valor={`R$ ${formatearNumero(indicadores?.gastos ?? 0)}`}
+                valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                 emoji="🧾"
                 color="#c2410c"
               />
 
               <ResumenEjecutivoCard
                 titulo="Lucro"
-                valor={`R$ ${formatearNumero(indicadores?.lucro ?? 0)}`}
+                valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                 emoji="💰"
                 color={colores.azul}
               />
@@ -748,6 +752,7 @@ export default function MiNegocioPage() {
               <CategoryChart
                 datos={indicadores?.ventasCategorias ?? []}
                 color={colores.acento}
+                simbolo={simbolo}
               />
 
               <StockChart
@@ -756,7 +761,7 @@ export default function MiNegocioPage() {
               />
             </div>
 
-            <LucroChart datos={indicadores?.evolucionLucro ?? []} />
+            <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
           </section>
         )}
 
@@ -1080,13 +1085,11 @@ function ObjetivoCard({
       : '#fef2f2';
 
   const formatearValor = (valor: number) =>
-    objetivo.unidad === 'R$'
-      ? `R$ ${valor.toFixed(2)}`
+    objetivo.unidad === '%'
+      ? `${valor.toFixed(1)}%`
       : objetivo.unidad === 'veces'
         ? `${valor.toFixed(2)}x`
-        : objetivo.unidad === '%'
-          ? `${valor.toFixed(1)}%`
-          : `${valor}`;
+        : `${objetivo.unidad} ${formatearNumeroEntero(valor)}`;
 
   const info = CATALOGO_INDICADORES[objetivo.indicador];
   const etiquetaMeta = info?.inverso ? 'Tope' : 'Meta';
@@ -1327,9 +1330,8 @@ function ResumenCard({
 }
 
 function formatearNumero(valor: number): string {
-  return valor.toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  return Math.round(valor).toLocaleString('es-AR', {
+    maximumFractionDigits: 0,
   });
 }
 
