@@ -18,7 +18,7 @@
 import { supabase } from './supabase';
 import { obtenerIndicadores } from './contabilidad';
 
-export type CategoriaObjetivo = 'CONTABLE' | 'MERCADERIA' | 'FINANCIERO' | 'MARKETING';
+export type CategoriaObjetivo = 'CONTABLE' | 'MERCADERIA' | 'FINANCIERO' | 'MARKETING' | 'ACTIVIDAD';
 
 export type IndicadorCodigo =
   | 'CAJA_MINIMA'
@@ -29,7 +29,12 @@ export type IndicadorCodigo =
   | 'COMPRAS_CONTROLADAS'
   | 'RENTABILIDAD'
   | 'VOLUMEN_VENTAS'
-  | 'FONDO_EMERGENCIA';
+  | 'FONDO_EMERGENCIA'
+  | 'PRIMERAS_VENTAS'
+  | 'PRIMEROS_INGRESOS'
+  | 'PRIMEROS_GASTOS'
+  | 'PRIMEROS_CLIENTES'
+  | 'PRIMEROS_PROVEEDORES';
 
 export type ObjetivoDefinicion = {
   id: string;
@@ -134,7 +139,70 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
     ayuda: 'Tener siempre disponible al menos este monto en Caja/Banco, aparte de lo que necesitás para operar — un colchón para un mes flojo o un imprevisto.',
     inverso: false,
   },
+  PRIMERAS_VENTAS: {
+    categoria: 'ACTIVIDAD',
+    nombreDefault: 'Primeras Ventas',
+    unidadDefault: 'unidades',
+    objetivoDefault: 5,
+    ayuda: 'Registrá tus primeras 5 ventas para empezar a ver el sistema funcionando con tus propios datos.',
+    inverso: false,
+  },
+  PRIMEROS_INGRESOS: {
+    categoria: 'ACTIVIDAD',
+    nombreDefault: 'Primeros Ingresos',
+    unidadDefault: 'unidades',
+    objetivoDefault: 5,
+    ayuda: 'Registrá tus primeros 5 ingresos.',
+    inverso: false,
+  },
+  PRIMEROS_GASTOS: {
+    categoria: 'ACTIVIDAD',
+    nombreDefault: 'Primeros Gastos',
+    unidadDefault: 'unidades',
+    objetivoDefault: 5,
+    ayuda: 'Registrá tus primeros 5 gastos.',
+    inverso: false,
+  },
+  PRIMEROS_CLIENTES: {
+    categoria: 'ACTIVIDAD',
+    nombreDefault: 'Primeros Clientes',
+    unidadDefault: 'unidades',
+    objetivoDefault: 5,
+    ayuda: 'Cargá tus primeros 5 contactos en Recursos Humanos.',
+    inverso: false,
+  },
+  PRIMEROS_PROVEEDORES: {
+    categoria: 'ACTIVIDAD',
+    nombreDefault: 'Primeros Proveedores',
+    unidadDefault: 'unidades',
+    objetivoDefault: 5,
+    ayuda: 'Cargá tus primeros 5 proveedores en Recursos Humanos.',
+    inverso: false,
+  },
 };
+
+// Renombres amigables por perfil — el catálogo de arriba define el
+// dato y el cálculo (una sola vez, sin duplicar el motor), pero el
+// TEXTO que ve cada usuario puede cambiar según su perfil. Por ahora
+// solo Familia tiene renombres propios; el resto usa nombreDefault.
+const NOMBRES_POR_PERFIL: Partial<Record<string, Partial<Record<IndicadorCodigo, string>>>> = {
+  FAMILIAR: {
+    CAJA_MINIMA: 'Dinero Mínimo Disponible',
+    VENTAS_10PCT: 'Ingresos +10%',
+    RENTABILIDAD: 'Tasa de Ahorro',
+    VOLUMEN_VENTAS: 'Volumen de Ingresos',
+    FONDO_EMERGENCIA: 'Fondo de Respaldo',
+    PRIMEROS_INGRESOS: 'Primeros Ingresos Registrados',
+    PRIMEROS_GASTOS: 'Primeros Gastos Registrados',
+    PRIMEROS_CLIENTES: 'Fuentes de Ingreso Cargadas',
+    PRIMEROS_PROVEEDORES: 'Destinos de Pago Cargados',
+  },
+};
+
+function nombrePorPerfil(indicador: IndicadorCodigo, perfilCodigo: string | undefined): string {
+  const renombre = perfilCodigo ? NOMBRES_POR_PERFIL[perfilCodigo]?.[indicador] : undefined;
+  return renombre ?? CATALOGO_INDICADORES[indicador].nombreDefault;
+}
 
 function rangoDelPeriodo(periodo: string): { desde: string; hasta: string } | null {
   if (!periodo || periodo === 'TODOS') {
@@ -229,6 +297,35 @@ async function obtenerInventarioConAntiguedad(empresaId: string): Promise<ItemIn
   });
 }
 
+// Conteos "primeras N" — a diferencia del resto de los objetivos, no
+// dependen del período elegido: son un hito acumulado (ej. "ya cargué
+// 5 gastos alguna vez"), igual que Activo/Pasivo son saldos a la fecha.
+type ConteosActividad = {
+  ventas: number;
+  ingresos: number;
+  gastos: number;
+  clientes: number;
+  proveedores: number;
+};
+
+async function obtenerConteosActividad(empresaId: string): Promise<ConteosActividad> {
+  const [ventas, ingresos, gastos, clientes, proveedores] = await Promise.all([
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'VENTA'),
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'COBRO'),
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'PAGO'),
+    supabase.from('clientes').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    supabase.from('proveedores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+  ]);
+
+  return {
+    ventas: ventas.count ?? 0,
+    ingresos: ingresos.count ?? 0,
+    gastos: gastos.count ?? 0,
+    clientes: clientes.count ?? 0,
+    proveedores: proveedores.count ?? 0,
+  };
+}
+
 async function obtenerComprasDelPeriodo(empresaId: string, periodo: string): Promise<number> {
   const rango = rangoDelPeriodo(periodo);
 
@@ -276,7 +373,16 @@ export async function calcularObjetivos(
   const codigos = new Set(activas.map((d) => d.indicador));
   const periodoAnterior = periodoAnteriorDe(periodo);
 
-  const [indicadoresActuales, indicadoresAnteriores, inventario, comprasDelMes] = await Promise.all([
+  const codigosActividad: IndicadorCodigo[] = [
+    'PRIMERAS_VENTAS',
+    'PRIMEROS_INGRESOS',
+    'PRIMEROS_GASTOS',
+    'PRIMEROS_CLIENTES',
+    'PRIMEROS_PROVEEDORES',
+  ];
+  const necesitaActividad = codigosActividad.some((c) => codigos.has(c));
+
+  const [indicadoresActuales, indicadoresAnteriores, inventario, comprasDelMes, conteosActividad] = await Promise.all([
     obtenerIndicadores(empresaId, periodo),
     codigos.has('VENTAS_10PCT')
       ? periodoAnterior
@@ -287,6 +393,7 @@ export async function calcularObjetivos(
       ? obtenerInventarioConAntiguedad(empresaId)
       : Promise.resolve<ItemInventario[]>([]),
     codigos.has('COMPRAS_CONTROLADAS') ? obtenerComprasDelPeriodo(empresaId, periodo) : Promise.resolve(0),
+    necesitaActividad ? obtenerConteosActividad(empresaId) : Promise.resolve<ConteosActividad | null>(null),
   ]);
 
   return activas.map((def) => {
@@ -351,6 +458,26 @@ export async function calcularObjetivos(
 
       case 'FONDO_EMERGENCIA':
         resultado = indicadoresActuales.cajaDisponible;
+        break;
+
+      case 'PRIMERAS_VENTAS':
+        resultado = conteosActividad?.ventas ?? 0;
+        break;
+
+      case 'PRIMEROS_INGRESOS':
+        resultado = conteosActividad?.ingresos ?? 0;
+        break;
+
+      case 'PRIMEROS_GASTOS':
+        resultado = conteosActividad?.gastos ?? 0;
+        break;
+
+      case 'PRIMEROS_CLIENTES':
+        resultado = conteosActividad?.clientes ?? 0;
+        break;
+
+      case 'PRIMEROS_PROVEEDORES':
+        resultado = conteosActividad?.proveedores ?? 0;
         break;
 
       default:
@@ -485,13 +612,25 @@ export async function crearObjetivosModelo(empresaId: string) {
     { categoria: 'FINANCIERO', indicador: 'RENTABILIDAD', orden: 1 },
     { categoria: 'FINANCIERO', indicador: 'VOLUMEN_VENTAS', orden: 2 },
     { categoria: 'FINANCIERO', indicador: 'FONDO_EMERGENCIA', orden: 3 },
+    // Objetivos de "primeros pasos" — hoy solo para Familia. Guían al
+    // usuario nuevo a usar el sistema (en vez de metas en dinero, que
+    // no tienen sentido hasta que ya cargó movimientos). Cuando se
+    // extienda a otros perfiles, alcanza con sumar la condición acá.
+    ...(perfilCodigo === 'FAMILIAR'
+      ? ([
+          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_INGRESOS', orden: 1 },
+          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_GASTOS', orden: 2 },
+          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_CLIENTES', orden: 3 },
+          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_PROVEEDORES', orden: 4 },
+        ] as { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[])
+      : []),
   ];
 
   const filas = modelo.map((m) => ({
     empresa_id: empresaId,
     categoria: m.categoria,
     indicador: m.indicador,
-    nombre: CATALOGO_INDICADORES[m.indicador].nombreDefault,
+    nombre: nombrePorPerfil(m.indicador, perfilCodigo),
     objetivo: CATALOGO_INDICADORES[m.indicador].objetivoDefault,
     unidad: CATALOGO_INDICADORES[m.indicador].unidadDefault === 'R$' ? simboloMoneda : CATALOGO_INDICADORES[m.indicador].unidadDefault,
     orden: m.orden,
