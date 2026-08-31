@@ -1694,6 +1694,8 @@ type ObjetivoFila = {
 };
 
 const CATEGORIAS_OBJETIVO: { valor: CategoriaObjetivo; titulo: string; emoji: string }[] = [
+  { valor: 'ACTIVIDAD', titulo: 'Primeros pasos', emoji: '🚀' },
+  { valor: 'METAS', titulo: 'Metas familiares', emoji: '✈️' },
   { valor: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
   { valor: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
   { valor: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
