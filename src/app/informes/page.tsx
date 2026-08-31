@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 
 // Contexto para no tener que pasar el símbolo de moneda como prop a
 // cada uno de los informes y sus sub-componentes — cada uno lo toma
@@ -167,9 +168,13 @@ export default function InformesPage() {
     <div style={fondo}>
       <div style={{ maxWidth: 1250, margin: '0 auto' }}>
         <header style={encabezado}>
-          <Link href="/" style={volver}>
-            ← Volver a Mi Negocio
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <Link href="/" style={volver}>
+              ← Volver a Mi Negocio
+            </Link>
+
+            <AccesosHerramientas />
+          </div>
 
           <div style={eyebrow}>GESTIÓN FINANCIERA</div>
 
