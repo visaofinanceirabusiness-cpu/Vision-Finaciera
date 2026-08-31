@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -108,6 +109,7 @@ export default function MercaderiaPage() {
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [moneda, setMoneda] = useState<string | null>(null);
 
   const [productos, setProductos] = useState<ProductoFila[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -169,6 +171,7 @@ export default function MercaderiaPage() {
       { data: movimientosData, error: errorMovimientos },
       { data: categoriasData, error: errorCategorias },
       { data: proveedoresData, error: errorProveedores },
+      { data: empresaData },
     ] = await Promise.all([
       supabase
         .from('productos')
@@ -205,6 +208,12 @@ export default function MercaderiaPage() {
         .from('proveedores')
         .select('id, nombre')
         .eq('empresa_id', perfil.empresa_id),
+
+      supabase
+        .from('empresas')
+        .select('moneda')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle(),
     ]);
 
     if (errorProductos) console.warn('No se pudieron cargar los productos:', errorProductos);
@@ -213,6 +222,8 @@ export default function MercaderiaPage() {
     if (errorMovimientos) console.warn('No se pudieron cargar los movimientos:', errorMovimientos);
     if (errorCategorias) console.warn('No se pudieron cargar las categorías:', errorCategorias);
     if (errorProveedores) console.warn('No se pudieron cargar los proveedores:', errorProveedores);
+
+    setMoneda(empresaData?.moneda ?? null);
 
     const saldoPorProducto = new Map(
       (saldosData ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
@@ -506,6 +517,8 @@ export default function MercaderiaPage() {
     }
   }
 
+  const simbolo = simboloMoneda(moneda);
+
   return (
     <div style={fondo}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
@@ -796,6 +809,7 @@ export default function MercaderiaPage() {
                 onToggle={() => setMostrarConSaldo((actual) => !actual)}
                 mensajeVacio="No hay productos con saldo disponible."
                 esAdmin={esAdmin}
+                simbolo={simboloMoneda(moneda)}
                 onEditar={abrirEditarProducto}
                 onEliminar={eliminarProducto}
                 eliminandoId={eliminandoProductoId}
@@ -811,6 +825,7 @@ export default function MercaderiaPage() {
                 onToggle={() => setMostrarSinSaldo((actual) => !actual)}
                 mensajeVacio="No hay productos sin saldo."
                 esAdmin={esAdmin}
+                simbolo={simboloMoneda(moneda)}
                 onEditar={abrirEditarProducto}
                 onEliminar={eliminarProducto}
                 eliminandoId={eliminandoProductoId}
@@ -867,9 +882,9 @@ export default function MercaderiaPage() {
                         </Td>
 
                         <Td align="right">{fila.cantidad}</Td>
-                        <Td align="right">R$ {Number(fila.costo_unitario).toFixed(2)}</Td>
+                        <Td align="right">{simbolo} {formatearNumeroEntero(Number(fila.costo_unitario))}</Td>
                         <Td align="right">
-                          R$ {Number(fila.total ?? fila.cantidad * fila.costo_unitario).toFixed(2)}
+                          {simbolo} {formatearNumeroEntero(Number(fila.total ?? fila.cantidad * fila.costo_unitario))}
                         </Td>
                         <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 150 }}>
                           {fila.historico || '—'}
@@ -932,6 +947,7 @@ function SeccionProductos({
   onEditar,
   onEliminar,
   eliminandoId,
+  simbolo,
 }: {
   titulo: string;
   emoji: string;
@@ -943,6 +959,7 @@ function SeccionProductos({
   onEditar: (producto: ProductoFila) => void;
   onEliminar: (producto: ProductoFila) => void;
   eliminandoId: string | null;
+  simbolo: string;
 }) {
   const totalUnidades = productos.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventario = productos.reduce((total, producto) => total + producto.valorInventario, 0);
@@ -960,7 +977,7 @@ function SeccionProductos({
 
         {titulo === 'Con saldo' && (
           <span style={{ fontSize: 12, color: COLORES.gris, fontWeight: 600 }}>
-            {totalUnidades} unidades · Valor inventario: R$ {totalInventario.toFixed(2)}
+            {totalUnidades} unidades · Valor inventario: {simbolo} {formatearNumeroEntero(totalInventario)}
           </span>
         )}
       </button>
@@ -999,8 +1016,8 @@ function SeccionProductos({
                       {producto.saldo}
                     </span>
                   </Td>
-                  <Td align="right">R$ {producto.costoPromedio.toFixed(2)}</Td>
-                  <Td align="right">R$ {producto.valorInventario.toFixed(2)}</Td>
+                  <Td align="right">{simbolo} {formatearNumeroEntero(producto.costoPromedio)}</Td>
+                  <Td align="right">{simbolo} {formatearNumeroEntero(producto.valorInventario)}</Td>
                   <Td>
                     {producto.saldo <= 0 ? 'Sin stock' : producto.saldo <= 1 ? 'Bajo stock' : 'Activo'}
                   </Td>
