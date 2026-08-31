@@ -22,10 +22,16 @@ import {
   LineaOperacion,
 } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { fechaLocalHoy } from '@/lib/fecha';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
 // de moneda como prop por cada pestaña y sub-componente.
 const SimboloContext = createContext('R$');
+
+// Si la empresa es de perfil Familiar, "Cliente"/"Proveedor" no es
+// vocabulario natural (nadie dice "mi proveedor" por el supermercado)
+// — se usan las mismas etiquetas amigables que en Recursos Humanos.
+const EsFamiliarContext = createContext(false);
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -46,6 +52,7 @@ export default function ContabilidadPage() {
   const [pestana, setPestana] = useState<Pestana>('lanzamientos');
   const [esAdmin, setEsAdmin] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
+  const [esFamiliar, setEsFamiliar] = useState(false);
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -66,11 +73,16 @@ export default function ContabilidadPage() {
       if (perfil?.empresa_id) {
         const { data: empresa } = await supabase
           .from('empresas')
-          .select('moneda')
+          .select('moneda, perfil_empresa_id, perfiles_empresa(codigo)')
           .eq('id', perfil.empresa_id)
           .maybeSingle();
 
         setMoneda(empresa?.moneda ?? null);
+
+        const perfilCodigo = (empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
+          ?.perfiles_empresa?.codigo;
+
+        setEsFamiliar(perfilCodigo === 'FAMILIAR');
       }
     }
 
@@ -78,6 +90,7 @@ export default function ContabilidadPage() {
   }, []);
 
   return (
+    <EsFamiliarContext.Provider value={esFamiliar}>
     <SimboloContext.Provider value={simboloMoneda(moneda)}>
     <div style={fondo}>
       <div style={{ maxWidth: 1450, margin: '0 auto' }}>
@@ -151,6 +164,7 @@ export default function ContabilidadPage() {
       </div>
     </div>
     </SimboloContext.Provider>
+    </EsFamiliarContext.Provider>
   );
 }
 
@@ -187,13 +201,14 @@ function CentralDeLanzamientosTab({
   onCancelar?: () => void;
 } = {}) {
   const simbolo = useContext(SimboloContext);
+  const esFamiliar = useContext(EsFamiliarContext);
   const router = useRouter();
   const modoEdicion = Boolean(idOperacionEditar);
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [cargandoInicial, setCargandoInicial] = useState(true);
 
-  const [fecha, setFecha] = useState(() => valoresIniciales?.fecha ?? new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => valoresIniciales?.fecha ?? fechaLocalHoy());
 
   const [operaciones, setOperaciones] = useState<string[]>([]);
   const [operacion, setOperacion] = useState(valoresIniciales?.operacion ?? '');
@@ -251,10 +266,16 @@ function CentralDeLanzamientosTab({
   const etiquetaRelacion = ['INVERSION', 'PERDIDA', 'EXTRACCION'].includes(operacion)
     ? 'Socia/o'
     : operacion === 'COMPRA' || operacion === 'PAGO'
-      ? 'Proveedor'
+      ? esFamiliar
+        ? 'Destino de pago'
+        : 'Proveedor'
       : operacion === 'VENTA' || operacion === 'COBRO'
-        ? 'Cliente'
-        : 'Cliente / Proveedor';
+        ? esFamiliar
+          ? 'Fuente de ingreso'
+          : 'Cliente'
+        : esFamiliar
+          ? 'Fuente de ingreso / Destino de pago'
+          : 'Cliente / Proveedor';
 
   useEffect(() => {
     async function cargar() {
@@ -842,6 +863,7 @@ type Registro = {
 
 function RegistroOperacionesTab() {
   const simbolo = useContext(SimboloContext);
+  const esFamiliar = useContext(EsFamiliarContext);
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
@@ -1083,7 +1105,7 @@ function RegistroOperacionesTab() {
                 <Th>Categoría</Th>
                 <Th>Forma de pago</Th>
                 <Th>Histórico</Th>
-                <Th>Cliente / Proveedor</Th>
+                <Th>{esFamiliar ? 'Fuente de ingreso / Destino de pago' : 'Cliente / Proveedor'}</Th>
                 <Th align="right">Total</Th>
                 <Th>Estado</Th>
                 <Th></Th>
