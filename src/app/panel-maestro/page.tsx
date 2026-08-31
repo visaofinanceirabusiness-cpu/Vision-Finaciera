@@ -136,7 +136,7 @@ export default function PanelMaestroPage() {
       .from('empresas')
       .select('id, nombre, rubro, logo_url, numero_cliente, moneda')
       .eq('activo', true)
-      .order('nombre', { ascending: true });
+      .order('numero_cliente', { ascending: true });
 
     if (errorEmpresas) {
       setError('No se pudieron cargar las empresas.');
