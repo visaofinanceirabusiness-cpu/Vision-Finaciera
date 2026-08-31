@@ -21,7 +21,19 @@ const COLOR_INGRESOS = '#2e8b57';
 const COLOR_COSTOS = '#f59e0b';
 const COLOR_GASTOS = '#dc2626';
 
-export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; simbolo?: string }) {
+export function LucroChart({
+  datos,
+  simbolo = 'R$',
+  titulo = '📈 Evolución de Lucro',
+  subtitulo = 'Ingresos, costos y gastos por mes',
+  mostrarCostos = true,
+}: {
+  datos: PuntoLucroMes[];
+  simbolo?: string;
+  titulo?: string;
+  subtitulo?: string;
+  mostrarCostos?: boolean;
+}) {
   // Ancho grande a propósito: este gráfico ahora ocupa todo el ancho
   // de la pantalla y puede mostrar 12 meses o más sin apretarse.
   const ancho = 1180;
@@ -33,7 +45,7 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
   const margenInf = 55;
 
   const maxValor = Math.max(
-    ...datos.flatMap((dato) => [dato.ingresos, dato.costos, dato.gastos]),
+    ...datos.flatMap((dato) => (mostrarCostos ? [dato.ingresos, dato.costos, dato.gastos] : [dato.ingresos, dato.gastos])),
     1
   );
 
@@ -58,11 +70,11 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
   }
 
   return (
-    <ChartCard titulo="📈 Evolución de Lucro" subtitulo="Ingresos, costos y gastos por mes">
+    <ChartCard titulo={titulo} subtitulo={subtitulo}>
       {/* Referencias de color */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
         <Referencia color={COLOR_INGRESOS} etiqueta="Ingresos" />
-        <Referencia color={COLOR_COSTOS} etiqueta="Costos" />
+        {mostrarCostos && <Referencia color={COLOR_COSTOS} etiqueta="Costos" />}
         <Referencia color={COLOR_GASTOS} etiqueta="Gastos" />
       </div>
 
@@ -85,7 +97,9 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
         })}
 
         <path d={trazarLinea((d) => d.gastos)} fill="none" stroke={COLOR_GASTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
-        <path d={trazarLinea((d) => d.costos)} fill="none" stroke={COLOR_COSTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+        {mostrarCostos && (
+          <path d={trazarLinea((d) => d.costos)} fill="none" stroke={COLOR_COSTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+        )}
         <path d={trazarLinea((d) => d.ingresos)} fill="none" stroke={COLOR_INGRESOS} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
 
         {datos.map((dato, indice) => {
@@ -98,7 +112,7 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
           return (
             <g key={dato.mes}>
               <circle cx={puntoGastos.x} cy={puntoGastos.y} r="5" fill={COLOR_GASTOS} />
-              <circle cx={puntoCostos.x} cy={puntoCostos.y} r="5" fill={COLOR_COSTOS} />
+              {mostrarCostos && <circle cx={puntoCostos.x} cy={puntoCostos.y} r="5" fill={COLOR_COSTOS} />}
 
               <circle
                 cx={puntoIngresos.x}
@@ -111,12 +125,14 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
 
               {/* Valor de Costos, separado de su punto y con fondo propio
                   para no perderse contra la línea ni contra Gastos */}
-              <EtiquetaValor
-                x={puntoCostos.x}
-                y={puntoCostos.y - 18}
-                texto={`${simbolo} ${dato.costos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
-                color={COLOR_COSTOS}
-              />
+              {mostrarCostos && (
+                <EtiquetaValor
+                  x={puntoCostos.x}
+                  y={puntoCostos.y - 18}
+                  texto={`${simbolo} ${dato.costos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                  color={COLOR_COSTOS}
+                />
+              )}
 
               {/* Valor de Gastos, separado hacia abajo */}
               <EtiquetaValor
@@ -126,7 +142,7 @@ export function LucroChart({ datos, simbolo = 'R$' }: { datos: PuntoLucroMes[]; 
                 color={COLOR_GASTOS}
               />
 
-              {/* Lucro del mes — el número protagonista, arriba de todo */}
+              {/* Resultado del mes — el número protagonista, arriba de todo */}
               <EtiquetaValor
                 x={puntoIngresos.x}
                 y={Math.max(22, puntoIngresos.y - 22)}
