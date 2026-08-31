@@ -39,6 +39,7 @@ type Empresa = {
 
 const CATEGORIAS_ORDEN: { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] = [
   { categoria: 'ACTIVIDAD', titulo: 'Primeros pasos', emoji: '🚀' },
+  { categoria: 'METAS', titulo: 'Metas familiares', emoji: '✈️' },
   { categoria: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
   { categoria: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
   { categoria: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
