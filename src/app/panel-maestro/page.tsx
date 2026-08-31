@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
+import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -19,6 +20,7 @@ type Empresa = {
   rubro: string | null;
   logo_url: string | null;
   numero_cliente: number;
+  moneda: string | null;
 };
 
 type PendienteRegistro = {
@@ -129,7 +131,7 @@ export default function PanelMaestroPage() {
   async function cargarEmpresas() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
-      .select('id, nombre, rubro, logo_url, numero_cliente')
+      .select('id, nombre, rubro, logo_url, numero_cliente, moneda')
       .eq('activo', true)
       .order('nombre', { ascending: true });
 
@@ -1030,6 +1032,7 @@ function NotificacionesPendientes({
 }) {
   const [abierta, setAbierta] = useState(true);
   const nombrePorEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
+  const simboloPorEmpresa = new Map(empresas.map((e) => [e.id, simboloMoneda(e.moneda)]));
 
   const porEmpresa = new Map<string, Pendiente[]>();
   for (const p of pendientes) {
@@ -1134,7 +1137,9 @@ function NotificacionesPendientes({
                           : `· Movimiento de mercadería · ${p.lineas} línea${p.lineas === 1 ? '' : 's'}`}
                       </span>
                       {' — '}
-                      <span style={{ fontWeight: 700 }}>R$ {p.total.toFixed(2)}</span>
+                      <span style={{ fontWeight: 700 }}>
+                        {simboloPorEmpresa.get(empresaId) ?? 'R$'} {formatearNumeroEntero(p.total)}
+                      </span>
                     </div>
 
                     <button
