@@ -11,7 +11,7 @@
 //   - Libro Diario: vista contable unificada (Debe/Haber) agrupada
 //     por operación.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +21,11 @@ import {
   eliminarOperacion,
   LineaOperacion,
 } from '@/lib/motor';
+import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+
+// Igual que en Informes: contexto para no tener que pasar el símbolo
+// de moneda como prop por cada pestaña y sub-componente.
+const SimboloContext = createContext('R$');
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -40,6 +45,7 @@ type Pestana = 'lanzamientos' | 'registros' | 'libro';
 export default function ContabilidadPage() {
   const [pestana, setPestana] = useState<Pestana>('lanzamientos');
   const [esAdmin, setEsAdmin] = useState(false);
+  const [moneda, setMoneda] = useState<string | null>(null);
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -51,17 +57,28 @@ export default function ContabilidadPage() {
 
       const { data: perfil } = await supabase
         .from('perfiles')
-        .select('es_admin_plataforma')
+        .select('es_admin_plataforma, empresa_id')
         .eq('id', userData.user.id)
         .maybeSingle();
 
       setEsAdmin(Boolean(perfil?.es_admin_plataforma));
+
+      if (perfil?.empresa_id) {
+        const { data: empresa } = await supabase
+          .from('empresas')
+          .select('moneda')
+          .eq('id', perfil.empresa_id)
+          .maybeSingle();
+
+        setMoneda(empresa?.moneda ?? null);
+      }
     }
 
     cargarPerfil();
   }, []);
 
   return (
+    <SimboloContext.Provider value={simboloMoneda(moneda)}>
     <div style={fondo}>
       <div style={{ maxWidth: 1450, margin: '0 auto' }}>
         {/* =================================================
@@ -133,6 +150,7 @@ export default function ContabilidadPage() {
         </main>
       </div>
     </div>
+    </SimboloContext.Provider>
   );
 }
 
@@ -168,6 +186,7 @@ function CentralDeLanzamientosTab({
   onGuardado?: () => void;
   onCancelar?: () => void;
 } = {}) {
+  const simbolo = useContext(SimboloContext);
   const router = useRouter();
   const modoEdicion = Boolean(idOperacionEditar);
 
@@ -716,7 +735,7 @@ function CentralDeLanzamientosTab({
 
       <div style={totalStyle}>
         <span>Total</span>
-        <span>R$ {total.toFixed(2)}</span>
+        <span>{simbolo} {formatearNumeroEntero(total)}</span>
       </div>
 
       <div style={validacionStyle}>
@@ -822,6 +841,7 @@ type Registro = {
 };
 
 function RegistroOperacionesTab() {
+  const simbolo = useContext(SimboloContext);
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
@@ -1082,7 +1102,7 @@ function RegistroOperacionesTab() {
                     {fila.historico || '—'}
                   </Td>
                   <Td>{fila.cliente_proveedor || '—'}</Td>
-                  <Td align="right">R$ {Number(fila.total).toFixed(2)}</Td>
+                  <Td align="right">{simbolo} {formatearNumeroEntero(Number(fila.total))}</Td>
 
                   <Td>
                     <Estado estado={fila.estado} />
@@ -1172,6 +1192,7 @@ type GrupoOperacion = {
 };
 
 function LibroDiarioTab() {
+  const simbolo = useContext(SimboloContext);
   const router = useRouter();
 
   const [filas, setFilas] = useState<MovimientoDiario[]>([]);
@@ -1371,7 +1392,7 @@ function LibroDiarioTab() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Resumen titulo="Operaciones" valor={String(totalOperaciones)} />
           <Resumen titulo="Asientos" valor={String(totalAsientos)} />
-          <Resumen titulo="Importes" valor={`R$ ${totalImportes.toFixed(2)}`} />
+          <Resumen titulo="Importes" valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
         </div>
       </div>
 
@@ -1407,6 +1428,7 @@ function LibroDiarioTab() {
 }
 
 function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
+  const simbolo = useContext(SimboloContext);
   const importeGrupo = grupo.filas.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
 
   return (
@@ -1453,7 +1475,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
         </div>
 
         <div style={{ fontSize: 13, color: COLORES.gris }}>
-          Importe registrado: <strong style={{ color: COLORES.azul }}>R$ {importeGrupo.toFixed(2)}</strong>
+          Importe registrado: <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
         </div>
       </div>
 
@@ -1496,7 +1518,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
                 </Td>
 
                 <Td align="right">
-                  <strong>R$ {Number(fila.importe ?? 0).toFixed(2)}</strong>
+                  <strong>{simbolo} {formatearNumeroEntero(Number(fila.importe ?? 0))}</strong>
                 </Td>
 
                 <Td>
