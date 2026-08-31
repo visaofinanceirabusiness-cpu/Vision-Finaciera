@@ -14,10 +14,16 @@
 //   - Flujo de Caja, Estado de Resultado y Balance Patrimonial:
 //     próximos pasos.
 
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+
+// Contexto para no tener que pasar el símbolo de moneda como prop a
+// cada uno de los informes y sus sub-componentes — cada uno lo toma
+// con useContext(SimboloContext) donde lo necesite.
+const SimboloContext = createContext('R$');
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -52,6 +58,7 @@ export default function InformesPage() {
 
   const [pestana, setPestana] = useState<Pestana>('sumas');
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [moneda, setMoneda] = useState<string | null>(null);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -79,6 +86,14 @@ export default function InformesPage() {
       }
 
       setEmpresaId(perfil.empresa_id);
+
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('moneda')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle();
+
+      setMoneda(empresaData?.moneda ?? null);
 
       const [
         { data: cuentasData, error: errorCuentas },
@@ -148,6 +163,7 @@ export default function InformesPage() {
   }, [cuentas]);
 
   return (
+    <SimboloContext.Provider value={simboloMoneda(moneda)}>
     <div style={fondo}>
       <div style={{ maxWidth: 1250, margin: '0 auto' }}>
         <header style={encabezado}>
@@ -220,6 +236,7 @@ export default function InformesPage() {
         </main>
       </div>
     </div>
+    </SimboloContext.Provider>
   );
 }
 
@@ -270,6 +287,7 @@ function formatearPeriodo(clave: string): string {
 ========================================================== */
 
 function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const simbolo = useContext(SimboloContext);
   const [busqueda, setBusqueda] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
@@ -334,11 +352,11 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
               <tr key={fila.cuenta.id} style={filaStyle}>
                 <Td>{fila.cuenta.codigo}</Td>
                 <Td>{fila.cuenta.nombre}</Td>
-                <Td align="right">R$ {fila.inicial.toFixed(2)}</Td>
-                <Td align="right">{fila.debe ? `R$ ${fila.debe.toFixed(2)}` : '—'}</Td>
-                <Td align="right">{fila.haber ? `R$ ${fila.haber.toFixed(2)}` : '—'}</Td>
+                <Td align="right">{simbolo} {formatearNumeroEntero(fila.inicial)}</Td>
+                <Td align="right">{fila.debe ? `${simbolo} ${formatearNumeroEntero(fila.debe)}` : '—'}</Td>
+                <Td align="right">{fila.haber ? `${simbolo} ${formatearNumeroEntero(fila.haber)}` : '—'}</Td>
                 <Td align="right">
-                  <strong style={{ color: COLORES.azul }}>R$ {fila.saldoFinal.toFixed(2)}</strong>
+                  <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</strong>
                 </Td>
               </tr>
             ))}
@@ -359,16 +377,16 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
               </Td>
               <Td>—</Td>
               <Td align="right">
-                <strong>R$ {totalInicial.toFixed(2)}</strong>
+                <strong>{simbolo} {formatearNumeroEntero(totalInicial)}</strong>
               </Td>
               <Td align="right">
-                <strong>R$ {totalDebe.toFixed(2)}</strong>
+                <strong>{simbolo} {formatearNumeroEntero(totalDebe)}</strong>
               </Td>
               <Td align="right">
-                <strong>R$ {totalHaber.toFixed(2)}</strong>
+                <strong>{simbolo} {formatearNumeroEntero(totalHaber)}</strong>
               </Td>
               <Td align="right">
-                <strong>R$ {totalFinal.toFixed(2)}</strong>
+                <strong>{simbolo} {formatearNumeroEntero(totalFinal)}</strong>
               </Td>
             </tr>
           </tfoot>
@@ -388,7 +406,7 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
       >
         {Math.abs(diferenciaDebeHaber) < 0.01
           ? '✓ El Debe y el Haber cierran iguales.'
-          : `⚠ El Debe y el Haber no cierran — diferencia de R$ ${diferenciaDebeHaber.toFixed(2)}.`}
+          : `⚠ El Debe y el Haber no cierran — diferencia de ${simbolo} ${formatearNumeroEntero(diferenciaDebeHaber)}.`}
       </div>
     </div>
   );
@@ -399,6 +417,7 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
 ========================================================== */
 
 function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const simbolo = useContext(SimboloContext);
   const [cuentaId, setCuentaId] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
@@ -485,7 +504,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
             </div>
 
             <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
-              R$ {saldoActual.toFixed(2)}
+              {simbolo} {formatearNumeroEntero(saldoActual)}
             </div>
           </div>
         )}
@@ -517,7 +536,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
                 <Td align="right">—</Td>
                 <Td align="right">—</Td>
                 <Td align="right">
-                  <strong>R$ {Number(cuenta.saldo_inicial ?? 0).toFixed(2)}</strong>
+                  <strong>{simbolo} {formatearNumeroEntero(Number(cuenta.saldo_inicial ?? 0))}</strong>
                 </Td>
               </tr>
 
@@ -526,10 +545,10 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
                   <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
                   <Td>{fila.id_operacion || '—'}</Td>
                   <Td>{fila.descripcion || '—'}</Td>
-                  <Td align="right">{fila.esDebe ? `R$ ${fila.importe.toFixed(2)}` : '—'}</Td>
-                  <Td align="right">{!fila.esDebe ? `R$ ${fila.importe.toFixed(2)}` : '—'}</Td>
+                  <Td align="right">{fila.esDebe ? `${simbolo} ${formatearNumeroEntero(fila.importe)}` : '—'}</Td>
+                  <Td align="right">{!fila.esDebe ? `${simbolo} ${formatearNumeroEntero(fila.importe)}` : '—'}</Td>
                   <Td align="right">
-                    <strong>R$ {fila.saldo.toFixed(2)}</strong>
+                    <strong>{simbolo} {formatearNumeroEntero(fila.saldo)}</strong>
                   </Td>
                 </tr>
               ))}
@@ -554,6 +573,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
 ========================================================== */
 
 function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const simbolo = useContext(SimboloContext);
   const periodos = useMemo(() => obtenerPeriodos(asientos), [asientos]);
   const [periodo, setPeriodo] = useState('TODOS');
 
@@ -629,7 +649,7 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
           </div>
 
           <div style={{ fontSize: 24, fontWeight: 800, color: resultado >= 0 ? COLORES.verde : '#dc2626' }}>
-            R$ {resultado.toFixed(2)}
+            {simbolo} {formatearNumeroEntero(resultado)}
           </div>
         </div>
 
@@ -775,6 +795,7 @@ function SeccionResultado({
   color: string;
   resta?: boolean;
 }) {
+  const simbolo = useContext(SimboloContext);
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -794,7 +815,7 @@ function SeccionResultado({
         </strong>
 
         <strong style={{ color, fontSize: 13 }}>
-          {resta ? '− ' : ''}R$ {total.toFixed(2)}
+          {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
         </strong>
       </div>
 
@@ -816,7 +837,7 @@ function SeccionResultado({
               }}
             >
               <span>{fila.cuenta.nombre}</span>
-              <span>R$ {fila.saldoFinal.toFixed(2)}</span>
+              <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
             </div>
           ))
         )}
@@ -830,6 +851,7 @@ function SeccionResultado({
 ========================================================== */
 
 function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+  const simbolo = useContext(SimboloContext);
   const cuentasCaja = useMemo(
     () => hojas.filter((c) => (c.codigo ?? '').startsWith('1.1.1.')),
     [hojas]
@@ -920,7 +942,7 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
           </div>
 
           <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
-            R$ {saldoCajaActual.toFixed(2)}
+            {simbolo} {formatearNumeroEntero(saldoCajaActual)}
           </div>
         </div>
       </div>
@@ -941,7 +963,7 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
         </div>
 
         <div style={{ fontSize: 24, fontWeight: 800, color: flujoNeto >= 0 ? COLORES.verde : '#dc2626' }}>
-          R$ {flujoNeto.toFixed(2)}
+          {simbolo} {formatearNumeroEntero(flujoNeto)}
         </div>
       </div>
 
@@ -999,6 +1021,7 @@ function SeccionMontos({
   color: string;
   resta?: boolean;
 }) {
+  const simbolo = useContext(SimboloContext);
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -1018,7 +1041,7 @@ function SeccionMontos({
         </strong>
 
         <strong style={{ color, fontSize: 13 }}>
-          {resta ? '− ' : ''}R$ {total.toFixed(2)}
+          {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
         </strong>
       </div>
 
@@ -1040,7 +1063,7 @@ function SeccionMontos({
               }}
             >
               <span>{fila.nombre}</span>
-              <span>R$ {fila.valor.toFixed(2)}</span>
+              <span>{simbolo} {formatearNumeroEntero(fila.valor)}</span>
             </div>
           ))
         )}
@@ -1062,6 +1085,7 @@ function BalancePatrimonialTab({
   hojas: CuentaPlan[];
   asientos: Asiento[];
 }) {
+  const simbolo = useContext(SimboloContext);
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
   // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
@@ -1139,7 +1163,7 @@ function BalancePatrimonialTab({
               color: resultadoDelEjercicio >= 0 ? COLORES.verde : '#dc2626',
             }}
           >
-            R$ {resultadoDelEjercicio.toFixed(2)}
+            {simbolo} {formatearNumeroEntero(resultadoDelEjercicio)}
           </div>
         </div>
 
@@ -1195,8 +1219,8 @@ function BalancePatrimonialTab({
         }}
       >
         {Math.abs(diferencia) < 0.01
-          ? `✓ Activo (R$ ${activo.total.toFixed(2)}) = Pasivo + Patrimonio (R$ ${totalPasivoYPatrimonio.toFixed(2)}).`
-          : `⚠ La ecuación no cierra por R$ ${diferencia.toFixed(2)}. Activo: R$ ${activo.total.toFixed(2)} — Pasivo + Patrimonio: R$ ${totalPasivoYPatrimonio.toFixed(2)}.`}
+          ? `✓ Activo (${simbolo} ${formatearNumeroEntero(activo.total)}) = Pasivo + Patrimonio (${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}).`
+          : `⚠ La ecuación no cierra por ${simbolo} ${formatearNumeroEntero(diferencia)}. Activo: ${simbolo} ${formatearNumeroEntero(activo.total)} — Pasivo + Patrimonio: ${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}.`}
       </div>
     </div>
   );
@@ -1217,6 +1241,7 @@ function BloqueBalance({
   color: string;
   filaExtra?: { nombre: string; valor: number };
 }) {
+  const simbolo = useContext(SimboloContext);
   const entradas = Array.from(grupos.entries());
 
   return (
@@ -1234,7 +1259,7 @@ function BloqueBalance({
           {emoji} {titulo}
         </strong>
 
-        <strong style={{ color, fontSize: 14 }}>R$ {(total + (filaExtra?.valor ?? 0)).toFixed(2)}</strong>
+        <strong style={{ color, fontSize: 14 }}>{simbolo} {formatearNumeroEntero((total + (filaExtra?.valor ?? 0)))}</strong>
       </div>
 
       <div style={{ padding: '4px 0' }}>
@@ -1250,7 +1275,7 @@ function BloqueBalance({
                 style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}
               >
                 <span>{fila.cuenta.nombre}</span>
-                <span>R$ {fila.saldoFinal.toFixed(2)}</span>
+                <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
               </div>
             ))}
           </div>
@@ -1271,7 +1296,7 @@ function BloqueBalance({
             }}
           >
             <span>{filaExtra.nombre}</span>
-            <span>R$ {filaExtra.valor.toFixed(2)}</span>
+            <span>{simbolo} {formatearNumeroEntero(filaExtra.valor)}</span>
           </div>
         )}
 
