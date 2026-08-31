@@ -89,6 +89,7 @@ export type IndicadoresPanel = {
   ventasCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
   gastosCategorias: PuntoGrafico[];
+  ingresosSocios: PuntoGrafico[];
 
   // Control de consistencia contable
   descuadre: number;
@@ -145,7 +146,7 @@ export async function obtenerIndicadores(
 
     supabase
       .from('registro_operaciones')
-      .select('fecha, operacion, categoria, total, cuenta_debito, cuenta_credito')
+      .select('fecha, operacion, categoria, total, cuenta_debito, cuenta_credito, socio')
       .eq('empresa_id', empresaId),
 
     supabase
@@ -478,6 +479,36 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
+  // Ingresos por socio: del período seleccionado. Se agrupa por cuenta
+  // de tipo INGRESO (mismo criterio que gastos) y por el campo "socio"
+  // — que es quién de la familia generó ese ingreso, no la fuente de
+  // ingreso (empleador/cliente). Solo hay dato acá para las filas
+  // donde se cargó el socio (hoy, Cobro en perfil Familia).
+  const cuentasIngreso = new Set(
+    hojas.filter((cuenta) => cuenta.tipo_saldo === 'INGRESO').map((cuenta) => cuenta.nombre)
+  );
+
+  const ingresosPorSocio = new Map<string, number>();
+
+  for (const fila of operaciones) {
+    const socio = (fila as { socio?: string | null }).socio;
+
+    if (
+      !socio ||
+      !dentroDelPeriodo(String(fila.fecha ?? '')) ||
+      !fila.cuenta_credito ||
+      !cuentasIngreso.has(fila.cuenta_credito)
+    ) {
+      continue;
+    }
+
+    ingresosPorSocio.set(socio, (ingresosPorSocio.get(socio) ?? 0) + aNumero(fila.total));
+  }
+
+  const ingresosSocios: PuntoGrafico[] = Array.from(ingresosPorSocio.entries())
+    .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
+    .sort((a, b) => b.valor - a.valor);
+
   return {
     // Situación a la fecha
     activos: redondear(activos),
@@ -500,6 +531,7 @@ export async function obtenerIndicadores(
     ventasCategorias,
     stockCategorias,
     gastosCategorias,
+    ingresosSocios,
 
     descuadre: redondear(descuadre),
   };
