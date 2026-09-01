@@ -25,6 +25,19 @@
 import { supabase } from './supabase';
 import { crearObjetivosModelo } from './objetivos';
 
+// El esquema impositivo del Plano de Contas depende del país real de
+// operación de la empresa, no del idioma en el que trabaja la interfaz
+// (una empresa brasileña puede preferir trabajar en español). Por eso
+// perfil_plan_cuentas_maestro se filtra por país — derivado acá de la
+// moneda, que es el dato que la empresa ya declara — y no por idioma.
+// El idioma sigue siendo el selector del resto de las tablas maestro
+// (operaciones, formas de pago, categorías, reglas contables), que no
+// varían de un país al otro.
+export function paisDesdeMoneda(moneda: string | null | undefined): string {
+  if (moneda === 'BRL') return 'BR';
+  return 'AR';
+}
+
 export async function empresaYaTieneEsqueleto(empresaId: string) {
   const { count, error } = await supabase
     .from('plan_cuentas')
@@ -41,7 +54,8 @@ export async function empresaYaTieneEsqueleto(empresaId: string) {
 export async function inicializarEmpresaDesdePerfil(
   empresaId: string,
   perfilEmpresaId: string,
-  idioma: string
+  idioma: string,
+  moneda: string
 ) {
   const yaTieneEsqueleto = await empresaYaTieneEsqueleto(empresaId);
 
@@ -51,6 +65,8 @@ export async function inicializarEmpresaDesdePerfil(
     );
   }
 
+  const pais = paisDesdeMoneda(moneda);
+
   const [
     { data: cuentasMaestro, error: errorCuentas },
     { data: operacionesMaestro, error: errorOperaciones },
@@ -59,7 +75,7 @@ export async function inicializarEmpresaDesdePerfil(
     { data: categoriasOperacionMaestro, error: errorCatOp },
     { data: reglasMaestro, error: errorReglas },
   ] = await Promise.all([
-    supabase.from('perfil_plan_cuentas_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
+    supabase.from('perfil_plan_cuentas_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma).eq('pais', pais),
     supabase.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
     supabase.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
     supabase.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
@@ -76,7 +92,7 @@ export async function inicializarEmpresaDesdePerfil(
 
   if (!cuentasMaestro || cuentasMaestro.length === 0) {
     throw new Error(
-      `Todavía no existe un plan maestro cargado para este perfil en idioma "${idioma}". Avisale al administrador.`
+      `Todavía no existe un plan maestro cargado para este perfil en el país "${pais}" (moneda "${moneda}"). Avisale al administrador.`
     );
   }
 

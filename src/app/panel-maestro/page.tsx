@@ -59,6 +59,7 @@ type SolicitudAlta = {
   telefono: string;
   nombre_empresa: string;
   rubro: string | null;
+  moneda: string;
   perfil_empresa_id: string;
   componentes_mixto: string[];
   creado_en: string;
@@ -171,7 +172,7 @@ export default function PanelMaestroPage() {
   async function cargarSolicitudes() {
     const { data, error: errorSolicitudes } = await supabase
       .from('solicitudes_alta')
-      .select('id, user_id, email, nombre, telefono, nombre_empresa, rubro, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
+      .select('id, user_id, email, nombre, telefono, nombre_empresa, rubro, moneda, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
       .eq('estado', 'PENDIENTE')
       .order('creado_en', { ascending: true });
 
@@ -226,6 +227,7 @@ export default function PanelMaestroPage() {
           rubro: solicitud.rubro,
           telefono: solicitud.telefono,
           email: solicitud.email,
+          moneda: solicitud.moneda,
         })
         .select('id, numero_cliente')
         .single();
@@ -253,7 +255,7 @@ export default function PanelMaestroPage() {
         }
       }
 
-      await inicializarEmpresaDesdePerfil(nuevaEmpresa.id, solicitud.perfil_empresa_id, 'ES');
+      await inicializarEmpresaDesdePerfil(nuevaEmpresa.id, solicitud.perfil_empresa_id, 'ES', solicitud.moneda);
 
       const { error: errorVincular } = await supabase.rpc('vincular_usuario_a_empresa', {
         p_email: solicitud.email,
