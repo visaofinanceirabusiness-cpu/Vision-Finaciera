@@ -84,7 +84,27 @@ export type ClaveConfiguracoes =
   | 'activa'
   | 'inactiva'
   | 'eliminarTitulo'
-  | 'errorInesperado';
+  | 'errorInesperado'
+  // Pestaña 3 — Plan de Cuentas
+  | 'cargandoPlanCuentas'
+  | 'errorCargarPlanCuentas'
+  | 'sinPlanCuentasTitulo2'
+  | 'sinPlanCuentasAyuda2'
+  | 'mostrarInactivas'
+  | 'soloAdminRenombraCuentas'
+  | 'cuentaEspecial'
+  | 'contenedorStock'
+  | 'contenedorIngreso'
+  | 'contenedorCosto'
+  | 'contenedorGasto'
+  | 'contenedorPerdida'
+  | 'eliminarCuentaTitulo'
+  | 'errorRenombrarCuenta'
+  | 'mensajeCuentaRenombrada'
+  | 'errorActualizarCuenta'
+  | 'mensajeCuentaActualizada'
+  | 'errorEliminarCuenta'
+  | 'mensajeCuentaEliminada';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -164,6 +184,25 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     inactiva: 'Inactiva',
     eliminarTitulo: 'Eliminar',
     errorInesperado: 'Ocurrió un error inesperado.',
+    cargandoPlanCuentas: 'Cargando Plan de Cuentas...',
+    errorCargarPlanCuentas: 'No se pudo cargar el Plan de Cuentas.',
+    sinPlanCuentasTitulo2: 'Todavía no hay Plan de Cuentas',
+    sinPlanCuentasAyuda2: 'Asigná un perfil de empresa en "Datos de la Empresa" para generarlo.',
+    mostrarInactivas: 'Mostrar cuentas inactivas',
+    soloAdminRenombraCuentas: 'Solo un administrador de plataforma puede renombrar o desactivar cuentas acá.',
+    cuentaEspecial: 'cuenta especial',
+    contenedorStock: 'cuenta base de Stock',
+    contenedorIngreso: 'cuenta base de Ingresos',
+    contenedorCosto: 'cuenta base de Costos',
+    contenedorGasto: 'cuenta base de Gastos',
+    contenedorPerdida: 'cuenta de Pérdida y Baja de Stock',
+    eliminarCuentaTitulo: 'Eliminar cuenta',
+    errorRenombrarCuenta: 'No se pudo renombrar la cuenta.',
+    mensajeCuentaRenombrada: 'Cuenta renombrada — se actualizó en todas las operaciones que ya la usaban.',
+    errorActualizarCuenta: 'No se pudo actualizar la cuenta.',
+    mensajeCuentaActualizada: 'Cuenta actualizada.',
+    errorEliminarCuenta: 'No se pudo eliminar la cuenta.',
+    mensajeCuentaEliminada: 'Cuenta eliminada.',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -242,6 +281,25 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     inactiva: 'Inativa',
     eliminarTitulo: 'Excluir',
     errorInesperado: 'Ocorreu um erro inesperado.',
+    cargandoPlanCuentas: 'Carregando Plano de Contas...',
+    errorCargarPlanCuentas: 'Não foi possível carregar o Plano de Contas.',
+    sinPlanCuentasTitulo2: 'Ainda não há Plano de Contas',
+    sinPlanCuentasAyuda2: 'Atribua um perfil de empresa em "Dados da Empresa" para gerá-lo.',
+    mostrarInactivas: 'Mostrar contas inativas',
+    soloAdminRenombraCuentas: 'Somente um administrador da plataforma pode renomear ou desativar contas aqui.',
+    cuentaEspecial: 'conta especial',
+    contenedorStock: 'conta base de Estoque',
+    contenedorIngreso: 'conta base de Receitas',
+    contenedorCosto: 'conta base de Custos',
+    contenedorGasto: 'conta base de Despesas',
+    contenedorPerdida: 'conta de Perda e Baixa de Estoque',
+    eliminarCuentaTitulo: 'Excluir conta',
+    errorRenombrarCuenta: 'Não foi possível renomear a conta.',
+    mensajeCuentaRenombrada: 'Conta renomeada — foi atualizada em todas as operações que já a usavam.',
+    errorActualizarCuenta: 'Não foi possível atualizar a conta.',
+    mensajeCuentaActualizada: 'Conta atualizada.',
+    errorEliminarCuenta: 'Não foi possível excluir a conta.',
+    mensajeCuentaEliminada: 'Conta excluída.',
   },
 };
 
@@ -291,4 +349,10 @@ export function confirmEliminarItem(idioma: string, nombre: string) {
   return esPT(idioma)
     ? `Excluir "${nombre}"? Isso não apaga a conta contábil, só a categoria/forma de pagamento e suas regras.`
     : `¿Eliminar "${nombre}"? Esto no borra la cuenta contable, solo la categoría/forma de pago y sus reglas.`;
+}
+
+export function confirmEliminarCuenta(idioma: string, nombre: string) {
+  return esPT(idioma)
+    ? `Excluir a conta "${nombre}"? Só é possível se ela nunca teve movimento.`
+    : `¿Eliminar la cuenta "${nombre}"? Solo se puede si nunca tuvo movimiento.`;
 }
