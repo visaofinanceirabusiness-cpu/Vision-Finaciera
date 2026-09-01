@@ -104,7 +104,19 @@ export type ClaveConfiguracoes =
   | 'errorActualizarCuenta'
   | 'mensajeCuentaActualizada'
   | 'errorEliminarCuenta'
-  | 'mensajeCuentaEliminada';
+  | 'mensajeCuentaEliminada'
+  // Pestaña 4 — Inicialização do Sistema
+  | 'cargandoGenerico'
+  | 'faltaPasoAntes'
+  | 'ayudaFaltaPasoMatriz'
+  | 'sistemaInicializado'
+  | 'generarMatrizTitulo'
+  | 'matrizBloqueada'
+  | 'matrizAdminPuedeRegenerar'
+  | 'botonGenerando'
+  | 'botonRegenerarMatriz'
+  | 'botonGenerarMatriz'
+  | 'errorGenerarMatriz';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -203,6 +215,17 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     mensajeCuentaActualizada: 'Cuenta actualizada.',
     errorEliminarCuenta: 'No se pudo eliminar la cuenta.',
     mensajeCuentaEliminada: 'Cuenta eliminada.',
+    cargandoGenerico: 'Cargando...',
+    faltaPasoAntes: 'Falta un paso antes',
+    ayudaFaltaPasoMatriz: 'Asigná un perfil de empresa en "Datos de la Empresa" para poder generar la matriz.',
+    sistemaInicializado: 'El sistema ya está inicializado',
+    generarMatrizTitulo: 'Generar la Matriz de Operaciones',
+    matrizBloqueada: 'La matriz ya fue generada. Para volver a generarla hace falta un administrador de plataforma.',
+    matrizAdminPuedeRegenerar: 'La matriz ya fue generada. Como administrador podés volver a generarla si cambiaste categorías o formas de pago.',
+    botonGenerando: 'Generando...',
+    botonRegenerarMatriz: '🔒 Regenerar Matriz de Operaciones',
+    botonGenerarMatriz: 'Generar Matriz de Operaciones',
+    errorGenerarMatriz: 'Ocurrió un error inesperado al generar la matriz.',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -300,6 +323,17 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     mensajeCuentaActualizada: 'Conta atualizada.',
     errorEliminarCuenta: 'Não foi possível excluir a conta.',
     mensajeCuentaEliminada: 'Conta excluída.',
+    cargandoGenerico: 'Carregando...',
+    faltaPasoAntes: 'Falta um passo antes',
+    ayudaFaltaPasoMatriz: 'Atribua um perfil de empresa em "Dados da Empresa" para poder gerar a matriz.',
+    sistemaInicializado: 'O sistema já está inicializado',
+    generarMatrizTitulo: 'Gerar a Matriz de Operações',
+    matrizBloqueada: 'A matriz já foi gerada. Para gerá-la novamente é necessário um administrador da plataforma.',
+    matrizAdminPuedeRegenerar: 'A matriz já foi gerada. Como administrador você pode gerá-la novamente se mudou categorias ou formas de pagamento.',
+    botonGenerando: 'Gerando...',
+    botonRegenerarMatriz: '🔒 Gerar novamente a Matriz de Operações',
+    botonGenerarMatriz: 'Gerar Matriz de Operações',
+    errorGenerarMatriz: 'Ocorreu um erro inesperado ao gerar a matriz.',
   },
 };
 
@@ -355,4 +389,16 @@ export function confirmEliminarCuenta(idioma: string, nombre: string) {
   return esPT(idioma)
     ? `Excluir a conta "${nombre}"? Só é possível se ela nunca teve movimento.`
     : `¿Eliminar la cuenta "${nombre}"? Solo se puede si nunca tuvo movimiento.`;
+}
+
+export function msgMatrizGeneradaExito(idioma: string, cantidad: number) {
+  return esPT(idioma)
+    ? `Matriz gerada com sucesso: ${cantidad} regras de operação ficaram prontas.`
+    : `Matriz generada correctamente: ${cantidad} reglas de operación quedaron listas.`;
+}
+
+export function msgMatrizExplicacion(idioma: string, cantidadCategorias: number) {
+  return esPT(idioma)
+    ? `Isso monta a Matriz de Operações a partir das suas ${cantidadCategorias} categorias configuradas. Uma vez gerada, só um administrador da plataforma vai poder gerá-la novamente.`
+    : `Esto arma la Matriz de Operaciones a partir de tus ${cantidadCategorias} categorías configuradas. Una vez generada, solo un administrador de plataforma podrá volver a generarla.`;
 }
