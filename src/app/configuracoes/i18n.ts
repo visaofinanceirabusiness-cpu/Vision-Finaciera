@@ -146,7 +146,14 @@ export type ClaveConfiguracoes =
   | 'categoriaFinancieros'
   | 'categoriaMarketing'
   | 'mensajeObjetivoActualizado'
-  | 'mensajeObjetivoEliminado';
+  | 'mensajeObjetivoEliminado'
+  // Pestaña 6 — Faturamento
+  | 'pagaSegunMoneda'
+  | 'definiMonedaPrimero'
+  | 'facturacionPagaEnPrefijo'
+  | 'facturacionPagaEnSufijo'
+  | 'reales'
+  | 'pesosArgentinos';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -285,6 +292,12 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     categoriaMarketing: 'Marketing',
     mensajeObjetivoActualizado: 'Objetivo actualizado.',
     mensajeObjetivoEliminado: 'Objetivo eliminado.',
+    pagaSegunMoneda: 'Pagá tu suscripción según la moneda configurada para tu empresa (Datos de la Empresa → Moneda).',
+    definiMonedaPrimero: 'Definí primero la moneda de tu empresa (Real o Peso argentino) en la pestaña "Datos de la Empresa" para ver el medio de pago correspondiente.',
+    facturacionPagaEnPrefijo: 'Tu empresa paga en',
+    facturacionPagaEnSufijo: 'a través de',
+    reales: 'Reales',
+    pesosArgentinos: 'Pesos argentinos',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -422,6 +435,12 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     categoriaMarketing: 'Marketing',
     mensajeObjetivoActualizado: 'Objetivo atualizado.',
     mensajeObjetivoEliminado: 'Objetivo excluído.',
+    pagaSegunMoneda: 'Pague sua assinatura de acordo com a moeda configurada para sua empresa (Dados da Empresa → Moeda).',
+    definiMonedaPrimero: 'Defina primeiro a moeda da sua empresa (Real ou Peso argentino) na aba "Dados da Empresa" para ver o meio de pagamento correspondente.',
+    facturacionPagaEnPrefijo: 'Sua empresa paga em',
+    facturacionPagaEnSufijo: 'através de',
+    reales: 'Reais',
+    pesosArgentinos: 'Pesos argentinos',
   },
 };
 
@@ -497,4 +516,14 @@ export function confirmEliminarObjetivo(idioma: string, nombre: string) {
 
 export function msgObjetivoCreado(idioma: string, nombre: string) {
   return esPT(idioma) ? `Objetivo "${nombre}" criado.` : `Objetivo "${nombre}" creado.`;
+}
+
+export function msgPagarSuscripcionCon(idioma: string, plataforma: string) {
+  return esPT(idioma) ? `Pagar assinatura com ${plataforma} →` : `Pagar suscripción con ${plataforma} →`;
+}
+
+export function msgLinkNoConfigurado(idioma: string, plataforma: string) {
+  return esPT(idioma)
+    ? `🔒 O link de pagamento do ${plataforma} ainda não está configurado. Vai estar disponível em breve.`
+    : `🔒 Todavía no está configurado el link de pago de ${plataforma}. Va a estar disponible próximamente.`;
 }
