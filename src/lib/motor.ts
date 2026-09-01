@@ -556,11 +556,21 @@ export async function registrarOperacion(
   }
 
   // ---------------------------------------------------
-  // 1.b VALIDAR QUE NO DEJE UNA CUENTA DE CAJA/BANCO EN NEGATIVO
+  // 1.b VALIDAR QUE NINGUNA CUENTA INVOLUCRADA QUEDE EN NEGATIVO
   //
-  // Solo aplica al lado que se ACREDITA (sale plata) de una cuenta
-  // de Activo (Caja, Banco, PIX, etc.) — una cuenta de Pasivo como
-  // "Proveedor" puede crecer sin límite, eso es una deuda normal.
+  // Dos casos simétricos:
+  //   - El lado que se ACREDITA (sale plata/stock) de una cuenta de
+  //     Activo (Caja, Banco, Stock, etc.) no puede quedar negativo.
+  //   - El lado que se DEBITA de una cuenta de Pasivo (Proveedor,
+  //     etc.) tampoco: si se debita más de lo que se debe, quedaría
+  //     un saldo "a favor" que hoy no tiene una cuenta propia (sería
+  //     un anticipo, que se modela con otra cuenta — pendiente de
+  //     desarrollar). Hasta que eso exista, se bloquea la operación
+  //     en vez de dejar el pasivo en negativo.
+  //
+  // Una cuenta de Pasivo creciendo por el crédito (una deuda nueva o
+  // más grande) es normal y no se bloquea acá, ni tampoco una cuenta
+  // de Activo creciendo por el débito.
   // ---------------------------------------------------
 
   if (regla.cuenta_credito) {
@@ -572,6 +582,20 @@ export async function registrarOperacion(
       if (saldoResultante < 0) {
         throw new Error(
           `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación. Saldo actual: R$ ${cuentaCredito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+        );
+      }
+    }
+  }
+
+  if (regla.cuenta_debito) {
+    const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito);
+
+    if (cuentaDebito && cuentaDebito.tipoSaldo === 'PASIVO' && cuentaDebito.naturaleza === 'ACREEDORA') {
+      const saldoResultante = cuentaDebito.saldo - total;
+
+      if (saldoResultante < 0) {
+        throw new Error(
+          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo), y todavía no hay una cuenta de anticipo para eso. Saldo actual: R$ ${cuentaDebito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
         );
       }
     }
