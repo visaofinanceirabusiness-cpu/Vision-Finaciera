@@ -24,6 +24,7 @@ type Fila = {
 
 type MovimientoCosto = {
   producto_id: string;
+  tipo: string;
   cantidad: number;
   costo_unitario: number;
 };
@@ -66,21 +67,37 @@ export default function StockPage() {
           .eq('empresa_id', perfil.empresa_id),
         supabase
           .from('movimientos_stock')
-          .select('producto_id, cantidad, costo_unitario')
-          .eq('empresa_id', perfil.empresa_id)
-          .eq('tipo', 'ENTRADA'),
+          .select('producto_id, tipo, cantidad, costo_unitario')
+          .eq('empresa_id', perfil.empresa_id),
       ]);
 
       const saldoPorProducto = new Map(
         (saldos ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
       );
+
+      // Promedio ponderado perpetuo — igual al que usa el motor
+      // (lib/motor.ts) y la pantalla de Mercadería: se descuentan
+      // también las SALIDAs (al costo que tenían en su momento), no
+      // solo se suman las ENTRADAs.
       const costoPorProducto = new Map<string, { cantidad: number; valor: number }>();
 
       for (const movimiento of (movimientos as MovimientoCosto[]) ?? []) {
+        if (movimiento.tipo !== 'ENTRADA' && movimiento.tipo !== 'SALIDA') {
+          continue;
+        }
+
         const actual = costoPorProducto.get(movimiento.producto_id) ?? { cantidad: 0, valor: 0 };
         const cantidad = Number(movimiento.cantidad ?? 0);
-        actual.cantidad += cantidad;
-        actual.valor += cantidad * Number(movimiento.costo_unitario ?? 0);
+        const valor = cantidad * Number(movimiento.costo_unitario ?? 0);
+
+        if (movimiento.tipo === 'ENTRADA') {
+          actual.cantidad += cantidad;
+          actual.valor += valor;
+        } else {
+          actual.cantidad -= cantidad;
+          actual.valor -= valor;
+        }
+
         costoPorProducto.set(movimiento.producto_id, actual);
       }
 
