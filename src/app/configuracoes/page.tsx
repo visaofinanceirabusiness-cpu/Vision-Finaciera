@@ -70,6 +70,8 @@ import {
   msgObjetivoCreado,
   msgPagarSuscripcionCon,
   msgLinkNoConfigurado,
+  nombreOperacionDisplay,
+  nombreCuentaDisplay,
 } from './i18n';
 
 const COLORES = {
@@ -1135,7 +1137,7 @@ function BloqueFormasDePago({
                 checked={operacionesElegidas.includes(nombre)}
                 onChange={() => alternarOperacion(nombre)}
               />
-              {nombre}
+              {nombreOperacionDisplay(idioma, nombre)}
             </label>
           ))}
         </div>
@@ -1531,7 +1533,7 @@ function NodoPlanDeCuentas({
 
         {tieneHijos || !esAdmin ? (
           <span style={{ fontSize: 13, fontWeight: nivel === 0 ? 800 : 700, color: COLORES.azul, flex: 1 }}>
-            {nodo.nombre}
+            {nombreCuentaDisplay(idioma, nodo.nombre)}
           </span>
         ) : (
           <input
@@ -2182,7 +2184,7 @@ function FacturacionTab({ empresaId, idioma }: { empresaId: string; esAdmin: boo
         {t('pagaSegunMoneda')}
       </p>
 
-      {resumen && <TarjetaEstadoSuscripcion resumen={resumen} />}
+      {resumen && <TarjetaEstadoSuscripcion resumen={resumen} idioma={idioma} />}
 
       <div
         style={{
