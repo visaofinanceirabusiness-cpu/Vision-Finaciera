@@ -629,27 +629,26 @@ export async function registrarOperacion(
       }
 
       // ------------------------------------------------
-      // VENTA
+      // CUALQUIER SALIDA DE STOCK (VENTA, PERDIDA, o
+      // cualquier otra operación que se agregue con
+      // stock='SI' y no sea COMPRA)
       //
-      // Costo medio ponderado PERPETUO: se toma todo el
+      // Se calcula lo que efectivamente queda disponible
+      // en stock — cantidad y valor — tomando todo el
       // historial de movimientos (ENTRADA y SALIDA) del
-      // producto y se calcula lo que efectivamente queda
-      // en stock antes de esta venta — cantidad y valor —
-      // restando lo ya vendido. El costo unitario de cada
-      // SALIDA pasada ya refleja el promedio vigente en su
-      // momento, así que restar sus cantidad*costo_unitario
-      // es equivalente a "consumir" ese valor del stock.
+      // producto y restando lo ya consumido. El costo
+      // unitario de cada SALIDA pasada ya refleja el
+      // promedio vigente en su momento, así que restar su
+      // cantidad*costo_unitario es equivalente a "consumir"
+      // ese valor del stock (promedio ponderado perpetuo).
       //
-      // (Antes esto solo sumaba las ENTRADAs y nunca
-      // descontaba lo vendido, por lo que el costo promedio
-      // no bajaba nunca aunque el stock se agotara — el
-      // saldo contable de Stock terminaba desalineado del
-      // saldo real de Mercadería.)
+      // Ninguna SALIDA puede pedir más cantidad de la que
+      // hay disponible — así ninguna operación deja el
+      // stock de un producto en negativo, sea una venta o
+      // una baja por pérdida.
       // ------------------------------------------------
 
-      if (
-        formulario.operacion === 'VENTA'
-      ) {
+      if (tipoMovimiento === 'SALIDA') {
         const {
           data: movimientosProducto,
           error,
@@ -687,27 +686,29 @@ export async function registrarOperacion(
 
         if (cantidadDisponible <= 0) {
           throw new Error(
-            `No existe costo de compra para el producto seleccionado. Producto: ${linea.producto}`
+            `No hay stock disponible para el producto seleccionado. Producto: ${linea.producto}`
           );
         }
 
         if (Number(linea.cantidad) > cantidadDisponible) {
           throw new Error(
-            `No hay stock suficiente para vender ${Number(linea.cantidad)} unidades — quedan ${cantidadDisponible} disponibles. Producto: ${linea.producto}`
+            `No hay stock suficiente — quedan ${cantidadDisponible} unidades disponibles y se pidieron ${Number(linea.cantidad)}. Producto: ${linea.producto}`
           );
         }
 
-        costoUnitario =
-          valorDisponible /
-          cantidadDisponible;
+        if (formulario.operacion === 'VENTA') {
+          costoUnitario =
+            valorDisponible /
+            cantidadDisponible;
 
-        costosCMV.push({
-          cantidad: Number(
-            linea.cantidad
-          ),
-          costoMedio:
-            costoUnitario,
-        });
+          costosCMV.push({
+            cantidad: Number(
+              linea.cantidad
+            ),
+            costoMedio:
+              costoUnitario,
+          });
+        }
       }
 
       movimientos.push({
