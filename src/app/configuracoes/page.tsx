@@ -49,6 +49,8 @@ import {
   type CategoriaObjetivo,
   type IndicadorCodigo,
 } from '@/lib/objetivos';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioConfiguracoes } from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -99,8 +101,11 @@ export default function ConfiguracoesPage() {
   const [pestana, setPestana] = useState<Pestana>('empresa');
   const [esAdmin, setEsAdmin] = useState(false);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [idioma, setIdioma] = useState('ES');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
 
   useEffect(() => {
     async function cargar() {
@@ -118,13 +123,20 @@ export default function ConfiguracoesPage() {
         .maybeSingle();
 
       if (errorPerfil || !perfil?.empresa_id) {
-        setError('No se pudo identificar la empresa del usuario.');
+        setError(t('errorNoSeIdentificoEmpresa'));
         setCargando(false);
         return;
       }
 
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('idioma')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle();
+
       setEmpresaId(perfil.empresa_id);
       setEsAdmin(Boolean(perfil.es_admin_plataforma));
+      setIdioma(empresaData?.idioma ?? 'ES');
       setCargando(false);
     }
 
@@ -132,11 +144,11 @@ export default function ConfiguracoesPage() {
   }, [router]);
 
   if (cargando) {
-    return <div style={cargandoStyle}>Preparando CONFIGURAÇÕES...</div>;
+    return <div style={cargandoStyle}>{t('preparando')}</div>;
   }
 
   if (error || !empresaId) {
-    return <div style={fondo}><div style={errorStyle}>{error || 'No se pudo cargar.'}</div></div>;
+    return <div style={fondo}><div style={errorStyle}>{error || t('noSePudoCargar')}</div></div>;
   }
 
   return (
@@ -145,18 +157,18 @@ export default function ConfiguracoesPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volver}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrow}>CONFIGURACIÓN</div>
+          <div style={eyebrow}>{t('eyebrow')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Dejá tu empresa lista</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Configurá → Generá → Tu sistema queda listo para operar.
+            {t('subtitulo')}
           </p>
         </header>
 
@@ -171,31 +183,31 @@ export default function ConfiguracoesPage() {
             }}
           >
             <button type="button" onClick={() => setPestana('empresa')} style={tabStyle(pestana === 'empresa')}>
-              🏢 Datos de la Empresa
+              {t('tabEmpresa')}
             </button>
 
             <button type="button" onClick={() => setPestana('categorias')} style={tabStyle(pestana === 'categorias')}>
-              🗂️ Categorías y Formas de Pago
+              {t('tabCategorias')}
             </button>
 
             <button type="button" onClick={() => setPestana('plan')} style={tabStyle(pestana === 'plan')}>
-              📒 Plan de Cuentas
+              {t('tabPlan')}
             </button>
 
             <button type="button" onClick={() => setPestana('inicializacion')} style={tabStyle(pestana === 'inicializacion')}>
-              🚀 Inicialización del Sistema
+              {t('tabInicializacion')}
             </button>
 
             <button type="button" onClick={() => setPestana('objetivos')} style={tabStyle(pestana === 'objetivos')}>
-              🎯 Objetivos
+              {t('tabObjetivos')}
             </button>
 
             <button type="button" onClick={() => setPestana('facturacion')} style={tabStyle(pestana === 'facturacion')}>
-              💳 Facturación
+              {t('tabFacturacion')}
             </button>
           </div>
 
-          {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
@@ -211,7 +223,8 @@ export default function ConfiguracoesPage() {
    PESTAÑA 1 — DADOS DA EMPRESA
 ========================================================== */
 
-function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [empresa, setEmpresa] = useState<DatosEmpresa | null>(null);
   const [perfiles, setPerfiles] = useState<PerfilEmpresa[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -280,7 +293,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     const TAMANO_MAXIMO = 3 * 1024 * 1024; // 3 MB
 
     if (archivo.size > TAMANO_MAXIMO) {
-      setError('El logo pesa demasiado — subí una imagen de hasta 3 MB.');
+      setError(t('errorLogoPesado'));
       return;
     }
 
@@ -296,7 +309,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       .upload(ruta, archivo, { upsert: true, cacheControl: '3600' });
 
     if (errorSubida) {
-      setError('No se pudo subir el logo.');
+      setError(t('errorSubidaLogo'));
       setSubiendoLogo(false);
       return;
     }
@@ -314,12 +327,12 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     setSubiendoLogo(false);
 
     if (errorGuardar) {
-      setError('El logo se subió pero no se pudo guardar en la empresa.');
+      setError(t('errorLogoNoGuardado'));
       return;
     }
 
     actualizarCampo('logo_url', urlConVersion);
-    setMensaje('Logo actualizado — ya se ve en el lobby.');
+    setMensaje(t('mensajeLogoActualizado'));
   }
 
   async function guardar() {
@@ -377,23 +390,23 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
     setGuardando(false);
 
     if (errorGuardar) {
-      setError('No se pudieron guardar los cambios.');
+      setError(t('errorGuardarCambios'));
       return;
     }
 
     setMensaje(
       asignandoPerfilPorPrimeraVez
-        ? 'Datos guardados y Plano de Contas inicializado — ya podés cargar categorías en la pestaña siguiente.'
-        : 'Datos guardados correctamente.'
+        ? t('mensajeGuardadoConInicializacion')
+        : t('mensajeGuardadoOk')
     );
   }
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando datos de la empresa...</div>;
+    return <div style={cargandoStyle}>{t('cargandoDatosEmpresa')}</div>;
   }
 
   if (!empresa) {
-    return <div style={errorStyle}>No se encontró la empresa.</div>;
+    return <div style={errorStyle}>{t('noSeEncontroEmpresa')}</div>;
   }
 
   return (
@@ -414,12 +427,12 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
           color: COLORES.gris,
         }}
       >
-        Cliente Nº {empresa.numero_cliente}
+        {t('clienteNumero')} {empresa.numero_cliente}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
         <div style={campo}>
-          <label style={label}>Nombre de la empresa *</label>
+          <label style={label}>{t('campoNombreEmpresa')}</label>
           <input
             style={inputFormulario}
             value={empresa.nombre}
@@ -428,7 +441,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Rubro</label>
+          <label style={label}>{t('campoRubro')}</label>
           <input
             style={inputFormulario}
             value={empresa.rubro ?? ''}
@@ -437,7 +450,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Teléfono</label>
+          <label style={label}>{t('campoTelefono')}</label>
           <input
             style={inputFormulario}
             value={empresa.telefono ?? ''}
@@ -446,7 +459,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Email</label>
+          <label style={label}>{t('campoEmail')}</label>
           <input
             type="email"
             style={inputFormulario}
@@ -456,7 +469,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={{ ...campo, gridColumn: '1 / -1' }}>
-          <label style={label}>Dirección</label>
+          <label style={label}>{t('campoDireccion')}</label>
           <input
             style={inputFormulario}
             value={empresa.direccion ?? ''}
@@ -465,7 +478,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Identificación fiscal (CUIT / CNPJ / etc.)</label>
+          <label style={label}>{t('campoIdentificacionFiscal')}</label>
           <input
             style={inputFormulario}
             value={empresa.identificacion_fiscal ?? ''}
@@ -474,7 +487,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Logo</label>
+          <label style={label}>{t('campoLogo')}</label>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {empresa.logo_url && (
@@ -499,12 +512,12 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
           </div>
 
           {subiendoLogo && (
-            <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>Subiendo logo...</p>
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>{t('subiendoLogo')}</p>
           )}
         </div>
 
         <div style={campo}>
-          <label style={label}>Moneda</label>
+          <label style={label}>{t('campoMoneda')}</label>
           <select
             style={inputFormulario}
             value={empresa.moneda}
@@ -519,7 +532,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Idioma de trabajo</label>
+          <label style={label}>{t('campoIdioma')}</label>
           <select
             style={inputFormulario}
             value={empresa.idioma}
@@ -534,7 +547,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         </div>
 
         <div style={campo}>
-          <label style={label}>Perfil de empresa</label>
+          <label style={label}>{t('campoPerfilEmpresa')}</label>
 
           {esAdmin ? (
             <select
@@ -542,7 +555,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
               value={empresa.perfil_empresa_id ?? ''}
               onChange={(e) => actualizarCampo('perfil_empresa_id', e.target.value || null)}
             >
-              <option value="">Sin definir</option>
+              <option value="">{t('sinDefinir')}</option>
               {perfiles.map((perfil) => (
                 <option key={perfil.id} value={perfil.id}>
                   {perfil.nombre}
@@ -551,19 +564,19 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
             </select>
           ) : (
             <div style={{ ...inputFormulario, background: '#f3f4f6', color: COLORES.gris }}>
-              {perfiles.find((p) => p.id === empresa.perfil_empresa_id)?.nombre ?? 'Sin definir'}
+              {perfiles.find((p) => p.id === empresa.perfil_empresa_id)?.nombre ?? t('sinDefinir')}
             </div>
           )}
 
           {esAdmin && tieneEsqueleto && (
             <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>
-              Ya existe un Plan de Cuentas cargado — cambiarlo acá no lo regenera, solo actualiza la etiqueta.
+              {t('avisoPerfilYaInicializado')}
             </p>
           )}
 
           {!esAdmin && (
             <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>
-              El perfil lo define un administrador de la plataforma.
+              {t('avisoPerfilLoDefineAdmin')}
             </p>
           )}
         </div>
@@ -572,17 +585,17 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       {esAdmin && perfiles.find((p) => p.codigo === 'MIXTO')?.id === empresa.perfil_empresa_id && (
         <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e5e7eb' }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: COLORES.azul, marginBottom: 4 }}>
-            ¿Qué combina este negocio Mixto?
+            {t('preguntaMixto')}
           </div>
           <p style={{ margin: '0 0 10px', fontSize: 12, color: COLORES.gris }}>
-            Elegí los componentes que aplican — determina qué categorías se ofrecen en la pestaña siguiente.
+            {t('ayudaMixto')}
           </p>
 
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {[
-              { codigo: 'COMERCIAL', etiqueta: 'Comercial (compra/venta de mercadería)' },
-              { codigo: 'SERVICIOS', etiqueta: 'Servicios (venta sin stock)' },
-              { codigo: 'PRODUCCION', etiqueta: 'Producción (transforma insumos)' },
+              { codigo: 'COMERCIAL', etiqueta: t('mixtoComercial') },
+              { codigo: 'SERVICIOS', etiqueta: t('mixtoServicios') },
+              { codigo: 'PRODUCCION', etiqueta: t('mixtoProduccion') },
             ].map((opcion) => (
               <label key={opcion.codigo} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: COLORES.azul, fontWeight: 600, cursor: 'pointer' }}>
                 <input
@@ -599,7 +612,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
 
       <div style={{ marginTop: 26, display: 'flex', justifyContent: 'flex-end' }}>
         <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
-          {guardando ? 'Guardando...' : 'Guardar cambios'}
+          {guardando ? t('guardando') : t('guardarCambios')}
         </button>
       </div>
     </div>
