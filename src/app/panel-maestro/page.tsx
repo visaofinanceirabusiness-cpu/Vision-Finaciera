@@ -26,6 +26,7 @@ type Empresa = {
   numero_cliente: number;
   moneda: string | null;
   fecha_vencimiento_suscripcion: string;
+  creado_en: string;
 };
 
 type PendienteRegistro = {
@@ -139,7 +140,7 @@ export default function PanelMaestroPage() {
   async function cargarEmpresas() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
-      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion')
+      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en')
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
 
@@ -737,6 +738,7 @@ export default function PanelMaestroPage() {
                 <BloqueSuscripcionEmpresa
                   empresaId={empresa.id}
                   fechaVencimiento={empresa.fecha_vencimiento_suscripcion}
+                  fechaAlta={empresa.creado_en}
                   onActualizado={cargarEmpresas}
                 />
               </div>
@@ -817,13 +819,22 @@ export default function PanelMaestroPage() {
 
 const MEDIOS_PAGO = ['InfinitePay', 'Naranja X', 'Otro'];
 
+function diasEnSistema(fechaAlta: string): number {
+  const msPorDia = 1000 * 60 * 60 * 24;
+  const alta = new Date(fechaAlta).getTime();
+  const hoy = new Date().getTime();
+  return Math.max(0, Math.floor((hoy - alta) / msPorDia));
+}
+
 function BloqueSuscripcionEmpresa({
   empresaId,
   fechaVencimiento,
+  fechaAlta,
   onActualizado,
 }: {
   empresaId: string;
   fechaVencimiento: string;
+  fechaAlta: string;
   onActualizado: () => void;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -833,6 +844,7 @@ function BloqueSuscripcionEmpresa({
   const [error, setError] = useState('');
 
   const resumen = resumirSuscripcion(fechaVencimiento);
+  const dias = diasEnSistema(fechaAlta);
 
   async function confirmarPago() {
     setProcesando(true);
@@ -880,7 +892,12 @@ function BloqueSuscripcionEmpresa({
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <BadgeEstadoSuscripcion resumen={resumen} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <BadgeEstadoSuscripcion resumen={resumen} />
+          <span style={{ fontSize: 11, color: COLORES_BASE.gris, fontWeight: 600 }}>
+            📅 {dias} día{dias === 1 ? '' : 's'} en el sistema
+          </span>
+        </div>
 
         <button
           type="button"
