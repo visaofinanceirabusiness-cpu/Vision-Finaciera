@@ -52,6 +52,7 @@ import {
 import { crearTraductor } from '@/lib/i18n';
 import {
   diccionarioConfiguracoes,
+  type ClaveConfiguracoes,
   msgCategoriaCreada,
   msgCategoriaActualizada,
   msgCategoriaEliminada,
@@ -62,6 +63,7 @@ import {
   msgSocioActualizado,
   msgSocioEliminado,
   confirmEliminarItem,
+  confirmEliminarCuenta,
 } from './i18n';
 
 const COLORES = {
@@ -221,7 +223,7 @@ export default function ConfiguracoesPage() {
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} />}
@@ -1317,13 +1319,18 @@ type CuentaPlan = {
 
 type NodoCuenta = CuentaPlan & { hijos: NodoCuenta[] };
 
-const NOMBRE_CONTENEDOR: Record<string, string> = {
-  CONTENEDOR_STOCK: 'cuenta base de Stock',
-  CONTENEDOR_INGRESO: 'cuenta base de Ingresos',
-  CONTENEDOR_COSTO: 'cuenta base de Costos',
-  CONTENEDOR_GASTO: 'cuenta base de Gastos',
-  CONTENEDOR_PERDIDA: 'cuenta de Pérdida y Baja de Stock',
-};
+function nombreContenedor(t: (clave: ClaveConfiguracoes) => string, rolContable: string | null): string {
+  const porRol: Record<string, ClaveConfiguracoes> = {
+    CONTENEDOR_STOCK: 'contenedorStock',
+    CONTENEDOR_INGRESO: 'contenedorIngreso',
+    CONTENEDOR_COSTO: 'contenedorCosto',
+    CONTENEDOR_GASTO: 'contenedorGasto',
+    CONTENEDOR_PERDIDA: 'contenedorPerdida',
+  };
+
+  const clave = rolContable ? porRol[rolContable] : undefined;
+  return clave ? t(clave) : t('cuentaEspecial');
+}
 
 function armarArbol(cuentas: CuentaPlan[]): NodoCuenta[] {
   const nodos = new Map<string, NodoCuenta>(cuentas.map((c) => [c.id, { ...c, hijos: [] }]));
@@ -1346,7 +1353,8 @@ function armarArbol(cuentas: CuentaPlan[]): NodoCuenta[] {
   return raices;
 }
 
-function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+function PlanDeCuentasTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -1360,7 +1368,7 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
       .eq('empresa_id', empresaId);
 
     if (errorCuentas) {
-      setError('No se pudo cargar el Plan de Cuentas.');
+      setError(t('errorCargarPlanCuentas'));
       setCargando(false);
       return;
     }
@@ -1381,11 +1389,11 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
     try {
       await renombrarCuentaPlan(empresaId, id, nombreLimpio);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo renombrar la cuenta.');
+      setError(err instanceof Error ? err.message : t('errorRenombrarCuenta'));
       return;
     }
 
-    setMensaje('Cuenta renombrada — se actualizó en todas las operaciones que ya la usaban.');
+    setMensaje(t('mensajeCuentaRenombrada'));
     await recargar();
   }
 
@@ -1393,11 +1401,11 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
     const { error: errorUpdate } = await supabase.from('plan_cuentas').update({ activo }).eq('id', id);
 
     if (errorUpdate) {
-      setError('No se pudo actualizar la cuenta.');
+      setError(t('errorActualizarCuenta'));
       return;
     }
 
-    setMensaje('Cuenta actualizada.');
+    setMensaje(t('mensajeCuentaActualizada'));
     await recargar();
   }
 
@@ -1407,15 +1415,15 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
 
     try {
       await eliminarCuentaPlan(empresaId, id);
-      setMensaje('Cuenta eliminada.');
+      setMensaje(t('mensajeCuentaEliminada'));
       await recargar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar la cuenta.');
+      setError(err instanceof Error ? err.message : t('errorEliminarCuenta'));
     }
   }
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando Plan de Cuentas...</div>;
+    return <div style={cargandoStyle}>{t('cargandoPlanCuentas')}</div>;
   }
 
   if (cuentas.length === 0) {
@@ -1423,10 +1431,10 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
       <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
         <div style={{ fontSize: 32, marginBottom: 10 }}>📒</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>
-          Todavía no hay Plan de Cuentas
+          {t('sinPlanCuentasTitulo2')}
         </div>
         <p style={{ marginTop: 6, fontSize: 13 }}>
-          Asigná un perfil de empresa en &quot;Datos de la Empresa&quot; para generarlo.
+          {t('sinPlanCuentasAyuda2')}
         </p>
       </div>
     );
@@ -1442,13 +1450,13 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: COLORES.gris }}>
           <input type="checkbox" checked={mostrarInactivas} onChange={(e) => setMostrarInactivas(e.target.checked)} />
-          Mostrar cuentas inactivas
+          {t('mostrarInactivas')}
         </label>
       </div>
 
       {!esAdmin && (
         <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
-          Solo un administrador de plataforma puede renombrar o desactivar cuentas acá.
+          {t('soloAdminRenombraCuentas')}
         </p>
       )}
 
@@ -1460,6 +1468,7 @@ function PlanDeCuentasTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: 
             nivel={0}
             mostrarInactivas={mostrarInactivas}
             esAdmin={esAdmin}
+            idioma={idioma}
             onRenombrar={renombrar}
             onCambiarActivo={cambiarActivo}
             onEliminar={eliminar}
@@ -1475,6 +1484,7 @@ function NodoPlanDeCuentas({
   nivel,
   mostrarInactivas,
   esAdmin,
+  idioma,
   onRenombrar,
   onCambiarActivo,
   onEliminar,
@@ -1483,10 +1493,12 @@ function NodoPlanDeCuentas({
   nivel: number;
   mostrarInactivas: boolean;
   esAdmin: boolean;
+  idioma: string;
   onRenombrar: (id: string, nombreNuevo: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombre, setNombre] = useState(nodo.nombre);
   const esContenedor = Boolean(nodo.rol_contable);
   const tieneHijos = nodo.hijos.length > 0;
@@ -1526,7 +1538,7 @@ function NodoPlanDeCuentas({
 
         {esContenedor && (
           <span style={{ fontSize: 11, color: COLORES.verde, fontWeight: 700 }}>
-            🔒 {NOMBRE_CONTENEDOR[nodo.rol_contable as string] ?? 'cuenta especial'}
+            🔒 {nombreContenedor(t, nodo.rol_contable)}
           </span>
         )}
 
@@ -1534,7 +1546,7 @@ function NodoPlanDeCuentas({
           esAdmin ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
-                {nodo.activo ? 'Activa' : 'Inactiva'}
+                {nodo.activo ? t('activa') : t('inactiva')}
                 <input
                   type="checkbox"
                   checked={nodo.activo}
@@ -1545,18 +1557,18 @@ function NodoPlanDeCuentas({
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm(`¿Eliminar la cuenta "${nodo.nombre}"? Solo se puede si nunca tuvo movimiento.`)) {
+                  if (window.confirm(confirmEliminarCuenta(idioma, nodo.nombre))) {
                     onEliminar(nodo.id);
                   }
                 }}
                 style={{ border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontSize: 13, padding: 0 }}
-                title="Eliminar cuenta"
+                title={t('eliminarCuentaTitulo')}
               >
                 🗑️
               </button>
             </div>
           ) : (
-            <span style={{ fontSize: 11, color: COLORES.gris }}>{nodo.activo ? 'Activa' : 'Inactiva'}</span>
+            <span style={{ fontSize: 11, color: COLORES.gris }}>{nodo.activo ? t('activa') : t('inactiva')}</span>
           )
         )}
       </div>
@@ -1568,6 +1580,7 @@ function NodoPlanDeCuentas({
           nivel={nivel + 1}
           mostrarInactivas={mostrarInactivas}
           esAdmin={esAdmin}
+          idioma={idioma}
           onRenombrar={onRenombrar}
           onCambiarActivo={onCambiarActivo}
           onEliminar={onEliminar}
