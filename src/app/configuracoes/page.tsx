@@ -66,6 +66,8 @@ import {
   confirmEliminarCuenta,
   msgMatrizGeneradaExito,
   msgMatrizExplicacion,
+  confirmEliminarObjetivo,
+  msgObjetivoCreado,
 } from './i18n';
 
 const COLORES = {
@@ -227,7 +229,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
       </div>
@@ -1771,16 +1773,19 @@ type ObjetivoFila = {
   orden: number;
 };
 
-const CATEGORIAS_OBJETIVO: { valor: CategoriaObjetivo; titulo: string; emoji: string }[] = [
-  { valor: 'ACTIVIDAD', titulo: 'Primeros pasos', emoji: '🚀' },
-  { valor: 'METAS', titulo: 'Metas familiares', emoji: '✈️' },
-  { valor: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
-  { valor: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
-  { valor: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
-  { valor: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
-];
+function categoriasObjetivo(t: (clave: ClaveConfiguracoes) => string): { valor: CategoriaObjetivo; titulo: string; emoji: string }[] {
+  return [
+    { valor: 'ACTIVIDAD', titulo: t('categoriaPrimerosPasos'), emoji: '🚀' },
+    { valor: 'METAS', titulo: t('categoriaMetasFamiliares'), emoji: '✈️' },
+    { valor: 'CONTABLE', titulo: t('categoriaContables'), emoji: '📒' },
+    { valor: 'MERCADERIA', titulo: t('categoriaMercaderia'), emoji: '📦' },
+    { valor: 'FINANCIERO', titulo: t('categoriaFinancieros'), emoji: '💹' },
+    { valor: 'MARKETING', titulo: t('categoriaMarketing'), emoji: '📣' },
+  ];
+}
 
-function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [objetivos, setObjetivos] = useState<ObjetivoFila[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -1793,7 +1798,7 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
       const data = await obtenerDefiniciones(empresaId);
       setObjetivos(data as ObjetivoFila[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los objetivos.');
+      setError(err instanceof Error ? err.message : t('errorCargarObjetivos'));
     } finally {
       setCargando(false);
     }
@@ -1813,12 +1818,12 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
       setMensaje(mensajeExito);
       await recargar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+      setError(err instanceof Error ? err.message : t('errorInesperado'));
     }
   }
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando objetivos...</div>;
+    return <div style={cargandoStyle}>{t('cargandoObjetivos')}</div>;
   }
 
   return (
@@ -1828,11 +1833,11 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
 
       {!esAdmin && (
         <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 14 }}>
-          Solo un administrador de plataforma puede crear, editar o borrar objetivos acá.
+          {t('soloAdminObjetivos')}
         </p>
       )}
 
-      {CATEGORIAS_OBJETIVO.map(({ valor, titulo, emoji }) => {
+      {categoriasObjetivo(t).map(({ valor, titulo, emoji }) => {
         const deLaCategoria = objetivos.filter((o) => o.categoria === valor);
 
         return (
@@ -1841,12 +1846,12 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
             titulo={`${emoji} ${titulo}`}
             subtitulo={
               valor === 'MARKETING'
-                ? 'Todavía no hay indicadores conectables (Instagram/WhatsApp) — quedan como "Próximamente" en el Panel de Control.'
-                : 'Se calculan solos contra la contabilidad real — no hace falta cargarlos a mano cada mes.'
+                ? t('subtituloMarketing')
+                : t('subtituloObjetivosGenerico')
             }
           >
             {deLaCategoria.length === 0 ? (
-              <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>Ninguno cargado todavía.</p>
+              <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>{t('ningunoTodavia')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                 {deLaCategoria.map((obj) => (
@@ -1867,7 +1872,7 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
                         {obj.nombre}
                       </span>
                       <span style={{ fontSize: 11.5, color: COLORES.gris, marginLeft: 8 }}>
-                        meta: {obj.objetivo} {obj.unidad}
+                        {t('metaLabel')} {obj.objetivo} {obj.unidad}
                       </span>
                     </div>
 
@@ -1878,16 +1883,16 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
                           onClick={() => setEditando(obj)}
                           style={{ border: 'none', background: 'transparent', color: COLORES.azul, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}
                         >
-                          Editar
+                          {t('editar')}
                         </button>
 
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: COLORES.gris, cursor: 'pointer' }}>
-                          {obj.activo ? 'Activo' : 'Inactivo'}
+                          {obj.activo ? t('objetivoActivo') : t('objetivoInactivo')}
                           <input
                             type="checkbox"
                             checked={obj.activo}
                             onChange={(e) =>
-                              manejarAccion(() => cambiarActivoObjetivo(obj.id, e.target.checked), 'Objetivo actualizado.')
+                              manejarAccion(() => cambiarActivoObjetivo(obj.id, e.target.checked), t('mensajeObjetivoActualizado'))
                             }
                           />
                         </label>
@@ -1895,18 +1900,18 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
                         <button
                           type="button"
                           onClick={() => {
-                            if (window.confirm(`¿Eliminar el objetivo "${obj.nombre}"?`)) {
-                              manejarAccion(() => eliminarObjetivo(obj.id), 'Objetivo eliminado.');
+                            if (window.confirm(confirmEliminarObjetivo(idioma, obj.nombre))) {
+                              manejarAccion(() => eliminarObjetivo(obj.id), t('mensajeObjetivoEliminado'));
                             }
                           }}
                           style={{ border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontSize: 13, padding: 0 }}
-                          title="Eliminar"
+                          title={t('eliminarTitulo')}
                         >
                           🗑️
                         </button>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 11.5, color: COLORES.gris }}>{obj.activo ? 'Activo' : 'Inactivo'}</span>
+                      <span style={{ fontSize: 11.5, color: COLORES.gris }}>{obj.activo ? t('objetivoActivo') : t('objetivoInactivo')}</span>
                     )}
                   </div>
                 ))}
@@ -1915,20 +1920,21 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
 
             {esAdmin && creandoNuevo !== valor && (
               <button type="button" style={botonGuardar} onClick={() => setCreandoNuevo(valor)}>
-                + Agregar objetivo
+                {t('botonAgregarObjetivo')}
               </button>
             )}
 
             {esAdmin && creandoNuevo === valor && (
               <FormularioObjetivo
                 categoria={valor}
+                idioma={idioma}
                 onCancelar={() => setCreandoNuevo(null)}
                 onGuardar={(datos) =>
                   manejarAccion(async () => {
                     const orden = deLaCategoria.length + 1;
                     await crearObjetivo(empresaId, { ...datos, categoria: valor, orden });
                     setCreandoNuevo(null);
-                  }, `Objetivo "${datos.nombre}" creado.`)
+                  }, msgObjetivoCreado(idioma, datos.nombre))
                 }
               />
             )}
@@ -1939,12 +1945,13 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
       {editando && (
         <ModalEditarObjetivo
           objetivo={editando}
+          idioma={idioma}
           onCancelar={() => setEditando(null)}
           onGuardar={(datos) =>
             manejarAccion(async () => {
               await actualizarObjetivo(editando.id, datos);
               setEditando(null);
-            }, 'Objetivo actualizado.')
+            }, t('mensajeObjetivoActualizado'))
           }
         />
       )}
@@ -1954,13 +1961,16 @@ function ObjetivosTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: bool
 
 function FormularioObjetivo({
   categoria,
+  idioma,
   onCancelar,
   onGuardar,
 }: {
   categoria: CategoriaObjetivo;
+  idioma: string;
   onCancelar: () => void;
   onGuardar: (datos: { indicador: IndicadorCodigo; nombre: string; objetivo: number; unidad: string }) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const opciones = (Object.keys(CATALOGO_INDICADORES) as IndicadorCodigo[]).filter(
     (codigo) => CATALOGO_INDICADORES[codigo].categoria === categoria
   );
@@ -1973,7 +1983,7 @@ function FormularioObjetivo({
   if (opciones.length === 0) {
     return (
       <p style={{ fontSize: 12.5, color: COLORES.gris, marginTop: 10 }}>
-        Todavía no hay indicadores disponibles para esta categoría.
+        {t('sinIndicadoresCategoria')}
       </p>
     );
   }
@@ -2002,7 +2012,7 @@ function FormularioObjetivo({
 
         <input
           style={{ ...inputFormulario, flex: '1 1 220px' }}
-          placeholder="Nombre a mostrar"
+          placeholder={t('placeholderNombreAMostrar')}
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
         />
@@ -2014,14 +2024,14 @@ function FormularioObjetivo({
         <input
           type="number"
           style={{ ...inputFormulario, flex: '1 1 140px' }}
-          placeholder="Meta"
+          placeholder={t('placeholderMeta')}
           value={meta}
           onChange={(e) => setMeta(e.target.value)}
         />
 
         <input
           style={{ ...inputFormulario, flex: '1 1 140px' }}
-          placeholder="Unidad"
+          placeholder={t('placeholderUnidad')}
           value={unidad}
           onChange={(e) => setUnidad(e.target.value)}
         />
@@ -2029,7 +2039,7 @@ function FormularioObjetivo({
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button type="button" style={botonSecundario} onClick={onCancelar}>
-          Cancelar
+          {t('cancelar')}
         </button>
 
         <button
@@ -2040,7 +2050,7 @@ function FormularioObjetivo({
             onGuardar({ indicador, nombre: nombre.trim(), objetivo: Number(meta) || 0, unidad: unidad.trim() });
           }}
         >
-          Guardar
+          {t('guardar')}
         </button>
       </div>
     </div>
@@ -2049,13 +2059,16 @@ function FormularioObjetivo({
 
 function ModalEditarObjetivo({
   objetivo,
+  idioma,
   onCancelar,
   onGuardar,
 }: {
   objetivo: ObjetivoFila;
+  idioma: string;
   onCancelar: () => void;
   onGuardar: (datos: { nombre: string; objetivo: number; unidad: string }) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombre, setNombre] = useState(objetivo.nombre);
   const [meta, setMeta] = useState(String(objetivo.objetivo));
   const [unidad, setUnidad] = useState(objetivo.unidad);
@@ -2074,23 +2087,23 @@ function ModalEditarObjetivo({
       }}
     >
       <div style={{ background: COLORES.blanco, borderRadius: 16, padding: 22, width: '100%', maxWidth: 420 }}>
-        <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>Editar objetivo</h3>
+        <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>{t('editarObjetivoTitulo')}</h3>
         <p style={{ margin: '0 0 16px', fontSize: 11.5, color: COLORES.gris }}>{CATALOGO_INDICADORES[objetivo.indicador].ayuda}</p>
 
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={campo}>
-            <label style={label}>Nombre</label>
+            <label style={label}>{t('campoNombre')}</label>
             <input style={inputFormulario} value={nombre} onChange={(e) => setNombre(e.target.value)} />
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ ...campo, flex: 1 }}>
-              <label style={label}>Meta</label>
+              <label style={label}>{t('campoMeta')}</label>
               <input type="number" style={inputFormulario} value={meta} onChange={(e) => setMeta(e.target.value)} />
             </div>
 
             <div style={{ ...campo, flex: 1 }}>
-              <label style={label}>Unidad</label>
+              <label style={label}>{t('campoUnidad')}</label>
               <input style={inputFormulario} value={unidad} onChange={(e) => setUnidad(e.target.value)} />
             </div>
           </div>
@@ -2098,7 +2111,7 @@ function ModalEditarObjetivo({
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
           <button type="button" style={botonSecundario} onClick={onCancelar}>
-            Cancelar
+            {t('cancelar')}
           </button>
 
           <button
@@ -2109,7 +2122,7 @@ function ModalEditarObjetivo({
               onGuardar({ nombre: nombre.trim(), objetivo: Number(meta) || 0, unidad: unidad.trim() });
             }}
           >
-            Guardar cambios
+            {t('guardarCambios')}
           </button>
         </div>
       </div>

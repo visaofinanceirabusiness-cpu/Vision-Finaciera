@@ -116,7 +116,37 @@ export type ClaveConfiguracoes =
   | 'botonGenerando'
   | 'botonRegenerarMatriz'
   | 'botonGenerarMatriz'
-  | 'errorGenerarMatriz';
+  | 'errorGenerarMatriz'
+  // Pestaña 5 — Objetivos
+  | 'cargandoObjetivos'
+  | 'soloAdminObjetivos'
+  | 'subtituloMarketing'
+  | 'subtituloObjetivosGenerico'
+  | 'ningunoTodavia'
+  | 'metaLabel'
+  | 'editar'
+  | 'objetivoActivo'
+  | 'objetivoInactivo'
+  | 'botonAgregarObjetivo'
+  | 'editarObjetivoTitulo'
+  | 'campoNombre'
+  | 'campoMeta'
+  | 'campoUnidad'
+  | 'cancelar'
+  | 'guardar'
+  | 'placeholderNombreAMostrar'
+  | 'placeholderMeta'
+  | 'placeholderUnidad'
+  | 'sinIndicadoresCategoria'
+  | 'errorCargarObjetivos'
+  | 'categoriaPrimerosPasos'
+  | 'categoriaMetasFamiliares'
+  | 'categoriaContables'
+  | 'categoriaMercaderia'
+  | 'categoriaFinancieros'
+  | 'categoriaMarketing'
+  | 'mensajeObjetivoActualizado'
+  | 'mensajeObjetivoEliminado';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -226,6 +256,35 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     botonRegenerarMatriz: '🔒 Regenerar Matriz de Operaciones',
     botonGenerarMatriz: 'Generar Matriz de Operaciones',
     errorGenerarMatriz: 'Ocurrió un error inesperado al generar la matriz.',
+    cargandoObjetivos: 'Cargando objetivos...',
+    soloAdminObjetivos: 'Solo un administrador de plataforma puede crear, editar o borrar objetivos acá.',
+    subtituloMarketing: 'Todavía no hay indicadores conectables (Instagram/WhatsApp) — quedan como "Próximamente" en el Panel de Control.',
+    subtituloObjetivosGenerico: 'Se calculan solos contra la contabilidad real — no hace falta cargarlos a mano cada mes.',
+    ningunoTodavia: 'Ninguno cargado todavía.',
+    metaLabel: 'meta:',
+    editar: 'Editar',
+    objetivoActivo: 'Activo',
+    objetivoInactivo: 'Inactivo',
+    botonAgregarObjetivo: '+ Agregar objetivo',
+    editarObjetivoTitulo: 'Editar objetivo',
+    campoNombre: 'Nombre',
+    campoMeta: 'Meta',
+    campoUnidad: 'Unidad',
+    cancelar: 'Cancelar',
+    guardar: 'Guardar',
+    placeholderNombreAMostrar: 'Nombre a mostrar',
+    placeholderMeta: 'Meta',
+    placeholderUnidad: 'Unidad',
+    sinIndicadoresCategoria: 'Todavía no hay indicadores disponibles para esta categoría.',
+    errorCargarObjetivos: 'No se pudieron cargar los objetivos.',
+    categoriaPrimerosPasos: 'Primeros pasos',
+    categoriaMetasFamiliares: 'Metas familiares',
+    categoriaContables: 'Contables',
+    categoriaMercaderia: 'Mercadería',
+    categoriaFinancieros: 'Financieros',
+    categoriaMarketing: 'Marketing',
+    mensajeObjetivoActualizado: 'Objetivo actualizado.',
+    mensajeObjetivoEliminado: 'Objetivo eliminado.',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -334,6 +393,35 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     botonRegenerarMatriz: '🔒 Gerar novamente a Matriz de Operações',
     botonGenerarMatriz: 'Gerar Matriz de Operações',
     errorGenerarMatriz: 'Ocorreu um erro inesperado ao gerar a matriz.',
+    cargandoObjetivos: 'Carregando objetivos...',
+    soloAdminObjetivos: 'Somente um administrador da plataforma pode criar, editar ou excluir objetivos aqui.',
+    subtituloMarketing: 'Ainda não há indicadores conectáveis (Instagram/WhatsApp) — ficam como "Em breve" no Painel de Controle.',
+    subtituloObjetivosGenerico: 'São calculados sozinhos a partir da contabilidade real — não precisa cadastrá-los à mão todo mês.',
+    ningunoTodavia: 'Nenhum cadastrado ainda.',
+    metaLabel: 'meta:',
+    editar: 'Editar',
+    objetivoActivo: 'Ativo',
+    objetivoInactivo: 'Inativo',
+    botonAgregarObjetivo: '+ Adicionar objetivo',
+    editarObjetivoTitulo: 'Editar objetivo',
+    campoNombre: 'Nome',
+    campoMeta: 'Meta',
+    campoUnidad: 'Unidade',
+    cancelar: 'Cancelar',
+    guardar: 'Salvar',
+    placeholderNombreAMostrar: 'Nome a exibir',
+    placeholderMeta: 'Meta',
+    placeholderUnidad: 'Unidade',
+    sinIndicadoresCategoria: 'Ainda não há indicadores disponíveis para esta categoria.',
+    errorCargarObjetivos: 'Não foi possível carregar os objetivos.',
+    categoriaPrimerosPasos: 'Primeiros passos',
+    categoriaMetasFamiliares: 'Metas familiares',
+    categoriaContables: 'Contábeis',
+    categoriaMercaderia: 'Mercadoria',
+    categoriaFinancieros: 'Financeiros',
+    categoriaMarketing: 'Marketing',
+    mensajeObjetivoActualizado: 'Objetivo atualizado.',
+    mensajeObjetivoEliminado: 'Objetivo excluído.',
   },
 };
 
@@ -401,4 +489,12 @@ export function msgMatrizExplicacion(idioma: string, cantidadCategorias: number)
   return esPT(idioma)
     ? `Isso monta a Matriz de Operações a partir das suas ${cantidadCategorias} categorias configuradas. Uma vez gerada, só um administrador da plataforma vai poder gerá-la novamente.`
     : `Esto arma la Matriz de Operaciones a partir de tus ${cantidadCategorias} categorías configuradas. Una vez generada, solo un administrador de plataforma podrá volver a generarla.`;
+}
+
+export function confirmEliminarObjetivo(idioma: string, nombre: string) {
+  return esPT(idioma) ? `Excluir o objetivo "${nombre}"?` : `¿Eliminar el objetivo "${nombre}"?`;
+}
+
+export function msgObjetivoCreado(idioma: string, nombre: string) {
+  return esPT(idioma) ? `Objetivo "${nombre}" criado.` : `Objetivo "${nombre}" creado.`;
 }
