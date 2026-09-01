@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { notificarPendienteAlAdmin } from '@/lib/notificarPush';
+import { PAISES_TELEFONO } from '@/lib/paises';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -32,6 +33,8 @@ export default function CrearCuentaPage() {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [paisTelefono, setPaisTelefono] = useState('+55');
+  const [numeroTelefono, setNumeroTelefono] = useState('');
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [rubro, setRubro] = useState('');
   const [perfilElegido, setPerfilElegido] = useState('');
@@ -69,8 +72,16 @@ export default function CrearCuentaPage() {
   async function enviarSolicitud() {
     setError('');
 
-    if (!nombre.trim() || !email.trim() || !contrasena || !nombreEmpresa.trim() || !perfilElegido) {
-      setError('Completá todos los campos obligatorios.');
+    if (
+      !nombre.trim() ||
+      !email.trim() ||
+      !contrasena ||
+      !numeroTelefono.trim() ||
+      !nombreEmpresa.trim() ||
+      !rubro.trim() ||
+      !perfilElegido
+    ) {
+      setError('Completá todos los campos — son todos obligatorios.');
       return;
     }
 
@@ -124,8 +135,9 @@ export default function CrearCuentaPage() {
       user_id: signUpData.user.id,
       email: email.trim(),
       nombre: nombre.trim(),
+      telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
       nombre_empresa: nombreEmpresa.trim(),
-      rubro: rubro.trim() || null,
+      rubro: rubro.trim(),
       perfil_empresa_id: perfilElegido,
       componentes_mixto: esMixto ? componentesMixto : [],
     });
@@ -228,6 +240,30 @@ export default function CrearCuentaPage() {
           </div>
 
           <div>
+            <label style={labelStyle}>Teléfono *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select
+                style={{ ...inputStyle, width: 130, flexShrink: 0 }}
+                value={paisTelefono}
+                onChange={(e) => setPaisTelefono(e.target.value)}
+              >
+                {PAISES_TELEFONO.map((pais) => (
+                  <option key={`${pais.nombre}-${pais.codigo}`} value={pais.codigo}>
+                    {pais.codigo} {pais.nombre}
+                  </option>
+                ))}
+              </select>
+              <input
+                style={inputStyle}
+                type="tel"
+                value={numeroTelefono}
+                onChange={(e) => setNumeroTelefono(e.target.value)}
+                placeholder="Número"
+              />
+            </div>
+          </div>
+
+          <div>
             <label style={labelStyle}>Nombre de tu empresa/negocio *</label>
             <input
               style={inputStyle}
@@ -238,7 +274,7 @@ export default function CrearCuentaPage() {
           </div>
 
           <div>
-            <label style={labelStyle}>Rubro (opcional)</label>
+            <label style={labelStyle}>Rubro *</label>
             <input style={inputStyle} value={rubro} onChange={(e) => setRubro(e.target.value)} placeholder="Ej: Venta de ropa" />
           </div>
 
