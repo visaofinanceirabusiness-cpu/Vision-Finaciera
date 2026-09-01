@@ -631,65 +631,75 @@ export async function registrarOperacion(
       // ------------------------------------------------
       // VENTA
       //
-      // Buscamos las entradas históricas del producto
-      // para obtener el costo medio ponderado.
+      // Costo medio ponderado PERPETUO: se toma todo el
+      // historial de movimientos (ENTRADA y SALIDA) del
+      // producto y se calcula lo que efectivamente queda
+      // en stock antes de esta venta — cantidad y valor —
+      // restando lo ya vendido. El costo unitario de cada
+      // SALIDA pasada ya refleja el promedio vigente en su
+      // momento, así que restar sus cantidad*costo_unitario
+      // es equivalente a "consumir" ese valor del stock.
+      //
+      // (Antes esto solo sumaba las ENTRADAs y nunca
+      // descontaba lo vendido, por lo que el costo promedio
+      // no bajaba nunca aunque el stock se agotara — el
+      // saldo contable de Stock terminaba desalineado del
+      // saldo real de Mercadería.)
       // ------------------------------------------------
 
       if (
         formulario.operacion === 'VENTA'
       ) {
         const {
-          data: entradas,
+          data: movimientosProducto,
           error,
         } = await supabase
           .from('movimientos_stock')
           .select(
-            'cantidad, costo_unitario'
+            'tipo, cantidad, costo_unitario'
           )
           .eq('empresa_id', empresaId)
           .eq(
             'producto_id',
             linea.producto
           )
-          .eq('tipo', 'ENTRADA');
+          .in('tipo', ['ENTRADA', 'SALIDA']);
 
         if (error) {
           throw error;
         }
 
-        const cantidadEntrada =
-          (entradas ?? []).reduce(
-            (acumulado, movimiento) =>
-              acumulado +
-              Number(
-                movimiento.cantidad ?? 0
-              ),
-            0
-          );
+        let cantidadDisponible = 0;
+        let valorDisponible = 0;
 
-        const valorEntrada =
-          (entradas ?? []).reduce(
-            (acumulado, movimiento) =>
-              acumulado +
-              Number(
-                movimiento.cantidad ?? 0
-              ) *
-                Number(
-                  movimiento.costo_unitario ??
-                    0
-                ),
-            0
-          );
+        for (const movimiento of movimientosProducto ?? []) {
+          const cantidadMov = Number(movimiento.cantidad ?? 0);
+          const costoMov = Number(movimiento.costo_unitario ?? 0);
 
-        if (cantidadEntrada <= 0) {
+          if (movimiento.tipo === 'ENTRADA') {
+            cantidadDisponible += cantidadMov;
+            valorDisponible += cantidadMov * costoMov;
+          } else {
+            cantidadDisponible -= cantidadMov;
+            valorDisponible -= cantidadMov * costoMov;
+          }
+        }
+
+        if (cantidadDisponible <= 0) {
           throw new Error(
             `No existe costo de compra para el producto seleccionado. Producto: ${linea.producto}`
           );
         }
 
+        if (Number(linea.cantidad) > cantidadDisponible) {
+          throw new Error(
+            `No hay stock suficiente para vender ${Number(linea.cantidad)} unidades — quedan ${cantidadDisponible} disponibles. Producto: ${linea.producto}`
+          );
+        }
+
         costoUnitario =
-          valorEntrada /
-          cantidadEntrada;
+          valorDisponible /
+          cantidadDisponible;
 
         costosCMV.push({
           cantidad: Number(
