@@ -527,3 +527,59 @@ export function msgLinkNoConfigurado(idioma: string, plataforma: string) {
     ? `🔒 O link de pagamento do ${plataforma} ainda não está configurado. Vai estar disponível em breve.`
     : `🔒 Todavía no está configurado el link de pago de ${plataforma}. Va a estar disponible próximamente.`;
 }
+
+// Nombre visible de una operación (COMPRA, VENTA, etc.) — el valor
+// real (nombreOperacion) es un identificador interno usado como texto
+// literal en reglas_contables/matriz_operaciones/registro_operaciones
+// en TODO el sistema, así que nunca se traduce ni se guarda traducido:
+// esto es solo la etiqueta que se muestra en pantalla.
+const NOMBRE_OPERACION_PT: Record<string, string> = {
+  COMPRA: 'Compra',
+  VENTA: 'Venda',
+  PAGO: 'Pagamento',
+  INVERSION: 'Investimento',
+  EXTRACCION: 'Retirada',
+  COBRO: 'Recebimento',
+  PERDIDA: 'Perda',
+  TRANSFERENCIA: 'Transferência',
+};
+
+export function nombreOperacionDisplay(idioma: string, nombreOperacion: string): string {
+  if (!esPT(idioma)) return nombreOperacion;
+  return NOMBRE_OPERACION_PT[nombreOperacion] ?? nombreOperacion;
+}
+
+// Nombre visible de las cuentas "rubro" (estructurales, sin uso
+// contable directo — ACTIVO, ACTIVO CORRIENTE, etc.) del Plan de
+// Cuentas. El nombre real en plan_cuentas.nombre queda en español
+// (así salió del plan maestro, y así se usa donde haga falta el
+// texto literal); esto solo traduce lo que se muestra en pantalla
+// para los ~18 nombres estructurales conocidos de todos los
+// perfiles. Las cuentas hoja (las que el usuario puede renombrar) no
+// se tocan, porque su nombre puede ser cualquier cosa que el usuario
+// ya haya escrito en el idioma que prefiera.
+const NOMBRE_RUBRO_PT: Record<string, string> = {
+  ACTIVO: 'ATIVO',
+  'ACTIVO CORRIENTE': 'ATIVO CIRCULANTE',
+  'ACTIVO NO CORRIENTE': 'ATIVO NÃO CIRCULANTE',
+  'AHORROS E INVERSIONES': 'POUPANÇAS E INVESTIMENTOS',
+  PASIVO: 'PASSIVO',
+  'PASIVO CORRIENTE': 'PASSIVO CIRCULANTE',
+  'PASIVO NO CORRIENTE': 'PASSIVO NÃO CIRCULANTE',
+  'PATRIMONIO NETO': 'PATRIMÔNIO LÍQUIDO',
+  'PATRIMONIO FAMILIAR': 'PATRIMÔNIO FAMILIAR',
+  INGRESOS: 'RECEITAS',
+  COSTOS: 'CUSTOS',
+  GASTOS: 'DESPESAS',
+  'GASTOS ADMINISTRATIVOS': 'DESPESAS ADMINISTRATIVAS',
+  'GASTOS DEL HOGAR': 'DESPESAS DOMÉSTICAS',
+  'GASTOS COMERCIALES': 'DESPESAS COMERCIAIS',
+  'GASTOS GENERALES': 'DESPESAS GERAIS',
+  'GASTOS FINANCIEROS': 'DESPESAS FINANCEIRAS',
+  IMPUESTOS: 'IMPOSTOS',
+};
+
+export function nombreCuentaDisplay(idioma: string, nombre: string): string {
+  if (!esPT(idioma)) return nombre;
+  return NOMBRE_RUBRO_PT[nombre] ?? nombre;
+}

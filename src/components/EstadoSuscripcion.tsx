@@ -8,20 +8,28 @@ const COLORES_ESTADO: Record<ResumenSuscripcion['estado'], { fondo: string; bord
   VENCIDA: { fondo: '#fef2f2', borde: '#fecaca', texto: '#b91c1c', emoji: '🔴' },
 };
 
-function textoEstado(resumen: ResumenSuscripcion): string {
+function textoEstado(resumen: ResumenSuscripcion, idioma: string): string {
+  const esPT = idioma === 'PT';
+  const dias = Math.abs(resumen.diasRestantes);
+
   if (resumen.estado === 'VENCIDA') {
-    return `Tu período venció hace ${Math.abs(resumen.diasRestantes)} día${Math.abs(resumen.diasRestantes) === 1 ? '' : 's'}.`;
+    return esPT
+      ? `Seu período venceu há ${dias} dia${dias === 1 ? '' : 's'}.`
+      : `Tu período venció hace ${dias} día${dias === 1 ? '' : 's'}.`;
   }
 
   if (resumen.diasRestantes === 0) {
-    return 'Tu período vence hoy.';
+    return esPT ? 'Seu período vence hoje.' : 'Tu período vence hoy.';
   }
 
-  return `Te quedan ${resumen.diasRestantes} día${resumen.diasRestantes === 1 ? '' : 's'} de tu período actual.`;
+  return esPT
+    ? `Faltam ${resumen.diasRestantes} dia${resumen.diasRestantes === 1 ? '' : 's'} do seu período atual.`
+    : `Te quedan ${resumen.diasRestantes} día${resumen.diasRestantes === 1 ? '' : 's'} de tu período actual.`;
 }
 
-export function TarjetaEstadoSuscripcion({ resumen }: { resumen: ResumenSuscripcion }) {
+export function TarjetaEstadoSuscripcion({ resumen, idioma = 'ES' }: { resumen: ResumenSuscripcion; idioma?: string }) {
   const colores = COLORES_ESTADO[resumen.estado];
+  const esPT = idioma === 'PT';
 
   return (
     <div
@@ -41,9 +49,9 @@ export function TarjetaEstadoSuscripcion({ resumen }: { resumen: ResumenSuscripc
     >
       <span style={{ fontSize: 16 }}>{colores.emoji}</span>
       <span>
-        {textoEstado(resumen)}{' '}
+        {textoEstado(resumen, idioma)}{' '}
         <span style={{ fontWeight: 400, opacity: 0.85 }}>
-          (vence el {new Date(`${resumen.fechaVencimiento}T00:00:00Z`).toLocaleDateString('es-AR', { timeZone: 'UTC' })})
+          ({esPT ? 'vence em' : 'vence el'} {new Date(`${resumen.fechaVencimiento}T00:00:00Z`).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { timeZone: 'UTC' })})
         </span>
       </span>
     </div>
