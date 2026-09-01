@@ -52,6 +52,7 @@ type SolicitudAlta = {
   user_id: string;
   email: string;
   nombre: string;
+  telefono: string;
   nombre_empresa: string;
   rubro: string | null;
   perfil_empresa_id: string;
@@ -166,7 +167,7 @@ export default function PanelMaestroPage() {
   async function cargarSolicitudes() {
     const { data, error: errorSolicitudes } = await supabase
       .from('solicitudes_alta')
-      .select('id, user_id, email, nombre, nombre_empresa, rubro, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
+      .select('id, user_id, email, nombre, telefono, nombre_empresa, rubro, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
       .eq('estado', 'PENDIENTE')
       .order('creado_en', { ascending: true });
 
@@ -858,7 +859,7 @@ function SolicitudesAlta({
               {s.rubro && <span style={{ color: COLORES_BASE.gris }}> · {s.rubro}</span>}
               <br />
               <span style={{ color: COLORES_BASE.gris }}>
-                {s.nombre} · {s.email}
+                {s.nombre} · {s.email} · {s.telefono}
               </span>
               <br />
               Perfil elegido: <strong>{s.perfiles_empresa?.nombre ?? '—'}</strong>
