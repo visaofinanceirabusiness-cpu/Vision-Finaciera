@@ -64,6 +64,8 @@ import {
   msgSocioEliminado,
   confirmEliminarItem,
   confirmEliminarCuenta,
+  msgMatrizGeneradaExito,
+  msgMatrizExplicacion,
 } from './i18n';
 
 const COLORES = {
@@ -224,7 +226,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
@@ -1594,7 +1596,8 @@ function NodoPlanDeCuentas({
    PESTAÑA 4 — INICIALIZAÇÃO DO SISTEMA
 ========================================================== */
 
-function InicializacionTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+function InicializacionTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [matrizGenerada, setMatrizGenerada] = useState(false);
   const [tieneEsqueleto, setTieneEsqueleto] = useState(false);
   const [cantidadCategorias, setCantidadCategorias] = useState(0);
@@ -1649,23 +1652,23 @@ function InicializacionTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
       setResultado(resultadoGeneracion);
       setMatrizGenerada(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado al generar la matriz.');
+      setError(err instanceof Error ? err.message : t('errorGenerarMatriz'));
     } finally {
       setGenerando(false);
     }
   }
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando...</div>;
+    return <div style={cargandoStyle}>{t('cargandoGenerico')}</div>;
   }
 
   if (!tieneEsqueleto) {
     return (
       <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
         <div style={{ fontSize: 32, marginBottom: 10 }}>🚀</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>Falta un paso antes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>{t('faltaPasoAntes')}</div>
         <p style={{ marginTop: 6, fontSize: 13 }}>
-          Asigná un perfil de empresa en &quot;Datos de la Empresa&quot; para poder generar la matriz.
+          {t('ayudaFaltaPasoMatriz')}
         </p>
       </div>
     );
@@ -1679,22 +1682,22 @@ function InicializacionTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
 
       {resultado && (
         <div style={{ ...mensajeOkStyle, textAlign: 'left' }}>
-          Matriz generada correctamente: {resultado.reglasGeneradas} reglas de operación quedaron listas.
+          {msgMatrizGeneradaExito(idioma, resultado.reglasGeneradas)}
         </div>
       )}
 
       <div style={{ fontSize: 40, marginBottom: 10 }}>{matrizGenerada ? '✅' : '🚀'}</div>
 
       <h3 style={{ margin: '0 0 8px', color: COLORES.azul }}>
-        {matrizGenerada ? 'El sistema ya está inicializado' : 'Generar la Matriz de Operaciones'}
+        {matrizGenerada ? t('sistemaInicializado') : t('generarMatrizTitulo')}
       </h3>
 
       <p style={{ maxWidth: 480, margin: '0 auto 22px', fontSize: 13.5, color: COLORES.gris, lineHeight: 1.6 }}>
         {matrizGenerada
           ? bloqueado
-            ? 'La matriz ya fue generada. Para volver a generarla hace falta un administrador de plataforma.'
-            : 'La matriz ya fue generada. Como administrador podés volver a generarla si cambiaste categorías o formas de pago.'
-          : `Esto arma la Matriz de Operaciones a partir de tus ${cantidadCategorias} categorías configuradas. Una vez generada, solo un administrador de plataforma podrá volver a generarla.`}
+            ? t('matrizBloqueada')
+            : t('matrizAdminPuedeRegenerar')
+          : msgMatrizExplicacion(idioma, cantidadCategorias)}
       </p>
 
       <button
@@ -1709,7 +1712,7 @@ function InicializacionTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
         disabled={bloqueado || generando}
         onClick={generar}
       >
-        {generando ? 'Generando...' : matrizGenerada ? '🔒 Regenerar Matriz de Operaciones' : 'Generar Matriz de Operaciones'}
+        {generando ? t('botonGenerando') : matrizGenerada ? t('botonRegenerarMatriz') : t('botonGenerarMatriz')}
       </button>
     </div>
   );
