@@ -169,7 +169,6 @@ export default function MercaderiaPage() {
     const [
       { data: productosData, error: errorProductos },
       { data: saldosData, error: errorSaldos },
-      { data: entradasData, error: errorEntradas },
       { data: movimientosData, error: errorMovimientos },
       { data: categoriasData, error: errorCategorias },
       { data: proveedoresData, error: errorProveedores },
@@ -186,12 +185,6 @@ export default function MercaderiaPage() {
         .from('saldo_stock')
         .select('producto_id, saldo')
         .eq('empresa_id', perfil.empresa_id),
-
-      supabase
-        .from('movimientos_stock')
-        .select('producto_id, cantidad, costo_unitario')
-        .eq('empresa_id', perfil.empresa_id)
-        .eq('tipo', 'ENTRADA'),
 
       supabase
         .from('movimientos_stock')
@@ -220,7 +213,6 @@ export default function MercaderiaPage() {
 
     if (errorProductos) console.warn('No se pudieron cargar los productos:', errorProductos);
     if (errorSaldos) console.warn('No se pudieron cargar los saldos:', errorSaldos);
-    if (errorEntradas) console.warn('No se pudieron cargar las entradas:', errorEntradas);
     if (errorMovimientos) console.warn('No se pudieron cargar los movimientos:', errorMovimientos);
     if (errorCategorias) console.warn('No se pudieron cargar las categorías:', errorCategorias);
     if (errorProveedores) console.warn('No se pudieron cargar los proveedores:', errorProveedores);
@@ -231,13 +223,32 @@ export default function MercaderiaPage() {
       (saldosData ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
     );
 
+    // Costo promedio ponderado perpetuo — igual al que usa el motor
+    // (lib/motor.ts) al registrar una VENTA: se descuentan también las
+    // SALIDAs (al costo que tenían en su momento), no solo se suman las
+    // ENTRADAs. Si acá se promediara solo lo comprado, como antes, el
+    // valor de inventario mostrado nunca coincidiría con el saldo real
+    // de la cuenta de Stock apenas un producto tuviera compras a
+    // distinto precio con ventas intercaladas.
     const costoPorProducto = new Map<string, { cantidad: number; valor: number }>();
 
-    for (const movimiento of entradasData ?? []) {
+    for (const movimiento of movimientosData ?? []) {
+      if (movimiento.tipo !== 'ENTRADA' && movimiento.tipo !== 'SALIDA') {
+        continue;
+      }
+
       const actual = costoPorProducto.get(movimiento.producto_id) ?? { cantidad: 0, valor: 0 };
       const cantidad = Number(movimiento.cantidad ?? 0);
-      actual.cantidad += cantidad;
-      actual.valor += cantidad * Number(movimiento.costo_unitario ?? 0);
+      const valor = cantidad * Number(movimiento.costo_unitario ?? 0);
+
+      if (movimiento.tipo === 'ENTRADA') {
+        actual.cantidad += cantidad;
+        actual.valor += valor;
+      } else {
+        actual.cantidad -= cantidad;
+        actual.valor -= valor;
+      }
+
       costoPorProducto.set(movimiento.producto_id, actual);
     }
 
