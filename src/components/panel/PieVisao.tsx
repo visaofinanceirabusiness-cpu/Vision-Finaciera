@@ -10,6 +10,9 @@
 const LOGO_VISAO_FINANCEIRA =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/LOGO%20y%20NOMBRE.jpeg';
 
+const INSTAGRAM_URL =
+  'https://www.instagram.com/visaofinanceira.business';
+
 const PILARES = [
   {
     icono: '🔎',
@@ -320,12 +323,69 @@ export function PieVisao({
       </div>
 
       {/* =================================================
+          REDES SOCIALES
+      ================================================== */}
+
+      <div
+        style={{
+          marginTop: 22,
+          display: 'flex',
+          justifyContent: 'center',
+        }}
+      >
+        <a
+          href={INSTAGRAM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '9px 16px',
+            borderRadius: 999,
+            border: '1px solid #e5e7eb',
+            color: colores.azul,
+            textDecoration: 'none',
+            fontSize: 12.5,
+            fontWeight: 700,
+          }}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <rect
+              x="2.5"
+              y="2.5"
+              width="19"
+              height="19"
+              rx="5.5"
+              stroke={colores.verde}
+              strokeWidth="1.8"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="4.4"
+              stroke={colores.verde}
+              strokeWidth="1.8"
+            />
+            <circle cx="17.4" cy="6.6" r="1.15" fill={colores.verde} />
+          </svg>
+          Seguinos en Instagram
+        </a>
+      </div>
+
+      {/* =================================================
           PIE DE MARCA
       ================================================== */}
 
       <div
         style={{
-          marginTop: 18,
+          marginTop: 14,
           textAlign: 'center',
           fontSize: 11.5,
           color: '#9aa4ad',
