@@ -541,7 +541,7 @@ export default function CentralDeLanzamientos() {
             }}
           >
             <Link
-              href="/"
+              href="/?vista=empresa"
               style={{
                 color: '#cbd5e1',
                 fontSize: 13,

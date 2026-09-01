@@ -122,7 +122,7 @@ export default function StockPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f7f9', padding: 24 }}>
       <div style={{ background: COLORES.azul, borderRadius: 16, padding: 24, color: COLORES.blanco, marginBottom: 24 }}>
-        <Link href="/" style={{ color: '#cbd5e1', fontSize: 13, textDecoration: 'none', display: 'inline-block', marginBottom: 8 }}>
+        <Link href="/?vista=empresa" style={{ color: '#cbd5e1', fontSize: 13, textDecoration: 'none', display: 'inline-block', marginBottom: 8 }}>
           &larr; Volver a Mi Negocio
         </Link>
         <h1 style={{ margin: 0, fontSize: 22 }}>Saldo de Stock</h1>

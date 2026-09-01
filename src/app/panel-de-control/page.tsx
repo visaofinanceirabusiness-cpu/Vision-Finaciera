@@ -305,7 +305,7 @@ export default function MiNegocioPage() {
 
         <header style={encabezadoEstandar}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/" style={volverEstandar}>
+            <Link href="/?vista=empresa" style={volverEstandar}>
               ← Volver a Mi Negocio
             </Link>
 

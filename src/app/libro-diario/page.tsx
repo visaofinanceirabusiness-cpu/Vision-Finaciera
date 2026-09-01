@@ -664,7 +664,7 @@ function Pantalla({
       >
         <header style={encabezado}>
           <Link
-            href="/"
+            href="/?vista=empresa"
             style={volver}
           >
             ← Volver a Mi Negocio

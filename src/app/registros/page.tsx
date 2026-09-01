@@ -228,7 +228,7 @@ function Pantalla({
     <div style={fondo}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <header style={encabezado}>
-          <Link href='/' style={volver}>
+          <Link href='/?vista=empresa' style={volver}>
             ← Volver a Mi Negocio
           </Link>
 

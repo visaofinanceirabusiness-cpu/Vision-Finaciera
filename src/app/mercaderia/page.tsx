@@ -530,7 +530,7 @@ export default function MercaderiaPage() {
 
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/" style={volver}>
+            <Link href="/?vista=empresa" style={volver}>
               ← Volver a Mi Negocio
             </Link>
 

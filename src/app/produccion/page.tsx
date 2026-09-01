@@ -185,7 +185,7 @@ export default function ProduccionPage() {
         <header style={encabezado}>
           <div style={{ position: 'relative', zIndex: 1 }}>
             <Link
-              href="/"
+              href="/?vista=empresa"
               style={{
                 color: '#cbd5e1',
                 fontSize: 13,
