@@ -50,7 +50,19 @@ import {
   type IndicadorCodigo,
 } from '@/lib/objetivos';
 import { crearTraductor } from '@/lib/i18n';
-import { diccionarioConfiguracoes } from './i18n';
+import {
+  diccionarioConfiguracoes,
+  msgCategoriaCreada,
+  msgCategoriaActualizada,
+  msgCategoriaEliminada,
+  msgFormaPagoCreada,
+  msgFormaPagoActualizada,
+  msgFormaPagoEliminada,
+  msgSocioAgregado,
+  msgSocioActualizado,
+  msgSocioEliminado,
+  confirmEliminarItem,
+} from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -208,7 +220,7 @@ export default function ConfiguracoesPage() {
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
@@ -632,7 +644,8 @@ type Socio = { id: string; codigo: string; nombre: string; activo: boolean };
 
 const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO'];
 
-function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string; esAdmin: boolean }) {
+function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
   const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
@@ -738,12 +751,12 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       setMensaje(avisos.length > 0 ? `${mensajeExito} ${avisos.join(' ')}` : mensajeExito);
       await recargar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+      setError(err instanceof Error ? err.message : t('errorInesperado'));
     }
   }
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando categorías...</div>;
+    return <div style={cargandoStyle}>{t('cargandoCategorias')}</div>;
   }
 
   if (!tieneEsqueleto) {
@@ -751,10 +764,10 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       <div style={{ padding: '40px 20px', textAlign: 'center', color: COLORES.gris }}>
         <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: COLORES.azul }}>
-          Todavía no hay un Plano de Contas cargado
+          {t('sinPlanCuentasTitulo')}
         </div>
         <p style={{ marginTop: 6, fontSize: 13 }}>
-          Asigná un perfil de empresa en la pestaña &quot;Datos de la Empresa&quot; para poder crear categorías acá.
+          {t('sinPlanCuentasAyuda')}
         </p>
       </div>
     );
@@ -769,39 +782,41 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
         <BloqueCategoriaProducto
           categorias={categoriasProducto}
           esAdmin={esAdmin}
+          idioma={idioma}
           onCrear={(nombre) =>
-            manejarAccion(() => crearCategoriaProducto(empresaId, nombre), `Categoría "${nombre}" creada con sus cuentas.`)
+            manejarAccion(() => crearCategoriaProducto(empresaId, nombre), msgCategoriaCreada(idioma, nombre))
           }
           onCambiarActivo={(id, activo) =>
-            manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), 'Categoría actualizada.')
+            manejarAccion(() => cambiarActivoCategoriaProducto(id, activo), msgCategoriaActualizada(idioma))
           }
           onEliminar={(id, nombre) =>
-            manejarAccion(() => eliminarCategoriaProducto(id), `Categoría "${nombre}" eliminada.`)
+            manejarAccion(() => eliminarCategoriaProducto(id), msgCategoriaEliminada(idioma, nombre))
           }
         />
       )}
 
       {operacionServicio && (
         <BloqueCategoriaServicio
-          titulo={operacionServicio === 'COBRO' ? '💰 Categorías de Ingreso' : '🧑‍💼 Categorías de Servicio'}
+          titulo={operacionServicio === 'COBRO' ? t('tituloCategoriasIngreso') : t('tituloCategoriasServicio')}
           subtitulo={
             operacionServicio === 'COBRO'
-              ? 'Habilitan la operación Cobro (sueldo, otros ingresos). Cada una genera su propia cuenta de ingreso.'
-              : 'Habilitan la venta de un servicio (sin stock). Cada una genera su propia cuenta de ingreso.'
+              ? t('subtituloCategoriasCobro')
+              : t('subtituloCategoriasVentaServicio')
           }
           categorias={categoriasServicio}
           esAdmin={esAdmin}
+          idioma={idioma}
           onCrear={(nombre) =>
             manejarAccion(
               () => crearCategoriaIngreso(empresaId, nombre, operacionServicio),
-              `Categoría "${nombre}" creada.`
+              msgCategoriaCreada(idioma, nombre)
             )
           }
           onCambiarActivo={(id, activo) =>
-            manejarAccion(() => cambiarActivoCategoriaIngreso(id, activo), 'Categoría actualizada.')
+            manejarAccion(() => cambiarActivoCategoriaIngreso(id, activo), msgCategoriaActualizada(idioma))
           }
           onEliminar={(id, nombre) =>
-            manejarAccion(() => eliminarCategoriaOperacion(id), `Categoría "${nombre}" eliminada.`)
+            manejarAccion(() => eliminarCategoriaOperacion(id), msgCategoriaEliminada(idioma, nombre))
           }
         />
       )}
@@ -809,14 +824,15 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
       <BloqueCategoriaGasto
         categorias={categoriasGasto}
         esAdmin={esAdmin}
+        idioma={idioma}
         onCrear={(nombre) =>
-          manejarAccion(() => crearCategoriaGasto(empresaId, nombre), `Categoría de gasto "${nombre}" creada.`)
+          manejarAccion(() => crearCategoriaGasto(empresaId, nombre), msgCategoriaCreada(idioma, nombre))
         }
         onCambiarActivo={(id, activo) =>
-          manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), 'Categoría actualizada.')
+          manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), msgCategoriaActualizada(idioma))
         }
         onEliminar={(id, nombre) =>
-          manejarAccion(() => eliminarCategoriaOperacion(id), `Categoría "${nombre}" eliminada.`)
+          manejarAccion(() => eliminarCategoriaOperacion(id), msgCategoriaEliminada(idioma, nombre))
         }
       />
 
@@ -825,24 +841,26 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
         cuentas={cuentas}
         operaciones={operaciones}
         esAdmin={esAdmin}
+        idioma={idioma}
         onCrear={(nombre, cuenta, operacionesElegidas) =>
           manejarAccion(async () => {
             const cuentaId =
               'id' in cuenta ? cuenta.id : await crearCuentaParaMedioPago(empresaId, cuenta.nombre, cuenta.tipoSaldo);
 
             await crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas);
-          }, `Forma de pago "${nombre}" creada.`)
+          }, msgFormaPagoCreada(idioma, nombre))
         }
-        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), 'Forma de pago actualizada.')}
-        onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), `Forma de pago "${nombre}" eliminada.`)}
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), msgFormaPagoEliminada(idioma, nombre))}
       />
 
       <BloqueSocios
         socios={socios}
         esAdmin={esAdmin}
-        onCrear={(nombre) => manejarAccion(() => crearSocio(empresaId, nombre), `"${nombre}" agregado/a.`)}
-        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoSocio(id, activo), 'Actualizado.')}
-        onEliminar={(id, nombre) => manejarAccion(() => eliminarSocio(id), `"${nombre}" eliminado/a.`)}
+        idioma={idioma}
+        onCrear={(nombre) => manejarAccion(() => crearSocio(empresaId, nombre), msgSocioAgregado(idioma, nombre))}
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoSocio(id, activo), msgSocioActualizado(idioma))}
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarSocio(id), msgSocioEliminado(idioma, nombre))}
       />
     </div>
   );
@@ -851,29 +869,30 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin }: { empresaId: string;
 function BloqueSocios({
   socios,
   esAdmin,
+  idioma,
   onCrear,
   onCambiarActivo,
   onEliminar,
 }: {
   socios: Socio[];
   esAdmin: boolean;
+  idioma: string;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria
-      titulo="🤝 Socios/as"
-      subtitulo="Quiénes pueden aparecer como 'a quién' en Inversión (aporte), Extracción (retiro) y Pérdida. No hace falta que tengan usuario propio para entrar al sistema."
-    >
-      <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+    <SeccionCategoria titulo={t('tituloSocios')} subtitulo={t('subtituloSocios')}>
+      <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {esAdmin && (
         <FormularioNuevo
-          placeholder="Nombre del socio/a (ej. Ezequiel)"
+          placeholder={t('placeholderSocio')}
           valor={nombreNuevo}
+          idioma={idioma}
           onCambiar={setNombreNuevo}
           onAgregar={() => {
             if (!nombreNuevo.trim()) return;
@@ -889,26 +908,30 @@ function BloqueSocios({
 function BloqueCategoriaProducto({
   categorias,
   esAdmin,
+  idioma,
   onCrear,
   onCambiarActivo,
   onEliminar,
 }: {
   categorias: CategoriaProducto[];
   esAdmin: boolean;
+  idioma: string;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo="🛍️ Categorías de Producto" subtitulo="Habilitan Compra, Venta y Pérdida. Cada una genera su cuenta de Stock, Venta y Costo automáticamente.">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+    <SeccionCategoria titulo={t('tituloCategoriaProducto')} subtitulo={t('subtituloCategoriaProducto')}>
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {esAdmin && (
         <FormularioNuevo
-          placeholder="Nombre de la categoría (ej. Perfumería)"
+          placeholder={t('placeholderCategoriaProducto')}
           valor={nombreNuevo}
+          idioma={idioma}
           onCambiar={setNombreNuevo}
           onAgregar={() => {
             if (!nombreNuevo.trim()) return;
@@ -926,6 +949,7 @@ function BloqueCategoriaServicio({
   subtitulo,
   categorias,
   esAdmin,
+  idioma,
   onCrear,
   onCambiarActivo,
   onEliminar,
@@ -934,20 +958,23 @@ function BloqueCategoriaServicio({
   subtitulo: string;
   categorias: CategoriaGasto[];
   esAdmin: boolean;
+  idioma: string;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
     <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {esAdmin && (
         <FormularioNuevo
-          placeholder="Nombre (ej. Sueldo, Consultoría)"
+          placeholder={t('placeholderCategoriaServicio')}
           valor={nombreNuevo}
+          idioma={idioma}
           onCambiar={setNombreNuevo}
           onAgregar={() => {
             if (!nombreNuevo.trim()) return;
@@ -963,26 +990,30 @@ function BloqueCategoriaServicio({
 function BloqueCategoriaGasto({
   categorias,
   esAdmin,
+  idioma,
   onCrear,
   onCambiarActivo,
   onEliminar,
 }: {
   categorias: CategoriaGasto[];
   esAdmin: boolean;
+  idioma: string;
   onCrear: (nombre: string) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo="🧾 Categorías de Gasto" subtitulo="Habilitan la operación Pago (si el nombre ya existe en el plan, se reutiliza esa cuenta en vez de duplicar).">
-      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+    <SeccionCategoria titulo={t('tituloCategoriaGasto')} subtitulo={t('subtituloCategoriaGasto')}>
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {esAdmin && (
         <FormularioNuevo
-          placeholder="Nombre del gasto (ej. Alquiler del local)"
+          placeholder={t('placeholderCategoriaGasto')}
           valor={nombreNuevo}
+          idioma={idioma}
           onCambiar={setNombreNuevo}
           onAgregar={() => {
             if (!nombreNuevo.trim()) return;
@@ -1002,6 +1033,7 @@ function BloqueFormasDePago({
   cuentas,
   operaciones,
   esAdmin,
+  idioma,
   onCrear,
   onCambiarActivo,
   onEliminar,
@@ -1010,6 +1042,7 @@ function BloqueFormasDePago({
   cuentas: CuentaOpcion[];
   operaciones: OperacionOpcion[];
   esAdmin: boolean;
+  idioma: string;
   onCrear: (
     nombre: string,
     cuenta: { id: string } | { nueva: true; nombre: string; tipoSaldo: 'ACTIVO' | 'PASIVO' },
@@ -1018,6 +1051,7 @@ function BloqueFormasDePago({
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [cuentaElegida, setCuentaElegida] = useState('');
   const [nombreCuentaNueva, setNombreCuentaNueva] = useState('');
@@ -1037,15 +1071,15 @@ function BloqueFormasDePago({
   }
 
   return (
-    <SeccionCategoria titulo="💳 Formas de Pago" subtitulo="Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.">
-      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} />
+    <SeccionCategoria titulo={t('tituloFormasPago')} subtitulo={t('subtituloFormasPago')}>
+      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {esAdmin && (
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             style={{ ...inputFormulario, flex: '1 1 220px' }}
-            placeholder="Nombre (ej. Mercado Pago)"
+            placeholder={t('placeholderFormaPago')}
             value={nombreNuevo}
             onChange={(e) => setNombreNuevo(e.target.value)}
           />
@@ -1055,13 +1089,13 @@ function BloqueFormasDePago({
             value={cuentaElegida}
             onChange={(e) => setCuentaElegida(e.target.value)}
           >
-            <option value="">Cuenta contable...</option>
+            <option value="">{t('opcionCuentaContable')}</option>
             {cuentas.map((cuenta) => (
               <option key={cuenta.id} value={cuenta.id}>
                 {cuenta.codigo} — {cuenta.nombre}
               </option>
             ))}
-            <option value={OPCION_CUENTA_NUEVA}>➕ La cuenta no existe — crear una nueva</option>
+            <option value={OPCION_CUENTA_NUEVA}>{t('opcionCuentaNueva')}</option>
           </select>
         </div>
 
@@ -1069,7 +1103,7 @@ function BloqueFormasDePago({
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
             <input
               style={{ ...inputFormulario, flex: '1 1 220px' }}
-              placeholder="Nombre de la cuenta nueva (ej. Billetera Mercado Pago)"
+              placeholder={t('placeholderCuentaNueva')}
               value={nombreCuentaNueva}
               onChange={(e) => setNombreCuentaNueva(e.target.value)}
             />
@@ -1079,8 +1113,8 @@ function BloqueFormasDePago({
               value={tipoCuentaNueva}
               onChange={(e) => setTipoCuentaNueva(e.target.value as 'ACTIVO' | 'PASIVO')}
             >
-              <option value="ACTIVO">Activo (tengo esa plata)</option>
-              <option value="PASIVO">Pasivo (debo esa plata)</option>
+              <option value="ACTIVO">{t('opcionActivo')}</option>
+              <option value="PASIVO">{t('opcionPasivo')}</option>
             </select>
           </div>
         )}
@@ -1120,7 +1154,7 @@ function BloqueFormasDePago({
               setOperacionesElegidas([]);
             }}
           >
-            + Agregar forma de pago
+            {t('botonAgregarFormaPago')}
           </button>
         </div>
       </div>
@@ -1152,14 +1186,18 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
   onCambiarActivo,
   onEliminar,
   soloLectura = false,
+  idioma,
 }: {
   items: T[];
   onCambiarActivo: (id: string, activo: boolean) => void;
   onEliminar?: (id: string, nombre: string) => void;
   soloLectura?: boolean;
+  idioma: string;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+
   if (items.length === 0) {
-    return <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>Todavía no hay ninguna cargada.</p>;
+    return <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 12 }}>{t('sinItems')}</p>;
   }
 
   return (
@@ -1186,12 +1224,12 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
 
           {soloLectura ? (
             <span style={{ fontSize: 11.5, color: COLORES.gris, fontWeight: 700 }}>
-              {item.activo ? 'Activa' : 'Inactiva'}
+              {item.activo ? t('activa') : t('inactiva')}
             </span>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
-                {item.activo ? 'Activa' : 'Inactiva'}
+                {item.activo ? t('activa') : t('inactiva')}
                 <input
                   type="checkbox"
                   checked={item.activo}
@@ -1203,7 +1241,7 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm(`¿Eliminar "${item.nombre}"? Esto no borra la cuenta contable, solo la categoría/forma de pago y sus reglas.`)) {
+                    if (window.confirm(confirmEliminarItem(idioma, item.nombre))) {
                       onEliminar(item.id, item.nombre);
                     }
                   }}
@@ -1215,7 +1253,7 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
                     fontSize: 13,
                     padding: 0,
                   }}
-                  title="Eliminar"
+                  title={t('eliminarTitulo')}
                 >
                   🗑️
                 </button>
@@ -1231,14 +1269,18 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
 function FormularioNuevo({
   placeholder,
   valor,
+  idioma,
   onCambiar,
   onAgregar,
 }: {
   placeholder: string;
   valor: string;
+  idioma: string;
   onCambiar: (valor: string) => void;
   onAgregar: () => void;
 }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+
   return (
     <div style={{ display: 'flex', gap: 10 }}>
       <input
@@ -1252,7 +1294,7 @@ function FormularioNuevo({
       />
 
       <button type="button" style={botonGuardar} onClick={onAgregar}>
-        + Agregar
+        {t('botonAgregar')}
       </button>
     </div>
   );
