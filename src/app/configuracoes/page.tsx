@@ -66,7 +66,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion';
 
 type PerfilEmpresa = {
   id: string;
@@ -187,6 +187,10 @@ export default function ConfiguracoesPage() {
             <button type="button" onClick={() => setPestana('objetivos')} style={tabStyle(pestana === 'objetivos')}>
               🎯 Objetivos
             </button>
+
+            <button type="button" onClick={() => setPestana('facturacion')} style={tabStyle(pestana === 'facturacion')}>
+              💳 Facturación
+            </button>
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} />}
@@ -194,6 +198,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} />}
         </main>
       </div>
     </div>
@@ -2034,6 +2039,92 @@ function ModalEditarObjetivo({
             Guardar cambios
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA 6 — FACTURAÇÃO (pagar la suscripción)
+========================================================== */
+
+// Links de pago fijos, generados desde el panel de comercio de cada
+// plataforma (InfinitePay para Real, Naranja X para Peso argentino).
+// Se completan acá una sola vez — no dependen de cada empresa, son
+// del negocio (Visão Financeira) en sí.
+const LINK_PAGO_INFINITEPAY: string | null = null;
+const LINK_PAGO_NARANJA_X: string | null = null;
+
+function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) {
+  const [moneda, setMoneda] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    async function cargar() {
+      const { data } = await supabase.from('empresas').select('moneda').eq('id', empresaId).maybeSingle();
+      setMoneda(data?.moneda ?? null);
+      setCargando(false);
+    }
+
+    cargar();
+  }, [empresaId]);
+
+  if (cargando) {
+    return <div style={cargandoStyle}>Cargando...</div>;
+  }
+
+  const link = moneda === 'BRL' ? LINK_PAGO_INFINITEPAY : moneda === 'ARS' ? LINK_PAGO_NARANJA_X : null;
+  const plataforma = moneda === 'BRL' ? 'InfinitePay' : moneda === 'ARS' ? 'Naranja X' : null;
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 18 }}>
+        Pagá tu suscripción según la moneda configurada para tu empresa (Datos de la Empresa → Moneda).
+      </p>
+
+      <div
+        style={{
+          border: '1px solid #e5e7eb',
+          borderRadius: 16,
+          padding: 24,
+          textAlign: 'center',
+          background: '#f8fafc',
+        }}
+      >
+        {!moneda || !plataforma ? (
+          <p style={{ margin: 0, fontSize: 13.5, color: COLORES.gris }}>
+            Definí primero la moneda de tu empresa (Real o Peso argentino) en la pestaña &quot;Datos de la
+            Empresa&quot; para ver el medio de pago correspondiente.
+          </p>
+        ) : link ? (
+          <>
+            <p style={{ margin: '0 0 14px', fontSize: 14, color: COLORES.azul }}>
+              Tu empresa paga en <strong>{moneda === 'BRL' ? 'Reales' : 'Pesos argentinos'}</strong>, a través de{' '}
+              <strong>{plataforma}</strong>.
+            </p>
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                padding: '13px 28px',
+                borderRadius: 12,
+                background: COLORES.verde,
+                color: COLORES.blanco,
+                fontWeight: 700,
+                fontSize: 15,
+                textDecoration: 'none',
+              }}
+            >
+              Pagar suscripción con {plataforma} →
+            </a>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13.5, color: COLORES.gris }}>
+            🔒 Todavía no está configurado el link de pago de {plataforma}. Va a estar disponible próximamente.
+          </p>
+        )}
       </div>
     </div>
   );
