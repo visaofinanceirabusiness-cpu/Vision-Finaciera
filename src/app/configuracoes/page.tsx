@@ -68,6 +68,8 @@ import {
   msgMatrizExplicacion,
   confirmEliminarObjetivo,
   msgObjetivoCreado,
+  msgPagarSuscripcionCon,
+  msgLinkNoConfigurado,
 } from './i18n';
 
 const COLORES = {
@@ -230,7 +232,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} />}
+          {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
         </main>
       </div>
     </div>
@@ -2141,7 +2143,8 @@ function ModalEditarObjetivo({
 const LINK_PAGO_INFINITEPAY: string | null = null;
 const LINK_PAGO_NARANJA_X: string | null = null;
 
-function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) {
+function FacturacionTab({ empresaId, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [resumen, setResumen] = useState<ResumenSuscripcion | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -2167,7 +2170,7 @@ function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) 
   }, [empresaId]);
 
   if (cargando) {
-    return <div style={cargandoStyle}>Cargando...</div>;
+    return <div style={cargandoStyle}>{t('cargandoGenerico')}</div>;
   }
 
   const link = moneda === 'BRL' ? LINK_PAGO_INFINITEPAY : moneda === 'ARS' ? LINK_PAGO_NARANJA_X : null;
@@ -2176,7 +2179,7 @@ function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) 
   return (
     <div>
       <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 18 }}>
-        Pagá tu suscripción según la moneda configurada para tu empresa (Datos de la Empresa → Moneda).
+        {t('pagaSegunMoneda')}
       </p>
 
       {resumen && <TarjetaEstadoSuscripcion resumen={resumen} />}
@@ -2192,13 +2195,12 @@ function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) 
       >
         {!moneda || !plataforma ? (
           <p style={{ margin: 0, fontSize: 13.5, color: COLORES.gris }}>
-            Definí primero la moneda de tu empresa (Real o Peso argentino) en la pestaña &quot;Datos de la
-            Empresa&quot; para ver el medio de pago correspondiente.
+            {t('definiMonedaPrimero')}
           </p>
         ) : link ? (
           <>
             <p style={{ margin: '0 0 14px', fontSize: 14, color: COLORES.azul }}>
-              Tu empresa paga en <strong>{moneda === 'BRL' ? 'Reales' : 'Pesos argentinos'}</strong>, a través de{' '}
+              {t('facturacionPagaEnPrefijo')} <strong>{moneda === 'BRL' ? t('reales') : t('pesosArgentinos')}</strong>, {t('facturacionPagaEnSufijo')}{' '}
               <strong>{plataforma}</strong>.
             </p>
             <a
@@ -2216,12 +2218,12 @@ function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) 
                 textDecoration: 'none',
               }}
             >
-              Pagar suscripción con {plataforma} →
+              {msgPagarSuscripcionCon(idioma, plataforma)}
             </a>
           </>
         ) : (
           <p style={{ margin: 0, fontSize: 13.5, color: COLORES.gris }}>
-            🔒 Todavía no está configurado el link de pago de {plataforma}. Va a estar disponible próximamente.
+            {msgLinkNoConfigurado(idioma, plataforma)}
           </p>
         )}
       </div>
