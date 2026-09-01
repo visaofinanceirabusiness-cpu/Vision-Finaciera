@@ -349,7 +349,7 @@ function DadosDaEmpresaTab({ empresaId, esAdmin }: { empresaId: string; esAdmin:
 
     if (!errorGuardar && asignandoPerfilPorPrimeraVez && empresa.perfil_empresa_id) {
       try {
-        await inicializarEmpresaDesdePerfil(empresaId, empresa.perfil_empresa_id, empresa.idioma);
+        await inicializarEmpresaDesdePerfil(empresaId, empresa.perfil_empresa_id, empresa.idioma, empresa.moneda);
         setTieneEsqueleto(true);
       } catch (errorInit) {
         setGuardando(false);

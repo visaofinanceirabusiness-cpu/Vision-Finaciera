@@ -26,6 +26,15 @@ const COMPONENTES_MIXTO = [
   { valor: 'PRODUCCION', etiqueta: 'Producción' },
 ];
 
+// Define qué esquema impositivo recibe el Plano de Contas (ver
+// paisDesdeMoneda en lib/perfiles.ts) — es la moneda real en la que
+// opera el negocio, independiente del idioma en el que trabaje.
+const MONEDAS = [
+  { valor: 'ARS', etiqueta: 'Peso argentino (ARS)' },
+  { valor: 'BRL', etiqueta: 'Real brasileño (BRL)' },
+  { valor: 'USD', etiqueta: 'Dólar (USD)' },
+];
+
 export default function CrearCuentaPage() {
   const [perfiles, setPerfiles] = useState<PerfilEmpresa[]>([]);
   const [cargandoPerfiles, setCargandoPerfiles] = useState(true);
@@ -37,6 +46,7 @@ export default function CrearCuentaPage() {
   const [numeroTelefono, setNumeroTelefono] = useState('');
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [rubro, setRubro] = useState('');
+  const [moneda, setMoneda] = useState('BRL');
   const [perfilElegido, setPerfilElegido] = useState('');
   const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
 
@@ -140,6 +150,7 @@ export default function CrearCuentaPage() {
       rubro: rubro.trim(),
       perfil_empresa_id: perfilElegido,
       componentes_mixto: esMixto ? componentesMixto : [],
+      moneda,
     });
 
     if (errorSolicitud) {
@@ -276,6 +287,17 @@ export default function CrearCuentaPage() {
           <div>
             <label style={labelStyle}>Rubro *</label>
             <input style={inputStyle} value={rubro} onChange={(e) => setRubro(e.target.value)} placeholder="Ej: Venta de ropa" />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Moneda en la que operás *</label>
+            <select style={inputStyle} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
+              {MONEDAS.map((m) => (
+                <option key={m.valor} value={m.valor}>
+                  {m.etiqueta}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
