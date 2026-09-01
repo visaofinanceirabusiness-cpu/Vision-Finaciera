@@ -217,7 +217,12 @@ export default function PanelMaestroPage() {
     try {
       const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
         .from('empresas')
-        .insert({ nombre: solicitud.nombre_empresa, rubro: solicitud.rubro })
+        .insert({
+          nombre: solicitud.nombre_empresa,
+          rubro: solicitud.rubro,
+          telefono: solicitud.telefono,
+          email: solicitud.email,
+        })
         .select('id, numero_cliente')
         .single();
 
