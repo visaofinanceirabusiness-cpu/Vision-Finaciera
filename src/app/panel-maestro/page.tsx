@@ -961,47 +961,24 @@ function BloqueSuscripcionEmpresa({
             {procesando ? 'Guardando...' : `Confirmar pago (+${30} días)`}
           </button>
 
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              type="button"
-              onClick={() => ajustarDiasDeTest(30)}
-              disabled={procesando}
-              title="Solo para pruebas: adelanta el vencimiento 30 días, sin grabar ningún pago"
-              style={{
-                flex: 1,
-                padding: '6px 0',
-                borderRadius: 8,
-                border: '1px dashed #d7dde3',
-                background: 'transparent',
-                color: COLORES_BASE.gris,
-                fontWeight: 600,
-                fontSize: 11,
-                cursor: procesando ? 'wait' : 'pointer',
-              }}
-            >
-              🧪 Restar 30 días
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ajustarDiasDeTest(-30)}
-              disabled={procesando}
-              title="Solo para pruebas: deshace el ajuste anterior, sumando 30 días de vuelta"
-              style={{
-                flex: 1,
-                padding: '6px 0',
-                borderRadius: 8,
-                border: '1px dashed #d7dde3',
-                background: 'transparent',
-                color: COLORES_BASE.gris,
-                fontWeight: 600,
-                fontSize: 11,
-                cursor: procesando ? 'wait' : 'pointer',
-              }}
-            >
-              ↩️ Cancelar
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => ajustarDiasDeTest(30)}
+            disabled={procesando}
+            title="Solo para pruebas: adelanta el vencimiento 30 días, sin grabar ningún pago"
+            style={{
+              padding: '6px 0',
+              borderRadius: 8,
+              border: '1px dashed #d7dde3',
+              background: 'transparent',
+              color: COLORES_BASE.gris,
+              fontWeight: 600,
+              fontSize: 11,
+              cursor: procesando ? 'wait' : 'pointer',
+            }}
+          >
+            🧪 Restar 30 días
+          </button>
         </div>
       )}
     </div>
