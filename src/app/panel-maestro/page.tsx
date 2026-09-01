@@ -8,6 +8,8 @@ import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { eliminarOperacion } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
+import { resumirSuscripcion, marcarPagoRecibido, restarDiasDeTest } from '@/lib/suscripcion';
+import { BadgeEstadoSuscripcion } from '@/components/EstadoSuscripcion';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -23,6 +25,7 @@ type Empresa = {
   logo_url: string | null;
   numero_cliente: number;
   moneda: string | null;
+  fecha_vencimiento_suscripcion: string;
 };
 
 type PendienteRegistro = {
@@ -136,7 +139,7 @@ export default function PanelMaestroPage() {
   async function cargarEmpresas() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
-      .select('id, nombre, rubro, logo_url, numero_cliente, moneda')
+      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion')
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
 
@@ -730,6 +733,14 @@ export default function PanelMaestroPage() {
                 </div>
               </div>
 
+              <div onClick={(e) => e.stopPropagation()}>
+                <BloqueSuscripcionEmpresa
+                  empresaId={empresa.id}
+                  fechaVencimiento={empresa.fecha_vencimiento_suscripcion}
+                  onActualizado={cargarEmpresas}
+                />
+              </div>
+
               {nivelesPorEmpresa[empresa.id] && (
                 <div
                   style={{
@@ -796,6 +807,187 @@ export default function PanelMaestroPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/* ==========================================================
+   SUSCRIPCIÓN — semáforo + control manual de pago (por ahora no
+   bloquea el acceso, solo informa)
+========================================================== */
+
+const MEDIOS_PAGO = ['InfinitePay', 'Naranja X', 'Otro'];
+
+function BloqueSuscripcionEmpresa({
+  empresaId,
+  fechaVencimiento,
+  onActualizado,
+}: {
+  empresaId: string;
+  fechaVencimiento: string;
+  onActualizado: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [medio, setMedio] = useState(MEDIOS_PAGO[0]);
+  const [monto, setMonto] = useState('');
+  const [procesando, setProcesando] = useState(false);
+  const [error, setError] = useState('');
+
+  const resumen = resumirSuscripcion(fechaVencimiento);
+
+  async function confirmarPago() {
+    setProcesando(true);
+    setError('');
+
+    try {
+      await marcarPagoRecibido(empresaId, {
+        medio,
+        monto: monto.trim() ? Number(monto) : null,
+      });
+      setMonto('');
+      setAbierto(false);
+      onActualizado();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el pago.');
+    } finally {
+      setProcesando(false);
+    }
+  }
+
+  async function ajustarDiasDeTest(dias: number) {
+    setProcesando(true);
+    setError('');
+
+    try {
+      await restarDiasDeTest(empresaId, dias);
+      onActualizado();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo aplicar el ajuste de prueba.');
+    } finally {
+      setProcesando(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid #e5e7eb',
+        borderRadius: 12,
+        padding: 12,
+        background: '#fbfcfd',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <BadgeEstadoSuscripcion resumen={resumen} />
+
+        <button
+          type="button"
+          onClick={() => setAbierto((a) => !a)}
+          disabled={procesando}
+          style={{
+            fontSize: 11.5,
+            fontWeight: 700,
+            color: COLORES_BASE.verde,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {abierto ? 'Cerrar' : 'Marcar pago recibido'}
+        </button>
+      </div>
+
+      {abierto && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {error && <div style={{ fontSize: 11.5, color: '#b91c1c' }}>{error}</div>}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select
+              value={medio}
+              onChange={(e) => setMedio(e.target.value)}
+              style={{ flex: 1, fontSize: 12, padding: '6px 8px', borderRadius: 8, border: '1px solid #d7dde3' }}
+            >
+              {MEDIOS_PAGO.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              placeholder="Monto (opcional)"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              style={{ width: 110, fontSize: 12, padding: '6px 8px', borderRadius: 8, border: '1px solid #d7dde3' }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={confirmarPago}
+            disabled={procesando}
+            style={{
+              padding: '8px 0',
+              borderRadius: 8,
+              border: 'none',
+              background: COLORES_BASE.verde,
+              color: COLORES_BASE.blanco,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: procesando ? 'wait' : 'pointer',
+            }}
+          >
+            {procesando ? 'Guardando...' : `Confirmar pago (+${30} días)`}
+          </button>
+
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => ajustarDiasDeTest(30)}
+              disabled={procesando}
+              title="Solo para pruebas: adelanta el vencimiento 30 días, sin grabar ningún pago"
+              style={{
+                flex: 1,
+                padding: '6px 0',
+                borderRadius: 8,
+                border: '1px dashed #d7dde3',
+                background: 'transparent',
+                color: COLORES_BASE.gris,
+                fontWeight: 600,
+                fontSize: 11,
+                cursor: procesando ? 'wait' : 'pointer',
+              }}
+            >
+              🧪 Restar 30 días
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ajustarDiasDeTest(-30)}
+              disabled={procesando}
+              title="Solo para pruebas: deshace el ajuste anterior, sumando 30 días de vuelta"
+              style={{
+                flex: 1,
+                padding: '6px 0',
+                borderRadius: 8,
+                border: '1px dashed #d7dde3',
+                background: 'transparent',
+                color: COLORES_BASE.gris,
+                fontWeight: 600,
+                fontSize: 11,
+                cursor: procesando ? 'wait' : 'pointer',
+              }}
+            >
+              ↩️ Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

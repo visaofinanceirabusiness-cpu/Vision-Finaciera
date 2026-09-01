@@ -37,6 +37,8 @@ import {
 } from '@/lib/categorias';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { resumirSuscripcion, type ResumenSuscripcion } from '@/lib/suscripcion';
+import { TarjetaEstadoSuscripcion } from '@/components/EstadoSuscripcion';
 import {
   obtenerDefiniciones,
   crearObjetivo,
@@ -2057,12 +2059,23 @@ const LINK_PAGO_NARANJA_X: string | null = null;
 
 function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) {
   const [moneda, setMoneda] = useState<string | null>(null);
+  const [resumen, setResumen] = useState<ResumenSuscripcion | null>(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     async function cargar() {
-      const { data } = await supabase.from('empresas').select('moneda').eq('id', empresaId).maybeSingle();
+      const { data } = await supabase
+        .from('empresas')
+        .select('moneda, fecha_vencimiento_suscripcion')
+        .eq('id', empresaId)
+        .maybeSingle();
+
       setMoneda(data?.moneda ?? null);
+
+      if (data?.fecha_vencimiento_suscripcion) {
+        setResumen(resumirSuscripcion(data.fecha_vencimiento_suscripcion));
+      }
+
       setCargando(false);
     }
 
@@ -2081,6 +2094,8 @@ function FacturacionTab({ empresaId }: { empresaId: string; esAdmin: boolean }) 
       <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 18 }}>
         Pagá tu suscripción según la moneda configurada para tu empresa (Datos de la Empresa → Moneda).
       </p>
+
+      {resumen && <TarjetaEstadoSuscripcion resumen={resumen} />}
 
       <div
         style={{
