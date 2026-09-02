@@ -10,6 +10,7 @@ import {
   ProductoProduccion,
 } from '@/lib/produccion';
 import { crearTraductor } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioProduccion,
   msgStockSuficiente,
@@ -74,6 +75,11 @@ export default function ProduccionPage() {
       if (!perfil?.empresa_id) {
         setError(t('errorSinEmpresa'));
         setCargandoInicial(false);
+        return;
+      }
+
+      if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+        router.push('/bienvenida');
         return;
       }
 

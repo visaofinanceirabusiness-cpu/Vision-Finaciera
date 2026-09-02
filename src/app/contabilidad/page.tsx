@@ -25,6 +25,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioContabilidad,
   etiquetaRelacion,
@@ -74,6 +75,7 @@ const LOGO_URL =
 type Pestana = 'lanzamientos' | 'registros' | 'libro';
 
 export default function ContabilidadPage() {
+  const router = useRouter();
   const [pestana, setPestana] = useState<Pestana>('lanzamientos');
   const [esAdmin, setEsAdmin] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
@@ -99,6 +101,11 @@ export default function ContabilidadPage() {
       setEsAdmin(Boolean(perfil?.es_admin_plataforma));
 
       if (perfil?.empresa_id) {
+        if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+          router.push('/bienvenida');
+          return;
+        }
+
         const { data: empresa } = await supabase
           .from('empresas')
           .select('moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')

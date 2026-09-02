@@ -21,6 +21,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor, estadoDisplay } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioMercaderia,
   msgConfirmarEliminarProducto,
@@ -176,6 +177,11 @@ export default function MercaderiaPage() {
     if (errorPerfil || !perfil?.empresa_id) {
       setError(t('errorEmpresa'));
       setCargando(false);
+      return;
+    }
+
+    if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+      router.push('/bienvenida');
       return;
     }
 

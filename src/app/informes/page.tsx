@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioInformes,
   formatearPeriodo,
@@ -99,6 +100,11 @@ export default function InformesPage() {
       if (errorPerfil || !perfil?.empresa_id) {
         setError(t('errorEmpresa'));
         setCargando(false);
+        return;
+      }
+
+      if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+        router.push('/bienvenida');
         return;
       }
 

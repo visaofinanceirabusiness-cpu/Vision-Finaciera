@@ -20,6 +20,7 @@ import {
   empresaManejaMercaderia,
   empresaTieneModulo,
 } from '@/lib/perfilCapacidades';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { crearTraductor } from '@/lib/i18n';
@@ -165,6 +166,14 @@ export default function InicioPage() {
 
       if (perfilData.es_admin_plataforma && !vieneDeEntrarAEmpresa) {
         router.push('/panel-maestro');
+        return;
+      }
+
+      // Empresa nueva sin terminar la configuración inicial: no entra
+      // al lobby hasta completar el wizard de /bienvenida (ver
+      // lib/onboarding.ts).
+      if (!(await empresaTieneOnboardingCompleto(perfilData.empresa_id))) {
+        router.push('/bienvenida');
         return;
       }
 
