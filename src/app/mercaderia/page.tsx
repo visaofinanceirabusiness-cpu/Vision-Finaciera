@@ -20,6 +20,15 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { crearTraductor } from '@/lib/i18n';
+import {
+  diccionarioMercaderia,
+  msgConfirmarEliminarProducto,
+  msgYaTieneMovimientos,
+  msgNoSePudoEliminar,
+  contadorProductos,
+  contadorMovimientos,
+} from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -91,20 +100,24 @@ const FORMULARIO_VACIO: Formulario = {
   fecha_alta: fechaLocalHoy(),
 };
 
-const OPCIONES_TIPO = [
-  { value: '', label: 'Sin especificar' },
-  { value: 'INSUMO', label: 'Insumo' },
-  { value: 'TERMINADO', label: 'Terminado' },
-];
+function opcionesTipo(t: (clave: any) => string) {
+  return [
+    { value: '', label: t('opcionSinEspecificar') },
+    { value: 'INSUMO', label: t('opcionInsumo') },
+    { value: 'TERMINADO', label: t('opcionTerminado') },
+  ];
+}
 
-const OPCIONES_UNIDAD = [
-  { value: '', label: 'Sin especificar' },
-  { value: 'UNIDAD', label: 'Unidad' },
-  { value: 'KG', label: 'Kg' },
-  { value: 'G', label: 'G' },
-  { value: 'L', label: 'L' },
-  { value: 'ML', label: 'Ml' },
-];
+function opcionesUnidad(t: (clave: any) => string) {
+  return [
+    { value: '', label: t('opcionSinEspecificar') },
+    { value: 'UNIDAD', label: t('opcionUnidad') },
+    { value: 'KG', label: t('opcionKg') },
+    { value: 'G', label: t('opcionG') },
+    { value: 'L', label: t('opcionL') },
+    { value: 'ML', label: t('opcionMl') },
+  ];
+}
 
 export default function MercaderiaPage() {
   const router = useRouter();
@@ -112,6 +125,9 @@ export default function MercaderiaPage() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [esAdmin, setEsAdmin] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
+  const [idioma, setIdioma] = useState<string | null>(null);
+
+  const t = crearTraductor(diccionarioMercaderia, idioma);
 
   const [productos, setProductos] = useState<ProductoFila[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -158,7 +174,7 @@ export default function MercaderiaPage() {
       .maybeSingle();
 
     if (errorPerfil || !perfil?.empresa_id) {
-      setError('No se pudo identificar la empresa del usuario.');
+      setError(t('errorEmpresa'));
       setCargando(false);
       return;
     }
@@ -206,7 +222,7 @@ export default function MercaderiaPage() {
 
       supabase
         .from('empresas')
-        .select('moneda')
+        .select('moneda, idioma')
         .eq('id', perfil.empresa_id)
         .maybeSingle(),
     ]);
@@ -218,6 +234,7 @@ export default function MercaderiaPage() {
     if (errorProveedores) console.warn('No se pudieron cargar los proveedores:', errorProveedores);
 
     setMoneda(empresaData?.moneda ?? null);
+    setIdioma(empresaData?.idioma ?? null);
 
     const saldoPorProducto = new Map(
       (saldosData ?? []).map((fila) => [fila.producto_id, Number(fila.saldo ?? 0)])
@@ -380,14 +397,14 @@ export default function MercaderiaPage() {
 
   async function guardarProducto() {
     if (!empresaId) {
-      setError('No se pudo identificar la empresa.');
+      setError(t('errorEmpresaGuardar'));
       return;
     }
 
     const nombreLimpio = formulario.nombre.trim();
 
     if (!nombreLimpio) {
-      setError('El nombre es obligatorio.');
+      setError(t('errorNombreObligatorio'));
       return;
     }
 
@@ -440,7 +457,7 @@ export default function MercaderiaPage() {
       cancelarFormulario();
     } catch (errorGuardar) {
       console.error('Error guardando producto:', errorGuardar);
-      setError(editandoProductoId ? 'No se pudo actualizar el producto.' : 'No se pudo crear el producto.');
+      setError(editandoProductoId ? t('errorActualizar') : t('errorCrear'));
     } finally {
       setGuardando(false);
     }
@@ -452,9 +469,7 @@ export default function MercaderiaPage() {
   async function eliminarProducto(producto: ProductoFila) {
     if (!empresaId) return;
 
-    const confirmado = window.confirm(
-      `¿Eliminar el producto "${producto.nombre}"? Solo se puede si nunca tuvo movimiento. No se puede deshacer.`
-    );
+    const confirmado = window.confirm(msgConfirmarEliminarProducto(idioma, producto.nombre));
 
     if (!confirmado) return;
 
@@ -473,7 +488,7 @@ export default function MercaderiaPage() {
       }
 
       if (count && count > 0) {
-        setError(`"${producto.nombre}" ya tiene movimientos cargados — no se puede eliminar.`);
+        setError(msgYaTieneMovimientos(idioma, producto.nombre));
         return;
       }
 
@@ -486,9 +501,7 @@ export default function MercaderiaPage() {
       await cargarDatos();
     } catch (errorEliminar) {
       console.error('Error eliminando producto:', errorEliminar);
-      setError(
-        `No se pudo eliminar "${producto.nombre}" — puede estar usado en una receta u otra configuración.`
-      );
+      setError(msgNoSePudoEliminar(idioma, producto.nombre));
     } finally {
       setEliminandoProductoId(null);
     }
@@ -524,7 +537,7 @@ export default function MercaderiaPage() {
       await cargarDatos();
     } catch (errorValidar) {
       console.error('Error validando movimiento:', errorValidar);
-      setError('No se pudo validar el movimiento.');
+      setError(t('errorValidar'));
     } finally {
       setValidando(null);
     }
@@ -542,18 +555,18 @@ export default function MercaderiaPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volver}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrow}>GESTIÓN FINANCIERA</div>
+          <div style={eyebrow}>{t('eyebrow')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Mercadería</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Administrá el saldo de tus productos y consultá los movimientos de mercadería.
+            {t('subtitulo')}
           </p>
         </header>
 
@@ -575,7 +588,7 @@ export default function MercaderiaPage() {
             }}
           >
             <button type="button" onClick={() => cambiarPestana('saldo')} style={tabStyle(pestana === 'saldo')}>
-              📦 Saldo Mercadería
+              {t('tabSaldo')}
             </button>
 
             <button
@@ -583,7 +596,7 @@ export default function MercaderiaPage() {
               onClick={() => cambiarPestana('movimientos')}
               style={tabStyle(pestana === 'movimientos')}
             >
-              🔁 Movimientos de Mercadería
+              {t('tabMovimientos')}
             </button>
           </div>
 
@@ -603,19 +616,19 @@ export default function MercaderiaPage() {
           >
             <div>
               <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
-                {pestana === 'saldo' ? 'Saldo Mercadería' : 'Movimientos de Mercadería'}
+                {pestana === 'saldo' ? t('tituloSaldo') : t('tituloMovimientos')}
               </h2>
 
               <p style={{ margin: '4px 0 0', color: COLORES.gris, fontSize: 12 }}>
                 {pestana === 'saldo'
-                  ? `${productos.length} ${productos.length === 1 ? 'producto' : 'productos'}`
-                  : `${movimientos.length} ${movimientos.length === 1 ? 'movimiento' : 'movimientos'}`}
+                  ? contadorProductos(idioma, productos.length)
+                  : contadorMovimientos(idioma, movimientos.length)}
               </p>
             </div>
 
             {pestana === 'saldo' && (
               <button type="button" onClick={abrirNuevoProducto} style={botonNuevo}>
-                + Nuevo producto
+                {t('nuevoProducto')}
               </button>
             )}
           </div>
@@ -627,11 +640,7 @@ export default function MercaderiaPage() {
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder={
-              pestana === 'saldo'
-                ? 'Buscar código, nombre o categoría...'
-                : 'Buscar ID, producto, tipo o categoría...'
-            }
+            placeholder={pestana === 'saldo' ? t('buscarSaldo') : t('buscarMovimientos')}
             style={inputBusqueda}
           />
 
@@ -657,10 +666,10 @@ export default function MercaderiaPage() {
                 }}
               >
                 <div>
-                  <div style={formularioEyebrow}>{editandoProductoId ? 'EDITANDO' : 'NUEVO REGISTRO'}</div>
+                  <div style={formularioEyebrow}>{editandoProductoId ? t('editando') : t('nuevoRegistro')}</div>
 
                   <h3 style={{ margin: 0, color: COLORES.azul, fontSize: 20 }}>
-                    {editandoProductoId ? 'Editar producto' : 'Agregar producto'}
+                    {editandoProductoId ? t('editarProducto') : t('agregarProducto')}
                   </h3>
                 </div>
 
@@ -671,20 +680,20 @@ export default function MercaderiaPage() {
 
               <div style={formGrid}>
                 <div style={campo}>
-                  <label style={label}>Nombre *</label>
+                  <label style={label}>{t('nombre')}</label>
 
                   <input
                     value={formulario.nombre}
                     onChange={(e) =>
                       setFormulario((actual) => ({ ...actual, nombre: e.target.value }))
                     }
-                    placeholder="Nombre del producto"
+                    placeholder={t('nombrePlaceholder')}
                     style={inputFormulario}
                   />
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Categoría</label>
+                  <label style={label}>{t('categoria')}</label>
 
                   <select
                     value={formulario.categoria_producto_id}
@@ -696,7 +705,7 @@ export default function MercaderiaPage() {
                     }
                     style={inputFormulario}
                   >
-                    <option value="">Sin categoría</option>
+                    <option value="">{t('sinCategoria')}</option>
 
                     {categorias.map((categoria) => (
                       <option key={categoria.id} value={categoria.id}>
@@ -707,7 +716,7 @@ export default function MercaderiaPage() {
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Tipo de producto</label>
+                  <label style={label}>{t('tipoProducto')}</label>
 
                   <select
                     value={formulario.tipo_producto}
@@ -716,7 +725,7 @@ export default function MercaderiaPage() {
                     }
                     style={inputFormulario}
                   >
-                    {OPCIONES_TIPO.map((opcion) => (
+                    {opcionesTipo(t).map((opcion) => (
                       <option key={opcion.value} value={opcion.value}>
                         {opcion.label}
                       </option>
@@ -725,7 +734,7 @@ export default function MercaderiaPage() {
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Unidad de medida</label>
+                  <label style={label}>{t('unidadMedida')}</label>
 
                   <select
                     value={formulario.unidad_medida}
@@ -734,7 +743,7 @@ export default function MercaderiaPage() {
                     }
                     style={inputFormulario}
                   >
-                    {OPCIONES_UNIDAD.map((opcion) => (
+                    {opcionesUnidad(t).map((opcion) => (
                       <option key={opcion.value} value={opcion.value}>
                         {opcion.label}
                       </option>
@@ -743,7 +752,7 @@ export default function MercaderiaPage() {
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Proveedor</label>
+                  <label style={label}>{t('proveedor')}</label>
 
                   <select
                     value={formulario.proveedor_id}
@@ -752,7 +761,7 @@ export default function MercaderiaPage() {
                     }
                     style={inputFormulario}
                   >
-                    <option value="">Sin proveedor</option>
+                    <option value="">{t('sinProveedor')}</option>
 
                     {proveedores.map((proveedor) => (
                       <option key={proveedor.id} value={proveedor.id}>
@@ -763,7 +772,7 @@ export default function MercaderiaPage() {
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Fecha de alta</label>
+                  <label style={label}>{t('fechaAlta')}</label>
 
                   <input
                     type="date"
@@ -784,7 +793,7 @@ export default function MercaderiaPage() {
                     paddingBottom: 12,
                   }}
                 >
-                  {editandoProductoId ? 'El código no se puede cambiar.' : 'El código se genera automáticamente.'}
+                  {editandoProductoId ? t('codigoNoCambia') : t('codigoAutomatico')}
                 </div>
               </div>
 
@@ -795,7 +804,7 @@ export default function MercaderiaPage() {
                   style={botonSecundario}
                   disabled={guardando}
                 >
-                  Cancelar
+                  {t('cancelar')}
                 </button>
 
                 <button
@@ -804,7 +813,7 @@ export default function MercaderiaPage() {
                   style={botonGuardar}
                   disabled={guardando}
                 >
-                  {guardando ? 'Guardando...' : editandoProductoId ? 'Guardar cambios' : 'Crear producto'}
+                  {guardando ? t('guardando') : editandoProductoId ? t('guardarCambios') : t('crearProducto')}
                 </button>
               </div>
             </section>
@@ -815,37 +824,42 @@ export default function MercaderiaPage() {
           ================================================== */}
 
           {cargando ? (
-            <div style={cargandoStyle}>Cargando datos...</div>
+            <div style={cargandoStyle}>{t('cargandoDatos')}</div>
           ) : pestana === 'saldo' ? (
             <>
               <SeccionProductos
-                titulo="Con saldo"
+                titulo={t('conSaldo')}
+                esConSaldo
                 emoji="🟢"
                 productos={conSaldoVisibles}
                 abierta={mostrarConSaldo}
                 onToggle={() => setMostrarConSaldo((actual) => !actual)}
-                mensajeVacio="No hay productos con saldo disponible."
+                mensajeVacio={t('sinProductosConSaldo')}
                 esAdmin={esAdmin}
                 simbolo={simboloMoneda(moneda)}
                 onEditar={abrirEditarProducto}
                 onEliminar={eliminarProducto}
                 eliminandoId={eliminandoProductoId}
+                idioma={idioma}
+                t={t}
               />
 
               <div style={{ height: 14 }} />
 
               <SeccionProductos
-                titulo="Sin saldo"
+                titulo={t('sinSaldo')}
                 emoji="⚪"
                 productos={sinSaldoVisibles}
                 abierta={mostrarSinSaldo}
                 onToggle={() => setMostrarSinSaldo((actual) => !actual)}
-                mensajeVacio="No hay productos sin saldo."
+                mensajeVacio={t('sinProductosSinSaldo')}
                 esAdmin={esAdmin}
                 simbolo={simboloMoneda(moneda)}
                 onEditar={abrirEditarProducto}
                 onEliminar={eliminarProducto}
                 eliminandoId={eliminandoProductoId}
+                idioma={idioma}
+                t={t}
               />
             </>
           ) : (
@@ -853,25 +867,25 @@ export default function MercaderiaPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={cabeceraFila}>
-                    <Th style={anchoColumna(75)}>ID Registro</Th>
-                    <Th style={anchoColumna(70)}>Fecha</Th>
-                    <Th style={anchoColumna(60)}>Tipo</Th>
-                    <Th style={anchoColumna(110)}>Producto</Th>
-                    <Th style={anchoColumna(90)}>Categoría</Th>
+                    <Th style={anchoColumna(75)}>{t('idRegistro')}</Th>
+                    <Th style={anchoColumna(70)}>{t('fecha')}</Th>
+                    <Th style={anchoColumna(60)}>{t('tipo')}</Th>
+                    <Th style={anchoColumna(110)}>{t('productoHeader')}</Th>
+                    <Th style={anchoColumna(90)}>{t('categoriaHeader')}</Th>
                     <Th align="right" style={anchoColumna(65)}>
-                      Cantidad
+                      {t('cantidad')}
                     </Th>
                     <Th align="right" style={anchoColumna(75)}>
-                      Monto unitario
+                      {t('montoUnitario')}
                     </Th>
                     <Th align="right" style={anchoColumna(70)}>
-                      Total
+                      {t('total')}
                     </Th>
-                    <Th style={anchoColumna(150)}>Histórico</Th>
-                    <Th style={anchoColumna(80)}>Estado</Th>
+                    <Th style={anchoColumna(150)}>{t('historico')}</Th>
+                    <Th style={anchoColumna(80)}>{t('estadoHeader')}</Th>
                     {esAdmin && (
                       <Th align="right" style={anchoColumna(75)}>
-                        Validado
+                        {t('validadoHeader')}
                       </Th>
                     )}
                   </tr>
@@ -884,7 +898,9 @@ export default function MercaderiaPage() {
                     return (
                       <tr key={fila.id} style={filaStyle}>
                         <Td>{fila.id_operacion || '—'}</Td>
-                        <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
+                        <Td>
+                          {new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}
+                        </Td>
                         <Td>{fila.tipo}</Td>
 
                         <Td
@@ -921,9 +937,9 @@ export default function MercaderiaPage() {
                                 onClick={() => fila.id_operacion && validarMovimiento(fila.id_operacion)}
                                 disabled={!fila.id_operacion || validando === fila.id_operacion}
                                 style={botonValidar}
-                                title="Validar este movimiento y el registro automático que generó en el Libro Diario"
+                                title={t('validarTitle')}
                               >
-                                {validando === fila.id_operacion ? '...' : 'Validado'}
+                                {validando === fila.id_operacion ? '...' : t('validadoBtn')}
                               </button>
                             )}
                           </Td>
@@ -935,7 +951,7 @@ export default function MercaderiaPage() {
                   {!movimientosVisibles.length && (
                     <tr>
                       <td colSpan={esAdmin ? 11 : 10} style={vacioStyle}>
-                        No se encontraron movimientos.
+                        {t('sinMovimientos')}
                       </td>
                     </tr>
                   )}
@@ -955,6 +971,7 @@ export default function MercaderiaPage() {
 
 function SeccionProductos({
   titulo,
+  esConSaldo,
   emoji,
   productos,
   abierta,
@@ -965,8 +982,11 @@ function SeccionProductos({
   onEliminar,
   eliminandoId,
   simbolo,
+  idioma,
+  t,
 }: {
   titulo: string;
+  esConSaldo?: boolean;
   emoji: string;
   productos: ProductoFila[];
   abierta: boolean;
@@ -977,6 +997,8 @@ function SeccionProductos({
   onEliminar: (producto: ProductoFila) => void;
   eliminandoId: string | null;
   simbolo: string;
+  idioma: string | null;
+  t: (clave: any) => string;
 }) {
   const totalUnidades = productos.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventario = productos.reduce((total, producto) => total + producto.valorInventario, 0);
@@ -992,9 +1014,9 @@ function SeccionProductos({
           <span style={contadorPastilla}>{productos.length}</span>
         </span>
 
-        {titulo === 'Con saldo' && (
+        {esConSaldo && (
           <span style={{ fontSize: 12, color: COLORES.gris, fontWeight: 600 }}>
-            {totalUnidades} unidades · Valor inventario: {simbolo} {formatearNumeroEntero(totalInventario)}
+            {totalUnidades} {t('unidades')} · {t('valorInventarioEtiqueta')} {simbolo} {formatearNumeroEntero(totalInventario)}
           </span>
         )}
       </button>
@@ -1004,14 +1026,14 @@ function SeccionProductos({
           <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={cabeceraFila}>
-                <Th>Código</Th>
-                <Th>Producto</Th>
-                <Th>Categoría</Th>
-                <Th align="right">Saldo</Th>
-                <Th align="right">Costo promedio</Th>
-                <Th align="right">Valor inventario</Th>
-                <Th>Estado</Th>
-                {esAdmin && <Th align="right">Acciones</Th>}
+                <Th>{t('codigoHeader')}</Th>
+                <Th>{t('productoHeader')}</Th>
+                <Th>{t('categoriaHeader')}</Th>
+                <Th align="right">{t('saldoHeader')}</Th>
+                <Th align="right">{t('costoPromedioHeader')}</Th>
+                <Th align="right">{t('valorInventarioHeader')}</Th>
+                <Th>{t('estadoHeader')}</Th>
+                {esAdmin && <Th align="right">{t('accionesHeader')}</Th>}
               </tr>
             </thead>
 
@@ -1036,7 +1058,7 @@ function SeccionProductos({
                   <Td align="right">{simbolo} {formatearNumeroEntero(producto.costoPromedio)}</Td>
                   <Td align="right">{simbolo} {formatearNumeroEntero(producto.valorInventario)}</Td>
                   <Td>
-                    {producto.saldo <= 0 ? 'Sin stock' : producto.saldo <= 1 ? 'Bajo stock' : 'Activo'}
+                    {producto.saldo <= 0 ? t('sinStock') : producto.saldo <= 1 ? t('bajoStock') : t('activo')}
                   </Td>
 
                   {esAdmin && (
@@ -1046,9 +1068,9 @@ function SeccionProductos({
                           type="button"
                           onClick={() => onEditar(producto)}
                           style={botonSecundario}
-                          title="Editar producto"
+                          title={t('editarTitle')}
                         >
-                          Editar
+                          {t('editar')}
                         </button>
 
                         <button
@@ -1056,9 +1078,9 @@ function SeccionProductos({
                           onClick={() => onEliminar(producto)}
                           disabled={eliminandoId === producto.id}
                           style={botonEliminar}
-                          title="Eliminar producto (solo si nunca tuvo movimiento)"
+                          title={t('eliminarTitle')}
                         >
-                          {eliminandoId === producto.id ? '...' : 'Eliminar'}
+                          {eliminandoId === producto.id ? '...' : t('eliminar')}
                         </button>
                       </div>
                     </Td>
