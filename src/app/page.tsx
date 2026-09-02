@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
-import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { crearTraductor } from '@/lib/i18n';
@@ -173,41 +173,16 @@ export default function InicioPage() {
       // Módulos habilitados según el PERFIL de la empresa (comercial,
       // servicios, producción, mixto). Es lo que hace que una herramienta
       // como Producción aparezca solo en las empresas que producen, sin
-      // tener que nombrar clientes dentro del código.
-      //
-      // El perfil MIXTO no tiene fila propia en perfil_modulos (no hay
-      // un módulo fijo: depende de qué componentes eligió cada empresa
-      // al darse de alta) — para esas empresas los módulos salen de
-      // empresa_mixto_componentes en su lugar.
-      if (empresaData?.perfil_empresa_id) {
-        const { data: modulosData, error: errorModulos } = await supabase
-          .from('perfil_modulos')
-          .select('modulo')
-          .eq('perfil_empresa_id', empresaData.perfil_empresa_id)
-          .eq('activo', true);
-
-        if (errorModulos) {
-          console.warn('No se pudieron cargar los módulos del perfil:', errorModulos);
-        }
-
-        const { data: componentesMixtoData, error: errorComponentesMixto } = await supabase
-          .from('empresa_mixto_componentes')
-          .select('componente')
-          .eq('empresa_id', perfilData.empresa_id);
-
-        if (errorComponentesMixto) {
-          console.warn('No se pudieron cargar los componentes mixtos:', errorComponentesMixto);
-        }
-
-        setModulos(
-          Array.from(
-            new Set([
-              ...(modulosData ?? []).map((fila) => String(fila.modulo)),
-              ...(componentesMixtoData ?? []).map((fila) => String(fila.componente)),
-            ])
-          )
-        );
-      } else {
+      // tener que nombrar clientes dentro del código. La regla (incluido
+      // el caso Mixto, que no tiene fila propia en perfil_modulos) vive
+      // centralizada en empresaTieneModulo — así el lobby y los accesos
+      // rápidos entre herramientas (AccesosHerramientas) no pueden
+      // volver a divergir entre sí.
+      try {
+        const tieneProduccion = await empresaTieneModulo(perfilData.empresa_id, 'PRODUCCION');
+        setModulos(tieneProduccion ? ['PRODUCCION'] : []);
+      } catch (errorModulos) {
+        console.warn('No se pudo determinar los módulos habilitados:', errorModulos);
         setModulos([]);
       }
 
