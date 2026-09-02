@@ -1,4 +1,5 @@
 import type { Diccionario } from '@/lib/i18n';
+export { perfilEmpresaDisplay } from '@/lib/i18n';
 
 type Clave =
   | 'titulo'
@@ -120,41 +121,3 @@ export function msgErrorCrearCuenta(idioma: string, mensaje: string): string {
     : `No se pudo crear la cuenta: ${mensaje}.`;
 }
 
-// perfiles_empresa es un catálogo fijo de 5 filas (COMERCIAL, FAMILIAR,
-// MIXTO, PRODUCCION, SERVICIOS) cuyo nombre/descripción vienen en
-// español desde la base — acá solo se traduce lo que se muestra en
-// pantalla, igual que nombreOperacionDisplay/nombreCuentaDisplay en
-// lib/i18n.ts.
-const PERFILES_EMPRESA_PT: Record<string, { nombre: string; descripcion: string }> = {
-  COMERCIAL: {
-    nombre: 'Comercial',
-    descripcion: 'Empresa dedicada principalmente à compra, gestão de estoque e venda de produtos.',
-  },
-  FAMILIAR: {
-    nombre: 'Familiar',
-    descripcion: 'Controle de receitas e despesas pessoais ou familiares, sem compra/venda de mercadoria.',
-  },
-  MIXTO: {
-    nombre: 'Misto',
-    descripcion: 'Empresa que combina diferentes modelos de negócio e precisa de uma configuração flexível.',
-  },
-  PRODUCCION: {
-    nombre: 'Produção',
-    descripcion: 'Empresa que compra insumos, transforma ou produz e depois comercializa produtos.',
-  },
-  SERVICIOS: {
-    nombre: 'Serviços',
-    descripcion: 'Empresa cuja atividade principal é prestar serviços a clientes.',
-  },
-};
-
-export function perfilEmpresaDisplay(
-  idioma: string | null | undefined,
-  codigo: string,
-  nombre: string,
-  descripcion: string | null
-): { nombre: string; descripcion: string | null } {
-  if (idioma !== 'PT') return { nombre, descripcion };
-  const traducido = PERFILES_EMPRESA_PT[codigo];
-  return traducido ? traducido : { nombre, descripcion };
-}

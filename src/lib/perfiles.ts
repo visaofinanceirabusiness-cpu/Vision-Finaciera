@@ -24,7 +24,7 @@
 
 import { supabase } from './supabase';
 import { crearObjetivosModelo } from './objetivos';
-import { crearMensajesTutorialModelo } from './mensajesTutorial';
+import { crearMensajesTutorialModelo, crearMensajeBienvenidaOnboarding } from './mensajesTutorial';
 
 export async function empresaYaTieneEsqueleto(empresaId: string) {
   const { count, error } = await supabase
@@ -318,12 +318,18 @@ export async function inicializarEmpresaDesdePerfil(
 
   const { data: perfilEmpresaData } = await supabase
     .from('perfiles_empresa')
-    .select('codigo')
+    .select('codigo, nombre')
     .eq('id', perfilEmpresaId)
     .maybeSingle();
 
   try {
     await crearMensajesTutorialModelo(empresaId, perfilEmpresaData?.codigo, idioma);
+    await crearMensajeBienvenidaOnboarding(
+      empresaId,
+      perfilEmpresaData?.codigo,
+      perfilEmpresaData?.nombre,
+      idioma
+    );
   } catch (errorMensajes) {
     // No queremos que un problema con los tutoriales le impida a la
     // empresa quedar dada de alta — el plan de cuentas y los
