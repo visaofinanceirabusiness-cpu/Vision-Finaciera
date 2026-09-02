@@ -108,6 +108,7 @@ export default function InicioPage() {
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [manejaMercaderia, setManejaMercaderia] = useState(true);
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [estadoSolicitud, setEstadoSolicitud] = useState<
@@ -186,6 +187,22 @@ export default function InicioPage() {
       }
 
       setEmpresa(empresaData);
+
+      // Mensajes financieros sin leer de ESTA empresa — la tarjeta
+      // de "Tenés un mensaje nuevo" solo se muestra si hay al menos
+      // uno. El aislamiento entre empresas lo garantiza la política
+      // RLS de mensajes_financieros, no este chequeo.
+      const { count: countMensajes, error: errorMensajes } = await supabase
+        .from('mensajes_financieros')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', perfilData.empresa_id)
+        .eq('leido', false);
+
+      if (errorMensajes) {
+        console.warn('No se pudo consultar mensajes financieros:', errorMensajes);
+      } else {
+        setMensajesSinLeer(countMensajes ?? 0);
+      }
 
       // Módulos habilitados según el PERFIL de la empresa.
       try {
@@ -671,23 +688,14 @@ export default function InicioPage() {
             NUEVOS MENSAJES
             Acceso al centro de mensajes financieros.
 
-            El punto rojo funciona como indicador visual
-            de notificación. Más adelante podremos conectarlo
-            a un estado real de mensajes leídos/no leídos.
-
-            IMPORTANTE: los 3 mensajes de /mensajes hoy están
-            escritos a mano solo para la empresa de prueba
-            "Encanto" (todavía no hay generación automática por
-            empresa). Por eso esta tarjeta —y el aviso de "tenés
-            un mensaje nuevo"— solo se muestra para esa empresa:
-            mostrarla a todos anunciaba mensajes que no existían
-            para el resto, y los mensajes de Encanto quedaban
-            visibles para cualquiera que entrara. Cuando exista
-            generación real por empresa, este chequeo se reemplaza
-            por "¿esta empresa tiene mensajes sin leer?".
+            El punto rojo y el aviso de "tenés un mensaje nuevo"
+            solo se muestran si esta empresa tiene al menos un
+            mensaje financiero sin leer (mensajesSinLeer, consultado
+            arriba contra mensajes_financieros, filtrado por su
+            propio empresa_id) — nunca se muestran "a ciegas".
         ================================================== */}
 
-        {empresa?.nombre === 'Encanto' && (
+        {mensajesSinLeer > 0 && (
         <Link
           href="/mensajes"
           style={{
