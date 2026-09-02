@@ -7,67 +7,48 @@
 //
 // El logo ahora utiliza la imagen oficial alojada en Supabase.
 
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioPanel, type ClavePanel } from './i18n';
+
 const LOGO_VISAO_FINANCEIRA =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/LOGO%20y%20NOMBRE.jpeg';
 
 const INSTAGRAM_URL =
   'https://www.instagram.com/visaofinanceira.business';
 
-const PILARES = [
-  {
-    icono: '🔎',
-    titulo: 'Información',
-    bajada: 'que aclara',
-  },
-  {
-    icono: '🎯',
-    titulo: 'Decisiones',
-    bajada: 'que impulsan',
-  },
-  {
-    icono: '🛡️',
-    titulo: 'Control',
-    bajada: 'que da seguridad',
-  },
-  {
-    icono: '📈',
-    titulo: 'Estrategias',
-    bajada: 'que generan valor',
-  },
-  {
-    icono: '🤝',
-    titulo: 'Acompañamiento',
-    bajada: 'que hace crecer',
-  },
-];
+function pilares(t: (clave: ClavePanel) => string) {
+  return [
+    { icono: '🔎', titulo: t('pilarInformacionTitulo'), bajada: t('pilarInformacionBajada') },
+    { icono: '🎯', titulo: t('pilarDecisionesTitulo'), bajada: t('pilarDecisionesBajada') },
+    { icono: '🛡️', titulo: t('pilarControlTitulo'), bajada: t('pilarControlBajada') },
+    { icono: '📈', titulo: t('pilarEstrategiasTitulo'), bajada: t('pilarEstrategiasBajada') },
+    { icono: '🤝', titulo: t('pilarAcompanamientoTitulo'), bajada: t('pilarAcompanamientoBajada') },
+  ];
+}
 
-const VALORES = [
-  {
-    icono: '💡',
-    titulo: 'Claridad',
-    bajada: 'para entender tu negocio.',
-  },
-  {
-    icono: '✅',
-    titulo: 'Seguridad',
-    bajada: 'para tomar decisiones.',
-  },
-  {
-    icono: '📊',
-    titulo: 'Crecimiento',
-    bajada: 'para alcanzar tus objetivos.',
-  },
-];
+function valores(t: (clave: ClavePanel) => string) {
+  return [
+    { icono: '💡', titulo: t('valorClaridadTitulo'), bajada: t('valorClaridadBajada') },
+    { icono: '✅', titulo: t('valorSeguridadTitulo'), bajada: t('valorSeguridadBajada') },
+    { icono: '📊', titulo: t('valorCrecimientoTitulo'), bajada: t('valorCrecimientoBajada') },
+  ];
+}
 
 export function PieVisao({
   colores,
+  idioma = 'ES',
 }: {
   colores: {
     azul: string;
     verde: string;
     blanco: string;
   };
+  idioma?: string;
 }) {
+  const t = crearTraductor(diccionarioPanel, idioma);
+  const PILARES = pilares(t);
+  const VALORES = valores(t);
+
   return (
     <footer
       style={{
@@ -126,10 +107,10 @@ export function PieVisao({
           color: colores.azul,
         }}
       >
-        CLARIDAD PARA{' '}
-        <span style={{ color: colores.verde }}>DECIDIR</span>.{' '}
-        SEGURIDAD PARA{' '}
-        <span style={{ color: colores.verde }}>CRECER</span>.
+        {t('lemaParte1')}{' '}
+        <span style={{ color: colores.verde }}>{t('lemaDestacado1')}</span>.{' '}
+        {t('lemaParte2')}{' '}
+        <span style={{ color: colores.verde }}>{t('lemaDestacado2')}</span>.
       </div>
 
       <p
@@ -142,15 +123,15 @@ export function PieVisao({
           color: '#6e7781',
         }}
       >
-        Transformamos información financiera en{' '}
+        {t('parrafoTransformamos1')}{' '}
         <strong style={{ color: colores.verde }}>
-          claridad
+          {t('parrafoTransformamosDestacado1')}
         </strong>{' '}
-        para que tomes mejores decisiones y hagas crecer tu negocio con{' '}
+        {t('parrafoTransformamos2')}{' '}
         <strong style={{ color: colores.verde }}>
-          seguridad
+          {t('parrafoTransformamosDestacado2')}
         </strong>
-        .
+        {t('parrafoTransformamos3')}
       </p>
 
       {/* =================================================
@@ -262,7 +243,7 @@ export function PieVisao({
                 marginBottom: 5,
               }}
             >
-              NUESTRO PROPÓSITO
+              {t('nuestroProposito')}
             </div>
 
             <div
@@ -272,8 +253,7 @@ export function PieVisao({
                 opacity: 0.92,
               }}
             >
-              Ser tu aliado estratégico en la gestión financiera
-              para que tu negocio crezca más, mejor y con visión.
+              {t('parrafoProposito')}
             </div>
           </div>
         </div>
@@ -375,7 +355,7 @@ export function PieVisao({
             />
             <circle cx="17.4" cy="6.6" r="1.15" fill={colores.verde} />
           </svg>
-          Seguinos en Instagram
+          {t('seguinosInstagram')}
         </a>
       </div>
 
@@ -391,7 +371,7 @@ export function PieVisao({
           color: '#9aa4ad',
         }}
       >
-        Visão Financeira · Plataforma de gestión financiera
+        {t('pieDeMarca')}
       </div>
     </footer>
   );

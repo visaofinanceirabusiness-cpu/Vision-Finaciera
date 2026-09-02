@@ -1,24 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioPanel, FRASES_SABIO_POR_IDIOMA } from './i18n';
 
 const SABIO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
-
-// Frases básicas de contabilidad que Sabio va rotando cada 5 minutos,
-// para que el lobby se sienta un poco más vivo e interactivo.
-const FRASES_SABIO = [
-  'El Activo es todo lo que tu negocio tiene y le pertenece.',
-  'El Pasivo es todo lo que tu negocio debe a otros.',
-  'El Patrimonio es lo que te queda a vos después de pagar todas las deudas.',
-  'Registrar cada operación el mismo día evita dolores de cabeza a fin de mes.',
-  'El CMV es el costo de lo que realmente vendiste, no de lo que compraste.',
-  'Un asiento contable siempre tiene un Debe y un Haber que se equilibran.',
-  'La liquidez mide si podés pagar tus deudas de corto plazo con lo que tenés a mano.',
-  'El flujo de caja te dice si entra más plata de la que sale, mes a mes.',
-  'Validar tus operaciones a tiempo mantiene tus informes confiables.',
-  'La rentabilidad muestra qué porcentaje de tus ventas se convierte en ganancia.',
-];
 
 const INTERVALO_FRASE_MS = 5 * 60 * 1000;
 
@@ -41,6 +28,7 @@ type ObjetivoHero = {
 
 export function SabioHero({
   colores,
+  idioma = 'ES',
   nombreEmpresa,
   mensajeBienvenida,
   subtitulo,
@@ -54,6 +42,7 @@ export function SabioHero({
     verde: string;
     blanco: string;
   };
+  idioma?: string;
   nombreEmpresa: string | null | undefined;
   mensajeBienvenida: string;
   subtitulo: string;
@@ -62,15 +51,18 @@ export function SabioHero({
   antiguedad?: string | null;
   objetivos?: ObjetivoHero[];
 }) {
+  const t = crearTraductor(diccionarioPanel, idioma);
+  const frasesSabio = FRASES_SABIO_POR_IDIOMA[idioma === 'PT' ? 'PT' : 'ES'];
   const sabioRef = useRef<HTMLDivElement | null>(null);
   const [fraseIndex, setFraseIndex] = useState(0);
 
   useEffect(() => {
     const intervalo = setInterval(() => {
-      setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length);
+      setFraseIndex((actual) => (actual + 1) % frasesSabio.length);
     }, INTERVALO_FRASE_MS);
 
     return () => clearInterval(intervalo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -154,7 +146,7 @@ export function SabioHero({
               marginBottom: 8,
             }}
           >
-            MI NEGOCIO
+            {t('miNegocioEyebrow')}
           </div>
 
           <h1 style={{ margin: 0, fontSize: 34 }}>
@@ -266,7 +258,7 @@ export function SabioHero({
                     marginBottom: 7,
                   }}
                 >
-                  PROGRESO DE TU NEGOCIO
+                  {t('progresoNegocio')}
                 </div>
 
                 <div
@@ -276,7 +268,7 @@ export function SabioHero({
                     lineHeight: 1.25,
                   }}
                 >
-                  {gamificacion.emoji} Nivel {gamificacion.nivel}
+                  {gamificacion.emoji} {t('nivel')} {gamificacion.nivel}
 
                   <span
                     style={{
@@ -297,7 +289,7 @@ export function SabioHero({
                       fontWeight: 600,
                     }}
                   >
-                    🕒 {antiguedad} en el sistema
+                    🕒 {antiguedad} {t('enElSistema')}
                   </div>
                 )}
               </div>
@@ -323,7 +315,7 @@ export function SabioHero({
                     opacity: 0.8,
                   }}
                 >
-                  operaciones registradas
+                  {t('operacionesRegistradas')}
                 </span>
               </div>
             </div>
@@ -350,7 +342,7 @@ export function SabioHero({
                 opacity: 0.85,
               }}
             >
-              <span>Progreso</span>
+              <span>{t('progreso')}</span>
 
               <span>
                 {gamificacion.progreso}%
@@ -388,16 +380,16 @@ export function SabioHero({
               }}
             >
               <DatoNivel
-                etiqueta="Misión"
+                etiqueta={t('mision')}
                 valor={gamificacion.mision}
               />
 
               <DatoNivel
-                etiqueta="Faltan"
+                etiqueta={t('faltan')}
                 valor={
                   gamificacion.operacionesMax === null
-                    ? '0 operaciones'
-                    : `${gamificacion.faltan} operaciones`
+                    ? t('faltanCero')
+                    : `${gamificacion.faltan} ${t('operacionesPalabra')}`
                 }
               />
             </div>
@@ -432,13 +424,13 @@ export function SabioHero({
               marginBottom: 4,
             }}
           >
-            SABIO
+            {t('sabioEyebrow')}
           </div>
 
           {/* Globo de diálogo — va rotando frases básicas de contabilidad,
               cada 5 minutos solo o al toque con un click */}
           <div
-            onClick={() => setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length)}
+            onClick={() => setFraseIndex((actual) => (actual + 1) % frasesSabio.length)}
             style={{
               position: 'relative',
               background: colores.blanco,
@@ -455,7 +447,7 @@ export function SabioHero({
               cursor: 'pointer',
             }}
           >
-            {FRASES_SABIO[fraseIndex]}
+            {frasesSabio[fraseIndex]}
 
             <div
               style={{
@@ -472,7 +464,7 @@ export function SabioHero({
 
           <div
             ref={sabioRef}
-            onClick={() => setFraseIndex((actual) => (actual + 1) % FRASES_SABIO.length)}
+            onClick={() => setFraseIndex((actual) => (actual + 1) % frasesSabio.length)}
             style={{
               position: 'relative',
               width: 230,
@@ -513,7 +505,7 @@ export function SabioHero({
               textAlign: 'center',
             }}
           >
-            Tu compañero financiero
+            {t('companeroFinanciero')}
           </div>
         </div>
       </div>
