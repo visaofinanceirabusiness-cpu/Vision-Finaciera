@@ -15,6 +15,16 @@ import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { crearTraductor } from '@/lib/i18n';
+import {
+  diccionarioPanelControl,
+  type ClavePanelControl,
+  msgEcuacionNoCierra,
+  msgSaludEndeudamiento,
+  msgFondoRespaldoProgreso,
+  msgNivelBanner,
+  msgFaltanParaSubirNivel,
+} from './i18n';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -35,16 +45,19 @@ type Empresa = {
   rubro: string | null;
   logo_url: string | null;
   moneda: string | null;
+  idioma: string;
 };
 
-const CATEGORIAS_ORDEN: { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] = [
-  { categoria: 'ACTIVIDAD', titulo: 'Primeros pasos', emoji: '🚀' },
-  { categoria: 'METAS', titulo: 'Metas familiares', emoji: '✈️' },
-  { categoria: 'CONTABLE', titulo: 'Contables', emoji: '📒' },
-  { categoria: 'MERCADERIA', titulo: 'Mercadería', emoji: '📦' },
-  { categoria: 'FINANCIERO', titulo: 'Financieros', emoji: '💹' },
-  { categoria: 'MARKETING', titulo: 'Marketing', emoji: '📣' },
-];
+function categoriasOrden(t: (clave: ClavePanelControl) => string): { categoria: CategoriaObjetivo; titulo: string; emoji: string }[] {
+  return [
+    { categoria: 'ACTIVIDAD', titulo: t('categoriaPrimerosPasos'), emoji: '🚀' },
+    { categoria: 'METAS', titulo: t('categoriaMetasFamiliares'), emoji: '✈️' },
+    { categoria: 'CONTABLE', titulo: t('categoriaContables'), emoji: '📒' },
+    { categoria: 'MERCADERIA', titulo: t('categoriaMercaderia'), emoji: '📦' },
+    { categoria: 'FINANCIERO', titulo: t('categoriaFinancieros'), emoji: '💹' },
+    { categoria: 'MARKETING', titulo: t('categoriaMarketing'), emoji: '📣' },
+  ];
+}
 
 type ConfiguracionDashboard = {
   color_primario: string;
@@ -122,7 +135,7 @@ export default function MiNegocioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, moneda, perfil_empresa_id, perfiles_empresa(codigo)')
+        .select('nombre, rubro, logo_url, moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -206,7 +219,7 @@ export default function MiNegocioPage() {
         .sort((a, b) => b.localeCompare(a))
         .map((valor) => ({
           valor,
-          etiqueta: formatearPeriodo(valor),
+          etiqueta: formatearPeriodo(valor, empresaData?.idioma),
         }));
 
       setPeriodos(listaPeriodos);
@@ -255,6 +268,9 @@ export default function MiNegocioPage() {
     cargarIndicadores();
   }, [perfil?.empresa_id, periodoSeleccionado]);
 
+  const idioma = empresa?.idioma ?? 'ES';
+  const t = crearTraductor(diccionarioPanelControl, idioma);
+
   if (cargando) {
     return (
       <div
@@ -268,7 +284,7 @@ export default function MiNegocioPage() {
           fontWeight: 600,
         }}
       >
-        Cargando tu negocio...
+        {t('cargando')}
       </div>
     );
   }
@@ -285,8 +301,8 @@ export default function MiNegocioPage() {
   const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';
 
   const periodoTexto = esTodosLosPeriodos
-    ? 'Todos los períodos'
-    : formatearPeriodo(periodoSeleccionado);
+    ? t('todosLosPeriodos')
+    : formatearPeriodo(periodoSeleccionado, idioma);
 
   return (
     <main
@@ -306,18 +322,18 @@ export default function MiNegocioPage() {
         <header style={encabezadoEstandar}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volverEstandar}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrowEstandar}>GESTIÓN FINANCIERA</div>
+          <div style={eyebrowEstandar}>{t('eyebrowGestionFinanciera')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Panel de Control</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Indicadores, objetivos y evolución de {empresa?.nombre ?? 'tu negocio'}.
+            {t('subtituloConEmpresa')} {empresa?.nombre ?? t('tuNegocioDefault')}.
           </p>
         </header>
 
@@ -340,11 +356,12 @@ export default function MiNegocioPage() {
               fontSize: 13,
             }}
           >
-            <strong>⚠️ La ecuación contable no cierra por {simbolo}{' '}
-            {formatearNumero(Math.abs(indicadores.descuadre))}.</strong>{' '}
-            Activo ({formatearNumero(indicadores.activos)}) no coincide con
-            Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del
-            plan de cuentas.
+            {msgEcuacionNoCierra(
+              idioma,
+              simbolo,
+              formatearNumero(Math.abs(indicadores.descuadre)),
+              formatearNumero(indicadores.activos)
+            )}
           </div>
         )}
 
@@ -375,11 +392,11 @@ export default function MiNegocioPage() {
                 color: colores.verde,
               }}
             >
-              SITUACIÓN ACTUAL
+              {t('eyebrowSituacionActual')}
             </div>
 
             <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-              {esFamiliar ? 'Tu familia hoy' : 'Tu negocio hoy'}
+              {esFamiliar ? t('tuFamiliaHoy') : t('tuNegocioHoy')}
             </h2>
 
             <p
@@ -389,8 +406,7 @@ export default function MiNegocioPage() {
                 color: COLORES_BASE.gris,
               }}
             >
-              Saldos acumulados a la fecha. No cambian con el período que elijas
-              más abajo.
+              {t('ayudaSituacionActual')}
             </p>
           </div>
 
@@ -404,21 +420,21 @@ export default function MiNegocioPage() {
             {esFamiliar ? (
               <>
                 <ResumenEjecutivoCard
-                  titulo="Dinero disponible"
+                  titulo={t('dineroDisponible')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
                   emoji="💵"
                   color={colores.verde}
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Deuda total"
+                  titulo={t('deudaTotal')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                   emoji="💗"
                   color="#b91c1c"
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Patrimonio neto"
+                  titulo={t('patrimonioNeto')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
                   emoji="💙"
                   color={colores.azul}
@@ -427,36 +443,36 @@ export default function MiNegocioPage() {
             ) : (
               <>
                 <ResumenEjecutivoCard
-                  titulo="Activo"
+                  titulo={t('activo')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                   emoji="💚"
                   color={colores.verde}
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Pasivo"
+                  titulo={t('pasivo')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                   emoji="💗"
                   color="#b91c1c"
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Capital"
+                  titulo={t('capital')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
                   emoji="💙"
                   color={colores.azul}
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Saldo en caja"
+                  titulo={t('saldoEnCaja')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
                   emoji="💵"
                   color={colores.azul}
                 />
 
                 <ResumenEjecutivoCard
-                  titulo="Stock bajo"
-                  valor={`${indicadores?.stockBajo ?? 0} productos`}
+                  titulo={t('stockBajo')}
+                  valor={`${indicadores?.stockBajo ?? 0} ${t('productos')}`}
                   emoji="📦"
                   color={colores.acento}
                 />
@@ -493,7 +509,7 @@ export default function MiNegocioPage() {
                 marginBottom: 4,
               }}
             >
-              PERÍODO DE ANÁLISIS
+              {t('eyebrowPeriodo')}
             </div>
 
             <div
@@ -502,7 +518,7 @@ export default function MiNegocioPage() {
                 color: COLORES_BASE.gris,
               }}
             >
-              El dashboard utiliza este período para sus objetivos e indicadores.
+              {t('ayudaPeriodo')}
             </div>
           </div>
 
@@ -527,7 +543,7 @@ export default function MiNegocioPage() {
               </option>
             ))}
 
-            <option value="TODOS">Todos los períodos</option>
+            <option value="TODOS">{t('todosLosPeriodos')}</option>
           </select>
         </section>
 
@@ -567,7 +583,7 @@ export default function MiNegocioPage() {
                     color: colores.verde,
                   }}
                 >
-                  INFORMACIÓN EJECUTIVA
+                  {t('eyebrowInformacionEjecutiva')}
                 </div>
 
                 <h2
@@ -577,7 +593,7 @@ export default function MiNegocioPage() {
                     fontSize: 23,
                   }}
                 >
-                  Resumen Ejecutivo
+                  {t('resumenEjecutivo')}
                 </h2>
 
                 <p
@@ -587,8 +603,7 @@ export default function MiNegocioPage() {
                     color: COLORES_BASE.gris,
                   }}
                 >
-                  Resultados del período seleccionado. La situación patrimonial
-                  acumulada está más arriba.
+                  {t('ayudaResumenEjecutivo')}
                 </p>
               </div>
 
@@ -619,28 +634,28 @@ export default function MiNegocioPage() {
               {esFamiliar ? (
                 <>
                   <ResumenEjecutivoCard
-                    titulo="Ingresos del período"
+                    titulo={t('ingresosDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
                     color={colores.verde}
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Gastos del período"
+                    titulo={t('gastosDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
                     color="#c2410c"
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Ahorro del período"
+                    titulo={t('ahorroDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="🐷"
                     color={colores.azul}
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Tasa de ahorro"
+                    titulo={t('tasaDeAhorro')}
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
                     color={colores.verde}
@@ -649,42 +664,42 @@ export default function MiNegocioPage() {
               ) : (
                 <>
                   <ResumenEjecutivoCard
-                    titulo="Ingreso operativo"
+                    titulo={t('ingresoOperativo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
                     color={colores.verde}
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Costo de mercadería vendida"
+                    titulo={t('cmv')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.cmv ?? 0)}`}
                     emoji="🏷️"
                     color="#b45309"
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Gastos"
+                    titulo={t('gastos')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
                     color="#c2410c"
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Lucro"
+                    titulo={t('lucro')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="💰"
                     color={colores.azul}
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Rentabilidad"
+                    titulo={t('rentabilidad')}
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
                     color={colores.verde}
                   />
 
                   <ResumenEjecutivoCard
-                    titulo="Liquidez corriente"
+                    titulo={t('liquidezCorriente')}
                     valor={`${formatearNumero(indicadores?.liquidez ?? 0)}`}
                     emoji="💧"
                     color="#ca8a04"
@@ -707,17 +722,17 @@ export default function MiNegocioPage() {
                   <DistribucionPieChart
                     datos={indicadores?.gastosCategorias ?? []}
                     simbolo={simbolo}
-                    titulo="🧾 Distribución de gastos"
-                    subtitulo="En qué se fue la plata este período"
-                    mensajeVacio="Todavía no hay gastos registrados en este período."
+                    titulo={t('tituloDistribucionGastos')}
+                    subtitulo={t('subtituloDistribucionGastos')}
+                    mensajeVacio={t('vacioDistribucionGastos')}
                   />
 
                   <DistribucionPieChart
                     datos={indicadores?.ingresosSocios ?? []}
                     simbolo={simbolo}
-                    titulo="👥 Distribución de ingresos"
-                    subtitulo="Cuánto aportó cada socio/a este período"
-                    mensajeVacio="Todavía no hay ingresos con socio/a asignado en este período."
+                    titulo={t('tituloDistribucionIngresos')}
+                    subtitulo={t('subtituloDistribucionIngresos')}
+                    mensajeVacio={t('vacioDistribucionIngresos')}
                   />
                 </>
               ) : (
@@ -767,6 +782,7 @@ export default function MiNegocioPage() {
               patrimonio={indicadores?.patrimonio ?? 0}
               simbolo={simbolo}
               colores={colores}
+              idioma={idioma}
             />
 
             <SeccionFondoRespaldo
@@ -774,6 +790,7 @@ export default function MiNegocioPage() {
               meta={objetivos.find((o) => o.indicador === 'FONDO_EMERGENCIA')}
               simbolo={simbolo}
               colores={colores}
+              idioma={idioma}
             />
           </section>
         )}
@@ -815,7 +832,7 @@ export default function MiNegocioPage() {
                       color: colores.verde,
                     }}
                   >
-                    GESTIÓN
+                    {t('eyebrowGestion')}
                   </div>
 
                   <h2
@@ -825,7 +842,7 @@ export default function MiNegocioPage() {
                       fontSize: 22,
                     }}
                   >
-                    {esFamiliar ? 'Objetivos familiares' : 'Objetivos del mes'}
+                    {esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')}
                   </h2>
 
                   <p
@@ -850,15 +867,15 @@ export default function MiNegocioPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Objetivos acordados
+                  {t('objetivosAcordados')}
                 </div>
               </div>
 
               {esFamiliar && gamificacion && (
-                <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} />
+                <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} idioma={idioma} />
               )}
 
-              {CATEGORIAS_ORDEN.map(({ categoria, titulo, emoji }) => {
+              {categoriasOrden(t).map(({ categoria, titulo, emoji }) => {
                 const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
 
                 // En Familia, los objetivos Contables y Financieros
@@ -888,7 +905,7 @@ export default function MiNegocioPage() {
                           fontSize: 13,
                         }}
                       >
-                        🔒 Próximamente — objetivos conectados a Instagram/WhatsApp.
+                        {t('proximamenteMarketing')}
                       </div>
                     </div>
                   );
@@ -918,6 +935,7 @@ export default function MiNegocioPage() {
                           colorPrimario={colores.azul}
                           colorSecundario={colores.verde}
                           colorAcento={colores.acento}
+                          idioma={idioma}
                         />
                       ))}
                     </div>
@@ -936,7 +954,7 @@ export default function MiNegocioPage() {
                     fontSize: 13,
                   }}
                 >
-                  No hay objetivos configurados todavía.
+                  {t('sinObjetivos')}
                 </div>
               )}
             </section>
@@ -958,7 +976,7 @@ export default function MiNegocioPage() {
               fontSize: 13,
             }}
           >
-            <strong>📊 Vista histórica</strong>
+            <strong>{t('vistaHistoricaTitulo')}</strong>
 
             <div
               style={{
@@ -966,9 +984,7 @@ export default function MiNegocioPage() {
                 color: COLORES_BASE.gris,
               }}
             >
-              En esta vista se analizan todos los períodos. Los objetivos
-              mensuales se muestran únicamente cuando seleccionás un período
-              específico.
+              {t('vistaHistoricaTexto')}
             </div>
           </section>
         )}
@@ -984,7 +1000,7 @@ export default function MiNegocioPage() {
             PIE — Marca Visão Financeira
         ================================================== */}
 
-        <PieVisao colores={colores} />
+        <PieVisao colores={colores} idioma={idioma} />
       </div>
     </main>
   );
@@ -1070,12 +1086,16 @@ function ObjetivoCard({
   colorPrimario,
   colorSecundario,
   colorAcento,
+  idioma,
 }: {
   objetivo: ObjetivoCalculado;
   colorPrimario: string;
   colorSecundario: string;
   colorAcento: string;
+  idioma: string;
 }) {
+  const t = crearTraductor(diccionarioPanelControl, idioma);
+
   if (!objetivo.aplica) {
     return (
       <div
@@ -1089,7 +1109,7 @@ function ObjetivoCard({
         }}
       >
         <strong style={{ color: colorPrimario, fontSize: 13 }}>{objetivo.nombre}</strong>
-        <div style={{ marginTop: 6 }}>No aplica para "Todos los períodos" — elegí un mes.</div>
+        <div style={{ marginTop: 6 }}>{t('noAplicaTodosPeriodos')}</div>
       </div>
     );
   }
@@ -1121,13 +1141,13 @@ function ObjetivoCard({
           : `${objetivo.unidad} ${formatearNumeroEntero(valor)}`;
 
   const info = CATALOGO_INDICADORES[objetivo.indicador];
-  const etiquetaMeta = info?.inverso ? 'Tope' : 'Meta';
+  const etiquetaMeta = info?.inverso ? t('tope') : t('meta');
 
   const resultadoTexto = formatearValor(objetivo.resultado);
   // Productos Estancados usa un umbral fijo de días, no un valor en
   // R$ — mostrar el tope como "90 días" es lo que tiene sentido acá,
   // aunque por dentro se calcule contra un monto.
-  const objetivoTexto = objetivo.indicador === 'STOCK_ESTANCADO' ? '90 días' : formatearValor(objetivo.metaResuelta);
+  const objetivoTexto = objetivo.indicador === 'STOCK_ESTANCADO' ? t('noventaDias') : formatearValor(objetivo.metaResuelta);
 
   return (
     <div
@@ -1170,7 +1190,7 @@ function ObjetivoCard({
               color: COLORES_BASE.gris,
             }}
           >
-            Ahora: {resultadoTexto}
+            {t('ahora')}: {resultadoTexto}
           </div>
         </div>
 
@@ -1186,10 +1206,10 @@ function ObjetivoCard({
           }}
         >
           {cumplido
-            ? 'CUMPLIDO'
+            ? t('cumplido')
             : enCamino
-              ? 'EN CAMINO'
-              : 'PENDIENTE'}
+              ? t('enCamino')
+              : t('pendiente')}
         </span>
       </div>
 
@@ -1234,37 +1254,40 @@ function SeccionEndeudamiento({
   patrimonio,
   simbolo,
   colores,
+  idioma,
 }: {
   deuda: number;
   patrimonio: number;
   simbolo: string;
   colores: { azul: string; verde: string; acento: string; blanco: string };
+  idioma: string;
 }) {
+  const t = crearTraductor(diccionarioPanelControl, idioma);
   const total = deuda + Math.max(patrimonio, 0);
   const proporcionDeuda = total > 0 ? (deuda / total) * 100 : 0;
 
   const salud =
     proporcionDeuda < 30
-      ? { texto: 'Endeudamiento sano', color: colores.verde }
+      ? { texto: t('endeudamientoSano'), color: colores.verde }
       : proporcionDeuda < 60
-        ? { texto: 'Endeudamiento moderado', color: '#d97706' }
-        : { texto: 'Endeudamiento alto', color: '#dc2626' };
+        ? { texto: t('endeudamientoModerado'), color: '#d97706' }
+        : { texto: t('endeudamientoAlto'), color: '#dc2626' };
 
   return (
     <div>
       <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        EQUILIBRIO
+        {t('eyebrowEquilibrio')}
       </div>
 
-      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>Endeudamiento</h3>
+      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('endeudamiento')}</h3>
 
       <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
-        Cuánto de lo que tenés depende de deuda.
+        {t('ayudaEndeudamiento')}
       </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-        <InfoCard etiqueta="Deuda total" valor={`${simbolo} ${formatearNumero(deuda)}`} color="#b91c1c" />
-        <InfoCard etiqueta="Patrimonio neto" valor={`${simbolo} ${formatearNumero(patrimonio)}`} color={colores.azul} />
+        <InfoCard etiqueta={t('deudaTotal')} valor={`${simbolo} ${formatearNumero(deuda)}`} color="#b91c1c" />
+        <InfoCard etiqueta={t('patrimonioNeto')} valor={`${simbolo} ${formatearNumero(patrimonio)}`} color={colores.azul} />
       </div>
 
       <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
@@ -1272,7 +1295,7 @@ function SeccionEndeudamiento({
       </div>
 
       <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: salud.color }}>
-        {salud.texto} — la deuda es el {formatearNumero(proporcionDeuda)}% de deuda + patrimonio.
+        {salud.texto} — {msgSaludEndeudamiento(idioma, formatearNumero(proporcionDeuda))}
       </div>
     </div>
   );
@@ -1283,12 +1306,15 @@ function SeccionFondoRespaldo({
   meta,
   simbolo,
   colores,
+  idioma,
 }: {
   cajaDisponible: number;
   meta: ObjetivoCalculado | undefined;
   simbolo: string;
   colores: { azul: string; verde: string; acento: string; blanco: string };
+  idioma: string;
 }) {
+  const t = crearTraductor(diccionarioPanelControl, idioma);
   const objetivoMonto = meta?.objetivo ?? 0;
   const porcentaje = objetivoMonto > 0 ? Math.min(100, (cajaDisponible / objetivoMonto) * 100) : 0;
   const cumplido = objetivoMonto > 0 && cajaDisponible >= objetivoMonto;
@@ -1296,20 +1322,20 @@ function SeccionFondoRespaldo({
   return (
     <div>
       <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        COLCHÓN
+        {t('eyebrowColchon')}
       </div>
 
-      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>Fondo de respaldo</h3>
+      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('fondoDeRespaldo')}</h3>
 
       <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
-        Plata disponible aparte de lo que necesitás para el día a día.
+        {t('ayudaFondoRespaldo')}
       </p>
 
       {objetivoMonto > 0 ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
             <strong style={{ color: colores.azul }}>{simbolo} {formatearNumero(cajaDisponible)}</strong>
-            <span style={{ color: COLORES_BASE.gris }}>Meta: {simbolo} {formatearNumero(objetivoMonto)}</span>
+            <span style={{ color: COLORES_BASE.gris }}>{t('meta')}: {simbolo} {formatearNumero(objetivoMonto)}</span>
           </div>
 
           <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
@@ -1324,12 +1350,12 @@ function SeccionFondoRespaldo({
           </div>
 
           <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: cumplido ? colores.verde : '#d97706' }}>
-            {cumplido ? '¡Fondo completo!' : `${formatearNumero(porcentaje)}% del fondo objetivo`}
+            {cumplido ? t('fondoCompleto') : msgFondoRespaldoProgreso(idioma, formatearNumero(porcentaje))}
           </div>
         </>
       ) : (
         <div style={{ padding: 16, border: '1px dashed #d6dee5', borderRadius: 14, fontSize: 12, color: COLORES_BASE.gris }}>
-          Configurá una meta de "Fondo de Respaldo" en Objetivos para hacer seguimiento acá.
+          {t('sinMetaFondoRespaldo')}
         </div>
       )}
     </div>
@@ -1339,10 +1365,14 @@ function SeccionFondoRespaldo({
 function ProgresoNivelBanner({
   gamificacion,
   colores,
+  idioma,
 }: {
   gamificacion: ProgresoGamificacion;
   colores: { azul: string; verde: string; acento: string; blanco: string };
+  idioma: string;
 }) {
+  const t = crearTraductor(diccionarioPanelControl, idioma);
+
   return (
     <div
       style={{
@@ -1355,11 +1385,11 @@ function ProgresoNivelBanner({
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: colores.azul }}>
-          {gamificacion.emoji} Nivel {gamificacion.nivel} — {gamificacion.nombre}
+          {msgNivelBanner(idioma, gamificacion.emoji, gamificacion.nivel, gamificacion.nombre)}
         </div>
 
         <span style={{ fontSize: 12, fontWeight: 700, color: colores.verde }}>
-          {gamificacion.operaciones} operaciones registradas
+          {gamificacion.operaciones} {t('operacionesRegistradas')}
         </span>
       </div>
 
@@ -1369,8 +1399,8 @@ function ProgresoNivelBanner({
 
       <div style={{ marginTop: 8, fontSize: 12, color: COLORES_BASE.gris }}>
         {gamificacion.faltan > 0
-          ? `Te faltan ${gamificacion.faltan} operaciones para subir de nivel.`
-          : '¡Nivel máximo alcanzado por ahora!'}
+          ? msgFaltanParaSubirNivel(idioma, gamificacion.faltan)
+          : t('nivelMaximo')}
       </div>
     </div>
   );
@@ -1539,7 +1569,7 @@ const eyebrowEstandar: React.CSSProperties = {
   marginBottom: 8,
 };
 
-function formatearPeriodo(valor: string): string {
+function formatearPeriodo(valor: string, idioma?: string): string {
   const partes = valor.split('-');
 
   if (partes.length < 2) {
@@ -1554,7 +1584,7 @@ function formatearPeriodo(valor: string): string {
   }
 
   return new Date(year, month - 1, 1).toLocaleDateString(
-    'es-AR',
+    idioma === 'PT' ? 'pt-BR' : 'es-AR',
     {
       month: 'long',
       year: 'numeric',
