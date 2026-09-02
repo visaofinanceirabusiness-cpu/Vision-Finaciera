@@ -371,3 +371,21 @@ export function msgConfirmarEliminarYRecargar(idioma: string | null | undefined,
     'No se puede deshacer.'
   );
 }
+
+// Pago, Compra, Extracción y Transferencia le "sacan" plata a un medio
+// de pago (Efectivo, Banco, Pix...). Si ese medio es una cuenta de
+// Activo (plata real), no puede quedar en negativo — igual que vender
+// stock que no existe. saldoTexto/totalTexto ya vienen formateados
+// (con símbolo de moneda) desde la pantalla, para no repetir acá la
+// lógica de formateo de números.
+export function msgSaldoMedioInsuficiente(
+  idioma: string | null | undefined,
+  formaPago: string,
+  saldoTexto: string,
+  totalTexto: string
+): string {
+  if (esPT(idioma)) {
+    return `Não é possível registrar: ${formaPago} ficaria negativo (saldo atual: ${saldoTexto}, esta operação é de ${totalTexto}). Escolha outra forma de pagamento ou um valor menor.`;
+  }
+  return `No se puede registrar: ${formaPago} quedaría en negativo (saldo actual: ${saldoTexto}, esta operación es de ${totalTexto}). Elegí otra forma de pago o un monto menor.`;
+}
