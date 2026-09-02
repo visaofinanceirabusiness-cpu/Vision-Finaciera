@@ -1,6 +1,8 @@
 'use client';
 
 import { ChartCard } from './ChartCard';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCharts } from './i18nCharts';
 
 type DatosCategoria = {
   nombre: string;
@@ -18,7 +20,8 @@ type DatosCategoria = {
 
 const PALETA = ['#f59e0b', '#0ea5e9', '#a855f7', '#16a34a', '#ec4899', '#6366f1'];
 
-export function StockChart({ datos, color }: { datos: DatosCategoria[]; color: string }) {
+export function StockChart({ datos, color, idioma = 'ES' }: { datos: DatosCategoria[]; color: string; idioma?: string }) {
+  const t = crearTraductor(diccionarioCharts, idioma);
   const radio = 78;
 
   const centroX = 150;
@@ -67,7 +70,7 @@ export function StockChart({ datos, color }: { datos: DatosCategoria[]; color: s
   });
 
   return (
-    <ChartCard titulo="📦 Composición del stock" subtitulo="Participación por categoría">
+    <ChartCard titulo={t('tituloStock')} subtitulo={t('subtituloStock')}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, minHeight: 270 }}>
         <svg viewBox="0 0 305 270" style={{ width: '58%', maxWidth: 305, height: 260 }}>
           {segmentos.map((segmento) => (
@@ -83,7 +86,7 @@ export function StockChart({ datos, color }: { datos: DatosCategoria[]; color: s
           <circle cx={centroX} cy={centroY} r="44" fill="#ffffff" />
 
           <text x={centroX} y={centroY + 5} textAnchor="middle" fontSize="15" fontWeight="800" fill="#1f3a5f">
-            STOCK
+            {t('stock')}
           </text>
         </svg>
 
@@ -111,7 +114,7 @@ export function StockChart({ datos, color }: { datos: DatosCategoria[]; color: s
           ))}
 
           {!segmentos.length && (
-            <div style={{ fontSize: 13, color: '#6e7781' }}>Sin stock cargado todavía.</div>
+            <div style={{ fontSize: 13, color: '#6e7781' }}>{t('sinStock')}</div>
           )}
         </div>
       </div>

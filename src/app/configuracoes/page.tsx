@@ -46,6 +46,7 @@ import {
   cambiarActivoObjetivo,
   eliminarObjetivo,
   CATALOGO_INDICADORES,
+  ayudaIndicador,
   type CategoriaObjetivo,
   type IndicadorCodigo,
 } from '@/lib/objetivos';
@@ -2022,7 +2023,7 @@ function FormularioObjetivo({
         />
       </div>
 
-      <p style={{ margin: 0, fontSize: 11.5, color: COLORES.gris }}>{CATALOGO_INDICADORES[indicador].ayuda}</p>
+      <p style={{ margin: 0, fontSize: 11.5, color: COLORES.gris }}>{ayudaIndicador(indicador, idioma)}</p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <input
@@ -2092,7 +2093,7 @@ function ModalEditarObjetivo({
     >
       <div style={{ background: COLORES.blanco, borderRadius: 16, padding: 22, width: '100%', maxWidth: 420 }}>
         <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>{t('editarObjetivoTitulo')}</h3>
-        <p style={{ margin: '0 0 16px', fontSize: 11.5, color: COLORES.gris }}>{CATALOGO_INDICADORES[objetivo.indicador].ayuda}</p>
+        <p style={{ margin: '0 0 16px', fontSize: 11.5, color: COLORES.gris }}>{ayudaIndicador(objetivo.indicador, idioma)}</p>
 
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={campo}>
