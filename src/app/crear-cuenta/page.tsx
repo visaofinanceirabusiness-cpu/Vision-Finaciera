@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { notificarPendienteAlAdmin } from '@/lib/notificarPush';
 import { PAISES_TELEFONO } from '@/lib/paises';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCrearCuenta, msgErrorCrearCuenta } from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -20,11 +22,13 @@ type PerfilEmpresa = {
   descripcion: string | null;
 };
 
-const COMPONENTES_MIXTO = [
-  { valor: 'COMERCIAL', etiqueta: 'Comercial (compra y venta de mercadería)' },
-  { valor: 'SERVICIOS', etiqueta: 'Servicios' },
-  { valor: 'PRODUCCION', etiqueta: 'Producción' },
-];
+function componentesMixtoOpciones(t: (clave: 'comercial' | 'servicios' | 'produccion') => string) {
+  return [
+    { valor: 'COMERCIAL', etiqueta: t('comercial') },
+    { valor: 'SERVICIOS', etiqueta: t('servicios') },
+    { valor: 'PRODUCCION', etiqueta: t('produccion') },
+  ];
+}
 
 // Define qué esquema impositivo recibe el Plano de Contas (ver
 // paisDesdeMoneda en lib/perfiles.ts) — es la moneda real en la que
@@ -46,6 +50,7 @@ export default function CrearCuentaPage() {
   const [numeroTelefono, setNumeroTelefono] = useState('');
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [rubro, setRubro] = useState('');
+  const [idioma, setIdioma] = useState<'ES' | 'PT'>('PT');
   const [moneda, setMoneda] = useState('BRL');
   const [perfilElegido, setPerfilElegido] = useState('');
   const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
@@ -53,6 +58,8 @@ export default function CrearCuentaPage() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [enviado, setEnviado] = useState(false);
+
+  const t = crearTraductor(diccionarioCrearCuenta, idioma);
 
   useEffect(() => {
     async function cargarPerfiles() {
@@ -91,17 +98,17 @@ export default function CrearCuentaPage() {
       !rubro.trim() ||
       !perfilElegido
     ) {
-      setError('Completá todos los campos — son todos obligatorios.');
+      setError(t('errorCompletarCampos'));
       return;
     }
 
     if (contrasena.length < 6) {
-      setError('La contraseña tiene que tener al menos 6 caracteres.');
+      setError(t('errorContrasenaCorta'));
       return;
     }
 
     if (esMixto && componentesMixto.length === 0) {
-      setError('Para el perfil Mixto, elegí al menos un componente (Comercial, Servicios o Producción).');
+      setError(t('errorPerfilMixto'));
       return;
     }
 
@@ -122,8 +129,8 @@ export default function CrearCuentaPage() {
     if (errorSignUp || !signUpData.user) {
       setError(
         errorSignUp?.message === 'User already registered'
-          ? 'Ya existe una cuenta con ese email.'
-          : `No se pudo crear la cuenta: ${errorSignUp?.message ?? 'error desconocido'}.`
+          ? t('errorCuentaExistente')
+          : msgErrorCrearCuenta(idioma, errorSignUp?.message ?? (idioma === 'PT' ? 'erro desconhecido' : 'error desconocido'))
       );
       setEnviando(false);
       return;
@@ -136,7 +143,7 @@ export default function CrearCuentaPage() {
     // chequeo, quedaba creada una solicitud apuntando a un usuario
     // que no existe, imposible de vincular después.
     if (signUpData.user.identities && signUpData.user.identities.length === 0) {
-      setError('Ya existe una cuenta con ese email — probá iniciar sesión, o pedí que te reenvíen la confirmación.');
+      setError(t('errorConfirmacionPendiente'));
       setEnviando(false);
       return;
     }
@@ -151,10 +158,11 @@ export default function CrearCuentaPage() {
       perfil_empresa_id: perfilElegido,
       componentes_mixto: esMixto ? componentesMixto : [],
       moneda,
+      idioma,
     });
 
     if (errorSolicitud) {
-      setError(`La cuenta se creó pero no se pudo enviar la solicitud: ${errorSolicitud.message}`);
+      setError(`${t('errorSolicitud')}: ${errorSolicitud.message}`);
       setEnviando(false);
       return;
     }
@@ -175,11 +183,10 @@ export default function CrearCuentaPage() {
         <div style={{ ...tarjetaStyle, textAlign: 'center' }}>
           <div style={{ fontSize: 42, marginBottom: 10 }}>✅</div>
           <h1 style={{ color: COLORES.azul, fontSize: 22, margin: '0 0 10px' }}>
-            ¡Solicitud enviada!
+            {t('solicitudEnviadaTitulo')}
           </h1>
           <p style={{ color: COLORES.gris, fontSize: 14, lineHeight: 1.6 }}>
-            Ya está registrada. Un administrador va a revisarla y aprobarla — en cuanto eso pase,
-            vas a poder entrar con tu email y contraseña.
+            {t('solicitudEnviadaTexto')}
           </p>
           <Link
             href="/login"
@@ -191,7 +198,7 @@ export default function CrearCuentaPage() {
               textDecoration: 'none',
             }}
           >
-            Ir a iniciar sesión →
+            {t('irAIniciarSesion')}
           </Link>
         </div>
       </main>
@@ -201,10 +208,13 @@ export default function CrearCuentaPage() {
   return (
     <main style={fondoStyle}>
       <div style={tarjetaStyle}>
-        <h1 style={{ color: COLORES.azul, fontSize: 24, margin: '0 0 6px' }}>Crear cuenta</h1>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <SelectorIdioma idioma={idioma} onCambiar={setIdioma} />
+        </div>
+
+        <h1 style={{ color: COLORES.azul, fontSize: 24, margin: '0 0 6px' }}>{t('titulo')}</h1>
         <p style={{ color: COLORES.gris, fontSize: 13, margin: '0 0 22px' }}>
-          Completá tus datos y los de tu negocio. Un administrador va a revisar y aprobar tu
-          solicitud antes de que puedas empezar a operar.
+          {t('subtitulo')}
         </p>
 
         {error && (
@@ -224,34 +234,34 @@ export default function CrearCuentaPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={labelStyle}>Tu nombre *</label>
-            <input style={inputStyle} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Brenda" />
+            <label style={labelStyle}>{t('tuNombre')}</label>
+            <input style={inputStyle} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t('tuNombrePlaceholder')} />
           </div>
 
           <div>
-            <label style={labelStyle}>Email *</label>
+            <label style={labelStyle}>{t('email')}</label>
             <input
               style={inputStyle}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="tuemail@ejemplo.com"
+              placeholder={t('emailPlaceholder')}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Contraseña *</label>
+            <label style={labelStyle}>{t('contrasena')}</label>
             <input
               style={inputStyle}
               type="password"
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
-              placeholder="Al menos 6 caracteres"
+              placeholder={t('contrasenaPlaceholder')}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Teléfono *</label>
+            <label style={labelStyle}>{t('telefono')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <select
                 style={{ ...inputStyle, width: 130, flexShrink: 0 }}
@@ -269,28 +279,28 @@ export default function CrearCuentaPage() {
                 type="tel"
                 value={numeroTelefono}
                 onChange={(e) => setNumeroTelefono(e.target.value)}
-                placeholder="Número"
+                placeholder={t('numero')}
               />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>Nombre de tu empresa/negocio *</label>
+            <label style={labelStyle}>{t('nombreEmpresa')}</label>
             <input
               style={inputStyle}
               value={nombreEmpresa}
               onChange={(e) => setNombreEmpresa(e.target.value)}
-              placeholder="Ej: Mi Negocio"
+              placeholder={t('nombreEmpresaPlaceholder')}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Rubro *</label>
-            <input style={inputStyle} value={rubro} onChange={(e) => setRubro(e.target.value)} placeholder="Ej: Venta de ropa" />
+            <label style={labelStyle}>{t('rubro')}</label>
+            <input style={inputStyle} value={rubro} onChange={(e) => setRubro(e.target.value)} placeholder={t('rubroPlaceholder')} />
           </div>
 
           <div>
-            <label style={labelStyle}>Moneda en la que operás *</label>
+            <label style={labelStyle}>{t('monedaLabel')}</label>
             <select style={inputStyle} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
               {MONEDAS.map((m) => (
                 <option key={m.valor} value={m.valor}>
@@ -301,9 +311,9 @@ export default function CrearCuentaPage() {
           </div>
 
           <div>
-            <label style={labelStyle}>¿Cómo funciona tu negocio? *</label>
+            <label style={labelStyle}>{t('comoFuncionaTuNegocio')}</label>
             {cargandoPerfiles ? (
-              <p style={{ fontSize: 13, color: COLORES.gris }}>Cargando opciones...</p>
+              <p style={{ fontSize: 13, color: COLORES.gris }}>{t('cargandoOpciones')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {perfiles.map((perfil) => (
@@ -343,9 +353,9 @@ export default function CrearCuentaPage() {
 
           {esMixto && (
             <div>
-              <label style={labelStyle}>¿Qué combina tu negocio? *</label>
+              <label style={labelStyle}>{t('queCombinaTuNegocio')}</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {COMPONENTES_MIXTO.map((c) => (
+                {componentesMixtoOpciones(t).map((c) => (
                   <label key={c.valor} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: COLORES.azul }}>
                     <input
                       type="checkbox"
@@ -378,16 +388,47 @@ export default function CrearCuentaPage() {
             opacity: enviando ? 0.7 : 1,
           }}
         >
-          {enviando ? 'Enviando...' : 'Enviar solicitud'}
+          {enviando ? t('enviando') : t('enviarSolicitud')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
           <Link href="/login" style={{ color: COLORES.gris, textDecoration: 'none' }}>
-            ¿Ya tenés cuenta? Iniciá sesión
+            {t('yaTenesCuenta')}
           </Link>
         </p>
       </div>
     </main>
+  );
+}
+
+function SelectorIdioma({
+  idioma,
+  onCambiar,
+}: {
+  idioma: 'ES' | 'PT';
+  onCambiar: (idioma: 'ES' | 'PT') => void;
+}) {
+  return (
+    <div style={{ display: 'inline-flex', borderRadius: 999, border: `1px solid ${COLORES.verde}`, overflow: 'hidden' }}>
+      {(['ES', 'PT'] as const).map((opcion) => (
+        <button
+          key={opcion}
+          type="button"
+          onClick={() => onCambiar(opcion)}
+          style={{
+            border: 'none',
+            padding: '5px 12px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            background: idioma === opcion ? COLORES.verde : COLORES.blanco,
+            color: idioma === opcion ? COLORES.blanco : COLORES.verde,
+          }}
+        >
+          {opcion}
+        </button>
+      ))}
+    </div>
   );
 }
 
