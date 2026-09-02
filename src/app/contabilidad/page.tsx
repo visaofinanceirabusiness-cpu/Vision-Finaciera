@@ -24,7 +24,7 @@ import {
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
-import { crearTraductor, estadoDisplay } from '@/lib/i18n';
+import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18n';
 import {
   diccionarioContabilidad,
   etiquetaRelacion,
@@ -688,7 +688,7 @@ function CentralDeLanzamientosTab({
 
             {operaciones.map((op) => (
               <option key={op} value={op}>
-                {op}
+                {nombreOperacionDisplay(idioma, op)}
               </option>
             ))}
           </select>
@@ -1204,7 +1204,7 @@ function RegistroOperacionesTab() {
                 <tr key={fila.id_operacion} style={filaStyle}>
                   <Td>{fila.id_operacion}</Td>
                   <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}</Td>
-                  <Td>{fila.operacion}</Td>
+                  <Td>{nombreOperacionDisplay(idioma, fila.operacion)}</Td>
                   <Td>{fila.categoria}</Td>
                   <Td>{fila.forma_pago}</Td>
                   <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 220 }}>
@@ -1617,7 +1617,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
                 </Td>
 
                 <Td>
-                  <strong style={{ color: COLORES.azul }}>{fila.operacion}</strong>
+                  <strong style={{ color: COLORES.azul }}>{nombreOperacionDisplay(idioma, fila.operacion)}</strong>
                 </Td>
 
                 <Td>{fila.historico || '—'}</Td>
