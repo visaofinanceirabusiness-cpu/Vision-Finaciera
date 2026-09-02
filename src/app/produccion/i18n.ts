@@ -155,3 +155,23 @@ export function msgNoHayStockSuficiente(idioma: string | null | undefined): stri
     ? '⚠ Não há estoque suficiente para realizar esta produção.'
     : '⚠ No hay stock suficiente para realizar esta producción.';
 }
+
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_PRODUCCION: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Cada producción descuenta del stock los insumos según la receta cargada.',
+    'Si falta stock de un insumo, Sabio te avisa antes de confirmar la producción.',
+    'El costo de un producto terminado se arma con el costo promedio de cada insumo que lleva.',
+    'Revisá tus recetas de vez en cuando — un insumo mal cargado desajusta todo el costo.',
+  ],
+  PT: [
+    'Cada produção desconta do estoque os insumos conforme a receita cadastrada.',
+    'Se faltar estoque de um insumo, Sabio avisa antes de confirmar a produção.',
+    'O custo de um produto acabado é formado pelo custo médio de cada insumo que ele leva.',
+    'Revise suas receitas de vez em quando — um insumo mal cadastrado desajusta todo o custo.',
+  ],
+};
+
+export function frasesSabioProduccion(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_PRODUCCION[idioma === 'PT' ? 'PT' : 'ES'];
+}

@@ -35,7 +35,7 @@ export function SabioWidget({
     verde: string;
     blanco: string;
   };
-  idioma?: string;
+  idioma?: string | null;
   frase?: string;
   onClickFrase?: () => void;
   frases?: string[];
@@ -225,6 +225,21 @@ export function SabioWidget({
       >
         {t('companeroFinanciero')}
       </div>
+
+      {!esControlado && (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: colores.blanco,
+            opacity: 0.65,
+            textAlign: 'center',
+          }}
+        >
+          {t('tocaParaOtroConsejo')}
+        </div>
+      )}
     </div>
   );
 }

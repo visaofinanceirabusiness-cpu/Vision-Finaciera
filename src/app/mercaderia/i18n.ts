@@ -273,3 +273,25 @@ export function contadorMovimientos(idioma: string | null | undefined, cantidad:
   }
   return `${cantidad} ${cantidad === 1 ? 'movimiento' : 'movimientos'}`;
 }
+
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_MERCADERIA: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'El costo promedio de un producto se recalcula solo con cada compra que registrás.',
+    'Un movimiento de mercadería sin validar no impacta todavía en tu Libro Diario.',
+    'El valor de inventario es la suma de cada producto multiplicado por su costo promedio.',
+    'Cada venta genera automáticamente el CMV — el costo de lo que realmente sacaste del stock.',
+    'Si un producto nunca tuvo movimiento, lo podés eliminar sin problema.',
+  ],
+  PT: [
+    'O custo médio de um produto é recalculado sozinho a cada compra que você registra.',
+    'Uma movimentação de mercadoria sem validar ainda não impacta no seu Livro Diário.',
+    'O valor de estoque é a soma de cada produto multiplicado pelo seu custo médio.',
+    'Cada venda gera automaticamente o CMV — o custo do que realmente saiu do estoque.',
+    'Se um produto nunca teve movimentação, você pode excluí-lo sem problema.',
+  ],
+};
+
+export function frasesSabioMercaderia(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_MERCADERIA[idioma === 'PT' ? 'PT' : 'ES'];
+}

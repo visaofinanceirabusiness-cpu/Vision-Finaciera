@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { SabioWidget } from '@/components/panel/SabioWidget';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
@@ -31,6 +32,7 @@ import {
   msgFlujoNetoLabel,
   msgEcuacionCierra,
   msgEcuacionNoCierra,
+  frasesSabioInformes,
 } from './i18n';
 
 // Contexto para no tener que pasar el símbolo de moneda como prop a
@@ -212,6 +214,28 @@ export default function InformesPage() {
             {t('subtitulo')}
           </p>
         </header>
+
+        {/* SABIO — permanente, con tips propios de Informes. */}
+        <div
+          style={{
+            background: `linear-gradient(125deg, ${COLORES.azul} 0%, ${COLORES.azul} 58%, ${COLORES.verde} 100%)`,
+            borderRadius: 24,
+            padding: '24px 28px',
+            marginBottom: 20,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+          }}
+        >
+          <SabioWidget
+            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+            idioma={idioma}
+            frases={frasesSabioInformes(idioma)}
+          />
+        </div>
 
         <main style={panel}>
           <div

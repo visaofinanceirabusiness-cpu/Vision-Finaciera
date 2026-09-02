@@ -529,3 +529,25 @@ export function msgLinkNoConfigurado(idioma: string, plataforma: string) {
     : `🔒 Todavía no está configurado el link de pago de ${plataforma}. Va a estar disponible próximamente.`;
 }
 
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_CONFIGURACOES: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Cada categoría, forma de pago y socio que cargués acá queda disponible en toda la app.',
+    'Generar la Matriz de Operações es lo que deja tu negocio listo para registrar operaciones.',
+    'Podés volver a generar la matriz cuando quieras — no afecta las operaciones ya registradas.',
+    'Los Objetivos te avisan cuando un indicador se aleja de la meta que definiste.',
+    'Revisá el idioma y la moneda de tu empresa acá — se aplican en toda la plataforma.',
+  ],
+  PT: [
+    'Cada categoria, forma de pagamento e sócio que você cadastrar aqui fica disponível em todo o app.',
+    'Gerar a Matriz de Operações é o que deixa seu negócio pronto para registrar operações.',
+    'Você pode gerar a matriz de novo quando quiser — não afeta as operações já registradas.',
+    'Os Objetivos avisam quando um indicador se afasta da meta que você definiu.',
+    'Revise o idioma e a moeda da sua empresa aqui — eles se aplicam em toda a plataforma.',
+  ],
+};
+
+export function frasesSabioConfiguracoes(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_CONFIGURACOES[idioma === 'PT' ? 'PT' : 'ES'];
+}
+

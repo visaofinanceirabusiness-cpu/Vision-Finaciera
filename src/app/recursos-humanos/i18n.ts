@@ -185,3 +185,23 @@ export function mensajeSinRegistros(idioma: string | null | undefined, etiquetas
   }
   return `Todavía no hay ${etiquetas.plural.toLowerCase()} ${etiquetas.femenino ? 'registradas' : 'registrados'}.`;
 }
+
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_RECURSOS_HUMANOS: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Cargar bien tus proveedores y clientes evita errores al registrar una operación.',
+    'Un cliente o proveedor con datos incompletos igual se puede usar — podés completarlos después.',
+    'Solo se puede eliminar un registro si todavía no tiene movimientos cargados.',
+    'Cuantos más clientes y proveedores tengas cargados, más rápido vas a registrar cada operación.',
+  ],
+  PT: [
+    'Cadastrar bem seus fornecedores e clientes evita erros ao registrar uma operação.',
+    'Um cliente ou fornecedor com dados incompletos ainda pode ser usado — você pode completá-los depois.',
+    'Só é possível excluir um cadastro se ele ainda não tiver movimentações registradas.',
+    'Quanto mais clientes e fornecedores você tiver cadastrados, mais rápido vai registrar cada operação.',
+  ],
+};
+
+export function frasesSabioRecursosHumanos(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_RECURSOS_HUMANOS[idioma === 'PT' ? 'PT' : 'ES'];
+}

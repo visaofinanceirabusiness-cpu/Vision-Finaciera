@@ -52,6 +52,7 @@ import {
 } from '@/lib/objetivos';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
+import { SabioWidget } from '@/components/panel/SabioWidget';
 import {
   diccionarioConfiguracoes,
   type ClaveConfiguracoes,
@@ -74,6 +75,7 @@ import {
   msgLinkNoConfigurado,
   nombreOperacionDisplay,
   nombreCuentaDisplay,
+  frasesSabioConfiguracoes,
 } from './i18n';
 
 const COLORES = {
@@ -200,6 +202,28 @@ export default function ConfiguracoesPage() {
             {t('subtitulo')}
           </p>
         </header>
+
+        {/* SABIO — permanente, con tips propios de Configurações. */}
+        <div
+          style={{
+            background: `linear-gradient(125deg, ${COLORES.azul} 0%, ${COLORES.azul} 58%, ${COLORES.verde} 100%)`,
+            borderRadius: 24,
+            padding: '24px 28px',
+            marginBottom: 20,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+          }}
+        >
+          <SabioWidget
+            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+            idioma={idioma}
+            frases={frasesSabioConfiguracoes(idioma)}
+          />
+        </div>
 
         <main style={panel}>
           <div

@@ -20,6 +20,7 @@ export type ClavePanel =
   | 'enElSistema'
   | 'sabioEyebrow'
   | 'companeroFinanciero'
+  | 'tocaParaOtroConsejo'
   // PieVisao
   | 'lemaParte1'
   | 'lemaDestacado1'
@@ -65,6 +66,7 @@ export const diccionarioPanel: Diccionario<ClavePanel> = {
     enElSistema: 'en el sistema',
     sabioEyebrow: 'SABIO',
     companeroFinanciero: 'Tu compañero financiero',
+    tocaParaOtroConsejo: '👆 Tocá para otro consejo',
     lemaParte1: 'CLARIDAD PARA',
     lemaDestacado1: 'DECIDIR',
     lemaParte2: 'SEGURIDAD PARA',
@@ -108,6 +110,7 @@ export const diccionarioPanel: Diccionario<ClavePanel> = {
     enElSistema: 'no sistema',
     sabioEyebrow: 'SABIO',
     companeroFinanciero: 'Seu companheiro financeiro',
+    tocaParaOtroConsejo: '👆 Toque para outra dica',
     lemaParte1: 'CLAREZA PARA',
     lemaDestacado1: 'DECIDIR',
     lemaParte2: 'SEGURANÇA PARA',
