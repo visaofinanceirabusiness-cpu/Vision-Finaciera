@@ -42,7 +42,13 @@ export async function empresaYaTieneEsqueleto(empresaId: string) {
 export async function inicializarEmpresaDesdePerfil(
   empresaId: string,
   perfilEmpresaId: string,
-  idioma: string
+  idioma: string,
+  // No se usa acá adentro: para cuando se llama esta función, la
+  // pantalla que la invoca (CONFIGURAÇÕES → Dados da Empresa) ya
+  // guardó empresas.moneda en la base un paso antes. Se recibe igual
+  // para no romper esa llamada, que pasa los 4 datos del formulario
+  // juntos.
+  moneda?: string
 ) {
   const yaTieneEsqueleto = await empresaYaTieneEsqueleto(empresaId);
 
