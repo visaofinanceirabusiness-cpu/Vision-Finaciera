@@ -14,6 +14,9 @@ type Clave =
   | 'nuevoRegistro'
   | 'cargaOperacion'
   | 'sistemaActivo'
+  | 'tutorialEyebrow'
+  | 'tutorialTitulo'
+  | 'ofrecerTutorial'
   | 'avisoEdicion'
   | 'labelFecha'
   | 'labelOperacion'
@@ -92,6 +95,9 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     nuevoRegistro: 'NUEVO REGISTRO',
     cargaOperacion: 'Cargá una operación',
     sistemaActivo: 'Sistema activo',
+    tutorialEyebrow: 'TUTORIAL GUIADO',
+    tutorialTitulo: 'Cargá tu primera operación',
+    ofrecerTutorial: '🦉 ¿Querés que Sabio te guíe para cargar 3 operaciones de práctica?',
     avisoEdicion: '⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID.',
     labelFecha: 'Fecha',
     labelOperacion: 'Operación',
@@ -171,6 +177,9 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     nuevoRegistro: 'NOVO REGISTRO',
     cargaOperacion: 'Registre uma operação',
     sistemaActivo: 'Sistema ativo',
+    tutorialEyebrow: 'TUTORIAL GUIADO',
+    tutorialTitulo: 'Registre sua primeira operação',
+    ofrecerTutorial: '🦉 Quer que o Sabio te guie para registrar 3 operações de prática?',
     avisoEdicion: '⚠ Ao salvar, a operação é recalculada do zero (estoque, custo e diário) com o mesmo ID.',
     labelFecha: 'Data',
     labelOperacion: 'Operação',
@@ -388,4 +397,55 @@ export function msgSaldoMedioInsuficiente(
     return `Não é possível registrar: ${formaPago} ficaria negativo (saldo atual: ${saldoTexto}, esta operação é de ${totalTexto}). Escolha outra forma de pagamento ou um valor menor.`;
   }
   return `No se puede registrar: ${formaPago} quedaría en negativo (saldo actual: ${saldoTexto}, esta operación es de ${totalTexto}). Elegí otra forma de pago o un monto menor.`;
+}
+
+// ==========================================================
+// TUTORIAL GUIADO — 3 primeras operaciones (Fase 3 del onboarding)
+// ==========================================================
+//
+// Mensajes de Sabio para las 3 operaciones que hay que cargar para
+// terminar el onboarding: Inversión siempre primero (ya tiene
+// categoría/cuenta de fábrica), después Venta o Cobro según el
+// perfil, y por último Compra o Pago según si la empresa maneja
+// mercadería. Ver pasosTutorial() más abajo, que arma esta secuencia.
+
+export function pasosTutorial(esFamiliar: boolean, manejaMercaderia: boolean): string[] {
+  return ['INVERSION', esFamiliar ? 'COBRO' : 'VENTA', manejaMercaderia ? 'COMPRA' : 'PAGO'];
+}
+
+export function msgTutorialCancelar(idioma: string | null | undefined): string {
+  return esPT(idioma) ? 'Sair do tutorial' : 'Salir del tutorial';
+}
+
+export function msgTutorialPaso(
+  idioma: string | null | undefined,
+  paso: number,
+  nombreOperacion: string
+): string {
+  const esPTidioma = esPT(idioma);
+  const nombre = nombreOperacionDisplay(idioma, nombreOperacion);
+
+  const mensajes: Record<number, { es: string; pt: string }> = {
+    0: {
+      es: `¡Hola! 👋 Soy Sabio. Vamos a cargar juntos tus primeras 3 operaciones para terminar de dejar tu sistema listo.\n\nEmpecemos por una ${nombre} — así arrancás con saldo en tu caja.`,
+      pt: `Olá! 👋 Eu sou o Sabio. Vamos registrar juntos suas primeiras 3 operações para deixar seu sistema pronto.\n\nComecemos por um(a) ${nombre} — assim você começa com saldo no seu caixa.`,
+    },
+    1: {
+      es: `¡Muy bien! ✅ Ahora cargá una ${nombre}.`,
+      pt: `Muito bem! ✅ Agora registre um(a) ${nombre}.`,
+    },
+    2: {
+      es: `¡Vamos bien! ✅ Por último, cargá una ${nombre}.`,
+      pt: `Estamos indo bem! ✅ Por último, registre um(a) ${nombre}.`,
+    },
+  };
+
+  const mensaje = mensajes[paso] ?? mensajes[0];
+  return esPTidioma ? mensaje.pt : mensaje.es;
+}
+
+export function msgTutorialCompletado(idioma: string | null | undefined): string {
+  return esPT(idioma)
+    ? '🎉 Muito bem! Você já registrou suas primeiras 3 operações. Te levando para o Painel de Controle...'
+    : '🎉 ¡Muy bien! Ya cargaste tus primeras 3 operaciones. Te llevo al Panel de Control...';
 }
