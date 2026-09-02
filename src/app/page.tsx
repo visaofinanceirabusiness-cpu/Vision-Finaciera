@@ -685,17 +685,19 @@ export default function InicioPage() {
         />
 
         {/* =================================================
-            NUEVOS MENSAJES
-            Acceso al centro de mensajes financieros.
+            MENSAJES
+            Acceso fijo al centro de mensajes financieros — la
+            entrada siempre está, entre otras cosas porque ahora
+            también es el canal de tutoriales de la plataforma.
 
-            El punto rojo y el aviso de "tenés un mensaje nuevo"
-            solo se muestran si esta empresa tiene al menos un
-            mensaje financiero sin leer (mensajesSinLeer, consultado
-            arriba contra mensajes_financieros, filtrado por su
-            propio empresa_id) — nunca se muestran "a ciegas".
+            El punto rojo, el rótulo "NUEVO" y el texto "Tenés un
+            mensaje nuevo" solo se muestran si esta empresa tiene
+            al menos un mensaje sin leer (mensajesSinLeer, contra
+            mensajes_financieros filtrado por su propio empresa_id).
+            Sin mensajes sin leer, la tarjeta se ve igual pero con
+            texto genérico ("Mensajes") — nunca desaparece.
         ================================================== */}
 
-        {mensajesSinLeer > 0 && (
         <Link
           href="/mensajes"
           style={{
@@ -745,23 +747,25 @@ export default function InicioPage() {
                 ✉️
               </span>
 
-              {/* PUNTO ROJO DE NOTIFICACIÓN */}
+              {/* PUNTO ROJO DE NOTIFICACIÓN — solo con mensajes sin leer */}
 
-              <span
-                aria-label="Nuevo mensaje"
-                style={{
-                  position: 'absolute',
-                  top: -5,
-                  right: -5,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: '#dc2626',
-                  border: `3px solid ${colores.blanco}`,
-                  boxShadow:
-                    '0 3px 8px rgba(220,38,38,0.35)',
-                }}
-              />
+              {mensajesSinLeer > 0 && (
+                <span
+                  aria-label="Nuevo mensaje"
+                  style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -5,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: '#dc2626',
+                    border: `3px solid ${colores.blanco}`,
+                    boxShadow:
+                      '0 3px 8px rgba(220,38,38,0.35)',
+                  }}
+                />
+              )}
             </div>
 
             {/* TEXTO */}
@@ -781,17 +785,19 @@ export default function InicioPage() {
                   marginBottom: 4,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    letterSpacing: 1.2,
-                    color: '#dc2626',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  NUEVO
-                </span>
+                {mensajesSinLeer > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 1.2,
+                      color: '#dc2626',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    NUEVO
+                  </span>
+                )}
 
                 <span
                   style={{
@@ -812,7 +818,7 @@ export default function InicioPage() {
                   lineHeight: 1.25,
                 }}
               >
-                Tienes un nuevo mensaje
+                {mensajesSinLeer > 0 ? 'Tenés un mensaje nuevo' : 'Mensajes'}
               </div>
 
               <div
@@ -823,8 +829,9 @@ export default function InicioPage() {
                   lineHeight: 1.4,
                 }}
               >
-                Sabio tiene algo para contarte
-                sobre tu negocio.
+                {mensajesSinLeer > 0
+                  ? 'Sabio tiene algo para contarte sobre tu negocio.'
+                  : 'Análisis y tutoriales de Sabio sobre tu negocio.'}
               </div>
             </div>
 
@@ -843,7 +850,6 @@ export default function InicioPage() {
             </div>
           </section>
         </Link>
-        )}
 
         {/* =================================================
             HERRAMIENTAS
