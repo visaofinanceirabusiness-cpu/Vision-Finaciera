@@ -230,6 +230,13 @@ export default function PanelMaestroPage() {
           email: solicitud.email,
           moneda: solicitud.moneda,
           idioma: solicitud.idioma,
+          // Las empresas nuevas arrancan sin operar: el onboarding
+          // guiado (wizard de datos + 3 operaciones con Sabio) las
+          // deja operativas y recién ahí pone esto en true. Las
+          // empresas que ya existían antes de este campo quedaron en
+          // true por el default de la migración — no se les vuelve a
+          // pedir el tutorial.
+          onboarding_completado: false,
         })
         .select('id, numero_cliente')
         .single();
