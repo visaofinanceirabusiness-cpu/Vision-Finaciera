@@ -12,7 +12,7 @@ import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChar
 import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
-import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
+import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
@@ -722,6 +722,7 @@ export default function MiNegocioPage() {
                   <DistribucionPieChart
                     datos={indicadores?.gastosCategorias ?? []}
                     simbolo={simbolo}
+                    idioma={idioma}
                     titulo={t('tituloDistribucionGastos')}
                     subtitulo={t('subtituloDistribucionGastos')}
                     mensajeVacio={t('vacioDistribucionGastos')}
@@ -730,6 +731,7 @@ export default function MiNegocioPage() {
                   <DistribucionPieChart
                     datos={indicadores?.ingresosSocios ?? []}
                     simbolo={simbolo}
+                    idioma={idioma}
                     titulo={t('tituloDistribucionIngresos')}
                     subtitulo={t('subtituloDistribucionIngresos')}
                     mensajeVacio={t('vacioDistribucionIngresos')}
@@ -741,20 +743,22 @@ export default function MiNegocioPage() {
                     datos={indicadores?.ventasCategorias ?? []}
                     color={colores.acento}
                     simbolo={simbolo}
+                    idioma={idioma}
                   />
 
                   <StockChart
                     datos={indicadores?.stockCategorias ?? []}
                     color={colores.acento}
+                    idioma={idioma}
                   />
                 </>
               )}
             </div>
 
             {esFamiliar ? (
-              <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
+              <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
             ) : (
-              <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} />
+              <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
             )}
           </section>
         )}
@@ -1180,7 +1184,7 @@ function ObjetivoCard({
           >
             {objetivo.nombre}
 
-            <IconoAyuda texto={CATALOGO_INDICADORES[objetivo.indicador]?.ayuda ?? ''} color={colorPrimario} />
+            <IconoAyuda texto={ayudaIndicador(objetivo.indicador, idioma)} color={colorPrimario} />
           </div>
 
           <div

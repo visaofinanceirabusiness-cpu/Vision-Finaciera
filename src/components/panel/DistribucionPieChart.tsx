@@ -1,6 +1,8 @@
 'use client';
 
 import { ChartCard } from './ChartCard';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCharts } from './i18nCharts';
 
 type DatosCategoria = {
   nombre: string;
@@ -23,16 +25,20 @@ const PALETA = ['#dc2626', '#f59e0b', '#0ea5e9', '#a855f7', '#16a34a', '#ec4899'
 export function DistribucionPieChart({
   datos,
   simbolo = 'R$',
+  idioma = 'ES',
   titulo = '🧾 Distribución de gastos',
   subtitulo = 'En qué se fue la plata este período',
   mensajeVacio = 'Todavía no hay datos registrados en este período.',
 }: {
   datos: DatosCategoria[];
   simbolo?: string;
+  idioma?: string;
   titulo?: string;
   subtitulo?: string;
   mensajeVacio?: string;
 }) {
+  const t = crearTraductor(diccionarioCharts, idioma);
+  const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
   const total = datos.reduce((suma, dato) => suma + Math.max(dato.valor, 0), 0);
 
   if (total <= 0) {
@@ -100,11 +106,11 @@ export function DistribucionPieChart({
           <circle cx={cx} cy={cy} r={radio * 0.55} fill="#ffffff" />
 
           <text x={cx} y={cy - 6} textAnchor="middle" fontSize="12" fontWeight="700" fill="#6e7781">
-            Total
+            {t('total')}
           </text>
 
           <text x={cx} y={cy + 16} textAnchor="middle" fontSize="17" fontWeight="800" fill="#1f3a5f">
-            {simbolo}{total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+            {simbolo}{total.toLocaleString(locale, { maximumFractionDigits: 0 })}
           </text>
         </svg>
 
@@ -124,7 +130,7 @@ export function DistribucionPieChart({
               <span style={{ fontSize: 13, fontWeight: 700, color: '#374151', flex: 1 }}>{porcion.nombre}</span>
 
               <span style={{ fontSize: 13, fontWeight: 800, color: '#1f3a5f' }}>
-                {simbolo}{porcion.valor.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                {simbolo}{porcion.valor.toLocaleString(locale, { maximumFractionDigits: 0 })}
               </span>
 
               <span style={{ fontSize: 12, color: '#6e7781', minWidth: 38, textAlign: 'right' }}>

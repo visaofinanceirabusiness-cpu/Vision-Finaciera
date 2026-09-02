@@ -59,9 +59,11 @@ export type ObjetivoCalculado = ObjetivoDefinicion & {
 type InfoIndicador = {
   categoria: CategoriaObjetivo;
   nombreDefault: string;
+  nombreDefaultPT: string;
   unidadDefault: string;
   objetivoDefault: number;
   ayuda: string;
+  ayudaPT: string;
   // Para indicadores donde MENOS es mejor (gastos, compras, productos
   // estancados) — cambia cómo se calcula el % de cumplimiento.
   inverso: boolean;
@@ -71,121 +73,151 @@ export const CATALOGO_INDICADORES: Record<IndicadorCodigo, InfoIndicador> = {
   CAJA_MINIMA: {
     categoria: 'CONTABLE',
     nombreDefault: 'Saldo en Caja',
+    nombreDefaultPT: 'Saldo em Caixa',
     unidadDefault: 'R$',
     objetivoDefault: 1000,
     ayuda: 'Mantener al menos este saldo disponible en Caja/Banco/PIX.',
+    ayudaPT: 'Manter pelo menos este saldo disponível em Caixa/Banco/Pix.',
     inverso: false,
   },
   VENTAS_10PCT: {
     categoria: 'CONTABLE',
     nombreDefault: 'Ventas +10%',
+    nombreDefaultPT: 'Vendas +10%',
     unidadDefault: '%',
     objetivoDefault: 10,
     ayuda: 'Vender al menos este % más que el mes anterior.',
+    ayudaPT: 'Vender pelo menos essa % a mais que o mês anterior.',
     inverso: false,
   },
   GASTOS_CONTROLADOS: {
     categoria: 'CONTABLE',
     nombreDefault: 'Gastos Controlados',
+    nombreDefaultPT: 'Despesas Controladas',
     unidadDefault: 'R$',
     objetivoDefault: 0,
     ayuda: 'Que los gastos del período no superen lo que ingresó a Caja en ese mismo período — así evitás quedarte con flujo de caja negativo.',
+    ayudaPT: 'Que as despesas do período não superem o que entrou em Caixa nesse mesmo período — assim você evita ficar com fluxo de caixa negativo.',
     inverso: true,
   },
   STOCK_ESTANCADO: {
     categoria: 'MERCADERIA',
     nombreDefault: 'Productos Estancados',
+    nombreDefaultPT: 'Produtos Parados',
     unidadDefault: 'R$',
     objetivoDefault: 0,
     ayuda: 'Valor en R$ de la mercadería con más de 90 días sin moverse. Cumplido cuando no hay nada estancado — si aparece un valor, conviene liquidar esos productos (promoción, descuento) antes de que sigan sumando.',
+    ayudaPT: 'Valor em R$ da mercadoria com mais de 90 dias sem se mover. Cumprido quando não há nada parado — se aparecer um valor, convém liquidar esses produtos (promoção, desconto) antes que continuem acumulando.',
     inverso: true,
   },
   VALOR_INVENTARIO: {
     categoria: 'MERCADERIA',
     nombreDefault: 'Valor de Inventario',
+    nombreDefaultPT: 'Valor de Estoque',
     unidadDefault: 'R$',
     objetivoDefault: 1000,
     ayuda: 'Mantener al menos este valor de mercadería en stock.',
+    ayudaPT: 'Manter pelo menos este valor de mercadoria em estoque.',
     inverso: false,
   },
   COMPRAS_CONTROLADAS: {
     categoria: 'MERCADERIA',
     nombreDefault: 'Compras Controladas',
+    nombreDefaultPT: 'Compras Controladas',
     unidadDefault: 'R$',
     objetivoDefault: 500,
     ayuda: 'No comprar más que este monto en el mes.',
+    ayudaPT: 'Não comprar mais do que este valor no mês.',
     inverso: true,
   },
   RENTABILIDAD: {
     categoria: 'FINANCIERO',
     nombreDefault: 'Rentabilidad',
+    nombreDefaultPT: 'Rentabilidade',
     unidadDefault: '%',
     objetivoDefault: 10,
     ayuda: 'Lucro sobre los ingresos del período.',
+    ayudaPT: 'Lucro sobre as receitas do período.',
     inverso: false,
   },
   VOLUMEN_VENTAS: {
     categoria: 'FINANCIERO',
     nombreDefault: 'Volumen de Ventas',
+    nombreDefaultPT: 'Volume de Vendas',
     unidadDefault: 'R$',
     objetivoDefault: 2000,
     ayuda: 'Alcanzar al menos este monto de ventas en el período.',
+    ayudaPT: 'Alcançar pelo menos este valor de vendas no período.',
     inverso: false,
   },
   FONDO_EMERGENCIA: {
     categoria: 'FINANCIERO',
     nombreDefault: 'Fondo de Emergencia',
+    nombreDefaultPT: 'Fundo de Emergência',
     unidadDefault: 'R$',
     objetivoDefault: 2000,
     ayuda: 'Tener siempre disponible al menos este monto en Caja/Banco, aparte de lo que necesitás para operar — un colchón para un mes flojo o un imprevisto.',
+    ayudaPT: 'Ter sempre disponível pelo menos este valor em Caixa/Banco, além do que você precisa para operar — um colchão para um mês fraco ou um imprevisto.',
     inverso: false,
   },
   PRIMERAS_VENTAS: {
     categoria: 'ACTIVIDAD',
     nombreDefault: 'Primeras Ventas',
+    nombreDefaultPT: 'Primeiras Vendas',
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Registrá tus primeras 5 ventas para empezar a ver el sistema funcionando con tus propios datos.',
+    ayudaPT: 'Registre suas primeiras 5 vendas para começar a ver o sistema funcionando com seus próprios dados.',
     inverso: false,
   },
   PRIMEROS_INGRESOS: {
     categoria: 'ACTIVIDAD',
     nombreDefault: 'Primeros Ingresos',
+    nombreDefaultPT: 'Primeiras Receitas',
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Registrá tus primeros 5 ingresos.',
+    ayudaPT: 'Registre suas primeiras 5 receitas.',
     inverso: false,
   },
   PRIMEROS_GASTOS: {
     categoria: 'ACTIVIDAD',
     nombreDefault: 'Primeros Gastos',
+    nombreDefaultPT: 'Primeiras Despesas',
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Registrá tus primeros 5 gastos.',
+    ayudaPT: 'Registre suas primeiras 5 despesas.',
     inverso: false,
   },
   PRIMEROS_CLIENTES: {
     categoria: 'ACTIVIDAD',
     nombreDefault: 'Primeros Clientes',
+    nombreDefaultPT: 'Primeiros Clientes',
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Cargá tus primeros 5 contactos en Recursos Humanos.',
+    ayudaPT: 'Cadastre seus primeiros 5 contatos em Recursos Humanos.',
     inverso: false,
   },
   PRIMEROS_PROVEEDORES: {
     categoria: 'ACTIVIDAD',
     nombreDefault: 'Primeros Proveedores',
+    nombreDefaultPT: 'Primeiros Fornecedores',
     unidadDefault: 'unidades',
     objetivoDefault: 5,
     ayuda: 'Cargá tus primeros 5 proveedores en Recursos Humanos.',
+    ayudaPT: 'Cadastre seus primeiros 5 fornecedores em Recursos Humanos.',
     inverso: false,
   },
   META_AHORRO_LIBRE: {
     categoria: 'METAS',
     nombreDefault: 'Meta de Ahorro',
+    nombreDefaultPT: 'Meta de Poupança',
     unidadDefault: 'R$',
     objetivoDefault: 0,
     ayuda: 'Vos elegís el monto que necesitás juntar. Se mide contra lo acumulado en Plazo Fijo + Inversiones — cada vez que guardes plata para esta meta, registrá una operación de Transferencia hacia esa cuenta en Contabilidad. Si no registrás la transferencia, el progreso no se actualiza.',
+    ayudaPT: 'Você escolhe o valor que precisa juntar. É medido contra o acumulado em Plazo Fijo + Investimentos — cada vez que guardar dinheiro para esta meta, registre uma operação de Transferência para essa conta em Contabilidade. Se não registrar a transferência, o progresso não é atualizado.',
     inverso: false,
   },
 };
@@ -208,9 +240,37 @@ const NOMBRES_POR_PERFIL: Partial<Record<string, Partial<Record<IndicadorCodigo,
   },
 };
 
-function nombrePorPerfil(indicador: IndicadorCodigo, perfilCodigo: string | undefined): string {
+const NOMBRES_POR_PERFIL_PT: Partial<Record<string, Partial<Record<IndicadorCodigo, string>>>> = {
+  FAMILIAR: {
+    CAJA_MINIMA: 'Dinheiro Mínimo Disponível',
+    VENTAS_10PCT: 'Receitas +10%',
+    RENTABILIDAD: 'Taxa de Poupança',
+    VOLUMEN_VENTAS: 'Volume de Receitas',
+    FONDO_EMERGENCIA: 'Fundo de Reserva',
+    PRIMEROS_INGRESOS: 'Primeiras Receitas Registradas',
+    PRIMEROS_GASTOS: 'Primeiras Despesas Registradas',
+    PRIMEROS_CLIENTES: 'Fontes de Receita Cadastradas',
+    PRIMEROS_PROVEEDORES: 'Destinos de Pagamento Cadastrados',
+  },
+};
+
+function nombrePorPerfil(indicador: IndicadorCodigo, perfilCodigo: string | undefined, idioma?: string): string {
+  if (idioma === 'PT') {
+    const renombrePT = perfilCodigo ? NOMBRES_POR_PERFIL_PT[perfilCodigo]?.[indicador] : undefined;
+    return renombrePT ?? CATALOGO_INDICADORES[indicador].nombreDefaultPT;
+  }
+
   const renombre = perfilCodigo ? NOMBRES_POR_PERFIL[perfilCodigo]?.[indicador] : undefined;
   return renombre ?? CATALOGO_INDICADORES[indicador].nombreDefault;
+}
+
+// Texto de ayuda (tooltip) de un indicador, según idioma — a
+// diferencia de nombrePorPerfil, esto no se guarda en la base: se
+// resuelve en cada render, así que el cambio aplica a todos los
+// objetivos existentes sin migrar datos.
+export function ayudaIndicador(indicador: IndicadorCodigo, idioma?: string): string {
+  const info = CATALOGO_INDICADORES[indicador];
+  return idioma === 'PT' ? info.ayudaPT : info.ayuda;
 }
 
 function rangoDelPeriodo(periodo: string): { desde: string; hasta: string } | null {
@@ -591,7 +651,7 @@ export async function eliminarObjetivo(id: string) {
 export async function crearObjetivosModelo(empresaId: string) {
   const { data: empresa } = await supabase
     .from('empresas')
-    .select('moneda, perfil_empresa_id, perfiles_empresa(codigo)')
+    .select('moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')
     .eq('id', empresaId)
     .maybeSingle();
 
@@ -646,7 +706,7 @@ export async function crearObjetivosModelo(empresaId: string) {
     empresa_id: empresaId,
     categoria: m.categoria,
     indicador: m.indicador,
-    nombre: nombrePorPerfil(m.indicador, perfilCodigo),
+    nombre: nombrePorPerfil(m.indicador, perfilCodigo, empresa?.idioma),
     objetivo: CATALOGO_INDICADORES[m.indicador].objetivoDefault,
     unidad: CATALOGO_INDICADORES[m.indicador].unidadDefault === 'R$' ? simboloMoneda : CATALOGO_INDICADORES[m.indicador].unidadDefault,
     orden: m.orden,

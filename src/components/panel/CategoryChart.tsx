@@ -1,6 +1,8 @@
 'use client';
 
 import { ChartCard } from './ChartCard';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCharts } from './i18nCharts';
 
 type DatosCategoria = {
   nombre: string;
@@ -16,15 +18,21 @@ export function CategoryChart({
   datos,
   color,
   simbolo = 'R$',
-  titulo = '🛍️ Ventas por categoría',
-  subtitulo = 'Distribución comercial',
+  idioma = 'ES',
+  titulo,
+  subtitulo,
 }: {
   datos: DatosCategoria[];
   color: string;
   simbolo?: string;
+  idioma?: string;
   titulo?: string;
   subtitulo?: string;
 }) {
+  const t = crearTraductor(diccionarioCharts, idioma);
+  const tituloFinal = titulo ?? t('tituloVentasCategoria');
+  const subtituloFinal = subtitulo ?? t('subtituloVentasCategoria');
+  const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
   const ancho = 520;
   const alto = 270;
 
@@ -43,7 +51,7 @@ export function CategoryChart({
   const paleta = [color, ...PALETA];
 
   return (
-    <ChartCard titulo={titulo} subtitulo={subtitulo}>
+    <ChartCard titulo={tituloFinal} subtitulo={subtituloFinal}>
       <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 270, display: 'block' }}>
         {/* Líneas de referencia horizontales, sin números */}
         {[0, 0.25, 0.5, 0.75, 1].map((factor) => {
@@ -81,7 +89,7 @@ export function CategoryChart({
                 fontWeight="800"
                 fill="#1f3a5f"
               >
-                {simbolo}{dato.valor.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                {simbolo}{dato.valor.toLocaleString(locale, { maximumFractionDigits: 0 })}
               </text>
 
               <text

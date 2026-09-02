@@ -1,6 +1,8 @@
 'use client';
 
 import { ChartCard } from './ChartCard';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCharts } from './i18nCharts';
 
 type PuntoMesFamiliar = {
   mes: string;
@@ -24,7 +26,9 @@ const COLOR_GASTOS = '#dc2626';
 const COLOR_AHORRO = '#1f3a5f';
 const COLOR_DEFICIT = '#dc2626';
 
-export function EvolucionFamiliarChart({ datos, simbolo = 'R$' }: { datos: PuntoMesFamiliar[]; simbolo?: string }) {
+export function EvolucionFamiliarChart({ datos, simbolo = 'R$', idioma = 'ES' }: { datos: PuntoMesFamiliar[]; simbolo?: string; idioma?: string }) {
+  const t = crearTraductor(diccionarioCharts, idioma);
+  const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
   const ancho = 1180;
   const alto = 340;
 
@@ -63,11 +67,11 @@ export function EvolucionFamiliarChart({ datos, simbolo = 'R$' }: { datos: Punto
   }
 
   return (
-    <ChartCard titulo="📈 Evolución de ingresos, gastos y ahorro" subtitulo="Mes a mes">
+    <ChartCard titulo={t('tituloEvolucionFamiliar')} subtitulo={t('subtituloEvolucionFamiliar')}>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Referencia color={COLOR_INGRESOS} etiqueta="Ingresos" />
-        <Referencia color={COLOR_GASTOS} etiqueta="Gastos" />
-        <Referencia color={COLOR_AHORRO} etiqueta="Ahorro" />
+        <Referencia color={COLOR_INGRESOS} etiqueta={t('ingresos')} />
+        <Referencia color={COLOR_GASTOS} etiqueta={t('gastos')} />
+        <Referencia color={COLOR_AHORRO} etiqueta={t('ahorro')} />
       </div>
 
       <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 340, display: 'block' }}>
@@ -128,21 +132,21 @@ export function EvolucionFamiliarChart({ datos, simbolo = 'R$' }: { datos: Punto
               <EtiquetaValor
                 x={puntoIngresos.x}
                 y={puntoIngresos.y - 18}
-                texto={`${simbolo} ${dato.ingresos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                texto={`${simbolo} ${dato.ingresos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                 color={COLOR_INGRESOS}
               />
 
               <EtiquetaValor
                 x={puntoGastos.x}
                 y={puntoGastos.y + 24}
-                texto={`${simbolo} ${dato.gastos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                texto={`${simbolo} ${dato.gastos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                 color={COLOR_GASTOS}
               />
 
               <EtiquetaValor
                 x={puntoAhorro.x}
                 y={dato.ahorro >= 0 ? puntoAhorro.y - 24 : puntoAhorro.y + 24}
-                texto={`${simbolo} ${dato.ahorro.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                texto={`${simbolo} ${dato.ahorro.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                 color={colorAhorro}
                 grande
               />

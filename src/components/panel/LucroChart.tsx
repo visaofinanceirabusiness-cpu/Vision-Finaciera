@@ -1,6 +1,8 @@
 'use client';
 
 import { ChartCard } from './ChartCard';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioCharts } from './i18nCharts';
 
 type PuntoLucroMes = {
   mes: string;
@@ -24,16 +26,23 @@ const COLOR_GASTOS = '#dc2626';
 export function LucroChart({
   datos,
   simbolo = 'R$',
-  titulo = '📈 Evolución de Lucro',
-  subtitulo = 'Ingresos, costos y gastos por mes',
+  idioma = 'ES',
+  titulo,
+  subtitulo,
   mostrarCostos = true,
 }: {
   datos: PuntoLucroMes[];
   simbolo?: string;
+  idioma?: string;
   titulo?: string;
   subtitulo?: string;
   mostrarCostos?: boolean;
 }) {
+  const t = crearTraductor(diccionarioCharts, idioma);
+  const tituloFinal = titulo ?? t('tituloLucro');
+  const subtituloFinal = subtitulo ?? t('subtituloLucro');
+  const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
+
   // Ancho grande a propósito: este gráfico ahora ocupa todo el ancho
   // de la pantalla y puede mostrar 12 meses o más sin apretarse.
   const ancho = 1180;
@@ -70,12 +79,12 @@ export function LucroChart({
   }
 
   return (
-    <ChartCard titulo={titulo} subtitulo={subtitulo}>
+    <ChartCard titulo={tituloFinal} subtitulo={subtituloFinal}>
       {/* Referencias de color */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Referencia color={COLOR_INGRESOS} etiqueta="Ingresos" />
-        {mostrarCostos && <Referencia color={COLOR_COSTOS} etiqueta="Costos" />}
-        <Referencia color={COLOR_GASTOS} etiqueta="Gastos" />
+        <Referencia color={COLOR_INGRESOS} etiqueta={t('ingresos')} />
+        {mostrarCostos && <Referencia color={COLOR_COSTOS} etiqueta={t('costos')} />}
+        <Referencia color={COLOR_GASTOS} etiqueta={t('gastos')} />
       </div>
 
       <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 320, display: 'block' }}>
@@ -129,7 +138,7 @@ export function LucroChart({
                 <EtiquetaValor
                   x={puntoCostos.x}
                   y={puntoCostos.y - 18}
-                  texto={`${simbolo} ${dato.costos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                  texto={`${simbolo} ${dato.costos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                   color={COLOR_COSTOS}
                 />
               )}
@@ -138,7 +147,7 @@ export function LucroChart({
               <EtiquetaValor
                 x={puntoGastos.x}
                 y={puntoGastos.y + 26}
-                texto={`${simbolo} ${dato.gastos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                texto={`${simbolo} ${dato.gastos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                 color={COLOR_GASTOS}
               />
 
@@ -146,7 +155,7 @@ export function LucroChart({
               <EtiquetaValor
                 x={puntoIngresos.x}
                 y={Math.max(22, puntoIngresos.y - 22)}
-                texto={`${simbolo} ${lucro.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`}
+                texto={`${simbolo} ${lucro.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
                 color={lucro >= 0 ? COLOR_INGRESOS : COLOR_GASTOS}
                 grande
               />
