@@ -43,3 +43,24 @@ export function estadoDisplay(idioma: string | null | undefined, valor: string |
 
   return valor || normalizado;
 }
+
+// Nombre visible de una operación (COMPRA, VENTA, etc.) — el valor
+// real (nombreOperacion) es un identificador interno usado como texto
+// literal en reglas_contables/matriz_operaciones/registro_operaciones
+// en TODO el sistema, así que nunca se traduce ni se guarda traducido:
+// esto es solo la etiqueta que se muestra en pantalla.
+const NOMBRE_OPERACION_PT: Record<string, string> = {
+  COMPRA: 'Compra',
+  VENTA: 'Venda',
+  PAGO: 'Pagamento',
+  INVERSION: 'Investimento',
+  EXTRACCION: 'Retirada',
+  COBRO: 'Recebimento',
+  PERDIDA: 'Perda',
+  TRANSFERENCIA: 'Transferência',
+};
+
+export function nombreOperacionDisplay(idioma: string | null | undefined, nombreOperacion: string): string {
+  if (idioma !== 'PT') return nombreOperacion;
+  return NOMBRE_OPERACION_PT[nombreOperacion] ?? nombreOperacion;
+}

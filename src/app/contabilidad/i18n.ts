@@ -1,4 +1,5 @@
 import type { Diccionario } from '@/lib/i18n';
+import { nombreOperacionDisplay } from '@/lib/i18n';
 
 type Clave =
   | 'volver'
@@ -279,7 +280,8 @@ export function msgElegirOperacion(idioma: string | null | undefined): string {
 }
 
 export function msgElegirCategoria(idioma: string | null | undefined, operacion: string): string {
-  return esPT(idioma) ? `Escolha a categoria para "${operacion}".` : `Elegí la categoría para "${operacion}".`;
+  const nombre = nombreOperacionDisplay(idioma, operacion);
+  return esPT(idioma) ? `Escolha a categoria para "${nombre}".` : `Elegí la categoría para "${nombre}".`;
 }
 
 export function msgOperacionActualizada(idioma: string | null | undefined): string {

@@ -6,6 +6,7 @@
 // sumando de a una — ver lib/i18n.ts para la mecánica general.
 
 import type { Diccionario } from '@/lib/i18n';
+export { nombreOperacionDisplay } from '@/lib/i18n';
 
 export type ClaveConfiguracoes =
   | 'preparando'
@@ -526,27 +527,6 @@ export function msgLinkNoConfigurado(idioma: string, plataforma: string) {
   return esPT(idioma)
     ? `🔒 O link de pagamento do ${plataforma} ainda não está configurado. Vai estar disponível em breve.`
     : `🔒 Todavía no está configurado el link de pago de ${plataforma}. Va a estar disponible próximamente.`;
-}
-
-// Nombre visible de una operación (COMPRA, VENTA, etc.) — el valor
-// real (nombreOperacion) es un identificador interno usado como texto
-// literal en reglas_contables/matriz_operaciones/registro_operaciones
-// en TODO el sistema, así que nunca se traduce ni se guarda traducido:
-// esto es solo la etiqueta que se muestra en pantalla.
-const NOMBRE_OPERACION_PT: Record<string, string> = {
-  COMPRA: 'Compra',
-  VENTA: 'Venda',
-  PAGO: 'Pagamento',
-  INVERSION: 'Investimento',
-  EXTRACCION: 'Retirada',
-  COBRO: 'Recebimento',
-  PERDIDA: 'Perda',
-  TRANSFERENCIA: 'Transferência',
-};
-
-export function nombreOperacionDisplay(idioma: string, nombreOperacion: string): string {
-  if (!esPT(idioma)) return nombreOperacion;
-  return NOMBRE_OPERACION_PT[nombreOperacion] ?? nombreOperacion;
 }
 
 // Nombre visible de las cuentas "rubro" (estructurales, sin uso
