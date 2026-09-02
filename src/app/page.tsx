@@ -670,12 +670,24 @@ export default function InicioPage() {
         {/* =================================================
             NUEVOS MENSAJES
             Acceso al centro de mensajes financieros.
-            
+
             El punto rojo funciona como indicador visual
             de notificación. Más adelante podremos conectarlo
             a un estado real de mensajes leídos/no leídos.
+
+            IMPORTANTE: los 3 mensajes de /mensajes hoy están
+            escritos a mano solo para la empresa de prueba
+            "Encanto" (todavía no hay generación automática por
+            empresa). Por eso esta tarjeta —y el aviso de "tenés
+            un mensaje nuevo"— solo se muestra para esa empresa:
+            mostrarla a todos anunciaba mensajes que no existían
+            para el resto, y los mensajes de Encanto quedaban
+            visibles para cualquiera que entrara. Cuando exista
+            generación real por empresa, este chequeo se reemplaza
+            por "¿esta empresa tiene mensajes sin leer?".
         ================================================== */}
 
+        {empresa?.nombre === 'Encanto' && (
         <Link
           href="/mensajes"
           style={{
@@ -823,6 +835,7 @@ export default function InicioPage() {
             </div>
           </section>
         </Link>
+        )}
 
         {/* =================================================
             HERRAMIENTAS
