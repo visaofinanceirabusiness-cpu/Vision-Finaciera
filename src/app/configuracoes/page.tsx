@@ -51,6 +51,7 @@ import {
   type IndicadorCodigo,
 } from '@/lib/objetivos';
 import { crearTraductor } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioConfiguracoes,
   type ClaveConfiguracoes,
@@ -148,6 +149,11 @@ export default function ConfiguracoesPage() {
       if (errorPerfil || !perfil?.empresa_id) {
         setError(t('errorNoSeIdentificoEmpresa'));
         setCargando(false);
+        return;
+      }
+
+      if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+        router.push('/bienvenida');
         return;
       }
 

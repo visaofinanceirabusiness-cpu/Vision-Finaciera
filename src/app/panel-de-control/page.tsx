@@ -16,6 +16,7 @@ import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndi
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioPanelControl,
   type ClavePanelControl,
@@ -128,6 +129,11 @@ export default function MiNegocioPage() {
       if (errorPerfil || !perfilData?.empresa_id) {
         setError('No se pudo identificar la empresa del usuario.');
         setCargando(false);
+        return;
+      }
+
+      if (!(await empresaTieneOnboardingCompleto(perfilData.empresa_id))) {
+        router.push('/bienvenida');
         return;
       }
 

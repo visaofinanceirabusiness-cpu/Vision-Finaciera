@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
+import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
   diccionarioRecursosHumanos,
   obtenerEtiquetas,
@@ -100,6 +101,11 @@ export default function RecursosHumanosPage() {
     if (errorPerfil || !perfil?.empresa_id) {
       setError(t('errorEmpresa'));
       setCargando(false);
+      return;
+    }
+
+    if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
+      router.push('/bienvenida');
       return;
     }
 
