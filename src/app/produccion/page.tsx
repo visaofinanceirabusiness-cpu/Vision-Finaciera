@@ -9,6 +9,15 @@ import {
   CalculoProduccion,
   ProductoProduccion,
 } from '@/lib/produccion';
+import { crearTraductor } from '@/lib/i18n';
+import {
+  diccionarioProduccion,
+  msgStockSuficiente,
+  msgStockFaltante,
+  msgFaltan,
+  msgHayStockSuficiente,
+  msgNoHayStockSuficiente,
+} from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -26,6 +35,7 @@ export default function ProduccionPage() {
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [idioma, setIdioma] = useState<string | null>(null);
   const [productos, setProductos] = useState<ProductoProduccion[]>([]);
   const [productoId, setProductoId] = useState('');
   const [cantidad, setCantidad] = useState('');
@@ -35,6 +45,8 @@ export default function ProduccionPage() {
   const [calculando, setCalculando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+
+  const t = crearTraductor(diccionarioProduccion, idioma);
 
   useEffect(() => {
     async function cargar() {
@@ -54,18 +66,26 @@ export default function ProduccionPage() {
         .maybeSingle();
 
       if (errorPerfil) {
-        setError('No se pudo obtener el perfil de la empresa.');
+        setError(t('errorPerfilEmpresa'));
         setCargandoInicial(false);
         return;
       }
 
       if (!perfil?.empresa_id) {
-        setError('Tu usuario todavía no tiene una empresa asignada.');
+        setError(t('errorSinEmpresa'));
         setCargandoInicial(false);
         return;
       }
 
       setEmpresaId(perfil.empresa_id);
+
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('idioma')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle();
+
+      setIdioma(empresaData?.idioma ?? null);
 
       const { data: productosData, error: errorProductos } = await supabase
         .from('productos')
@@ -75,7 +95,7 @@ export default function ProduccionPage() {
         .order('nombre');
 
       if (errorProductos) {
-        setError('No se pudieron cargar los productos terminados.');
+        setError(t('errorProductosTerminados'));
         setCargandoInicial(false);
         return;
       }
@@ -100,19 +120,19 @@ export default function ProduccionPage() {
 
   async function handleCalcular() {
     if (!empresaId) {
-      setError('No se pudo identificar la empresa.');
+      setError(t('errorSinEmpresaCalcular'));
       return;
     }
 
     if (!productoId) {
-      setError('Seleccioná un producto terminado.');
+      setError(t('errorSeleccionarProducto'));
       return;
     }
 
     const cantidadNumerica = Number(cantidad);
 
     if (!cantidadNumerica || cantidadNumerica <= 0) {
-      setError('La cantidad a producir debe ser mayor que cero.');
+      setError(t('errorCantidadInvalida'));
       return;
     }
 
@@ -131,15 +151,15 @@ export default function ProduccionPage() {
       setCalculo(resultado);
 
       if (resultado.stockSuficiente) {
-        setMensaje('Sabio confirma que hay stock suficiente para producir.');
+        setMensaje(msgStockSuficiente(idioma));
       } else {
-        setMensaje('Sabio detectó que faltan algunos insumos.');
+        setMensaje(msgStockFaltante(idioma));
       }
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
-          : 'No se pudo calcular la producción.'
+          : t('errorCalcular')
       );
     } finally {
       setCalculando(false);
@@ -167,7 +187,7 @@ export default function ProduccionPage() {
           color: COLORES.azul,
         }}
       >
-        <p>Cargando Producción...</p>
+        <p>{t('cargandoProduccion')}</p>
       </div>
     );
   }
@@ -194,7 +214,7 @@ export default function ProduccionPage() {
                 marginBottom: 14,
               }}
             >
-              &larr; Volver a Mi Negocio
+              &larr; {t('volver')}
             </Link>
 
             <p
@@ -206,7 +226,7 @@ export default function ProduccionPage() {
                 letterSpacing: 1.4,
               }}
             >
-              GESTIÓN DE PRODUCCIÓN
+              {t('eyebrow')}
             </p>
 
             <h1
@@ -216,7 +236,7 @@ export default function ProduccionPage() {
                 letterSpacing: '-0.6px',
               }}
             >
-              Producción
+              {t('titulo')}
             </h1>
 
             <p
@@ -228,12 +248,12 @@ export default function ProduccionPage() {
                 maxWidth: 610,
               }}
             >
-              Calculá los insumos necesarios para fabricar tus productos.
+              {t('subtitulo')}
             </p>
           </div>
 
           <div style={sabioMarca}>
-            <span style={sabioTexto}>ASISTIDO POR</span>
+            <span style={sabioTexto}>{t('asistidoPor')}</span>
 
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -248,7 +268,7 @@ export default function ProduccionPage() {
         <main style={panel}>
           <div style={panelTitulo}>
             <div>
-              <p style={eyebrow}>NUEVA PRODUCCIÓN</p>
+              <p style={eyebrow}>{t('eyebrowNueva')}</p>
               <h2
                 style={{
                   margin: 0,
@@ -256,22 +276,22 @@ export default function ProduccionPage() {
                   fontSize: 21,
                 }}
               >
-                Preparar producción
+                {t('prepararProduccion')}
               </h2>
             </div>
 
-            <span style={estadoActivo}>Módulo activo</span>
+            <span style={estadoActivo}>{t('moduloActivo')}</span>
           </div>
 
           {/* DATOS DE PRODUCCIÓN */}
           <div style={grid2}>
-            <Campo label="Producto terminado">
+            <Campo label={t('productoTerminado')}>
               <select
                 value={productoId}
                 onChange={(e) => handleProductoChange(e.target.value)}
                 style={inputStyle}
               >
-                <option value="">Seleccionar producto...</option>
+                <option value="">{t('seleccionarProducto')}</option>
 
                 {productos.map((producto) => (
                   <option key={producto.id} value={producto.id}>
@@ -281,14 +301,14 @@ export default function ProduccionPage() {
               </select>
             </Campo>
 
-            <Campo label="Cantidad a producir">
+            <Campo label={t('cantidadAProducir')}>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 value={cantidad}
                 onChange={(e) => handleCantidadChange(e.target.value)}
-                placeholder="Ej.: 20"
+                placeholder={t('cantidadPlaceholder')}
                 style={inputStyle}
                 disabled={!productoId}
               />
@@ -299,12 +319,12 @@ export default function ProduccionPage() {
           {productoSeleccionado && (
             <div style={infoProducto}>
               <div>
-                <span style={infoLabel}>Producto</span>
+                <span style={infoLabel}>{t('producto')}</span>
                 <strong>{productoSeleccionado.nombre}</strong>
               </div>
 
               <div>
-                <span style={infoLabel}>Unidad</span>
+                <span style={infoLabel}>{t('unidad')}</span>
                 <strong>
                   {productoSeleccionado.unidad_medida ?? 'UNIDAD'}
                 </strong>
@@ -340,7 +360,7 @@ export default function ProduccionPage() {
                     : 1,
               }}
             >
-              {calculando ? 'Calculando...' : 'Calcular consumo'}
+              {calculando ? t('calculando') : t('calcularConsumo')}
             </button>
           </div>
 
@@ -372,7 +392,7 @@ export default function ProduccionPage() {
             <section style={{ marginTop: 28 }}>
               <div style={resultadoHeader}>
                 <div>
-                  <p style={eyebrow}>RESULTADO</p>
+                  <p style={eyebrow}>{t('eyebrowResultado')}</p>
                   <h3
                     style={{
                       margin: 0,
@@ -380,24 +400,24 @@ export default function ProduccionPage() {
                       fontSize: 20,
                     }}
                   >
-                    Consumo estimado
+                    {t('consumoEstimado')}
                   </h3>
                 </div>
 
                 <div style={cantidadResultado}>
-                  <span>Cantidad</span>
+                  <span>{t('cantidad')}</span>
                   <strong>{calculo.cantidadProducir}</strong>
                 </div>
               </div>
 
               <div style={tarjetaReceta}>
                 <div>
-                  <span style={infoLabel}>Receta</span>
+                  <span style={infoLabel}>{t('receta')}</span>
                   <strong>{calculo.receta.nombre}</strong>
                 </div>
 
                 <div>
-                  <span style={infoLabel}>Rinde</span>
+                  <span style={infoLabel}>{t('rinde')}</span>
                   <strong>
                     {calculo.receta.rendimiento}{' '}
                     {calculo.receta.unidad_rendimiento}
@@ -405,7 +425,7 @@ export default function ProduccionPage() {
                 </div>
 
                 <div>
-                  <span style={infoLabel}>Multiplicador</span>
+                  <span style={infoLabel}>{t('multiplicador')}</span>
                   <strong>{calculo.multiplicador.toFixed(2)}×</strong>
                 </div>
               </div>
@@ -414,10 +434,10 @@ export default function ProduccionPage() {
                 <table style={tabla}>
                   <thead>
                     <tr style={{ background: '#f1f5f9' }}>
-                      <Th>Insumo</Th>
-                      <Th align="right">Necesario</Th>
-                      <Th align="right">Disponible</Th>
-                      <Th>Estado</Th>
+                      <Th>{t('insumoHeader')}</Th>
+                      <Th align="right">{t('necesarioHeader')}</Th>
+                      <Th align="right">{t('disponibleHeader')}</Th>
+                      <Th>{t('estadoHeader')}</Th>
                     </tr>
                   </thead>
 
@@ -434,12 +454,12 @@ export default function ProduccionPage() {
                         </Td>
 
                         <Td align="right">
-                          {formatearNumero(insumo.cantidadNecesaria)}{' '}
+                          {formatearNumero(insumo.cantidadNecesaria, idioma)}{' '}
                           {insumo.unidadMedida}
                         </Td>
 
                         <Td align="right">
-                          {formatearNumero(insumo.stockDisponible)}{' '}
+                          {formatearNumero(insumo.stockDisponible, idioma)}{' '}
                           {insumo.unidadMedida}
                         </Td>
 
@@ -456,11 +476,15 @@ export default function ProduccionPage() {
                             }}
                           >
                             {insumo.stockSuficiente
-                              ? 'Disponible'
-                              : `Faltan ${formatearNumero(
-                                  insumo.cantidadNecesaria -
-                                    insumo.stockDisponible
-                                )} ${insumo.unidadMedida}`}
+                              ? t('disponible')
+                              : msgFaltan(
+                                  idioma,
+                                  formatearNumero(
+                                    insumo.cantidadNecesaria - insumo.stockDisponible,
+                                    idioma
+                                  ),
+                                  insumo.unidadMedida
+                                )}
                           </span>
                         </Td>
                       </tr>
@@ -484,8 +508,8 @@ export default function ProduccionPage() {
                 }}
               >
                 {calculo.stockSuficiente
-                  ? `✓ Hay stock suficiente para producir ${calculo.cantidadProducir} ${calculo.producto.nombre}.`
-                  : '⚠ No hay stock suficiente para realizar esta producción.'}
+                  ? msgHayStockSuficiente(idioma, calculo.cantidadProducir, calculo.producto.nombre)
+                  : msgNoHayStockSuficiente(idioma)}
               </div>
 
               {/* TODAVÍA NO PRODUCE */}
@@ -498,7 +522,7 @@ export default function ProduccionPage() {
                     color: COLORES.azul,
                   }}
                 >
-                  Próximo paso
+                  {t('proximoPaso')}
                 </p>
 
                 <p
@@ -509,9 +533,7 @@ export default function ProduccionPage() {
                     lineHeight: 1.5,
                   }}
                 >
-                  La producción todavía no modifica stock. Primero validamos
-                  que el cálculo de receta y consumo sea correcto. Luego
-                  conectaremos el botón de producción con el motor.
+                  {t('proximoPasoTexto')}
                 </p>
               </div>
             </section>
@@ -589,8 +611,8 @@ function Td({
   );
 }
 
-function formatearNumero(valor: number) {
-  return Number(valor).toLocaleString('es-AR', {
+function formatearNumero(valor: number, idioma: string | null) {
+  return Number(valor).toLocaleString(idioma === 'PT' ? 'pt-BR' : 'es-AR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });

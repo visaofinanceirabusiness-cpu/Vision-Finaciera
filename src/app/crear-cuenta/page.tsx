@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { notificarPendienteAlAdmin } from '@/lib/notificarPush';
 import { PAISES_TELEFONO } from '@/lib/paises';
 import { crearTraductor } from '@/lib/i18n';
-import { diccionarioCrearCuenta, msgErrorCrearCuenta } from './i18n';
+import { diccionarioCrearCuenta, msgErrorCrearCuenta, perfilEmpresaDisplay } from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -33,11 +33,19 @@ function componentesMixtoOpciones(t: (clave: 'comercial' | 'servicios' | 'produc
 // Define qué esquema impositivo recibe el Plano de Contas (ver
 // paisDesdeMoneda en lib/perfiles.ts) — es la moneda real en la que
 // opera el negocio, independiente del idioma en el que trabaje.
-const MONEDAS = [
-  { valor: 'ARS', etiqueta: 'Peso argentino (ARS)' },
-  { valor: 'BRL', etiqueta: 'Real brasileño (BRL)' },
-  { valor: 'USD', etiqueta: 'Dólar (USD)' },
-];
+function monedasOpciones(idioma: 'ES' | 'PT') {
+  return idioma === 'PT'
+    ? [
+        { valor: 'ARS', etiqueta: 'Peso argentino (ARS)' },
+        { valor: 'BRL', etiqueta: 'Real brasileiro (BRL)' },
+        { valor: 'USD', etiqueta: 'Dólar (USD)' },
+      ]
+    : [
+        { valor: 'ARS', etiqueta: 'Peso argentino (ARS)' },
+        { valor: 'BRL', etiqueta: 'Real brasileño (BRL)' },
+        { valor: 'USD', etiqueta: 'Dólar (USD)' },
+      ];
+}
 
 export default function CrearCuentaPage() {
   const [perfiles, setPerfiles] = useState<PerfilEmpresa[]>([]);
@@ -302,7 +310,7 @@ export default function CrearCuentaPage() {
           <div>
             <label style={labelStyle}>{t('monedaLabel')}</label>
             <select style={inputStyle} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
-              {MONEDAS.map((m) => (
+              {monedasOpciones(idioma).map((m) => (
                 <option key={m.valor} value={m.valor}>
                   {m.etiqueta}
                 </option>
@@ -316,7 +324,15 @@ export default function CrearCuentaPage() {
               <p style={{ fontSize: 13, color: COLORES.gris }}>{t('cargandoOpciones')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {perfiles.map((perfil) => (
+                {perfiles.map((perfil) => {
+                  const { nombre: nombrePerfil, descripcion: descripcionPerfil } = perfilEmpresaDisplay(
+                    idioma,
+                    perfil.codigo,
+                    perfil.nombre,
+                    perfil.descripcion
+                  );
+
+                  return (
                   <label
                     key={perfil.id}
                     style={{
@@ -338,15 +354,16 @@ export default function CrearCuentaPage() {
                       style={{ marginTop: 3 }}
                     />
                     <span>
-                      <span style={{ fontWeight: 700, color: COLORES.azul, fontSize: 13.5 }}>{perfil.nombre}</span>
-                      {perfil.descripcion && (
+                      <span style={{ fontWeight: 700, color: COLORES.azul, fontSize: 13.5 }}>{nombrePerfil}</span>
+                      {descripcionPerfil && (
                         <span style={{ display: 'block', fontSize: 12, color: COLORES.gris, marginTop: 2 }}>
-                          {perfil.descripcion}
+                          {descripcionPerfil}
                         </span>
                       )}
                     </span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
