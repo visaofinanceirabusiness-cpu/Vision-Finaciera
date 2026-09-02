@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
@@ -59,34 +59,12 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         return;
       }
 
-      const { data: empresa } = await supabase
-        .from('empresas')
-        .select('perfil_empresa_id')
-        .eq('id', perfil.empresa_id)
-        .maybeSingle();
-
       let tieneProduccion = false;
 
-      if (empresa?.perfil_empresa_id) {
-        const { data: modulosData } = await supabase
-          .from('perfil_modulos')
-          .select('modulo')
-          .eq('perfil_empresa_id', empresa.perfil_empresa_id)
-          .eq('activo', true);
-
-        tieneProduccion = (modulosData ?? []).some((fila) => fila.modulo === 'PRODUCCION');
-      }
-
-      // El perfil MIXTO no tiene fila en perfil_modulos — depende de
-      // qué componentes eligió la empresa al darse de alta (ver misma
-      // nota en app/page.tsx).
-      if (!tieneProduccion) {
-        const { data: componentesMixtoData } = await supabase
-          .from('empresa_mixto_componentes')
-          .select('componente')
-          .eq('empresa_id', perfil.empresa_id);
-
-        tieneProduccion = (componentesMixtoData ?? []).some((fila) => fila.componente === 'PRODUCCION');
+      try {
+        tieneProduccion = await empresaTieneModulo(perfil.empresa_id, 'PRODUCCION');
+      } catch (errorProduccion) {
+        console.warn('No se pudo determinar si la empresa tiene Producción:', errorProduccion);
       }
 
       let manejaMercaderia = true;
