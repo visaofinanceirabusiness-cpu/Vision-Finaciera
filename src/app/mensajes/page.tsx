@@ -6,21 +6,22 @@
 // Sabio utiliza este espacio para explicar qué están diciendo
 // los números del negocio.
 //
-// Primera versión:
-// - 3 mensajes de análisis para Encanto.
-// - Los mensajes se despliegan al hacer clic.
-// - Sin gráficos ni tablas.
-// - La información visual y detallada continúa viviendo en el sistema.
+// Los mensajes viven en la tabla mensajes_financieros (empresa_id,
+// periodo, título, texto, leído). El aislamiento entre empresas ya
+// NO depende de ningún chequeo en este código: lo garantiza la
+// política RLS de la tabla (cada usuario solo puede leer las filas
+// de su propia empresa, o un admin de plataforma). Al abrir un
+// mensaje se marca leído en el momento.
 //
-// Más adelante:
-// - Los mensajes serán generados automáticamente.
-// - Se almacenarán por empresa y período.
-// - Se incorporará estado leído/no leído.
-// - Se generará un nuevo conjunto de mensajes cada mes.
+// Todavía pendiente (no es parte de esta pantalla):
+// - Generación automática mensual de los mensajes (hoy se cargan a
+//   mano, por empresa, insertando filas en mensajes_financieros).
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioMensajes, type ClaveMensajes } from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -32,157 +33,28 @@ const COLORES = {
 
 type Empresa = {
   nombre: string;
+  idioma: string | null;
 };
 
 type MensajeFinanciero = {
-  id: number;
+  id: string;
   titulo: string;
   texto: string;
+  leido: boolean;
+  creado_en: string;
 };
-
-const MENSAJES_ENCANTO: MensajeFinanciero[] = [
-  {
-    id: 1,
-
-    titulo: 'Vamos a mirar tu resultado y rentabilidad',
-
-    texto: `Hola, Brenda! 👋
-
-Estuve analizando los números de Encanto y quiero llamar tu atención sobre algo importante.
-
-Hasta el momento, tu negocio presenta un resultado acumulado de R$ 771, sobre una facturación operativa de R$ 2.303.
-
-Esto significa que, después de los costos de las mercaderías y los gastos registrados, aproximadamente R$ 33,50 de cada R$ 100 vendidos permanecen como resultado.
-
-Es un indicador positivo, pero hay un punto que debemos observar juntos.
-
-El resultado no está creciendo de manera constante. En los últimos meses tuvimos una recuperación importante, pero septiembre presentó un resultado negativo de R$ 120.
-
-Esto no significa, por sí solo, que el negocio esté funcionando mal.
-
-Significa que necesitamos entender qué ocurrió este mes.
-
-Puede estar relacionado con el volumen de ventas, el costo de las mercaderías, los gastos o algún movimiento extraordinario.
-
-💡 Mi recomendación:
-
-Antes de aumentar las compras o asumir nuevos compromisos, debemos entender qué provocó este cambio en el resultado de septiembre.
-
-Los números indican que Encanto tiene capacidad para generar resultados, pero necesitamos acompañar más de cerca su evolución mensual.
-
-Un abrazo,
-
-Sabio 🦉
-
-Visão Financeira
-Claridad para decidir. Seguridad para crecer.`,
-  },
-
-  {
-    id: 2,
-
-    titulo: 'Vamos a mirar dónde está tu dinero',
-
-    texto: `Hola, Brenda! 👋
-
-Hoy quiero mirar otro punto importante: la estructura financiera de Encanto.
-
-Actualmente tienes R$ 671 disponibles en caja y no tienes pasivos registrados.
-
-Esto es una situación positiva.
-
-Significa que, dentro de la información registrada en el sistema, la empresa no depende de deudas para mantener su estructura financiera actual.
-
-Pero hay algo importante que debemos entender:
-
-Tener dinero en caja no significa necesariamente que todo ese dinero esté disponible para gastar.
-
-Parte de los recursos de la empresa está aplicada al stock.
-
-Actualmente, el stock representa aproximadamente R$ 280.
-
-Es decir, una parte del patrimonio de Encanto está transformada en productos que todavía deben venderse para volver a convertirse en dinero disponible.
-
-💡 ¿Qué significa esto?
-
-Antes de utilizar toda la caja para comprar nuevos productos, debemos observar cuánto del stock actual realmente está rotando.
-
-El objetivo no es simplemente tener más productos.
-
-El objetivo es conseguir que el capital de la empresa circule y genere retorno.
-
-Por ahora, tu estructura financiera presenta una característica positiva:
-
-Caja disponible y ausencia de pasivos registrados.
-
-Ahora necesitamos trabajar para que ese capital sea utilizado de la manera más eficiente posible.
-
-Un abrazo,
-
-Sabio 🦉
-
-Visão Financeira
-Claridad para decidir. Seguridad para crecer.`,
-  },
-
-  {
-    id: 3,
-
-    titulo: 'Vamos a prestar atención a tu stock',
-
-    texto: `Hola, Brenda! 👋
-
-Hay una información de tus números que merece nuestra atención especial.
-
-Encanto generó R$ 2.303 en ventas, mientras que el costo de las mercaderías vendidas fue de R$ 1.308.
-
-Esto significa que una parte importante de los ingresos está siendo utilizada para cubrir el costo de los productos vendidos.
-
-Hasta aquí, esto es normal para una empresa comercial.
-
-Lo interesante está en cómo está distribuido el dinero entre las categorías.
-
-Los productos de belleza representan la mayor parte de las ventas, con R$ 1.683.
-
-Al mismo tiempo, los accesorios tienen una participación muy importante en el stock actual.
-
-💡 Esto nos lleva a una pregunta importante:
-
-¿Estamos colocando más dinero en stock justamente en los productos que más rotan?
-
-Esta es una pregunta financiera, no solamente comercial.
-
-Un producto puede tener un buen margen y aun así no ser una buena aplicación de capital si permanece demasiado tiempo inmovilizado.
-
-Por eso, para las próximas compras, mi sugerencia es observar tres cosas:
-
-Margen + rotación + capital invertido.
-
-No necesitamos simplemente vender más.
-
-Necesitamos conseguir que cada real invertido en stock tenga capacidad de regresar a la empresa y generar un nuevo resultado.
-
-Este será uno de los puntos que vale la pena acompañar durante los próximos meses.
-
-Un abrazo,
-
-Sabio 🦉
-
-Visão Financeira
-Claridad para decidir. Seguridad para crecer.`,
-  },
-];
 
 export default function MensajesPage() {
   const router = useRouter();
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [mensajeAbierto, setMensajeAbierto] = useState<number | null>(null);
+  const [mensajes, setMensajes] = useState<MensajeFinanciero[]>([]);
+  const [mensajeAbierto, setMensajeAbierto] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function cargarEmpresa() {
+    async function cargarDatos() {
       setError('');
 
       const { data: usuarioData } = await supabase.auth.getUser();
@@ -204,11 +76,16 @@ export default function MensajesPage() {
         return;
       }
 
-      const { data: empresaData, error: errorEmpresa } = await supabase
-        .from('empresas')
-        .select('nombre')
-        .eq('id', perfilData.empresa_id)
-        .maybeSingle();
+      const [{ data: empresaData, error: errorEmpresa }, { data: mensajesData, error: errorMensajes }] =
+        await Promise.all([
+          supabase.from('empresas').select('nombre, idioma').eq('id', perfilData.empresa_id).maybeSingle(),
+
+          supabase
+            .from('mensajes_financieros')
+            .select('id, titulo, texto, leido, creado_en')
+            .eq('empresa_id', perfilData.empresa_id)
+            .order('creado_en', { ascending: false }),
+        ]);
 
       if (errorEmpresa) {
         setError(`No se pudo cargar la empresa: ${errorEmpresa.message}`);
@@ -216,12 +93,40 @@ export default function MensajesPage() {
         return;
       }
 
+      if (errorMensajes) {
+        setError(`No se pudieron cargar los mensajes: ${errorMensajes.message}`);
+        setCargando(false);
+        return;
+      }
+
       setEmpresa(empresaData);
+      setMensajes((mensajesData ?? []) as MensajeFinanciero[]);
       setCargando(false);
     }
 
-    cargarEmpresa();
+    cargarDatos();
   }, [router]);
+
+  const idioma = empresa?.idioma ?? 'ES';
+  const t = crearTraductor(diccionarioMensajes, idioma);
+
+  async function abrirMensaje(mensaje: MensajeFinanciero) {
+    const yaAbierto = mensajeAbierto === mensaje.id;
+    setMensajeAbierto(yaAbierto ? null : mensaje.id);
+
+    if (!yaAbierto && !mensaje.leido) {
+      setMensajes((actual) => actual.map((m) => (m.id === mensaje.id ? { ...m, leido: true } : m)));
+
+      const { error: errorLeido } = await supabase
+        .from('mensajes_financieros')
+        .update({ leido: true })
+        .eq('id', mensaje.id);
+
+      if (errorLeido) {
+        console.warn('No se pudo marcar el mensaje como leído:', errorLeido);
+      }
+    }
+  }
 
   if (cargando) {
     return (
@@ -236,7 +141,7 @@ export default function MensajesPage() {
           fontWeight: 700,
         }}
       >
-        Cargando mensajes...
+        {t('cargandoMensajes')}
       </main>
     );
   }
@@ -272,7 +177,7 @@ export default function MensajesPage() {
               fontSize: 21,
             }}
           >
-            No pudimos cargar tus mensajes
+            {t('errorTitulo')}
           </h1>
 
           <p
@@ -298,7 +203,7 @@ export default function MensajesPage() {
               cursor: 'pointer',
             }}
           >
-            Volver al inicio
+            {t('volverAlInicioBoton')}
           </button>
         </section>
       </main>
@@ -335,7 +240,7 @@ export default function MensajesPage() {
             fontSize: 14,
           }}
         >
-          ← Volver al inicio
+          {t('volverAlInicio')}
         </button>
 
         {/* ENCABEZADO */}
@@ -383,7 +288,7 @@ export default function MensajesPage() {
                   textTransform: 'uppercase',
                 }}
               >
-                Visão Financeira
+                {t('marcaVisaoFinanceira')}
               </div>
 
               <div
@@ -393,7 +298,7 @@ export default function MensajesPage() {
                   marginTop: 3,
                 }}
               >
-                Mensajes para {empresa?.nombre ?? 'tu negocio'}
+                {t('mensajesPara')} {empresa?.nombre ?? 'tu negocio'}
               </div>
             </div>
           </div>
@@ -406,7 +311,7 @@ export default function MensajesPage() {
               lineHeight: 1.2,
             }}
           >
-            Lo que tus números están diciendo
+            {t('tituloPagina')}
           </h1>
 
           <p
@@ -417,142 +322,175 @@ export default function MensajesPage() {
               fontSize: 14,
             }}
           >
-            Sabio analizó la información de tu negocio y separó algunos
-            puntos importantes para que puedas tomar mejores decisiones.
+            {t('subtituloPagina')}
           </p>
         </section>
 
         {/* MENSAJES */}
 
-        <div
-          style={{
-            display: 'grid',
-            gap: 12,
-          }}
-        >
-          {MENSAJES_ENCANTO.map((mensaje, indice) => {
-            const estaAbierto = mensajeAbierto === mensaje.id;
+        {mensajes.length === 0 ? (
+          <section
+            style={{
+              background: COLORES.blanco,
+              borderRadius: 18,
+              border: '1px dashed #d6dee5',
+              padding: '36px 28px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✉️</div>
 
-            return (
-              <section
-                key={mensaje.id}
-                style={{
-                  background: COLORES.blanco,
-                  borderRadius: 18,
-                  border: estaAbierto
-                    ? `1px solid ${COLORES.verde}`
-                    : '1px solid #e5e7eb',
-                  overflow: 'hidden',
-                  boxShadow: estaAbierto
-                    ? '0 10px 25px rgba(46,139,87,0.08)'
-                    : '0 5px 15px rgba(31,58,95,0.04)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <button
-                  onClick={() =>
-                    setMensajeAbierto(
-                      estaAbierto ? null : mensaje.id
-                    )
-                  }
+            <h2 style={{ margin: '0 0 6px', color: COLORES.azul, fontSize: 17 }}>
+              {t('sinMensajesTitulo')}
+            </h2>
+
+            <p style={{ margin: 0, color: COLORES.gris, fontSize: 13.5, lineHeight: 1.6 }}>
+              {t('sinMensajesTexto')}
+            </p>
+          </section>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            {mensajes.map((mensaje, indice) => {
+              const estaAbierto = mensajeAbierto === mensaje.id;
+
+              return (
+                <section
+                  key={mensaje.id}
                   style={{
-                    width: '100%',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    padding: '20px 22px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 16,
-                    textAlign: 'left',
+                    background: COLORES.blanco,
+                    borderRadius: 18,
+                    border: estaAbierto
+                      ? `1px solid ${COLORES.verde}`
+                      : '1px solid #e5e7eb',
+                    overflow: 'hidden',
+                    boxShadow: estaAbierto
+                      ? '0 10px 25px rgba(46,139,87,0.08)'
+                      : '0 5px 15px rgba(31,58,95,0.04)',
+                    transition: 'all 0.2s ease',
                   }}
                 >
-                  {/* ICONO */}
-
-                  <div
+                  <button
+                    onClick={() => abrirMensaje(mensaje)}
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 13,
-                      background: `${COLORES.verde}12`,
+                      width: '100%',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      padding: '20px 22px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 21,
-                      flexShrink: 0,
+                      gap: 16,
+                      textAlign: 'left',
                     }}
                   >
-                    ✉️
-                  </div>
+                    {/* ICONO */}
 
-                  {/* TITULO */}
-
-                  <div
-                    style={{
-                      flex: 1,
-                    }}
-                  >
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: 1.2,
-                        color: COLORES.verde,
-                        marginBottom: 5,
+                        position: 'relative',
+                        width: 44,
+                        height: 44,
+                        borderRadius: 13,
+                        background: `${COLORES.verde}12`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 21,
+                        flexShrink: 0,
                       }}
                     >
-                      MENSAJE {indice + 1}
+                      ✉️
+                      {!mensaje.leido && (
+                        <span
+                          aria-label="No leído"
+                          style={{
+                            position: 'absolute',
+                            top: -3,
+                            right: -3,
+                            width: 12,
+                            height: 12,
+                            borderRadius: '50%',
+                            background: '#dc2626',
+                            border: `2px solid ${COLORES.blanco}`,
+                          }}
+                        />
+                      )}
                     </div>
+
+                    {/* TITULO */}
+
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: 1.2,
+                          color: COLORES.verde,
+                          marginBottom: 5,
+                        }}
+                      >
+                        {t('mensajeNumero')} {indice + 1}
+                      </div>
+
+                      <div
+                        style={{
+                          color: COLORES.azul,
+                          fontSize: 17,
+                          fontWeight: 800,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {mensaje.titulo}
+                      </div>
+                    </div>
+
+                    {/* FLECHA */}
 
                     <div
                       style={{
                         color: COLORES.azul,
-                        fontSize: 17,
-                        fontWeight: 800,
-                        lineHeight: 1.35,
+                        fontSize: 22,
+                        fontWeight: 700,
+                        transform: estaAbierto
+                          ? 'rotate(180deg)'
+                          : 'rotate(0deg)',
+                        transition: 'transform 0.2s ease',
                       }}
                     >
-                      {mensaje.titulo}
+                      ⌄
                     </div>
-                  </div>
+                  </button>
 
-                  {/* FLECHA */}
+                  {/* CONTENIDO */}
 
-                  <div
-                    style={{
-                      color: COLORES.azul,
-                      fontSize: 22,
-                      fontWeight: 700,
-                      transform: estaAbierto
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
-                      transition: 'transform 0.2s ease',
-                    }}
-                  >
-                    ⌄
-                  </div>
-                </button>
-
-                {/* CONTENIDO */}
-
-                {estaAbierto && (
-                  <div
-                    style={{
-                      borderTop: '1px solid #edf0f2',
-                      padding: '24px 28px 28px',
-                      color: '#374151',
-                      fontSize: 15,
-                      lineHeight: 1.75,
-                      whiteSpace: 'pre-line',
-                    }}
-                  >
-                    {mensaje.texto}
-                  </div>
-                )}
-              </section>
-            );
-          })}
-        </div>
+                  {estaAbierto && (
+                    <div
+                      style={{
+                        borderTop: '1px solid #edf0f2',
+                        padding: '24px 28px 28px',
+                        color: '#374151',
+                        fontSize: 15,
+                        lineHeight: 1.75,
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {mensaje.texto}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
 
         {/* PIE */}
 
@@ -566,7 +504,7 @@ export default function MensajesPage() {
             lineHeight: 1.5,
           }}
         >
-          🦉 Sabio estará aquí cuando quieras entender mejor tus números.
+          {t('pieMensajes')}
         </div>
       </div>
     </main>
