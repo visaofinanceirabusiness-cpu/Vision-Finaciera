@@ -20,6 +20,8 @@ import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
+import { crearTraductor } from '@/lib/i18n';
+import { diccionarioInicio, type ClaveInicio } from './i18n';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -40,6 +42,7 @@ type Empresa = {
   rubro: string | null;
   logo_url: string | null;
   perfil_empresa_id: string | null;
+  idioma: string;
 };
 
 type ConfiguracionDashboard = {
@@ -71,16 +74,21 @@ type ObjetivoResumen = {
   porcentaje: number;
 };
 
-const NOMBRES_INDICADOR: Record<string, string> = {
-  'VENTAS DEL MES': 'Ventas del mes',
-  'COMPRAS DEL MES': 'Compras del mes',
-  'OPERACIONES REGISTRADAS': 'Operaciones registradas',
-  'VALOR DEL INVENTARIO': 'Valor del inventario',
-  PUBLICACIONES: 'Publicaciones',
-  HISTORIAS: 'Historias',
-  'NUEVOS SEGUIDORES': 'Nuevos seguidores',
-  MENSAJES: 'Mensajes',
-};
+function nombreIndicador(t: (clave: ClaveInicio) => string, indicador: string): string {
+  const porIndicador: Record<string, ClaveInicio> = {
+    'VENTAS DEL MES': 'indicadorVentasDelMes',
+    'COMPRAS DEL MES': 'indicadorComprasDelMes',
+    'OPERACIONES REGISTRADAS': 'indicadorOperacionesRegistradas',
+    'VALOR DEL INVENTARIO': 'indicadorValorInventario',
+    PUBLICACIONES: 'indicadorPublicaciones',
+    HISTORIAS: 'indicadorHistorias',
+    'NUEVOS SEGUIDORES': 'indicadorNuevosSeguidores',
+    MENSAJES: 'indicadorMensajes',
+  };
+
+  const clave = porIndicador[indicador];
+  return clave ? t(clave) : indicador;
+}
 
 export default function InicioPage() {
   const router = useRouter();
@@ -150,7 +158,7 @@ export default function InicioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, perfil_empresa_id')
+        .select('nombre, rubro, logo_url, perfil_empresa_id, idioma')
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -249,6 +257,8 @@ export default function InicioPage() {
         console.warn('No se pudieron cargar los objetivos:', errorObjetivos);
       }
 
+      const tParaIndicadores = crearTraductor(diccionarioInicio, empresaData?.idioma);
+
       const objetivosResumen: ObjetivoResumen[] = (objetivosData ?? []).map((objetivo) => {
         const indicador = String(objetivo.indicador ?? '').trim().toUpperCase();
 
@@ -262,7 +272,7 @@ export default function InicioPage() {
         const porcentaje = meta > 0 ? Math.min(100, Math.max(0, (resultado / meta) * 100)) : 0;
 
         return {
-          nombre: NOMBRES_INDICADOR[indicador] ?? String(objetivo.indicador ?? ''),
+          nombre: nombreIndicador(tParaIndicadores, indicador) || String(objetivo.indicador ?? ''),
           porcentaje: Number(porcentaje.toFixed(0)),
         };
       });
@@ -274,6 +284,9 @@ export default function InicioPage() {
 
     cargarBase();
   }, [router]);
+
+  const idioma = empresa?.idioma ?? 'ES';
+  const t = crearTraductor(diccionarioInicio, idioma);
 
   if (cargando) {
     return (
@@ -288,7 +301,7 @@ export default function InicioPage() {
           fontWeight: 600,
         }}
       >
-        Cargando tu negocio...
+        {t('cargandoNegocio')}
       </div>
     );
   }
@@ -319,12 +332,10 @@ export default function InicioPage() {
         >
           <div style={{ fontSize: 42, marginBottom: 10 }}>{pendiente ? '⏳' : '🚫'}</div>
           <h1 style={{ color: COLORES_BASE.azul, fontSize: 21, margin: '0 0 10px' }}>
-            {pendiente ? 'Tu cuenta está esperando aprobación' : 'Tu solicitud fue rechazada'}
+            {pendiente ? t('solicitudPendienteTitulo') : t('solicitudRechazadaTitulo')}
           </h1>
           <p style={{ color: COLORES_BASE.gris, fontSize: 14, lineHeight: 1.6 }}>
-            {pendiente
-              ? 'Un administrador todavía tiene que revisar tu solicitud de alta. En cuanto la apruebe, vas a poder entrar acá mismo con tu email y contraseña.'
-              : 'Ponete en contacto con el administrador si creés que esto es un error.'}
+            {pendiente ? t('solicitudPendienteTexto') : t('solicitudRechazadaTexto')}
           </p>
           <button
             onClick={async () => {
@@ -342,7 +353,7 @@ export default function InicioPage() {
               fontWeight: 700,
             }}
           >
-            Cerrar sesión
+            {t('cerrarSesion')}
           </button>
         </div>
       </div>
@@ -356,7 +367,7 @@ export default function InicioPage() {
     blanco: COLORES_BASE.blanco,
   };
 
-  const hoy = new Date().toLocaleDateString('es-AR', {
+  const hoy = new Date().toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -367,11 +378,11 @@ export default function InicioPage() {
   const tieneModulo = (modulo: string) => modulos.includes(modulo);
 
   const mensajeBienvenida =
-    configuracion?.mensaje_bienvenida ?? `Hola, ${perfil?.nombre ?? ''} 👋`;
+    configuracion?.mensaje_bienvenida ??
+    (idioma === 'PT' ? `Olá, ${perfil?.nombre ?? ''} 👋` : `Hola, ${perfil?.nombre ?? ''} 👋`);
 
   const subtitulo =
-    configuracion?.subtitulo_dashboard ??
-    'Tu negocio, tus números y tus próximos objetivos.';
+    configuracion?.subtitulo_dashboard ?? t('subtituloDefault');
 
   return (
     <main
@@ -446,7 +457,7 @@ export default function InicioPage() {
                   color: colores.azul,
                 }}
               >
-                {empresa?.nombre ?? 'Mi Negocio'}
+                {empresa?.nombre ?? t('miNegocioDefault')}
               </div>
 
               <div
@@ -456,7 +467,7 @@ export default function InicioPage() {
                   marginTop: 3,
                 }}
               >
-                {empresa?.rubro ?? 'Gestión financiera'}
+                {empresa?.rubro ?? t('gestionFinancieraDefault')}
               </div>
             </div>
           </div>
@@ -483,7 +494,7 @@ export default function InicioPage() {
                   display: 'inline-block',
                 }}
               >
-                🔱 Volver a mi Panel
+                {t('volverAMiPanel')}
               </Link>
             )}
 
@@ -502,7 +513,7 @@ export default function InicioPage() {
                 fontWeight: 700,
               }}
             >
-              Cerrar sesión
+              {t('cerrarSesion')}
             </button>
           </div>
         </div>
@@ -529,6 +540,7 @@ export default function InicioPage() {
 
         <SabioHero
           colores={colores}
+          idioma={idioma}
           nombreEmpresa={empresa?.nombre}
           mensajeBienvenida={mensajeBienvenida}
           subtitulo={subtitulo}
@@ -562,7 +574,7 @@ export default function InicioPage() {
                 color: colores.verde,
               }}
             >
-              GESTIÓN
+              {t('eyebrowGestion')}
             </div>
 
             <h2
@@ -572,7 +584,7 @@ export default function InicioPage() {
                 fontSize: 21,
               }}
             >
-              Tus herramientas
+              {t('tusHerramientas')}
             </h2>
           </div>
 
@@ -585,14 +597,14 @@ export default function InicioPage() {
           >
             <BotonAcceso
               href="/panel-de-control"
-              titulo="📊 Panel de Control"
+              titulo={t('herramientaPanelControl')}
               colorPrincipal={colores.verde}
               destacado
             />
 
             <BotonAcceso
               href="/contabilidad"
-              titulo="🧾 Contabilidad"
+              titulo={t('herramientaContabilidad')}
               colorPrincipal="#7c3aed"
               destacado
             />
@@ -600,7 +612,7 @@ export default function InicioPage() {
             {manejaMercaderia && (
               <BotonAcceso
                 href="/mercaderia"
-                titulo="📦 Mercadería"
+                titulo={t('herramientaMercaderia')}
                 colorPrincipal="#ea580c"
                 destacado
               />
@@ -608,7 +620,7 @@ export default function InicioPage() {
 
             <BotonAcceso
               href="/informes"
-              titulo="📈 Informes"
+              titulo={t('herramientaInformes')}
               colorPrincipal="#0891b2"
               destacado
             />
@@ -617,7 +629,7 @@ export default function InicioPage() {
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso
                 href="/produccion"
-                titulo="🏭 Producción"
+                titulo={t('herramientaProduccion')}
                 colorPrincipal="#65a30d"
                 destacado
               />
@@ -625,14 +637,14 @@ export default function InicioPage() {
 
             <BotonAcceso
               href="/recursos-humanos"
-              titulo="👥 Recursos Humanos"
+              titulo={t('herramientaRecursosHumanos')}
               colorPrincipal="#db2777"
               destacado
             />
 
             <BotonAcceso
               href="/configuracoes"
-              titulo="⚙️ Configurações"
+              titulo={t('herramientaConfiguracoes')}
               colorPrincipal="#475569"
               destacado
             />
@@ -643,7 +655,7 @@ export default function InicioPage() {
             PIE — Marca Visão Financeira
         ================================================== */}
 
-        <PieVisao colores={colores} />
+        <PieVisao colores={colores} idioma={idioma} />
       </div>
     </main>
   );
