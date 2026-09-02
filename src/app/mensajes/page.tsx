@@ -323,7 +323,7 @@ export default function MensajesPage() {
         {/* VOLVER */}
 
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/?vista=empresa')}
           style={{
             background: 'transparent',
             border: 'none',
