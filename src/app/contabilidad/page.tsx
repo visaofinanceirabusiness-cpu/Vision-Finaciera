@@ -52,6 +52,7 @@ import {
   msgTutorialCancelar,
   msgTutorialPaso,
   msgTutorialCompletado,
+  frasesSabioContabilidad,
 } from './i18n';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
@@ -863,7 +864,7 @@ function CentralDeLanzamientosTab({
 
   return (
     <div>
-      {modoTutorial && (
+      {!modoEdicion && (
         <div
           style={{
             background: 'linear-gradient(125deg, #142a47 0%, #1f3a5f 58%, #245a52 100%)',
@@ -888,12 +889,14 @@ function CentralDeLanzamientosTab({
                 letterSpacing: 1.4,
               }}
             >
-              {t('tutorialEyebrow')}
+              {modoTutorial ? t('tutorialEyebrow') : t('eyebrow')}
             </p>
 
-            <h2 style={{ margin: '0 0 14px', color: COLORES.blanco, fontSize: 22 }}>{t('tutorialTitulo')}</h2>
+            <h2 style={{ margin: '0 0 14px', color: COLORES.blanco, fontSize: 22 }}>
+              {modoTutorial ? t('tutorialTitulo') : t('titulo')}
+            </h2>
 
-            {tutorialVoluntario && (
+            {modoTutorial && tutorialVoluntario && (
               <button
                 type="button"
                 onClick={() => {
@@ -916,11 +919,19 @@ function CentralDeLanzamientosTab({
             )}
           </div>
 
-          <SabioWidget
-            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-            idioma={idioma ?? 'ES'}
-            frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
-          />
+          {modoTutorial ? (
+            <SabioWidget
+              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+              idioma={idioma ?? 'ES'}
+              frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
+            />
+          ) : (
+            <SabioWidget
+              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+              idioma={idioma ?? 'ES'}
+              frases={frasesSabioContabilidad(idioma)}
+            />
+          )}
         </div>
       )}
 

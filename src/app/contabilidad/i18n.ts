@@ -449,3 +449,33 @@ export function msgTutorialCompletado(idioma: string | null | undefined): string
     ? '🎉 Muito bem! Você já registrou suas primeiras 3 operações. Te levando para o Painel de Controle...'
     : '🎉 ¡Muy bien! Ya cargaste tus primeras 3 operaciones. Te llevo al Panel de Control...';
 }
+
+// ==========================================================
+// TIPS PERMANENTES DE SABIO EN CONTABILIDAD
+// ==========================================================
+//
+// Cuando no hay tutorial activo, SabioWidget rota estos tips en vez
+// de los genéricos del lobby — específicos de esta pantalla.
+
+export const FRASES_SABIO_CONTABILIDAD: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Con Fecha + Operación + Categoría + Forma de Pago, yo resuelvo solo qué cuentas debitar y acreditar.',
+    'Registrá las operaciones el mismo día que pasan — así el Panel de Control siempre refleja la realidad.',
+    'Si una Venta o Compra no te deja elegir el producto, revisá que tenga categoría asignada en Mercadería.',
+    '¿Guardás o invertís plata para una meta? Usá "Transferencia" — así el objetivo se actualiza solo.',
+    'En "Registro de Operações" podés validar, editar o eliminar lo ya cargado.',
+    'El "Libro Diario" te muestra, agrupado por operación, cada asiento Debe/Haber que generé por vos.',
+  ],
+  PT: [
+    'Com Data + Operação + Categoria + Forma de Pagamento, eu resolvo sozinho quais contas debitar e creditar.',
+    'Registre as operações no mesmo dia em que acontecem — assim o Painel de Controle sempre reflete a realidade.',
+    'Se uma Venda ou Compra não deixa escolher o produto, verifique se ele tem categoria atribuída em Mercadoria.',
+    'Está guardando ou investindo dinheiro para uma meta? Use "Transferência" — o objetivo se atualiza sozinho.',
+    'Em "Registro de Operações" você pode validar, editar ou excluir o que já foi carregado.',
+    'O "Livro Diário" mostra, agrupado por operação, cada lançamento Débito/Crédito que eu gerei para você.',
+  ],
+};
+
+export function frasesSabioContabilidad(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_CONTABILIDAD[idioma === 'PT' ? 'PT' : 'ES'];
+}
