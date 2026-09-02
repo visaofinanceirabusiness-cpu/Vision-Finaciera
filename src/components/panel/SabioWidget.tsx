@@ -7,10 +7,12 @@
 // Controle durante el onboarding guiado (ver app/bienvenida).
 //
 // Por default rota las frases genéricas de contabilidad
-// (FRASES_SABIO_POR_IDIOMA), igual que en el lobby. Si se le pasa
-// `frase`, muestra ESE texto fijo en cambio (control total de quien
-// lo usa) y el click dispara `onClickFrase` en vez de rotar frases —
-// así es como el onboarding guiado avanza sus propios pasos.
+// (FRASES_SABIO_POR_IDIOMA), igual que en el lobby — se le puede pasar
+// `frases` para que rote, en cambio, una lista propia de tips (ej. los
+// de Contabilidad o los del Panel de Controle). Si se le pasa `frase`
+// (singular), muestra ESE texto fijo (control total de quien lo usa,
+// sin rotar nada) y el click dispara `onClickFrase` — así es como el
+// onboarding guiado avanza sus propios pasos.
 
 import { useEffect, useRef, useState } from 'react';
 import { crearTraductor } from '@/lib/i18n';
@@ -26,6 +28,7 @@ export function SabioWidget({
   idioma = 'ES',
   frase,
   onClickFrase,
+  frases,
 }: {
   colores: {
     azul: string;
@@ -35,9 +38,10 @@ export function SabioWidget({
   idioma?: string;
   frase?: string;
   onClickFrase?: () => void;
+  frases?: string[];
 }) {
   const t = crearTraductor(diccionarioPanel, idioma);
-  const frasesSabio = FRASES_SABIO_POR_IDIOMA[idioma === 'PT' ? 'PT' : 'ES'];
+  const frasesSabio = frases && frases.length > 0 ? frases : FRASES_SABIO_POR_IDIOMA[idioma === 'PT' ? 'PT' : 'ES'];
   const sabioRef = useRef<HTMLDivElement | null>(null);
   const [fraseIndex, setFraseIndex] = useState(0);
 

@@ -28,6 +28,7 @@ import {
   msgFaltanParaSubirNivel,
   msgBienvenidaTutorialPanel,
   msgCerrarTutorialPanel,
+  frasesSabioPanel,
 } from './i18n';
 
 const COLORES_BASE = {
@@ -353,27 +354,28 @@ export default function MiNegocioPage() {
         </header>
 
         {/* =================================================
-            BIENVENIDA AL TERMINAR EL TUTORIAL GUIADO
-            Llega con ?tutorial=1 desde la Central de Lançamentos, al
-            completar las 3 operaciones. No bloquea nada — es solo una
-            orientación breve, se cierra y no vuelve a aparecer.
+            SABIO — permanente en esta pantalla, con tips propios del
+            Panel de Controle. Si se llega con ?tutorial=1 (recién
+            terminado el onboarding guiado en Contabilidad), primero
+            muestra una bienvenida fija y cerrable; después vuelve a
+            rotar los tips de siempre.
         ================================================== */}
 
-        {mostrarBienvenidaTutorial && (
-          <div
-            style={{
-              background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
-              borderRadius: 24,
-              padding: '24px 28px',
-              marginBottom: 20,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 20,
-              flexWrap: 'wrap',
-              boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
-            }}
-          >
+        <div
+          style={{
+            background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
+            borderRadius: 24,
+            padding: '24px 28px',
+            marginBottom: 20,
+            display: 'flex',
+            justifyContent: mostrarBienvenidaTutorial ? 'space-between' : 'flex-end',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+          }}
+        >
+          {mostrarBienvenidaTutorial && (
             <button
               type="button"
               onClick={() => setMostrarBienvenidaTutorial(false)}
@@ -390,15 +392,23 @@ export default function MiNegocioPage() {
             >
               {msgCerrarTutorialPanel(idioma)}
             </button>
+          )}
 
+          {mostrarBienvenidaTutorial ? (
             <SabioWidget
               colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
               idioma={idioma}
               frase={msgBienvenidaTutorialPanel(idioma)}
               onClickFrase={() => setMostrarBienvenidaTutorial(false)}
             />
-          </div>
-        )}
+          ) : (
+            <SabioWidget
+              colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+              idioma={idioma}
+              frases={frasesSabioPanel(idioma)}
+            />
+          )}
+        </div>
 
         {/* =================================================
             AVISO DE CONSISTENCIA CONTABLE

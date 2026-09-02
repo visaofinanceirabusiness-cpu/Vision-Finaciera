@@ -290,3 +290,30 @@ export function msgBienvenidaTutorialPanel(idioma: string | null | undefined): s
 export function msgCerrarTutorialPanel(idioma: string | null | undefined): string {
   return esPT(idioma) ? 'Entendi, fechar' : 'Entendido, cerrar';
 }
+
+// ==========================================================
+// TIPS PERMANENTES DE SABIO EN EL PANEL DE CONTROLE
+// ==========================================================
+
+export const FRASES_SABIO_PANEL: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Tu Caja Disponible es lo que tenés hoy en cuentas propias — no incluye lo que te deben ni lo que debés.',
+    'El Patrimonio es lo que te queda si hoy cobraras todo y pagaras todas tus deudas.',
+    'Si Activo no cierra con Pasivo + Patrimonio, casi siempre son los saldos iniciales del Plano de Contas.',
+    'Los Objetivos se actualizan solos con cada operación — no hace falta que los toques a mano.',
+    'El gráfico de Lucro compara Ingresos contra Costos y Gastos, período a período.',
+    '¿Vas subiendo de nivel? Eso mide cuántas operaciones fuiste registrando — cuantas más cargues, más completo se ve tu negocio acá.',
+  ],
+  PT: [
+    'Seu Caixa Disponível é o que você tem hoje em contas próprias — não inclui o que te devem nem o que você deve.',
+    'O Patrimônio é o que sobra se hoje você recebesse tudo e pagasse todas as suas dívidas.',
+    'Se o Ativo não fecha com Passivo + Patrimônio, quase sempre são os saldos iniciais do Plano de Contas.',
+    'Os Objetivos se atualizam sozinhos a cada operação — não precisa mexer neles manualmente.',
+    'O gráfico de Lucro compara Receitas contra Custos e Despesas, período a período.',
+    'Está subindo de nível? Isso mede quantas operações você foi registrando — quanto mais carregar, mais completo seu negócio aparece aqui.',
+  ],
+};
+
+export function frasesSabioPanel(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_PANEL[idioma === 'PT' ? 'PT' : 'ES'];
+}
