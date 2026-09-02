@@ -8,7 +8,7 @@
 // herramienta que la empresa tiene activa, explicando cómo usarla.
 //
 // Qué herramientas recibe cada empresa:
-//   - Panel de Control, Informes y Configurações: siempre.
+//   - Panel de Control, Informes y Configuraciones: siempre.
 //   - Mercadería: solo si empresaManejaMercaderia(empresaId).
 //   - Producción: solo si empresaTieneModulo(empresaId, 'PRODUCCION').
 //   - Contabilidad y Recursos Humanos: siempre, pero con un texto
@@ -185,10 +185,10 @@ Un abrazo,
 Sabio 🦉`,
     },
     CONFIG: {
-      titulo: 'Configurações: la caja de herramientas de tu sistema',
+      titulo: 'Configuraciones: la caja de herramientas de tu sistema',
       texto: `¡Hola! 👋
 
-Configurações es donde se ajustan las reglas de fondo del sistema — normalmente entrás acá una vez para dejar todo armado, y después casi no hace falta volver.
+Configuraciones es donde se ajustan las reglas de fondo del sistema — normalmente entrás acá una vez para dejar todo armado, y después casi no hace falta volver.
 
 Ahí podés:
 
@@ -197,7 +197,7 @@ Ahí podés:
 🎯 Editar tus Objetivos: cambiar metas, crear nuevas, o desactivar las que no te sirvan.
 👪 (Si tu perfil es Familia) Administrar tus Socios/as.
 
-💡 Mi recomendación: si alguna vez Contabilidad te dice "falta asignar la cuenta para esta categoría", es en Configurações donde se resuelve.
+💡 Mi recomendación: si alguna vez Contabilidad te dice "falta asignar la cuenta para esta categoría", es en Configuraciones donde se resuelve.
 
 Un abrazo,
 Sabio 🦉`,
