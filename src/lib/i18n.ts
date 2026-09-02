@@ -30,3 +30,16 @@ export function crearTraductor<Claves extends string>(
     return tabla[clave];
   };
 }
+
+// Traducción de estados guardados literalmente en la base (PENDIENTE/
+// VALIDADO) — se usa solo para mostrar, nunca para comparar/filtrar
+// (esas comparaciones siguen contra el valor original en mayúsculas).
+export function estadoDisplay(idioma: string | null | undefined, valor: string | null | undefined): string {
+  const normalizado = (valor || 'PENDIENTE').toUpperCase();
+
+  if (normalizado === 'PENDIENTE') {
+    return idioma === 'PT' ? 'Pendente' : 'Pendiente';
+  }
+
+  return valor || normalizado;
+}

@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
-import { crearTraductor } from '@/lib/i18n';
+import { crearTraductor, estadoDisplay } from '@/lib/i18n';
 import {
   diccionarioMercaderia,
   msgConfirmarEliminarProducto,
@@ -924,7 +924,7 @@ export default function MercaderiaPage() {
                         </Td>
 
                         <Td>
-                          <EstadoBadge estado={fila.estado} />
+                          <EstadoBadge estado={fila.estado} idioma={idioma} />
                         </Td>
 
                         {esAdmin && (
@@ -1131,7 +1131,7 @@ function generarProximoCodigoProducto(productos: ProductoFila[]): string {
    ESTADO (pastilla)
 ========================================================== */
 
-function EstadoBadge({ estado }: { estado: string | null }) {
+function EstadoBadge({ estado, idioma }: { estado: string | null; idioma?: string | null }) {
   const valor = estado || 'PENDIENTE';
   const validado = valor.toUpperCase() === 'VALIDADO';
 
@@ -1147,7 +1147,7 @@ function EstadoBadge({ estado }: { estado: string | null }) {
         color: validado ? '#166534' : '#92400e',
       }}
     >
-      {valor}
+      {estadoDisplay(idioma, valor)}
     </span>
   );
 }

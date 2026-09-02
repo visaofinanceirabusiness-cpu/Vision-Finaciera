@@ -24,6 +24,27 @@ import {
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { crearTraductor, estadoDisplay } from '@/lib/i18n';
+import {
+  diccionarioContabilidad,
+  etiquetaRelacion,
+  msgEditandoOperacion,
+  msgElegirOperacion,
+  msgElegirCategoria,
+  msgOperacionActualizada,
+  msgOperacionRegistrada,
+  msgErrorCategorias,
+  msgErrorFormasPago,
+  msgErrorOperaciones,
+  msgErrorAutomaticos,
+  msgErrorEmpresa,
+  tituloOperacion,
+  stockDisponible,
+  contadorRenglones,
+  contadorAsientos,
+  msgConfirmarEliminarOperacion,
+  msgConfirmarEliminarYRecargar,
+} from './i18n';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
 // de moneda como prop por cada pestaña y sub-componente.
@@ -33,6 +54,8 @@ const SimboloContext = createContext('R$');
 // vocabulario natural (nadie dice "mi proveedor" por el supermercado)
 // — se usan las mismas etiquetas amigables que en Recursos Humanos.
 const EsFamiliarContext = createContext(false);
+
+const IdiomaContext = createContext<string | null>(null);
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -54,6 +77,9 @@ export default function ContabilidadPage() {
   const [esAdmin, setEsAdmin] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [esFamiliar, setEsFamiliar] = useState(false);
+  const [idioma, setIdioma] = useState<string | null>(null);
+
+  const t = crearTraductor(diccionarioContabilidad, idioma);
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -74,11 +100,12 @@ export default function ContabilidadPage() {
       if (perfil?.empresa_id) {
         const { data: empresa } = await supabase
           .from('empresas')
-          .select('moneda, perfil_empresa_id, perfiles_empresa(codigo)')
+          .select('moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')
           .eq('id', perfil.empresa_id)
           .maybeSingle();
 
         setMoneda(empresa?.moneda ?? null);
+        setIdioma(empresa?.idioma ?? null);
 
         const perfilCodigo = (empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
           ?.perfiles_empresa?.codigo;
@@ -91,6 +118,7 @@ export default function ContabilidadPage() {
   }, []);
 
   return (
+    <IdiomaContext.Provider value={idioma}>
     <EsFamiliarContext.Provider value={esFamiliar}>
     <SimboloContext.Provider value={simboloMoneda(moneda)}>
     <div style={fondo}>
@@ -102,18 +130,18 @@ export default function ContabilidadPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volver}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrow}>GESTIÓN FINANCIERA</div>
+          <div style={eyebrow}>{t('eyebrow')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Contabilidad</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Cargá, consultá y revisá contablemente las operaciones de tu negocio.
+            {t('subtitulo')}
           </p>
         </header>
 
@@ -140,7 +168,7 @@ export default function ContabilidadPage() {
               onClick={() => setPestana('lanzamientos')}
               style={tabStyle(pestana === 'lanzamientos')}
             >
-              🚀 Central de Lanzamientos
+              {t('tabLanzamientos')}
             </button>
 
             {esAdmin && (
@@ -149,7 +177,7 @@ export default function ContabilidadPage() {
                 onClick={() => setPestana('registros')}
                 style={tabStyle(pestana === 'registros')}
               >
-                📋 Registro de Operaciones
+                {t('tabRegistros')}
               </button>
             )}
 
@@ -158,7 +186,7 @@ export default function ContabilidadPage() {
               onClick={() => setPestana('libro')}
               style={tabStyle(pestana === 'libro')}
             >
-              📖 Libro Diario
+              {t('tabLibro')}
             </button>
           </div>
 
@@ -170,6 +198,7 @@ export default function ContabilidadPage() {
     </div>
     </SimboloContext.Provider>
     </EsFamiliarContext.Provider>
+    </IdiomaContext.Provider>
   );
 }
 
@@ -208,6 +237,8 @@ function CentralDeLanzamientosTab({
 } = {}) {
   const simbolo = useContext(SimboloContext);
   const esFamiliar = useContext(EsFamiliarContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
   const modoEdicion = Boolean(idOperacionEditar);
 
@@ -249,7 +280,7 @@ function CentralDeLanzamientosTab({
   const hidratarContacto = useRef(Boolean(valoresIniciales));
 
   const [mensajeSabio, setMensajeSabio] = useState(
-    modoEdicion ? `Editando la operación ${idOperacionEditar}.` : 'Elegí una operación para empezar.'
+    modoEdicion ? msgEditandoOperacion(idioma, idOperacionEditar!) : msgElegirOperacion(idioma)
   );
 
   const [error, setError] = useState('');
@@ -277,19 +308,7 @@ function CentralDeLanzamientosTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formularioSimple]);
 
-  const etiquetaRelacion = ['INVERSION', 'PERDIDA', 'EXTRACCION'].includes(operacion)
-    ? 'Socia/o'
-    : operacion === 'COMPRA' || operacion === 'PAGO'
-      ? esFamiliar
-        ? 'Destino de pago'
-        : 'Proveedor'
-      : operacion === 'VENTA' || operacion === 'COBRO'
-        ? esFamiliar
-          ? 'Fuente de ingreso'
-          : 'Cliente'
-        : esFamiliar
-          ? 'Fuente de ingreso / Destino de pago'
-          : 'Cliente / Proveedor';
+  const etiquetaRelacionActual = etiquetaRelacion(idioma, esFamiliar, operacion);
 
   useEffect(() => {
     async function cargar() {
@@ -307,7 +326,7 @@ function CentralDeLanzamientosTab({
         .maybeSingle();
 
       if (!perfil?.empresa_id) {
-        setError('Tu usuario todavía no tiene una empresa asignada.');
+        setError(t('errorSinEmpresa'));
         setCargandoInicial(false);
         return;
       }
@@ -367,7 +386,7 @@ function CentralDeLanzamientosTab({
 
       if (errorCategorias) {
         console.error('ERROR CARGANDO CATEGORÍAS:', errorCategorias);
-        setError(`No se pudieron cargar las categorías: ${errorCategorias.message}`);
+        setError(msgErrorCategorias(idioma, errorCategorias.message));
         return;
       }
 
@@ -390,7 +409,8 @@ function CentralDeLanzamientosTab({
 
     cargarCategorias();
 
-    setMensajeSabio(`Elegí la categoría para "${operacion}".`);
+    setMensajeSabio(msgElegirCategoria(idioma, operacion));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, operacion]);
 
   useEffect(() => {
@@ -409,7 +429,7 @@ function CentralDeLanzamientosTab({
 
       if (errorFormas) {
         console.error('ERROR CARGANDO FORMAS DE PAGO:', errorFormas);
-        setError(`No se pudieron cargar las formas de pago: ${errorFormas.message}`);
+        setError(msgErrorFormasPago(idioma, errorFormas.message));
         return;
       }
 
@@ -580,14 +600,14 @@ function CentralDeLanzamientosTab({
 
       if (modoEdicion && idOperacionEditar) {
         await editarOperacion(empresaId, idOperacionEditar, formulario);
-        setMensajeSabio('¡Operación actualizada con éxito!');
+        setMensajeSabio(msgOperacionActualizada(idioma));
         onGuardado?.();
         return;
       }
 
       await registrarOperacion(empresaId, formulario);
 
-      setMensajeSabio('¡Operación registrada con éxito!');
+      setMensajeSabio(msgOperacionRegistrada(idioma));
 
       setOperacion('');
       setCategoria('');
@@ -619,9 +639,9 @@ function CentralDeLanzamientosTab({
           .filter(Boolean)
           .join(' | ');
 
-        setError(mensaje || 'No se pudo registrar la operación.');
+        setError(mensaje || t('errorRegistrar'));
       } else {
-        setError('No se pudo registrar la operación.');
+        setError(t('errorRegistrar'));
       }
     } finally {
       setGuardando(false);
@@ -629,31 +649,31 @@ function CentralDeLanzamientosTab({
   }
 
   if (cargandoInicial) {
-    return <p style={{ padding: 24 }}>Cargando...</p>;
+    return <p style={{ padding: 24 }}>{t('cargando')}</p>;
   }
 
   return (
     <div>
       <div style={panelTitulo}>
         <div>
-          <p style={eyebrowVerde}>{modoEdicion ? 'EDITANDO OPERACIÓN' : 'NUEVO REGISTRO'}</p>
+          <p style={eyebrowVerde}>{modoEdicion ? t('editandoOperacion') : t('nuevoRegistro')}</p>
 
           <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>
-            {modoEdicion ? `Operación ${idOperacionEditar}` : 'Cargá una operación'}
+            {modoEdicion ? tituloOperacion(idioma, idOperacionEditar!) : t('cargaOperacion')}
           </h2>
         </div>
 
-        <span style={estadoActivo}>Sistema activo</span>
+        <span style={estadoActivo}>{t('sistemaActivo')}</span>
       </div>
 
       {modoEdicion && (
         <p style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
-          ⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID.
+          {t('avisoEdicion')}
         </p>
       )}
 
       <div style={grid2}>
-        <Campo label="Fecha">
+        <Campo label={t('labelFecha')}>
           <input
             type="date"
             value={fecha}
@@ -662,9 +682,9 @@ function CentralDeLanzamientosTab({
           />
         </Campo>
 
-        <Campo label="Operación">
+        <Campo label={t('labelOperacion')}>
           <select value={operacion} onChange={(e) => setOperacion(e.target.value)} style={campoInput}>
-            <option value="">Seleccionar...</option>
+            <option value="">{t('seleccionar')}</option>
 
             {operaciones.map((op) => (
               <option key={op} value={op}>
@@ -674,14 +694,14 @@ function CentralDeLanzamientosTab({
           </select>
         </Campo>
 
-        <Campo label={esTransferencia ? 'Hacia (cuenta de ahorro)' : 'Categoría'}>
+        <Campo label={esTransferencia ? t('labelHaciaCuenta') : t('labelCategoria')}>
           <select
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
             disabled={!operacion}
             style={campoInput}
           >
-            <option value="">Seleccionar...</option>
+            <option value="">{t('seleccionar')}</option>
 
             {categorias.map((c) => (
               <option key={c} value={c}>
@@ -691,14 +711,14 @@ function CentralDeLanzamientosTab({
           </select>
         </Campo>
 
-        <Campo label={esTransferencia ? 'Desde (cuenta de origen)' : 'Forma de Pago'}>
+        <Campo label={esTransferencia ? t('labelDesdeCuenta') : t('labelFormaPago')}>
           <select
             value={formaPago}
             onChange={(e) => setFormaPago(e.target.value)}
             disabled={!categoria}
             style={campoInput}
           >
-            <option value="">Seleccionar...</option>
+            <option value="">{t('seleccionar')}</option>
 
             {formasPago.map((f) => (
               <option key={f} value={f}>
@@ -711,12 +731,12 @@ function CentralDeLanzamientosTab({
 
       {esTransferencia && (
         <p style={{ fontSize: 12.5, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
-          💡 Esto mueve plata entre tus propias cuentas — no es un gasto ni un ingreso. Usalo cada vez que guardes o inviertas dinero para una meta (ej. un viaje): elegí a qué cuenta de ahorro va, de dónde sale la plata, y el monto. Así el progreso de tu meta en "Objetivos familiares" se actualiza solo.
+          {t('avisoTransferencia')}
         </p>
       )}
 
       {!formularioSimple && (
-        <Campo label="Histórico">
+        <Campo label={t('labelHistorico')}>
           <input
             type="text"
             value={historico}
@@ -727,14 +747,14 @@ function CentralDeLanzamientosTab({
       )}
 
       {!esTransferencia && (
-        <Campo label={etiquetaRelacion}>
+        <Campo label={etiquetaRelacionActual}>
           <select
             value={clienteProveedor}
             onChange={(e) => setClienteProveedor(e.target.value)}
             disabled={!operacion || contactos.length === 0}
             style={campoInput}
           >
-            <option value="">Seleccionar...</option>
+            <option value="">{t('seleccionar')}</option>
 
             {contactos.map((contacto) => (
               <option key={contacto} value={contacto}>
@@ -746,14 +766,14 @@ function CentralDeLanzamientosTab({
       )}
 
       {requiereSocio && (
-        <Campo label="Socio/a">
+        <Campo label={t('labelSocio')}>
           <select
             value={socio}
             onChange={(e) => setSocio(e.target.value)}
             disabled={sociosIngreso.length === 0}
             style={campoInput}
           >
-            <option value="">Seleccionar...</option>
+            <option value="">{t('seleccionar')}</option>
 
             {sociosIngreso.map((nombre) => (
               <option key={nombre} value={nombre}>
@@ -767,7 +787,7 @@ function CentralDeLanzamientosTab({
       {operacion && (
         <div style={{ marginTop: 20 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: COLORES.azul, marginBottom: 10 }}>
-            Detalle de valores
+            {t('detalleValores')}
           </p>
 
           {lineas.map((linea, i) => (
@@ -778,7 +798,7 @@ function CentralDeLanzamientosTab({
                   onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
                   style={{ ...campoInput, flex: 2 }}
                 >
-                  <option value="">Producto...</option>
+                  <option value="">{t('productoPlaceholder')}</option>
 
                   {productos
                     .filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())
@@ -789,14 +809,14 @@ function CentralDeLanzamientosTab({
                         disabled={esSalidaStock && (saldoPorProducto[p.id] ?? 0) <= 0}
                       >
                         {p.nombre}
-                        {esSalidaStock ? ` (stock: ${saldoPorProducto[p.id] ?? 0})` : ''}
+                        {esSalidaStock ? stockDisponible(idioma, saldoPorProducto[p.id] ?? 0) : ''}
                       </option>
                     ))}
                 </select>
               ) : (
                 <input
                   type="text"
-                  placeholder="Descripción"
+                  placeholder={t('descripcionPlaceholder')}
                   value={linea.producto}
                   onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
                   style={{ ...campoInput, flex: 2 }}
@@ -806,7 +826,7 @@ function CentralDeLanzamientosTab({
               {!formularioSimple && (
                 <input
                   type="number"
-                  placeholder="Cant."
+                  placeholder={t('cantidadPlaceholder')}
                   value={linea.cantidad || ''}
                   onChange={(e) => actualizarLinea(i, 'cantidad', e.target.value)}
                   style={{ ...campoInput, flex: 1 }}
@@ -815,7 +835,7 @@ function CentralDeLanzamientosTab({
 
               <input
                 type="number"
-                placeholder="Monto"
+                placeholder={t('montoPlaceholder')}
                 value={linea.monto || ''}
                 onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                 style={{ ...campoInput, flex: 1 }}
@@ -824,27 +844,25 @@ function CentralDeLanzamientosTab({
           ))}
 
           <button type="button" onClick={agregarLinea} style={botonSecundario}>
-            + Agregar línea
+            {t('agregarLinea')}
           </button>
         </div>
       )}
 
       <div style={totalStyle}>
-        <span>Total</span>
+        <span>{t('total')}</span>
         <span>{simbolo} {formatearNumeroEntero(total)}</span>
       </div>
 
       <div style={validacionStyle}>
-        <span>{camposCompletos ? '✓ Todos los campos están completos' : '⚠ Faltan campos por completar'}</span>
+        <span>{camposCompletos ? t('camposCompletos') : t('faltanCampos')}</span>
 
-        <span>
-          {lineas.length} renglón{lineas.length === 1 ? '' : 'es'}
-        </span>
+        <span>{contadorRenglones(idioma, lineas.length)}</span>
       </div>
 
       {stockInsuficiente && (
         <p style={{ color: '#dc2626', fontSize: 13, margin: '10px 0 0' }}>
-          No se puede registrar: la cantidad solicitada supera el stock disponible.
+          {t('stockInsuficiente')}
         </p>
       )}
 
@@ -891,7 +909,7 @@ function CentralDeLanzamientosTab({
             disabled={guardando}
             style={botonSecundario}
           >
-            Cancelar
+            {t('cancelar')}
           </button>
         )}
 
@@ -900,7 +918,7 @@ function CentralDeLanzamientosTab({
           disabled={guardando || !camposCompletos}
           style={{ ...botonPrincipal, flex: 1 }}
         >
-          {guardando ? 'Guardando...' : modoEdicion ? 'Guardar cambios' : 'Registrar Operación'}
+          {guardando ? t('guardando') : modoEdicion ? t('guardarCambios') : t('registrarOperacion')}
         </button>
       </div>
     </div>
@@ -939,6 +957,8 @@ type Registro = {
 function RegistroOperacionesTab() {
   const simbolo = useContext(SimboloContext);
   const esFamiliar = useContext(EsFamiliarContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
@@ -1006,11 +1026,7 @@ function RegistroOperacionesTab() {
   async function handleEliminar(idOperacion: string) {
     if (!empresaId) return;
 
-    const confirmado = window.confirm(
-      `¿Eliminar la operación ${idOperacion}?\n\n` +
-        'Esto borra también todos los movimientos de stock que generó. ' +
-        'No se puede deshacer.'
-    );
+    const confirmado = window.confirm(msgConfirmarEliminarOperacion(idioma, idOperacion));
 
     if (!confirmado) return;
 
@@ -1021,7 +1037,7 @@ function RegistroOperacionesTab() {
       await eliminarOperacion(empresaId, idOperacion);
       await cargar(empresaId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo eliminar la operación.');
+      setError(e instanceof Error ? e.message : t('errorEliminar'));
     } finally {
       setBorrando(null);
     }
@@ -1039,7 +1055,7 @@ function RegistroOperacionesTab() {
       .eq('id_operacion', fila.id_operacion);
 
     if (errorMovimientos) {
-      setError('No se pudieron cargar los detalles de la operación para editarla.');
+      setError(t('errorDetallesEdicion'));
       return;
     }
 
@@ -1075,11 +1091,7 @@ function RegistroOperacionesTab() {
   async function handleEliminarYRecargar(idOperacion: string) {
     if (!empresaId) return;
 
-    const confirmado = window.confirm(
-      `¿Eliminar la operación ${idOperacion} para volver a cargarla?\n\n` +
-        'Esto borra la operación y sus movimientos de stock. Se abre el formulario en blanco para cargarla de nuevo. ' +
-        'No se puede deshacer.'
-    );
+    const confirmado = window.confirm(msgConfirmarEliminarYRecargar(idioma, idOperacion));
 
     if (!confirmado) return;
 
@@ -1091,7 +1103,7 @@ function RegistroOperacionesTab() {
       await cargar(empresaId);
       setMostrandoNuevo(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo eliminar la operación.');
+      setError(e instanceof Error ? e.message : t('errorEliminar'));
     } finally {
       setBorrando(null);
     }
@@ -1116,7 +1128,7 @@ function RegistroOperacionesTab() {
 
       await cargar(empresaId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo validar la operación.');
+      setError(e instanceof Error ? e.message : t('errorValidar'));
     } finally {
       setValidando(null);
     }
@@ -1161,28 +1173,28 @@ function RegistroOperacionesTab() {
       <input
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar operación, categoría o persona..."
+        placeholder={t('buscarOperaciones')}
         style={{ ...campoInput, maxWidth: 460, marginBottom: 18 }}
       />
 
       {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
       {cargando ? (
-        <p>Cargando registros...</p>
+        <p>{t('cargandoRegistros')}</p>
       ) : (
         <div style={tablaContenedor}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={cabeceraFila}>
-                <Th>ID Registro</Th>
-                <Th>Fecha</Th>
-                <Th>Operación</Th>
-                <Th>Categoría</Th>
-                <Th>Forma de pago</Th>
-                <Th>Histórico</Th>
-                <Th>{esFamiliar ? 'Fuente de ingreso / Destino de pago' : 'Cliente / Proveedor'}</Th>
-                <Th align="right">Total</Th>
-                <Th>Estado</Th>
+                <Th>{t('idRegistro')}</Th>
+                <Th>{t('fecha')}</Th>
+                <Th>{t('operacion')}</Th>
+                <Th>{t('categoria')}</Th>
+                <Th>{t('formaPago')}</Th>
+                <Th>{t('historico')}</Th>
+                <Th>{etiquetaRelacion(idioma, esFamiliar, '')}</Th>
+                <Th align="right">{t('totalHeader')}</Th>
+                <Th>{t('estadoHeader')}</Th>
                 <Th></Th>
               </tr>
             </thead>
@@ -1191,7 +1203,7 @@ function RegistroOperacionesTab() {
               {visibles.map((fila) => (
                 <tr key={fila.id_operacion} style={filaStyle}>
                   <Td>{fila.id_operacion}</Td>
-                  <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
+                  <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}</Td>
                   <Td>{fila.operacion}</Td>
                   <Td>{fila.categoria}</Td>
                   <Td>{fila.forma_pago}</Td>
@@ -1202,7 +1214,7 @@ function RegistroOperacionesTab() {
                   <Td align="right">{simbolo} {formatearNumeroEntero(Number(fila.total))}</Td>
 
                   <Td>
-                    <Estado estado={fila.estado} />
+                    <Estado estado={fila.estado} idioma={idioma} />
                   </Td>
 
                   <Td>
@@ -1212,9 +1224,9 @@ function RegistroOperacionesTab() {
                           onClick={() => handleValidar(fila.id_operacion)}
                           disabled={validando === fila.id_operacion}
                           style={botonValidar}
-                          title="Marcar operación como validada"
+                          title={t('tituloValidar')}
                         >
-                          {validando === fila.id_operacion ? '...' : 'Validado'}
+                          {validando === fila.id_operacion ? '...' : t('validado')}
                         </button>
                       )}
 
@@ -1222,18 +1234,18 @@ function RegistroOperacionesTab() {
                         <button
                           onClick={() => handleEditar(fila)}
                           style={botonSecundario}
-                          title="Editar operación"
+                          title={t('tituloEditar')}
                         >
-                          Editar
+                          {t('editar')}
                         </button>
                       ) : (
                         <button
                           onClick={() => handleEliminarYRecargar(fila.id_operacion)}
                           disabled={borrando === fila.id_operacion}
                           style={botonSecundario}
-                          title="Venta/Pérdida no se puede editar de forma exacta: se elimina y se abre el formulario en blanco"
+                          title={t('tituloEliminarYRecargar')}
                         >
-                          {borrando === fila.id_operacion ? '...' : 'Eliminar y recargar'}
+                          {borrando === fila.id_operacion ? '...' : t('eliminarYRecargar')}
                         </button>
                       )}
 
@@ -1241,9 +1253,9 @@ function RegistroOperacionesTab() {
                         onClick={() => handleEliminar(fila.id_operacion)}
                         disabled={borrando === fila.id_operacion}
                         style={botonEliminar}
-                        title="Eliminar operación y sus movimientos de stock"
+                        title={t('tituloEliminar')}
                       >
-                        {borrando === fila.id_operacion ? '...' : 'Eliminar'}
+                        {borrando === fila.id_operacion ? '...' : t('eliminar')}
                       </button>
                     </div>
                   </Td>
@@ -1253,7 +1265,7 @@ function RegistroOperacionesTab() {
               {!visibles.length && (
                 <tr>
                   <td colSpan={10} style={vacioStyle}>
-                    No se encontraron registros.
+                    {t('sinRegistros')}
                   </td>
                 </tr>
               )}
@@ -1290,6 +1302,8 @@ type GrupoOperacion = {
 
 function LibroDiarioTab() {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
 
   const [filas, setFilas] = useState<MovimientoDiario[]>([]);
@@ -1340,13 +1354,13 @@ function LibroDiarioTab() {
     ]);
 
     if (errorOperaciones) {
-      setError(`No se pudieron cargar las operaciones: ${errorOperaciones.message}`);
+      setError(msgErrorOperaciones(idioma, errorOperaciones.message));
       setFilas([]);
       return;
     }
 
     if (errorAutomaticos) {
-      setError(`No se pudieron cargar los registros automáticos: ${errorAutomaticos.message}`);
+      setError(msgErrorAutomaticos(idioma, errorAutomaticos.message));
       setFilas([]);
       return;
     }
@@ -1413,7 +1427,7 @@ function LibroDiarioTab() {
         .maybeSingle();
 
       if (errorPerfil || !perfil?.empresa_id) {
-        setError('No se pudo identificar la empresa.');
+        setError(msgErrorEmpresa(idioma));
         setCargando(false);
         return;
       }
@@ -1482,14 +1496,14 @@ function LibroDiarioTab() {
           type="text"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar ID, cuenta, histórico..."
+          placeholder={t('buscarLibroDiario')}
           style={{ ...campoInput, maxWidth: 460 }}
         />
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Resumen titulo="Operaciones" valor={String(totalOperaciones)} />
-          <Resumen titulo="Asientos" valor={String(totalAsientos)} />
-          <Resumen titulo="Importes" valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
+          <Resumen titulo={t('resumenOperaciones')} valor={String(totalOperaciones)} />
+          <Resumen titulo={t('resumenAsientos')} valor={String(totalAsientos)} />
+          <Resumen titulo={t('resumenImportes')} valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
         </div>
       </div>
 
@@ -1510,11 +1524,11 @@ function LibroDiarioTab() {
       )}
 
       {cargando ? (
-        <p>Cargando Libro Diario...</p>
+        <p>{t('cargandoLibroDiario')}</p>
       ) : (
         <div>
           {!grupos.length ? (
-            <div style={vacioOperacion}>No se encontraron movimientos contables.</div>
+            <div style={vacioOperacion}>{t('sinMovimientosContables')}</div>
           ) : (
             grupos.map((grupo) => <GrupoOperacionCard key={grupo.id_operacion} grupo={grupo} />)
           )}
@@ -1526,6 +1540,8 @@ function LibroDiarioTab() {
 
 function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioContabilidad, idioma);
   const importeGrupo = grupo.filas.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
 
   return (
@@ -1554,7 +1570,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
           <span style={{ fontSize: 16, fontWeight: 800, color: COLORES.azul }}>{grupo.id_operacion}</span>
 
           <span style={{ fontSize: 12, color: COLORES.gris }}>
-            {new Date(`${grupo.fecha}T12:00:00`).toLocaleDateString('es-AR')}
+            {new Date(`${grupo.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}
           </span>
 
           <span
@@ -1567,12 +1583,12 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
               fontWeight: 700,
             }}
           >
-            {grupo.filas.length} {grupo.filas.length === 1 ? 'asiento' : 'asientos'}
+            {contadorAsientos(idioma, grupo.filas.length)}
           </span>
         </div>
 
         <div style={{ fontSize: 13, color: COLORES.gris }}>
-          Importe registrado: <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
+          {t('importeRegistrado')} <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
         </div>
       </div>
 
@@ -1580,13 +1596,13 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
         <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#fafbfc' }}>
-              <Th>Tipo</Th>
-              <Th>Operación</Th>
-              <Th>Histórico</Th>
-              <Th>Debe</Th>
-              <Th>Haber</Th>
-              <Th align="right">Importe</Th>
-              <Th>Estado</Th>
+              <Th>{t('tipoHeader')}</Th>
+              <Th>{t('operacion')}</Th>
+              <Th>{t('historico')}</Th>
+              <Th>{t('debeHeader')}</Th>
+              <Th>{t('haberHeader')}</Th>
+              <Th align="right">{t('importeHeader')}</Th>
+              <Th>{t('estadoHeader')}</Th>
             </tr>
           </thead>
 
@@ -1597,7 +1613,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
                 style={{ borderTop: '1px solid #edf1f4' }}
               >
                 <Td>
-                  <TipoRegistro tipo={fila.tipo_registro} />
+                  <TipoRegistro tipo={fila.tipo_registro} idioma={idioma} />
                 </Td>
 
                 <Td>
@@ -1619,7 +1635,7 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
                 </Td>
 
                 <Td>
-                  <Estado estado={fila.estado} />
+                  <Estado estado={fila.estado} idioma={idioma} />
                 </Td>
               </tr>
             ))}
@@ -1630,8 +1646,9 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
   );
 }
 
-function TipoRegistro({ tipo }: { tipo: 'OPERACION' | 'AUTOMATICO' }) {
+function TipoRegistro({ tipo, idioma }: { tipo: 'OPERACION' | 'AUTOMATICO'; idioma: string | null }) {
   const automatico = tipo === 'AUTOMATICO';
+  const t = crearTraductor(diccionarioContabilidad, idioma);
 
   return (
     <span
@@ -1645,12 +1662,12 @@ function TipoRegistro({ tipo }: { tipo: 'OPERACION' | 'AUTOMATICO' }) {
         color: automatico ? '#6d28d9' : '#247347',
       }}
     >
-      {automatico ? 'AUTOMÁTICO' : 'OPERACIÓN'}
+      {automatico ? t('automatico') : t('operacionEtiqueta')}
     </span>
   );
 }
 
-function Estado({ estado }: { estado: string | null }) {
+function Estado({ estado, idioma }: { estado: string | null; idioma: string | null }) {
   const valor = estado || 'PENDIENTE';
   const validado = valor.toUpperCase() === 'VALIDADO';
 
@@ -1666,7 +1683,7 @@ function Estado({ estado }: { estado: string | null }) {
         color: validado ? '#166534' : '#92400e',
       }}
     >
-      {valor}
+      {estadoDisplay(idioma, valor)}
     </span>
   );
 }
