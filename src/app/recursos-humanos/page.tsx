@@ -6,6 +6,15 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { crearTraductor } from '@/lib/i18n';
+import {
+  diccionarioRecursosHumanos,
+  obtenerEtiquetas,
+  tituloNuevo,
+  tituloEditarOAgregar,
+  contadorRegistros,
+  mensajeSinRegistros,
+} from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -41,39 +50,14 @@ const FORMULARIO_VACIO: Formulario = {
   fecha_alta: fechaLocalHoy(),
 };
 
-// ==========================================================
-// ETIQUETAS — "Clientes"/"Proveedores" es el vocabulario normal de
-// un negocio, pero no tiene sentido para el perfil Familiar (nadie
-// habla de "proveedores" para las compras del supermercado). Ahí se
-// usan palabras más cercanas a la idea real: quién te paga (fuente
-// de ingreso) y a quién le pagás (destino de pago). El resto de los
-// perfiles no cambia.
-// ==========================================================
-
-type Etiquetas = {
-  emoji: string;
-  plural: string;
-  singular: string;
-  femenino: boolean;
-};
-
-function obtenerEtiquetas(tipo: TipoRecurso, esFamiliar: boolean): Etiquetas {
-  if (esFamiliar) {
-    return tipo === 'clientes'
-      ? { emoji: '💰', plural: 'Fuentes de ingreso', singular: 'fuente de ingreso', femenino: true }
-      : { emoji: '🏪', plural: 'Destinos de pago', singular: 'destino de pago', femenino: false };
-  }
-
-  return tipo === 'clientes'
-    ? { emoji: '👥', plural: 'Clientes', singular: 'cliente', femenino: false }
-    : { emoji: '🏢', plural: 'Proveedores', singular: 'proveedor', femenino: false };
-}
-
 export default function RecursosHumanosPage() {
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [esFamiliar, setEsFamiliar] = useState(false);
+  const [idioma, setIdioma] = useState<string | null>(null);
+
+  const t = crearTraductor(diccionarioRecursosHumanos, idioma);
 
   const [clientes, setClientes] = useState<Persona[]>([]);
   const [proveedores, setProveedores] = useState<Persona[]>([]);
@@ -114,7 +98,7 @@ export default function RecursosHumanosPage() {
       .maybeSingle();
 
     if (errorPerfil || !perfil?.empresa_id) {
-      setError('No se pudo identificar la empresa del usuario.');
+      setError(t('errorEmpresa'));
       setCargando(false);
       return;
     }
@@ -138,7 +122,7 @@ export default function RecursosHumanosPage() {
 
       supabase
         .from('empresas')
-        .select('perfil_empresa_id, perfiles_empresa(codigo)')
+        .select('perfil_empresa_id, idioma, perfiles_empresa(codigo)')
         .eq('id', perfil.empresa_id)
         .maybeSingle(),
     ]);
@@ -151,10 +135,12 @@ export default function RecursosHumanosPage() {
       console.warn('No se pudieron cargar los proveedores:', proveedoresError);
     }
 
-    const perfilCodigo = (empresaData as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
-      ?.perfiles_empresa?.codigo;
+    const perfilCodigo = (
+      empresaData as unknown as { perfiles_empresa?: { codigo: string } | null; idioma?: string | null } | null
+    )?.perfiles_empresa?.codigo;
 
     setEsFamiliar(perfilCodigo === 'FAMILIAR');
+    setIdioma((empresaData as unknown as { idioma?: string | null } | null)?.idioma ?? null);
 
     setClientes(ordenarPersonas((clientesData ?? []) as Persona[]));
     setProveedores(ordenarPersonas((proveedoresData ?? []) as Persona[]));
@@ -163,7 +149,7 @@ export default function RecursosHumanosPage() {
   }
 
   const registrosActuales = pestana === 'clientes' ? clientes : proveedores;
-  const etiquetas = obtenerEtiquetas(pestana, esFamiliar);
+  const etiquetas = obtenerEtiquetas(pestana, esFamiliar, idioma);
 
   const registrosVisibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -221,14 +207,14 @@ export default function RecursosHumanosPage() {
 
   async function guardarRegistro() {
     if (!empresaId) {
-      setError('No se pudo identificar la empresa.');
+      setError(t('errorEmpresaGuardar'));
       return;
     }
 
     const nombreLimpio = formulario.nombre.trim();
 
     if (!nombreLimpio) {
-      setError('El nombre es obligatorio.');
+      setError(t('errorNombreObligatorio'));
       return;
     }
 
@@ -276,7 +262,7 @@ export default function RecursosHumanosPage() {
     } catch (errorGuardar) {
       console.error('Error guardando registro:', errorGuardar);
 
-      setError(editandoId ? 'No se pudo actualizar el registro.' : 'No se pudo crear el registro.');
+      setError(editandoId ? t('errorActualizar') : t('errorCrear'));
     } finally {
       setGuardando(false);
     }
@@ -292,20 +278,18 @@ export default function RecursosHumanosPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volver}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrow}>GESTIÓN FINANCIERA</div>
+          <div style={eyebrow}>{t('eyebrow')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Recursos Humanos</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            {esFamiliar
-              ? 'Administrá quién te paga y a quién le pagás.'
-              : 'Administrá clientes y proveedores de tu negocio.'}
+            {esFamiliar ? t('subtituloFamiliar') : t('subtituloNegocio')}
           </p>
         </header>
 
@@ -327,7 +311,8 @@ export default function RecursosHumanosPage() {
             }}
           >
             <button type="button" onClick={() => cambiarPestana('clientes')} style={tabStyle(pestana === 'clientes')}>
-              {obtenerEtiquetas('clientes', esFamiliar).emoji} {obtenerEtiquetas('clientes', esFamiliar).plural}
+              {obtenerEtiquetas('clientes', esFamiliar, idioma).emoji}{' '}
+              {obtenerEtiquetas('clientes', esFamiliar, idioma).plural}
             </button>
 
             <button
@@ -335,7 +320,8 @@ export default function RecursosHumanosPage() {
               onClick={() => cambiarPestana('proveedores')}
               style={tabStyle(pestana === 'proveedores')}
             >
-              {obtenerEtiquetas('proveedores', esFamiliar).emoji} {obtenerEtiquetas('proveedores', esFamiliar).plural}
+              {obtenerEtiquetas('proveedores', esFamiliar, idioma).emoji}{' '}
+              {obtenerEtiquetas('proveedores', esFamiliar, idioma).plural}
             </button>
           </div>
 
@@ -357,12 +343,12 @@ export default function RecursosHumanosPage() {
               <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>{etiquetas.plural}</h2>
 
               <p style={{ margin: '4px 0 0', color: COLORES.gris, fontSize: 12 }}>
-                {registrosActuales.length} {registrosActuales.length === 1 ? 'registro' : 'registros'}
+                {contadorRegistros(idioma, registrosActuales.length)}
               </p>
             </div>
 
             <button type="button" onClick={abrirNuevo} style={botonNuevo}>
-              + {etiquetas.femenino ? 'Nueva' : 'Nuevo'} {etiquetas.singular}
+              {tituloNuevo(idioma, etiquetas)}
             </button>
           </div>
 
@@ -373,7 +359,7 @@ export default function RecursosHumanosPage() {
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar código, nombre, teléfono o dirección..."
+            placeholder={t('buscar')}
             style={inputBusqueda}
           />
 
@@ -399,10 +385,10 @@ export default function RecursosHumanosPage() {
                 }}
               >
                 <div>
-                  <div style={formularioEyebrow}>{editandoId ? 'EDITAR REGISTRO' : 'NUEVO REGISTRO'}</div>
+                  <div style={formularioEyebrow}>{editandoId ? t('editarRegistro') : t('nuevoRegistro')}</div>
 
                   <h3 style={{ margin: 0, color: COLORES.azul, fontSize: 20 }}>
-                    {editandoId ? `Editar ${etiquetas.singular}` : `Agregar ${etiquetas.singular}`}
+                    {tituloEditarOAgregar(idioma, Boolean(editandoId), etiquetas)}
                   </h3>
                 </div>
 
@@ -413,40 +399,40 @@ export default function RecursosHumanosPage() {
 
               <div style={formGrid}>
                 <div style={campo}>
-                  <label style={label}>Nombre *</label>
+                  <label style={label}>{t('nombre')}</label>
 
                   <input
                     value={formulario.nombre}
                     onChange={(e) => setFormulario((actual) => ({ ...actual, nombre: e.target.value }))}
-                    placeholder="Nombre o razón social"
+                    placeholder={t('nombrePlaceholder')}
                     style={inputFormulario}
                   />
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Teléfono</label>
+                  <label style={label}>{t('telefono')}</label>
 
                   <input
                     value={formulario.telefono}
                     onChange={(e) => setFormulario((actual) => ({ ...actual, telefono: e.target.value }))}
-                    placeholder="Teléfono"
+                    placeholder={t('telefonoPlaceholder')}
                     style={inputFormulario}
                   />
                 </div>
 
                 <div style={{ ...campo, gridColumn: 'span 2' }}>
-                  <label style={label}>Dirección</label>
+                  <label style={label}>{t('direccion')}</label>
 
                   <input
                     value={formulario.direccion}
                     onChange={(e) => setFormulario((actual) => ({ ...actual, direccion: e.target.value }))}
-                    placeholder="Dirección"
+                    placeholder={t('direccionPlaceholder')}
                     style={inputFormulario}
                   />
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>Fecha de alta</label>
+                  <label style={label}>{t('fechaAlta')}</label>
 
                   <input
                     type="date"
@@ -466,18 +452,18 @@ export default function RecursosHumanosPage() {
                       paddingBottom: 12,
                     }}
                   >
-                    El código se genera automáticamente.
+                    {t('codigoAutomatico')}
                   </div>
                 )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
                 <button type="button" onClick={cancelarFormulario} style={botonSecundario} disabled={guardando}>
-                  Cancelar
+                  {t('cancelar')}
                 </button>
 
                 <button type="button" onClick={guardarRegistro} style={botonGuardar} disabled={guardando}>
-                  {guardando ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Crear registro'}
+                  {guardando ? t('guardando') : editandoId ? t('guardarCambios') : t('crearRegistro')}
                 </button>
               </div>
             </section>
@@ -488,18 +474,18 @@ export default function RecursosHumanosPage() {
           ================================================== */}
 
           {cargando ? (
-            <div style={cargandoStyle}>Cargando registros...</div>
+            <div style={cargandoStyle}>{t('cargandoRegistros')}</div>
           ) : (
             <div style={tablaContenedor}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={cabeceraFila}>
-                    <Th> Código </Th>
-                    <Th> Nombre </Th>
-                    <Th> Teléfono </Th>
-                    <Th> Dirección </Th>
-                    <Th> Fecha alta </Th>
-                    <Th align="right"> Acciones </Th>
+                    <Th> {t('codigoHeader')} </Th>
+                    <Th> {t('nombreHeader')} </Th>
+                    <Th> {t('telefonoHeader')} </Th>
+                    <Th> {t('direccionHeader')} </Th>
+                    <Th> {t('fechaAltaHeader')} </Th>
+                    <Th align="right"> {t('accionesHeader')} </Th>
                   </tr>
                 </thead>
 
@@ -516,11 +502,11 @@ export default function RecursosHumanosPage() {
 
                       <Td>{persona.direccion || '—'}</Td>
 
-                      <Td>{formatearFecha(persona.fecha_alta)}</Td>
+                      <Td>{formatearFecha(persona.fecha_alta, idioma)}</Td>
 
                       <Td align="right">
                         <button type="button" onClick={() => abrirEdicion(persona)} style={botonEditar}>
-                          Editar
+                          {t('editar')}
                         </button>
                       </Td>
                     </tr>
@@ -529,9 +515,7 @@ export default function RecursosHumanosPage() {
                   {!registrosVisibles.length && (
                     <tr>
                       <td colSpan={6} style={vacioStyle}>
-                        {busqueda.trim()
-                          ? 'No se encontraron registros con esa búsqueda.'
-                          : `Todavía no hay ${etiquetas.plural.toLowerCase()} ${etiquetas.femenino ? 'registradas' : 'registrados'}.`}
+                        {busqueda.trim() ? t('sinResultadosBusqueda') : mensajeSinRegistros(idioma, etiquetas)}
                       </td>
                     </tr>
                   )}
@@ -601,7 +585,7 @@ function extraerNumeroCodigo(codigo: string | null): number {
    FECHA
 ========================================================== */
 
-function formatearFecha(fecha: string | null): string {
+function formatearFecha(fecha: string | null, idioma: string | null | undefined): string {
   if (!fecha) {
     return '—';
   }
@@ -612,7 +596,7 @@ function formatearFecha(fecha: string | null): string {
     return fecha;
   }
 
-  return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-AR');
+  return new Date(`${fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR');
 }
 
 /* ==========================================================
