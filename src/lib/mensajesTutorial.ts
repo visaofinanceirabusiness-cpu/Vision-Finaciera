@@ -23,6 +23,7 @@
 
 import { supabase } from './supabase';
 import { empresaManejaMercaderia, empresaTieneModulo } from './perfilCapacidades';
+import { nombreOperacionDisplay, perfilEmpresaDisplay } from './i18n';
 
 type CodigoTutorial =
   | 'PANEL'
@@ -413,6 +414,105 @@ export async function crearMensajesTutorialModelo(
   }));
 
   const { error } = await supabase.from('mensajes_financieros').insert(filas);
+
+  if (error) {
+    throw error;
+  }
+}
+
+// ==========================================================
+// MENSAJE DE BIENVENIDA DEL ONBOARDING GUIADO
+// ==========================================================
+//
+// Primer mensaje que ve una empresa nueva (empresas.onboarding_
+// completado = false) — se inserta DESPUÉS del paquete de tutoriales
+// de arriba, con su propio timestamp, para quedar arriba de todo en
+// Mensagens (que ordena por creado_en descendente). Explica el
+// perfil asignado y lista las operaciones reales que va a tener,
+// leyéndolas de la tabla "operaciones" de la empresa en vez de
+// asumir una lista fija por perfil — así nunca queda desactualizado
+// si el plan maestro de un perfil cambia.
+function textoBienvenidaOnboarding(
+  idioma: 'ES' | 'PT',
+  nombrePerfil: string,
+  nombresOperaciones: string[]
+): TextoTutorial {
+  const lista = nombresOperaciones.map((nombre) => `• ${nombre}`).join('\n');
+
+  if (idioma === 'PT') {
+    return {
+      titulo: 'Bem-vindo(a) à Visão Financeira! 🎉',
+      texto: `Olá! 👋 Eu sou o Sabio, seu companheiro financeiro.
+
+Sua conta foi aprovada e seu sistema já está configurado com o perfil ${nombrePerfil}.
+
+Com esse perfil você vai poder registrar estas operações:
+
+${lista}
+
+Antes de começar a operar, precisamos completar juntos a configuração inicial — suas categorias, alguns contatos e seus primeiros produtos. É rápido, e eu vou te guiar passo a passo.
+
+Vamos lá?`,
+    };
+  }
+
+  return {
+    titulo: '¡Bienvenido/a a Visão Financeira! 🎉',
+    texto: `¡Hola! 👋 Soy Sabio, tu compañero financiero.
+
+Tu cuenta fue aprobada y tu sistema ya está configurado con el perfil ${nombrePerfil}.
+
+Con este perfil vas a poder registrar estas operaciones:
+
+${lista}
+
+Antes de empezar a operar, tenemos que completar juntos la configuración inicial — tus categorías, algunos contactos y tus primeros productos. Es rápido, y te voy a guiar paso a paso.
+
+¿Arrancamos?`,
+  };
+}
+
+// Se llama una sola vez, al dar de alta una empresa nueva — ver
+// inicializarEmpresaDesdePerfil en lib/perfiles.ts, justo después de
+// crearMensajesTutorialModelo.
+export async function crearMensajeBienvenidaOnboarding(
+  empresaId: string,
+  perfilCodigo: string | undefined,
+  perfilNombre: string | undefined,
+  idioma: string | null | undefined
+) {
+  const idiomaFinal: 'ES' | 'PT' = idioma === 'PT' ? 'PT' : 'ES';
+
+  const { data: operacionesData, error: errorOperaciones } = await supabase
+    .from('operaciones')
+    .select('nombre')
+    .eq('empresa_id', empresaId)
+    .eq('activo', true)
+    .order('nombre');
+
+  if (errorOperaciones) {
+    throw errorOperaciones;
+  }
+
+  const nombresOperaciones = (operacionesData ?? []).map((fila) =>
+    nombreOperacionDisplay(idiomaFinal, fila.nombre)
+  );
+
+  const { nombre: nombrePerfilTraducido } = perfilEmpresaDisplay(
+    idiomaFinal,
+    perfilCodigo ?? '',
+    perfilNombre ?? perfilCodigo ?? ''
+  );
+
+  const contenido = textoBienvenidaOnboarding(idiomaFinal, nombrePerfilTraducido, nombresOperaciones);
+
+  const { error } = await supabase.from('mensajes_financieros').insert({
+    empresa_id: empresaId,
+    periodo: primerDiaDelMes(),
+    titulo: contenido.titulo,
+    texto: contenido.texto,
+    leido: false,
+  });
 
   if (error) {
     throw error;
