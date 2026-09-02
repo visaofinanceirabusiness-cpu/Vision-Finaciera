@@ -20,11 +20,24 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
+import {
+  diccionarioInformes,
+  formatearPeriodo,
+  formatearPeriodoCorto,
+  msgDebeHaberNoCierran,
+  msgResultadoLabel,
+  msgFlujoNetoLabel,
+  msgEcuacionCierra,
+  msgEcuacionNoCierra,
+} from './i18n';
 
 // Contexto para no tener que pasar el símbolo de moneda como prop a
 // cada uno de los informes y sus sub-componentes — cada uno lo toma
 // con useContext(SimboloContext) donde lo necesite.
 const SimboloContext = createContext('R$');
+
+const IdiomaContext = createContext<string | null>(null);
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -60,10 +73,13 @@ export default function InformesPage() {
   const [pestana, setPestana] = useState<Pestana>('sumas');
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<string | null>(null);
+  const [idioma, setIdioma] = useState<string | null>(null);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+
+  const t = crearTraductor(diccionarioInformes, idioma);
 
   useEffect(() => {
     async function cargar() {
@@ -81,7 +97,7 @@ export default function InformesPage() {
         .maybeSingle();
 
       if (errorPerfil || !perfil?.empresa_id) {
-        setError('No se pudo identificar la empresa del usuario.');
+        setError(t('errorEmpresa'));
         setCargando(false);
         return;
       }
@@ -90,11 +106,12 @@ export default function InformesPage() {
 
       const { data: empresaData } = await supabase
         .from('empresas')
-        .select('moneda')
+        .select('moneda, idioma')
         .eq('id', perfil.empresa_id)
         .maybeSingle();
 
       setMoneda(empresaData?.moneda ?? null);
+      setIdioma(empresaData?.idioma ?? null);
 
       const [
         { data: cuentasData, error: errorCuentas },
@@ -125,10 +142,14 @@ export default function InformesPage() {
 
       setCuentas((cuentasData ?? []) as CuentaPlan[]);
 
+      const idiomaEmpresa = empresaData?.idioma ?? null;
+
       const asientosOperaciones: Asiento[] = (operacionesData ?? []).map((fila) => ({
         id_operacion: fila.id_operacion,
         fecha: String(fila.fecha ?? ''),
-        descripcion: [fila.operacion, fila.historico].filter(Boolean).join(' · '),
+        descripcion: [fila.operacion ? nombreOperacionDisplay(idiomaEmpresa, fila.operacion) : null, fila.historico]
+          .filter(Boolean)
+          .join(' · '),
         debito: fila.cuenta_debito,
         credito: fila.cuenta_credito,
         importe: Number(fila.total ?? 0),
@@ -164,25 +185,25 @@ export default function InformesPage() {
   }, [cuentas]);
 
   return (
+    <IdiomaContext.Provider value={idioma}>
     <SimboloContext.Provider value={simboloMoneda(moneda)}>
     <div style={fondo}>
       <div style={{ maxWidth: 1250, margin: '0 auto' }}>
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/?vista=empresa" style={volver}>
-              ← Volver a Mi Negocio
+              {t('volver')}
             </Link>
 
             <AccesosHerramientas />
           </div>
 
-          <div style={eyebrow}>GESTIÓN FINANCIERA</div>
+          <div style={eyebrow}>{t('eyebrow')}</div>
 
-          <h1 style={{ margin: 0, fontSize: 32 }}>Informes</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
 
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            Mayor, Flujo de Caja, Estado de Resultado, Sumas y Saldos y Balance Patrimonial —
-            armados solo con asientos validados.
+            {t('subtitulo')}
           </p>
         </header>
 
@@ -197,11 +218,11 @@ export default function InformesPage() {
             }}
           >
             <button type="button" onClick={() => setPestana('mayor')} style={tabStyle(pestana === 'mayor')}>
-              📘 Mayor
+              {t('tabMayor')}
             </button>
 
             <button type="button" onClick={() => setPestana('flujo')} style={tabStyle(pestana === 'flujo')}>
-              💧 Flujo de Caja
+              {t('tabFlujo')}
             </button>
 
             <button
@@ -209,11 +230,11 @@ export default function InformesPage() {
               onClick={() => setPestana('resultado')}
               style={tabStyle(pestana === 'resultado')}
             >
-              📈 Estado de Resultado
+              {t('tabResultado')}
             </button>
 
             <button type="button" onClick={() => setPestana('sumas')} style={tabStyle(pestana === 'sumas')}>
-              🧮 Sumas y Saldos
+              {t('tabSumas')}
             </button>
 
             <button
@@ -221,14 +242,14 @@ export default function InformesPage() {
               onClick={() => setPestana('balance')}
               style={tabStyle(pestana === 'balance')}
             >
-              🏛️ Balance Patrimonial
+              {t('tabBalance')}
             </button>
           </div>
 
           {error && <div style={errorStyle}>{error}</div>}
 
           {cargando ? (
-            <div style={cargandoStyle}>Cargando informes...</div>
+            <div style={cargandoStyle}>{t('cargandoInformes')}</div>
           ) : (
             <>
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
@@ -242,6 +263,7 @@ export default function InformesPage() {
       </div>
     </div>
     </SimboloContext.Provider>
+    </IdiomaContext.Provider>
   );
 }
 
@@ -268,23 +290,12 @@ function calcularMovimiento(cuenta: CuentaPlan, asientos: Asiento[], incluirInic
 
 // Agrupa las fechas de los asientos en períodos "AAAA-MM", más la
 // opción "TODOS" para ver el histórico completo.
-function obtenerPeriodos(asientos: Asiento[]) {
+function obtenerPeriodos(asientos: Asiento[], idioma: string | null) {
   const claves = new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean));
 
   return Array.from(claves)
     .sort((a, b) => b.localeCompare(a))
-    .map((clave) => ({ valor: clave, etiqueta: formatearPeriodo(clave) }));
-}
-
-function formatearPeriodo(clave: string): string {
-  const [anio, mes] = clave.split('-').map(Number);
-
-  if (!anio || !mes) return clave;
-
-  return new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  });
+    .map((clave) => ({ valor: clave, etiqueta: formatearPeriodo(clave, idioma) }));
 }
 
 /* ==========================================================
@@ -293,6 +304,8 @@ function formatearPeriodo(clave: string): string {
 
 function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   const [busqueda, setBusqueda] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
@@ -327,15 +340,15 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar cuenta por código o nombre..."
+          placeholder={t('buscarCuenta')}
           style={{ ...campoInput, maxWidth: 420, marginBottom: 0 }}
         />
 
         <BotonToggle
           activo={mostrarCeros}
           onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo="Ocultar cuentas en cero"
-          etiquetaInactivo="Mostrar cuentas en cero"
+          etiquetaActivo={t('ocultarCerosEnCero')}
+          etiquetaInactivo={t('mostrarCerosEnCero')}
         />
       </div>
 
@@ -343,12 +356,12 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={cabeceraFila}>
-              <Th>Código</Th>
-              <Th>Cuenta</Th>
-              <Th align="right">Saldo Inicial</Th>
-              <Th align="right">Debe</Th>
-              <Th align="right">Haber</Th>
-              <Th align="right">Saldo Final</Th>
+              <Th>{t('codigoHeader')}</Th>
+              <Th>{t('cuentaHeader')}</Th>
+              <Th align="right">{t('saldoInicialHeader')}</Th>
+              <Th align="right">{t('debeHeader')}</Th>
+              <Th align="right">{t('haberHeader')}</Th>
+              <Th align="right">{t('saldoFinalHeader')}</Th>
             </tr>
           </thead>
 
@@ -356,7 +369,7 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
             {visibles.map((fila) => (
               <tr key={fila.cuenta.id} style={filaStyle}>
                 <Td>{fila.cuenta.codigo}</Td>
-                <Td>{fila.cuenta.nombre}</Td>
+                <Td>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</Td>
                 <Td align="right">{simbolo} {formatearNumeroEntero(fila.inicial)}</Td>
                 <Td align="right">{fila.debe ? `${simbolo} ${formatearNumeroEntero(fila.debe)}` : '—'}</Td>
                 <Td align="right">{fila.haber ? `${simbolo} ${formatearNumeroEntero(fila.haber)}` : '—'}</Td>
@@ -369,7 +382,7 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
             {!visibles.length && (
               <tr>
                 <td colSpan={6} style={vacioStyle}>
-                  No se encontraron cuentas.
+                  {t('sinCuentas')}
                 </td>
               </tr>
             )}
@@ -378,7 +391,7 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
           <tfoot>
             <tr style={pieFila}>
               <Td>
-                <strong>Total</strong>
+                <strong>{t('total')}</strong>
               </Td>
               <Td>—</Td>
               <Td align="right">
@@ -410,8 +423,8 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
         }}
       >
         {Math.abs(diferenciaDebeHaber) < 0.01
-          ? '✓ El Debe y el Haber cierran iguales.'
-          : `⚠ El Debe y el Haber no cierran — diferencia de ${simbolo} ${formatearNumeroEntero(diferenciaDebeHaber)}.`}
+          ? t('debeHaberCierran')
+          : msgDebeHaberNoCierran(idioma, `${simbolo} ${formatearNumeroEntero(diferenciaDebeHaber)}`)}
       </div>
     </div>
   );
@@ -423,6 +436,8 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
 
 function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   const [cuentaId, setCuentaId] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
@@ -474,15 +489,15 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
       <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 420, flex: 1, minWidth: 260 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-            Cuenta
+            {t('cuentaLabel')}
           </label>
 
           <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
-            <option value="">Seleccionar cuenta...</option>
+            <option value="">{t('seleccionarCuenta')}</option>
 
             {opciones.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nombre}
+                {nombreCuentaDisplay(idioma, c.nombre)}
               </option>
             ))}
           </select>
@@ -491,8 +506,8 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
         <BotonToggle
           activo={mostrarCeros}
           onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo="Ocultar cuentas en cero"
-          etiquetaInactivo="Mostrar cuentas en cero"
+          etiquetaActivo={t('ocultarCerosEnCero')}
+          etiquetaInactivo={t('mostrarCerosEnCero')}
         />
 
         {cuenta && (
@@ -505,7 +520,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
             }}
           >
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-              SALDO ACTUAL
+              {t('saldoActualLabel')}
             </div>
 
             <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
@@ -516,18 +531,18 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
       </div>
 
       {!cuenta ? (
-        <div style={vacioOperacion}>Elegí una cuenta para ver su movimiento.</div>
+        <div style={vacioOperacion}>{t('elegirCuentaMovimiento')}</div>
       ) : (
         <div style={tablaContenedor}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={cabeceraFila}>
-                <Th>Fecha</Th>
-                <Th>Operación</Th>
-                <Th>Descripción</Th>
-                <Th align="right">Debe</Th>
-                <Th align="right">Haber</Th>
-                <Th align="right">Saldo</Th>
+                <Th>{t('fechaHeader')}</Th>
+                <Th>{t('operacionHeader')}</Th>
+                <Th>{t('descripcionHeader')}</Th>
+                <Th align="right">{t('debeHeader')}</Th>
+                <Th align="right">{t('haberHeader')}</Th>
+                <Th align="right">{t('saldoHeader')}</Th>
               </tr>
             </thead>
 
@@ -536,7 +551,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
                 <Td>—</Td>
                 <Td>—</Td>
                 <Td>
-                  <em>Saldo inicial</em>
+                  <em>{t('saldoInicialItalic')}</em>
                 </Td>
                 <Td align="right">—</Td>
                 <Td align="right">—</Td>
@@ -547,7 +562,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
 
               {filasConSaldo.map((fila, indice) => (
                 <tr key={`${fila.id_operacion}-${indice}`} style={filaStyle}>
-                  <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString('es-AR')}</Td>
+                  <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}</Td>
                   <Td>{fila.id_operacion || '—'}</Td>
                   <Td>{fila.descripcion || '—'}</Td>
                   <Td align="right">{fila.esDebe ? `${simbolo} ${formatearNumeroEntero(fila.importe)}` : '—'}</Td>
@@ -561,7 +576,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
               {!filasConSaldo.length && (
                 <tr>
                   <td colSpan={6} style={vacioStyle}>
-                    Esta cuenta todavía no tiene movimientos validados.
+                    {t('sinMovimientosValidados')}
                   </td>
                 </tr>
               )}
@@ -579,7 +594,9 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
 
 function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
-  const periodos = useMemo(() => obtenerPeriodos(asientos), [asientos]);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
   const [periodo, setPeriodo] = useState('TODOS');
 
   const esTodos = periodo === 'TODOS';
@@ -611,17 +628,20 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
   // La tendencia mira siempre todo el histórico, sin importar el
   // período elegido arriba — es el panorama general de la empresa,
   // no un dato que dependa del filtro.
-  const tendencia = useMemo(() => calcularTendenciaResultado(hojas, asientos), [hojas, asientos]);
+  const tendencia = useMemo(
+    () => calcularTendenciaResultado(hojas, asientos, idioma),
+    [hojas, asientos, idioma]
+  );
 
   return (
     <div>
       <div style={{ marginBottom: 18, maxWidth: 280 }}>
         <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-          Período
+          {t('periodoLabel')}
         </label>
 
         <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
-          <option value="TODOS">Todos los períodos</option>
+          <option value="TODOS">{t('todosLosPeriodos')}</option>
 
           {periodos.map((p) => (
             <option key={p.valor} value={p.valor}>
@@ -631,16 +651,16 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
         </select>
       </div>
 
-      <SeccionResultado titulo="Ingresos" emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
+      <SeccionResultado titulo={t('ingresosTitulo')} emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
 
       {/* Una empresa sin cuentas de Costo (Familiar, Servicios puro)
           nunca va a tener nada acá — mostrar la sección igual sería
           solo ruido ("Costos: $0" sin ninguna fila debajo). */}
       {costos.length > 0 && (
-        <SeccionResultado titulo="Costos" emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
+        <SeccionResultado titulo={t('costosTitulo')} emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
       )}
 
-      <SeccionResultado titulo="Gastos" emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
+      <SeccionResultado titulo={t('gastosTitulo')} emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
 
       <div
         style={{
@@ -657,7 +677,7 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
       >
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            RESULTADO {esTodos ? '(histórico)' : `— ${formatearPeriodo(periodo)}`}
+            {msgResultadoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))}
           </div>
 
           <div style={{ fontSize: 24, fontWeight: 800, color: resultado >= 0 ? COLORES.verde : '#dc2626' }}>
@@ -666,21 +686,21 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
         </div>
 
         <div style={{ textAlign: 'right', fontSize: 13, color: COLORES.gris }}>
-          Rentabilidad
+          {t('rentabilidadLabel')}
           <div style={{ fontSize: 18, fontWeight: 800, color: COLORES.azul }}>
             {rentabilidad.toFixed(1)}%
           </div>
         </div>
       </div>
 
-      <SeccionTendencia titulo="Tendencia del Resultado" datos={tendencia} />
+      <SeccionTendencia titulo={t('tendenciaResultadoTitulo')} datos={tendencia} idioma={idioma} />
     </div>
   );
 }
 
 // Resultado (Ingresos - Costos - Gastos) de cada mes, calculado solo
 // con el movimiento de ese mes (no acumulado, no incluye saldo inicial).
-function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[]) {
+function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[], idioma: string | null) {
   const claves = Array.from(new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
 
   return claves.map((clave) => {
@@ -693,16 +713,8 @@ function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[]) {
 
     const valor = sumaTipo('INGRESO') - sumaTipo('COSTO') - sumaTipo('GASTO');
 
-    return { clave, etiqueta: formatearPeriodoCorto(clave), valor };
+    return { clave, etiqueta: formatearPeriodoCorto(clave, idioma), valor };
   });
-}
-
-function formatearPeriodoCorto(clave: string): string {
-  const [anio, mes] = clave.split('-').map(Number);
-  if (!anio || !mes) return clave;
-
-  const nombre = new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', { month: 'short' });
-  return `${nombre.replace('.', '')} ${String(anio).slice(2)}`;
 }
 
 // Bloque "panorama general": título + gráfico de tendencia, siempre
@@ -710,34 +722,42 @@ function formatearPeriodoCorto(clave: string): string {
 function SeccionTendencia({
   titulo,
   datos,
+  idioma,
 }: {
   titulo: string;
   datos: { clave: string; etiqueta: string; valor: number }[];
+  idioma: string | null;
 }) {
+  const t = crearTraductor(diccionarioInformes, idioma);
+
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ marginBottom: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: COLORES.verde }}>
-        PANORAMA GENERAL
+        {t('panoramaGeneral')}
       </div>
 
       <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>{titulo}</h3>
 
       <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES.gris }}>
-        Todo el histórico, mes a mes — no cambia con el período elegido arriba.
+        {t('tendenciaSubtitulo')}
       </p>
 
-      <GraficoTendenciaResultado datos={datos} />
+      <GraficoTendenciaResultado datos={datos} idioma={idioma} />
     </div>
   );
 }
 
 function GraficoTendenciaResultado({
   datos,
+  idioma,
 }: {
   datos: { clave: string; etiqueta: string; valor: number }[];
+  idioma: string | null;
 }) {
+  const t = crearTraductor(diccionarioInformes, idioma);
+
   if (!datos.length) {
-    return <div style={vacioOperacion}>Todavía no hay historial suficiente para mostrar una tendencia.</div>;
+    return <div style={vacioOperacion}>{t('sinHistorialTendencia')}</div>;
   }
 
   const alto = 160;
@@ -808,6 +828,8 @@ function SeccionResultado({
   resta?: boolean;
 }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -834,7 +856,7 @@ function SeccionResultado({
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
         {!filas.length ? (
           <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
-            Sin movimiento en este período.
+            {t('sinMovimientoPeriodo')}
           </div>
         ) : (
           filas.map((fila, indice) => (
@@ -848,7 +870,7 @@ function SeccionResultado({
                 borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
               }}
             >
-              <span>{fila.cuenta.nombre}</span>
+              <span>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
               <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
             </div>
           ))
@@ -864,6 +886,8 @@ function SeccionResultado({
 
 function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   const cuentasCaja = useMemo(
     () => hojas.filter((c) => (c.codigo ?? '').startsWith('1.1.1.')),
     [hojas]
@@ -871,7 +895,7 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
 
   const nombresCaja = useMemo(() => new Set(cuentasCaja.map((c) => c.nombre)), [cuentasCaja]);
 
-  const periodos = useMemo(() => obtenerPeriodos(asientos), [asientos]);
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
   const [periodo, setPeriodo] = useState('TODOS');
   const esTodos = periodo === 'TODOS';
 
@@ -908,8 +932,8 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
     [asientosDelPeriodo, nombresCaja]
   );
 
-  const entradasAgrupadas = agruparPorContraparte(entradas, (a) => a.credito);
-  const salidasAgrupadas = agruparPorContraparte(salidas, (a) => a.debito);
+  const entradasAgrupadas = agruparPorContraparte(entradas, (a) => a.credito, idioma);
+  const salidasAgrupadas = agruparPorContraparte(salidas, (a) => a.debito, idioma);
 
   const totalEntradas = entradasAgrupadas.reduce((s, f) => s + f.valor, 0);
   const totalSalidas = salidasAgrupadas.reduce((s, f) => s + f.valor, 0);
@@ -918,8 +942,8 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
   // Igual que en Estado de Resultado: la tendencia mira todo el
   // histórico, sin importar el período elegido arriba.
   const tendenciaCaja = useMemo(
-    () => calcularTendenciaCaja(nombresCaja, asientos),
-    [nombresCaja, asientos]
+    () => calcularTendenciaCaja(nombresCaja, asientos, idioma),
+    [nombresCaja, asientos, idioma]
   );
 
   return (
@@ -927,11 +951,11 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
       <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 280, flex: 1, minWidth: 220 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-            Período
+            {t('periodoLabel')}
           </label>
 
           <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
-            <option value="TODOS">Todos los períodos</option>
+            <option value="TODOS">{t('todosLosPeriodos')}</option>
 
             {periodos.map((p) => (
               <option key={p.valor} value={p.valor}>
@@ -950,7 +974,7 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
           }}
         >
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            CAJA DISPONIBLE HOY
+            {t('cajaDisponibleHoy')}
           </div>
 
           <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
@@ -959,8 +983,8 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
         </div>
       </div>
 
-      <SeccionMontos titulo="Entradas de caja" emoji="⬇️" filas={entradasAgrupadas} total={totalEntradas} color={COLORES.verde} />
-      <SeccionMontos titulo="Salidas de caja" emoji="⬆️" filas={salidasAgrupadas} total={totalSalidas} color="#c2410c" resta />
+      <SeccionMontos titulo={t('entradasDeCaja')} emoji="⬇️" filas={entradasAgrupadas} total={totalEntradas} color={COLORES.verde} />
+      <SeccionMontos titulo={t('salidasDeCaja')} emoji="⬆️" filas={salidasAgrupadas} total={totalSalidas} color="#c2410c" resta />
 
       <div
         style={{
@@ -971,7 +995,7 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-          FLUJO NETO {esTodos ? '(histórico)' : `— ${formatearPeriodo(periodo)}`}
+          {msgFlujoNetoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))}
         </div>
 
         <div style={{ fontSize: 24, fontWeight: 800, color: flujoNeto >= 0 ? COLORES.verde : '#dc2626' }}>
@@ -979,13 +1003,13 @@ function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: As
         </div>
       </div>
 
-      <SeccionTendencia titulo="Tendencia de Caja" datos={tendenciaCaja} />
+      <SeccionTendencia titulo={t('tendenciaCajaTitulo')} datos={tendenciaCaja} idioma={idioma} />
     </div>
   );
 }
 
 // Flujo neto de caja (entradas - salidas) de cada mes.
-function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[]) {
+function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[], idioma: string | null) {
   const claves = Array.from(new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
 
   return claves.map((clave) => {
@@ -999,22 +1023,28 @@ function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[]) {
       .filter((a) => a.credito && nombresCaja.has(a.credito) && !(a.debito && nombresCaja.has(a.debito)))
       .reduce((s, a) => s + a.importe, 0);
 
-    return { clave, etiqueta: formatearPeriodoCorto(clave), valor: entradasMes - salidasMes };
+    return { clave, etiqueta: formatearPeriodoCorto(clave, idioma), valor: entradasMes - salidasMes };
   });
 }
 
 // Agrupa una lista de asientos por el nombre de la cuenta "contraparte"
 // (la otra punta del asiento), sumando importes iguales.
-function agruparPorContraparte(lista: Asiento[], contraparte: (a: Asiento) => string | null) {
+function agruparPorContraparte(
+  lista: Asiento[],
+  contraparte: (a: Asiento) => string | null,
+  idioma: string | null
+) {
   const mapa = new Map<string, number>();
 
   for (const asiento of lista) {
-    const clave = contraparte(asiento) || 'Otro';
+    const clave = contraparte(asiento) || '__OTRO__';
     mapa.set(clave, (mapa.get(clave) ?? 0) + asiento.importe);
   }
 
+  const t = crearTraductor(diccionarioInformes, idioma);
+
   return Array.from(mapa.entries())
-    .map(([nombre, valor]) => ({ nombre, valor }))
+    .map(([nombre, valor]) => ({ nombre: nombre === '__OTRO__' ? t('otro') : nombre, valor }))
     .sort((a, b) => b.valor - a.valor);
 }
 
@@ -1034,6 +1064,8 @@ function SeccionMontos({
   resta?: boolean;
 }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -1060,7 +1092,7 @@ function SeccionMontos({
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
         {!filas.length ? (
           <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
-            Sin movimiento en este período.
+            {t('sinMovimientoPeriodo')}
           </div>
         ) : (
           filas.map((fila, indice) => (
@@ -1074,7 +1106,7 @@ function SeccionMontos({
                 borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
               }}
             >
-              <span>{fila.nombre}</span>
+              <span>{nombreCuentaDisplay(idioma, fila.nombre)}</span>
               <span>{simbolo} {formatearNumeroEntero(fila.valor)}</span>
             </div>
           ))
@@ -1098,6 +1130,8 @@ function BalancePatrimonialTab({
   asientos: Asiento[];
 }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   const [mostrarCeros, setMostrarCeros] = useState(false);
 
   // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
@@ -1165,7 +1199,7 @@ function BalancePatrimonialTab({
       >
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            RESULTADO DEL EJERCICIO (SIN CERRAR)
+            {t('resultadoEjercicioSinCerrar')}
           </div>
 
           <div
@@ -1180,8 +1214,7 @@ function BalancePatrimonialTab({
         </div>
 
         <p style={{ margin: 0, maxWidth: 280, fontSize: 12, color: COLORES.gris }}>
-          Lo que ganó o perdió el negocio hasta hoy, todavía no volcado a Lucros Acumulados. Ya está
-          incluido en el Patrimonio de abajo.
+          {t('resultadoEjercicioDescripcion')}
         </p>
       </div>
 
@@ -1189,8 +1222,8 @@ function BalancePatrimonialTab({
         <BotonToggle
           activo={mostrarCeros}
           onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo="Ocultar cuentas en cero"
-          etiquetaInactivo="Mostrar cuentas en cero"
+          etiquetaActivo={t('ocultarCerosEnCero')}
+          etiquetaInactivo={t('mostrarCerosEnCero')}
         />
       </div>
 
@@ -1201,20 +1234,20 @@ function BalancePatrimonialTab({
           gap: 18,
         }}
       >
-        <BloqueBalance titulo="Activo" emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} />
+        <BloqueBalance titulo={t('activoTitulo')} emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} />
 
         <div>
-          <BloqueBalance titulo="Pasivo" emoji="💗" grupos={pasivo.grupos} total={pasivo.total} color="#b91c1c" />
+          <BloqueBalance titulo={t('pasivoTitulo')} emoji="💗" grupos={pasivo.grupos} total={pasivo.total} color="#b91c1c" />
 
           <div style={{ height: 14 }} />
 
           <BloqueBalance
-            titulo="Patrimonio"
+            titulo={t('patrimonioTitulo')}
             emoji="💙"
             grupos={patrimonio.grupos}
             total={patrimonio.total}
             color={COLORES.azul}
-            filaExtra={{ nombre: 'Resultado del Ejercicio (no cerrado)', valor: resultadoDelEjercicio }}
+            filaExtra={{ nombre: t('resultadoEjercicioNoCerrado'), valor: resultadoDelEjercicio }}
           />
         </div>
       </div>
@@ -1231,8 +1264,17 @@ function BalancePatrimonialTab({
         }}
       >
         {Math.abs(diferencia) < 0.01
-          ? `✓ Activo (${simbolo} ${formatearNumeroEntero(activo.total)}) = Pasivo + Patrimonio (${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}).`
-          : `⚠ La ecuación no cierra por ${simbolo} ${formatearNumeroEntero(diferencia)}. Activo: ${simbolo} ${formatearNumeroEntero(activo.total)} — Pasivo + Patrimonio: ${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}.`}
+          ? msgEcuacionCierra(
+              idioma,
+              `${simbolo} ${formatearNumeroEntero(activo.total)}`,
+              `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`
+            )
+          : msgEcuacionNoCierra(
+              idioma,
+              `${simbolo} ${formatearNumeroEntero(diferencia)}`,
+              `${simbolo} ${formatearNumeroEntero(activo.total)}`,
+              `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`
+            )}
       </div>
     </div>
   );
@@ -1254,6 +1296,8 @@ function BloqueBalance({
   filaExtra?: { nombre: string; valor: number };
 }) {
   const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
   const entradas = Array.from(grupos.entries());
 
   return (
@@ -1278,7 +1322,7 @@ function BloqueBalance({
         {entradas.map(([grupo, filas]) => (
           <div key={grupo} style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: COLORES.gris, marginBottom: 4 }}>
-              {grupo.toUpperCase()}
+              {nombreCuentaDisplay(idioma, grupo).toUpperCase()}
             </div>
 
             {filas.map((fila) => (
@@ -1286,7 +1330,7 @@ function BloqueBalance({
                 key={fila.cuenta.id}
                 style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}
               >
-                <span>{fila.cuenta.nombre}</span>
+                <span>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
                 <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
               </div>
             ))}
@@ -1314,7 +1358,7 @@ function BloqueBalance({
 
         {!entradas.length && !filaExtra && (
           <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
-            Sin cuentas con movimiento.
+            {t('sinCuentasMovimiento')}
           </div>
         )}
       </div>

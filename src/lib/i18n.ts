@@ -64,3 +64,38 @@ export function nombreOperacionDisplay(idioma: string | null | undefined, nombre
   if (idioma !== 'PT') return nombreOperacion;
   return NOMBRE_OPERACION_PT[nombreOperacion] ?? nombreOperacion;
 }
+
+// Nombre visible de las cuentas "rubro" (estructurales, sin uso
+// contable directo — ACTIVO, ACTIVO CORRIENTE, etc.) del Plan de
+// Cuentas. El nombre real en plan_cuentas.nombre queda en español
+// (así salió del plan maestro, y así se usa donde haga falta el
+// texto literal); esto solo traduce lo que se muestra en pantalla
+// para los ~18 nombres estructurales conocidos de todos los
+// perfiles. Las cuentas hoja (las que el usuario puede renombrar) no
+// se tocan, porque su nombre puede ser cualquier cosa que el usuario
+// ya haya escrito en el idioma que prefiera.
+const NOMBRE_RUBRO_PT: Record<string, string> = {
+  ACTIVO: 'ATIVO',
+  'ACTIVO CORRIENTE': 'ATIVO CIRCULANTE',
+  'ACTIVO NO CORRIENTE': 'ATIVO NÃO CIRCULANTE',
+  'AHORROS E INVERSIONES': 'POUPANÇAS E INVESTIMENTOS',
+  PASIVO: 'PASSIVO',
+  'PASIVO CORRIENTE': 'PASSIVO CIRCULANTE',
+  'PASIVO NO CORRIENTE': 'PASSIVO NÃO CIRCULANTE',
+  'PATRIMONIO NETO': 'PATRIMÔNIO LÍQUIDO',
+  'PATRIMONIO FAMILIAR': 'PATRIMÔNIO FAMILIAR',
+  INGRESOS: 'RECEITAS',
+  COSTOS: 'CUSTOS',
+  GASTOS: 'DESPESAS',
+  'GASTOS ADMINISTRATIVOS': 'DESPESAS ADMINISTRATIVAS',
+  'GASTOS DEL HOGAR': 'DESPESAS DOMÉSTICAS',
+  'GASTOS COMERCIALES': 'DESPESAS COMERCIAIS',
+  'GASTOS GENERALES': 'DESPESAS GERAIS',
+  'GASTOS FINANCIEROS': 'DESPESAS FINANCEIRAS',
+  IMPUESTOS: 'IMPOSTOS',
+};
+
+export function nombreCuentaDisplay(idioma: string | null | undefined, nombre: string): string {
+  if (idioma !== 'PT') return nombre;
+  return NOMBRE_RUBRO_PT[nombre] ?? nombre;
+}
