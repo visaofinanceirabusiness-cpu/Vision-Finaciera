@@ -1,5 +1,4 @@
 'use client';
-
 // LOBBY / INICIO
 //
 // Es la puerta de entrada de la plataforma: lo primero que ve el cliente
@@ -157,8 +156,8 @@ export default function InicioPage() {
       }
 
       // El admin de la plataforma entra directo a su panel maestro.
-      // Excepción: si vino desde "entrar a esa empresa" en el panel
-      // maestro, se queda acá viendo el negocio del cliente.
+      // Excepción: si vino desde "entrar a esa empresa" en el panel maestro,
+      // se queda acá viendo el negocio del cliente.
       const vieneDeEntrarAEmpresa =
         new URLSearchParams(window.location.search).get('vista') ===
         'empresa';
@@ -172,7 +171,9 @@ export default function InicioPage() {
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, rubro, logo_url, perfil_empresa_id, idioma')
+        .select(
+          'nombre, rubro, logo_url, perfil_empresa_id, idioma'
+        )
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
 
@@ -267,8 +268,7 @@ export default function InicioPage() {
         setGamificacion(null);
       }
 
-      // Mismo criterio que usa Panel de Control:
-      // objetivos del mes en curso y activos.
+      // Objetivos del mes en curso.
       const fechaActual = new Date();
 
       const periodoActual = `${fechaActual.getFullYear()}-${String(
@@ -332,7 +332,6 @@ export default function InicioPage() {
       });
 
       setObjetivos(objetivosResumen);
-
       setCargando(false);
     }
 
@@ -340,11 +339,7 @@ export default function InicioPage() {
   }, [router]);
 
   const idioma = empresa?.idioma ?? 'ES';
-
-  const t = crearTraductor(
-    diccionarioInicio,
-    idioma
-  );
+  const t = crearTraductor(diccionarioInicio, idioma);
 
   if (cargando) {
     return (
@@ -365,8 +360,7 @@ export default function InicioPage() {
   }
 
   if (estadoSolicitud) {
-    const pendiente =
-      estadoSolicitud === 'PENDIENTE';
+    const pendiente = estadoSolicitud === 'PENDIENTE';
 
     return (
       <div
@@ -450,15 +444,12 @@ export default function InicioPage() {
     azul:
       configuracion?.color_primario ??
       COLORES_BASE.azul,
-
     verde:
       configuracion?.color_secundario ??
       COLORES_BASE.verde,
-
     acento:
       configuracion?.color_acento ??
       COLORES_BASE.gris,
-
     blanco: COLORES_BASE.blanco,
   };
 
@@ -657,7 +648,8 @@ export default function InicioPage() {
         )}
 
         {/* =================================================
-            HERO — SABIO + NIVEL
+            HERO
+            Sabio interactivo y nivel del emprendedor.
         ================================================== */}
 
         <SabioHero
@@ -676,7 +668,12 @@ export default function InicioPage() {
         />
 
         {/* =================================================
-            MENSAJES DE VISÃO FINANCEIRA
+            NUEVOS MENSAJES
+            Acceso al centro de mensajes financieros.
+            
+            El punto rojo funciona como indicador visual
+            de notificación. Más adelante podremos conectarlo
+            a un estado real de mensajes leídos/no leídos.
         ================================================== */}
 
         <Link
@@ -689,51 +686,102 @@ export default function InicioPage() {
         >
           <section
             style={{
+              position: 'relative',
               background: colores.blanco,
-              borderRadius: 20,
-              border: '1px solid #e5e7eb',
+              borderRadius: 22,
+              border: `1px solid ${colores.acento}33`,
               padding: '18px 22px',
               display: 'flex',
               alignItems: 'center',
               gap: 16,
               boxShadow:
-                '0 8px 20px rgba(31,58,95,0.05)',
+                '0 10px 26px rgba(31,58,95,0.07)',
               transition:
                 'transform 0.2s ease, box-shadow 0.2s ease',
+              cursor: 'pointer',
             }}
           >
+            {/* SOBRE */}
+
             <div
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 15,
+                position: 'relative',
+                width: 58,
+                height: 58,
+                borderRadius: 17,
                 background: `${colores.verde}14`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 25,
                 flexShrink: 0,
               }}
             >
-              ✉️
+              <span
+                style={{
+                  fontSize: 30,
+                  lineHeight: 1,
+                }}
+              >
+                ✉️
+              </span>
+
+              {/* PUNTO ROJO DE NOTIFICACIÓN */}
+
+              <span
+                aria-label="Nuevo mensaje"
+                style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -5,
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: '#dc2626',
+                  border: `3px solid ${colores.blanco}`,
+                  boxShadow:
+                    '0 3px 8px rgba(220,38,38,0.35)',
+                }}
+              />
             </div>
+
+            {/* TEXTO */}
 
             <div
               style={{
                 flex: 1,
+                minWidth: 0,
               }}
             >
               <div
                 style={{
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: 1.2,
-                  color: colores.verde,
-                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
                   marginBottom: 4,
                 }}
               >
-                Visão Financeira
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 1.2,
+                    color: '#dc2626',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  NUEVO
+                </span>
+
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: colores.acento,
+                    fontWeight: 600,
+                  }}
+                >
+                  Visão Financeira
+                </span>
               </div>
 
               <div
@@ -741,29 +789,34 @@ export default function InicioPage() {
                   color: colores.azul,
                   fontSize: 17,
                   fontWeight: 800,
+                  lineHeight: 1.25,
                 }}
               >
-                Mensajes sobre tu negocio
+                Tienes un nuevo mensaje
               </div>
 
               <div
                 style={{
-                  color: colores.gris,
+                  color: colores.acento,
                   fontSize: 13,
-                  marginTop: 3,
+                  marginTop: 4,
+                  lineHeight: 1.4,
                 }}
               >
-                Sabio analizó tus números y tiene
-                3 mensajes para ti.
+                Sabio tiene algo para contarte
+                sobre tu negocio.
               </div>
             </div>
+
+            {/* FLECHA */}
 
             <div
               style={{
                 color: colores.azul,
-                fontSize: 22,
+                fontSize: 25,
                 fontWeight: 700,
                 flexShrink: 0,
+                paddingLeft: 4,
               }}
             >
               →
@@ -784,11 +837,7 @@ export default function InicioPage() {
             border: '1px solid #e5e7eb',
           }}
         >
-          <div
-            style={{
-              marginBottom: 16,
-            }}
-          >
+          <div style={{ marginBottom: 16 }}>
             <div
               style={{
                 marginBottom: 4,
@@ -850,7 +899,6 @@ export default function InicioPage() {
               destacado
             />
 
-            {/* Solo para empresas de producción */}
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso
                 href="/produccion"
@@ -877,7 +925,7 @@ export default function InicioPage() {
         </section>
 
         {/* =================================================
-            PIE — MARCA VISÃO FINANCEIRA
+            PIE — Marca Visão Financeira
         ================================================== */}
 
         <PieVisao
