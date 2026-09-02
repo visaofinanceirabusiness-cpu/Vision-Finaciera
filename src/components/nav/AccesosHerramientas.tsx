@@ -77,6 +77,18 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         tieneProduccion = (modulosData ?? []).some((fila) => fila.modulo === 'PRODUCCION');
       }
 
+      // El perfil MIXTO no tiene fila en perfil_modulos — depende de
+      // qué componentes eligió la empresa al darse de alta (ver misma
+      // nota en app/page.tsx).
+      if (!tieneProduccion) {
+        const { data: componentesMixtoData } = await supabase
+          .from('empresa_mixto_componentes')
+          .select('componente')
+          .eq('empresa_id', perfil.empresa_id);
+
+        tieneProduccion = (componentesMixtoData ?? []).some((fila) => fila.componente === 'PRODUCCION');
+      }
+
       let manejaMercaderia = true;
 
       try {

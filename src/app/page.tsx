@@ -174,6 +174,11 @@ export default function InicioPage() {
       // servicios, producción, mixto). Es lo que hace que una herramienta
       // como Producción aparezca solo en las empresas que producen, sin
       // tener que nombrar clientes dentro del código.
+      //
+      // El perfil MIXTO no tiene fila propia en perfil_modulos (no hay
+      // un módulo fijo: depende de qué componentes eligió cada empresa
+      // al darse de alta) — para esas empresas los módulos salen de
+      // empresa_mixto_componentes en su lugar.
       if (empresaData?.perfil_empresa_id) {
         const { data: modulosData, error: errorModulos } = await supabase
           .from('perfil_modulos')
@@ -185,7 +190,23 @@ export default function InicioPage() {
           console.warn('No se pudieron cargar los módulos del perfil:', errorModulos);
         }
 
-        setModulos((modulosData ?? []).map((fila) => String(fila.modulo)));
+        const { data: componentesMixtoData, error: errorComponentesMixto } = await supabase
+          .from('empresa_mixto_componentes')
+          .select('componente')
+          .eq('empresa_id', perfilData.empresa_id);
+
+        if (errorComponentesMixto) {
+          console.warn('No se pudieron cargar los componentes mixtos:', errorComponentesMixto);
+        }
+
+        setModulos(
+          Array.from(
+            new Set([
+              ...(modulosData ?? []).map((fila) => String(fila.modulo)),
+              ...(componentesMixtoData ?? []).map((fila) => String(fila.componente)),
+            ])
+          )
+        );
       } else {
         setModulos([]);
       }
