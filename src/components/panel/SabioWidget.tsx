@@ -136,6 +136,7 @@ export function SabioWidget({
           fontSize: 11,
           fontWeight: 800,
           letterSpacing: 1.5,
+          color: colores.blanco,
           opacity: 0.78,
           marginBottom: 4,
         }}
@@ -217,6 +218,7 @@ export function SabioWidget({
           marginTop: 2,
           fontSize: 13,
           fontWeight: 600,
+          color: colores.blanco,
           opacity: 0.9,
           textAlign: 'center',
         }}
