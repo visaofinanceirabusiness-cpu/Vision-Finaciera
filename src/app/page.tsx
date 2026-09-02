@@ -17,7 +17,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
-import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
+import {
+  empresaManejaMercaderia,
+  empresaTieneModulo,
+} from '@/lib/perfilCapacidades';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { crearTraductor } from '@/lib/i18n';
@@ -74,7 +77,10 @@ type ObjetivoResumen = {
   porcentaje: number;
 };
 
-function nombreIndicador(t: (clave: ClaveInicio) => string, indicador: string): string {
+function nombreIndicador(
+  t: (clave: ClaveInicio) => string,
+  indicador: string
+): string {
   const porIndicador: Record<string, ClaveInicio> = {
     'VENTAS DEL MES': 'indicadorVentasDelMes',
     'COMPRAS DEL MES': 'indicadorComprasDelMes',
@@ -87,6 +93,7 @@ function nombreIndicador(t: (clave: ClaveInicio) => string, indicador: string): 
   };
 
   const clave = porIndicador[indicador];
+
   return clave ? t(clave) : indicador;
 }
 
@@ -95,14 +102,18 @@ export default function InicioPage() {
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
-  const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
+  const [configuracion, setConfiguracion] =
+    useState<ConfiguracionDashboard | null>(null);
+  const [gamificacion, setGamificacion] =
+    useState<ProgresoGamificacion | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [manejaMercaderia, setManejaMercaderia] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [estadoSolicitud, setEstadoSolicitud] = useState<'PENDIENTE' | 'RECHAZADA' | null>(null);
+  const [estadoSolicitud, setEstadoSolicitud] = useState<
+    'PENDIENTE' | 'RECHAZADA' | null
+  >(null);
 
   useEffect(() => {
     async function cargarBase() {
@@ -132,7 +143,10 @@ export default function InicioPage() {
           .limit(1)
           .maybeSingle();
 
-        if (solicitud?.estado === 'PENDIENTE' || solicitud?.estado === 'RECHAZADA') {
+        if (
+          solicitud?.estado === 'PENDIENTE' ||
+          solicitud?.estado === 'RECHAZADA'
+        ) {
           setEstadoSolicitud(solicitud.estado);
         } else {
           setError('No se pudo identificar la empresa del usuario.');
@@ -142,12 +156,12 @@ export default function InicioPage() {
         return;
       }
 
-      // El admin de la plataforma entra directo a su panel maestro — el
-      // lobby de "mi negocio" es para los emprendedores. Excepción: si
-      // vino desde "entrar a esa empresa" en el panel maestro, se queda
-      // acá viendo el negocio del cliente en lugar de rebotar de vuelta.
+      // El admin de la plataforma entra directo a su panel maestro.
+      // Excepción: si vino desde "entrar a esa empresa" en el panel
+      // maestro, se queda acá viendo el negocio del cliente.
       const vieneDeEntrarAEmpresa =
-        new URLSearchParams(window.location.search).get('vista') === 'empresa';
+        new URLSearchParams(window.location.search).get('vista') ===
+        'empresa';
 
       if (perfilData.es_admin_plataforma && !vieneDeEntrarAEmpresa) {
         router.push('/panel-maestro');
@@ -163,33 +177,41 @@ export default function InicioPage() {
         .maybeSingle();
 
       if (errorEmpresa) {
-        setError(`No se pudo cargar la empresa: ${errorEmpresa.message}`);
+        setError(
+          `No se pudo cargar la empresa: ${errorEmpresa.message}`
+        );
         setCargando(false);
         return;
       }
 
       setEmpresa(empresaData);
 
-      // Módulos habilitados según el PERFIL de la empresa (comercial,
-      // servicios, producción, mixto). Es lo que hace que una herramienta
-      // como Producción aparezca solo en las empresas que producen, sin
-      // tener que nombrar clientes dentro del código. La regla (incluido
-      // el caso Mixto, que no tiene fila propia en perfil_modulos) vive
-      // centralizada en empresaTieneModulo — así el lobby y los accesos
-      // rápidos entre herramientas (AccesosHerramientas) no pueden
-      // volver a divergir entre sí.
+      // Módulos habilitados según el PERFIL de la empresa.
       try {
-        const tieneProduccion = await empresaTieneModulo(perfilData.empresa_id, 'PRODUCCION');
+        const tieneProduccion = await empresaTieneModulo(
+          perfilData.empresa_id,
+          'PRODUCCION'
+        );
+
         setModulos(tieneProduccion ? ['PRODUCCION'] : []);
       } catch (errorModulos) {
-        console.warn('No se pudo determinar los módulos habilitados:', errorModulos);
+        console.warn(
+          'No se pudo determinar los módulos habilitados:',
+          errorModulos
+        );
+
         setModulos([]);
       }
 
       try {
-        setManejaMercaderia(await empresaManejaMercaderia(perfilData.empresa_id));
+        setManejaMercaderia(
+          await empresaManejaMercaderia(perfilData.empresa_id)
+        );
       } catch (errorMercaderia) {
-        console.warn('No se pudo determinar si la empresa maneja mercadería:', errorMercaderia);
+        console.warn(
+          'No se pudo determinar si la empresa maneja mercadería:',
+          errorMercaderia
+        );
       }
 
       const { data: configData, error: errorConfig } = await supabase
@@ -208,7 +230,10 @@ export default function InicioPage() {
         .maybeSingle();
 
       if (errorConfig) {
-        console.warn('No se pudo cargar configuracion_dashboard:', errorConfig);
+        console.warn(
+          'No se pudo cargar configuracion_dashboard:',
+          errorConfig
+        );
       }
 
       const configFinal =
@@ -228,47 +253,80 @@ export default function InicioPage() {
       let progresoActual: ProgresoGamificacion | null = null;
 
       try {
-        progresoActual = await obtenerProgresoGamificacion(perfilData.empresa_id);
+        progresoActual = await obtenerProgresoGamificacion(
+          perfilData.empresa_id
+        );
+
         setGamificacion(progresoActual);
       } catch (errorGamificacion) {
-        console.warn('No se pudo calcular la gamificación:', errorGamificacion);
+        console.warn(
+          'No se pudo calcular la gamificación:',
+          errorGamificacion
+        );
+
         setGamificacion(null);
       }
 
-      // Mismo criterio que usa Panel de Control: objetivos del mes en
-      // curso, activos. Acá solo mostramos un resumen mini (nombre + %).
+      // Mismo criterio que usa Panel de Control:
+      // objetivos del mes en curso y activos.
       const fechaActual = new Date();
+
       const periodoActual = `${fechaActual.getFullYear()}-${String(
         fechaActual.getMonth() + 1
       ).padStart(2, '0')}-01`;
 
-      const { data: objetivosData, error: errorObjetivos } = await supabase
-        .from('objetivos_empresa')
-        .select('indicador, objetivo, unidad')
-        .eq('empresa_id', perfilData.empresa_id)
-        .eq('periodo', periodoActual)
-        .eq('activo', true);
+      const { data: objetivosData, error: errorObjetivos } =
+        await supabase
+          .from('objetivos_empresa')
+          .select('indicador, objetivo, unidad')
+          .eq('empresa_id', perfilData.empresa_id)
+          .eq('periodo', periodoActual)
+          .eq('activo', true);
 
       if (errorObjetivos) {
-        console.warn('No se pudieron cargar los objetivos:', errorObjetivos);
+        console.warn(
+          'No se pudieron cargar los objetivos:',
+          errorObjetivos
+        );
       }
 
-      const tParaIndicadores = crearTraductor(diccionarioInicio, empresaData?.idioma);
+      const tParaIndicadores = crearTraductor(
+        diccionarioInicio,
+        empresaData?.idioma
+      );
 
-      const objetivosResumen: ObjetivoResumen[] = (objetivosData ?? []).map((objetivo) => {
-        const indicador = String(objetivo.indicador ?? '').trim().toUpperCase();
+      const objetivosResumen: ObjetivoResumen[] = (
+        objetivosData ?? []
+      ).map((objetivo) => {
+        const indicador = String(
+          objetivo.indicador ?? ''
+        )
+          .trim()
+          .toUpperCase();
 
         const resultado =
-          indicador === 'OPERACIONES REGISTRADAS' && progresoActual
+          indicador === 'OPERACIONES REGISTRADAS' &&
+          progresoActual
             ? progresoActual.operaciones
             : 0;
 
         const meta = Number(objetivo.objetivo ?? 0);
 
-        const porcentaje = meta > 0 ? Math.min(100, Math.max(0, (resultado / meta) * 100)) : 0;
+        const porcentaje =
+          meta > 0
+            ? Math.min(
+                100,
+                Math.max(0, (resultado / meta) * 100)
+              )
+            : 0;
 
         return {
-          nombre: nombreIndicador(tParaIndicadores, indicador) || String(objetivo.indicador ?? ''),
+          nombre:
+            nombreIndicador(
+              tParaIndicadores,
+              indicador
+            ) ||
+            String(objetivo.indicador ?? ''),
           porcentaje: Number(porcentaje.toFixed(0)),
         };
       });
@@ -282,7 +340,11 @@ export default function InicioPage() {
   }, [router]);
 
   const idioma = empresa?.idioma ?? 'ES';
-  const t = crearTraductor(diccionarioInicio, idioma);
+
+  const t = crearTraductor(
+    diccionarioInicio,
+    idioma
+  );
 
   if (cargando) {
     return (
@@ -303,7 +365,8 @@ export default function InicioPage() {
   }
 
   if (estadoSolicitud) {
-    const pendiente = estadoSolicitud === 'PENDIENTE';
+    const pendiente =
+      estadoSolicitud === 'PENDIENTE';
 
     return (
       <div
@@ -323,16 +386,43 @@ export default function InicioPage() {
             padding: '36px 32px',
             maxWidth: 440,
             textAlign: 'center',
-            boxShadow: '0 18px 40px rgba(31,58,95,0.10)',
+            boxShadow:
+              '0 18px 40px rgba(31,58,95,0.10)',
           }}
         >
-          <div style={{ fontSize: 42, marginBottom: 10 }}>{pendiente ? '⏳' : '🚫'}</div>
-          <h1 style={{ color: COLORES_BASE.azul, fontSize: 21, margin: '0 0 10px' }}>
-            {pendiente ? t('solicitudPendienteTitulo') : t('solicitudRechazadaTitulo')}
+          <div
+            style={{
+              fontSize: 42,
+              marginBottom: 10,
+            }}
+          >
+            {pendiente ? '⏳' : '🚫'}
+          </div>
+
+          <h1
+            style={{
+              color: COLORES_BASE.azul,
+              fontSize: 21,
+              margin: '0 0 10px',
+            }}
+          >
+            {pendiente
+              ? t('solicitudPendienteTitulo')
+              : t('solicitudRechazadaTitulo')}
           </h1>
-          <p style={{ color: COLORES_BASE.gris, fontSize: 14, lineHeight: 1.6 }}>
-            {pendiente ? t('solicitudPendienteTexto') : t('solicitudRechazadaTexto')}
+
+          <p
+            style={{
+              color: COLORES_BASE.gris,
+              fontSize: 14,
+              lineHeight: 1.6,
+            }}
+          >
+            {pendiente
+              ? t('solicitudPendienteTexto')
+              : t('solicitudRechazadaTexto')}
           </p>
+
           <button
             onClick={async () => {
               await supabase.auth.signOut();
@@ -357,28 +447,46 @@ export default function InicioPage() {
   }
 
   const colores = {
-    azul: configuracion?.color_primario ?? COLORES_BASE.azul,
-    verde: configuracion?.color_secundario ?? COLORES_BASE.verde,
-    acento: configuracion?.color_acento ?? COLORES_BASE.gris,
+    azul:
+      configuracion?.color_primario ??
+      COLORES_BASE.azul,
+
+    verde:
+      configuracion?.color_secundario ??
+      COLORES_BASE.verde,
+
+    acento:
+      configuracion?.color_acento ??
+      COLORES_BASE.gris,
+
     blanco: COLORES_BASE.blanco,
   };
 
-  const hoy = new Date().toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const hoy = new Date().toLocaleDateString(
+    idioma === 'PT' ? 'pt-BR' : 'es-AR',
+    {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }
+  );
 
-  const logoDisponible = Boolean(empresa?.logo_url?.trim());
+  const logoDisponible = Boolean(
+    empresa?.logo_url?.trim()
+  );
 
-  const tieneModulo = (modulo: string) => modulos.includes(modulo);
+  const tieneModulo = (modulo: string) =>
+    modulos.includes(modulo);
 
   const mensajeBienvenida =
     configuracion?.mensaje_bienvenida ??
-    (idioma === 'PT' ? `Olá, ${perfil?.nombre ?? ''} 👋` : `Hola, ${perfil?.nombre ?? ''} 👋`);
+    (idioma === 'PT'
+      ? `Olá, ${perfil?.nombre ?? ''} 👋`
+      : `Hola, ${perfil?.nombre ?? ''} 👋`);
 
   const subtitulo =
-    configuracion?.subtitulo_dashboard ?? t('subtituloDefault');
+    configuracion?.subtitulo_dashboard ??
+    t('subtituloDefault');
 
   return (
     <main
@@ -389,7 +497,12 @@ export default function InicioPage() {
         padding: 24,
       }}
     >
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+        }}
+      >
         {/* =================================================
             CABECERA
         ================================================== */}
@@ -404,7 +517,13 @@ export default function InicioPage() {
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+            }}
+          >
             <div
               style={{
                 width: 78,
@@ -416,7 +535,8 @@ export default function InicioPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
-                boxShadow: '0 8px 20px rgba(31,58,95,0.10)',
+                boxShadow:
+                  '0 8px 20px rgba(31,58,95,0.10)',
                 flexShrink: 0,
               }}
             >
@@ -424,7 +544,9 @@ export default function InicioPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={empresa!.logo_url!}
-                  alt={`Logo de ${empresa?.nombre ?? 'empresa'}`}
+                  alt={`Logo de ${
+                    empresa?.nombre ?? 'empresa'
+                  }`}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -440,7 +562,9 @@ export default function InicioPage() {
                     color: colores.azul,
                   }}
                 >
-                  {(empresa?.nombre ?? 'M').charAt(0).toUpperCase()}
+                  {(empresa?.nombre ?? 'M')
+                    .charAt(0)
+                    .toUpperCase()}
                 </span>
               )}
             </div>
@@ -453,7 +577,8 @@ export default function InicioPage() {
                   color: colores.azul,
                 }}
               >
-                {empresa?.nombre ?? t('miNegocioDefault')}
+                {empresa?.nombre ??
+                  t('miNegocioDefault')}
               </div>
 
               <div
@@ -463,7 +588,8 @@ export default function InicioPage() {
                   marginTop: 3,
                 }}
               >
-                {empresa?.rubro ?? t('gestionFinancieraDefault')}
+                {empresa?.rubro ??
+                  t('gestionFinancieraDefault')}
               </div>
             </div>
           </div>
@@ -531,7 +657,7 @@ export default function InicioPage() {
         )}
 
         {/* =================================================
-            HERO (con Sabio interactivo y el nivel)
+            HERO — SABIO + NIVEL
         ================================================== */}
 
         <SabioHero
@@ -542,10 +668,108 @@ export default function InicioPage() {
           subtitulo={subtitulo}
           hoy={hoy}
           gamificacion={
-            configuracion?.mostrar_gamificacion ? gamificacion : null
+            configuracion?.mostrar_gamificacion
+              ? gamificacion
+              : null
           }
           objetivos={objetivos}
         />
+
+        {/* =================================================
+            MENSAJES DE VISÃO FINANCEIRA
+        ================================================== */}
+
+        <Link
+          href="/mensajes"
+          style={{
+            textDecoration: 'none',
+            display: 'block',
+            marginBottom: 20,
+          }}
+        >
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 20,
+              border: '1px solid #e5e7eb',
+              padding: '18px 22px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              boxShadow:
+                '0 8px 20px rgba(31,58,95,0.05)',
+              transition:
+                'transform 0.2s ease, box-shadow 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 15,
+                background: `${colores.verde}14`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 25,
+                flexShrink: 0,
+              }}
+            >
+              ✉️
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1.2,
+                  color: colores.verde,
+                  textTransform: 'uppercase',
+                  marginBottom: 4,
+                }}
+              >
+                Visão Financeira
+              </div>
+
+              <div
+                style={{
+                  color: colores.azul,
+                  fontSize: 17,
+                  fontWeight: 800,
+                }}
+              >
+                Mensajes sobre tu negocio
+              </div>
+
+              <div
+                style={{
+                  color: colores.gris,
+                  fontSize: 13,
+                  marginTop: 3,
+                }}
+              >
+                Sabio analizó tus números y tiene
+                3 mensajes para ti.
+              </div>
+            </div>
+
+            <div
+              style={{
+                color: colores.azul,
+                fontSize: 22,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              →
+            </div>
+          </section>
+        </Link>
 
         {/* =================================================
             HERRAMIENTAS
@@ -560,7 +784,11 @@ export default function InicioPage() {
             border: '1px solid #e5e7eb',
           }}
         >
-          <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              marginBottom: 16,
+            }}
+          >
             <div
               style={{
                 marginBottom: 4,
@@ -587,7 +815,8 @@ export default function InicioPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(210px, 1fr))',
               gap: 12,
             }}
           >
@@ -621,7 +850,7 @@ export default function InicioPage() {
               destacado
             />
 
-            {/* Solo para empresas de producción (perfil PRODUCCION) */}
+            {/* Solo para empresas de producción */}
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso
                 href="/produccion"
@@ -648,10 +877,13 @@ export default function InicioPage() {
         </section>
 
         {/* =================================================
-            PIE — Marca Visão Financeira
+            PIE — MARCA VISÃO FINANCEIRA
         ================================================== */}
 
-        <PieVisao colores={colores} idioma={idioma} />
+        <PieVisao
+          colores={colores}
+          idioma={idioma}
+        />
       </div>
     </main>
   );
@@ -680,13 +912,20 @@ function BotonAcceso({
           : destacado
             ? `${colorPrincipal}18`
             : '#ffffff',
-        color: principal ? '#ffffff' : colorPrincipal,
-        border: principal || destacado ? 'none' : '1px solid #d1d5db',
+        color: principal
+          ? '#ffffff'
+          : colorPrincipal,
+        border:
+          principal || destacado
+            ? 'none'
+            : '1px solid #d1d5db',
         borderRadius: 16,
         padding: '17px 18px',
         textAlign: 'center',
         fontWeight: 700,
-        boxShadow: principal ? `0 8px 20px ${colorPrincipal}33` : 'none',
+        boxShadow: principal
+          ? `0 8px 20px ${colorPrincipal}33`
+          : 'none',
       }}
     >
       {titulo}
