@@ -323,7 +323,7 @@ export default function MensajesPage() {
         {/* VOLVER */}
 
         <button
-          onClick={() => router.push('/inicio')}
+          onClick={() => router.push('/')}
           style={{
             background: 'transparent',
             border: 'none',
