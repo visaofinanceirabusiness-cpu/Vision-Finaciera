@@ -25,7 +25,9 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18n';
-import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
+import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
+import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
+import { SabioWidget } from '@/components/panel/SabioWidget';
 import {
   diccionarioContabilidad,
   etiquetaRelacion,
@@ -46,6 +48,10 @@ import {
   contadorAsientos,
   msgConfirmarEliminarOperacion,
   msgConfirmarEliminarYRecargar,
+  pasosTutorial,
+  msgTutorialCancelar,
+  msgTutorialPaso,
+  msgTutorialCompletado,
 } from './i18n';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
@@ -101,11 +107,11 @@ export default function ContabilidadPage() {
       setEsAdmin(Boolean(perfil?.es_admin_plataforma));
 
       if (perfil?.empresa_id) {
-        if (!(await empresaTieneOnboardingCompleto(perfil.empresa_id))) {
-          router.push('/bienvenida');
-          return;
-        }
-
+        // Contabilidad (Central de Lançamentos) NO se gatea con
+        // empresaTieneOnboardingCompleto — es acá donde la Fase 2 del
+        // wizard redirige y donde la Fase 3 hace cargar las 3
+        // operaciones guiadas, justo ANTES de que el onboarding quede
+        // marcado como completo. Gatearla también generaría un loop.
         const { data: empresa } = await supabase
           .from('empresas')
           .select('moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')
@@ -253,6 +259,19 @@ function CentralDeLanzamientosTab({
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [cargandoInicial, setCargandoInicial] = useState(true);
 
+  // Tutorial guiado (Fase 3 del onboarding): activo siempre para una
+  // empresa nueva (onboarding_completado = false) y opcionalmente
+  // para cualquier otra que entre con ?tutorial=1 desde el mensaje de
+  // invitación. "Voluntario" es lo que distingue a una empresa que ya
+  // operaba (puede cancelar) de una nueva (no puede: onCancelar no se
+  // le pasa a este tab desde ContabilidadPage).
+  const [modoTutorial, setModoTutorial] = useState(false);
+  const [tutorialVoluntario, setTutorialVoluntario] = useState(false);
+  const [pasoTutorial, setPasoTutorial] = useState(0);
+  const [operacionesTutorial, setOperacionesTutorial] = useState<string[]>([]);
+  const [manejaMercaderiaEmpresa, setManejaMercaderiaEmpresa] = useState(false);
+  const [ofrecerTutorialVoluntario, setOfrecerTutorialVoluntario] = useState(false);
+
   const [fecha, setFecha] = useState(() => valoresIniciales?.fecha ?? fechaLocalHoy());
 
   const [operaciones, setOperaciones] = useState<string[]>([]);
@@ -326,6 +345,35 @@ function CentralDeLanzamientosTab({
 
   const etiquetaRelacionActual = etiquetaRelacion(idioma, esFamiliar, operacion);
 
+  // Devuelve el índice del primer paso del tutorial que todavía no
+  // tiene ninguna operación registrada, o -1 si ya están las 3.
+  async function verificarProgresoTutorial(empresaIdActual: string, pasos: string[]) {
+    const { data } = await supabase
+      .from('registro_operaciones')
+      .select('operacion')
+      .eq('empresa_id', empresaIdActual)
+      .in('operacion', pasos);
+
+    const hechas = new Set((data ?? []).map((fila) => fila.operacion));
+    return pasos.findIndex((paso) => !hechas.has(paso));
+  }
+
+  // El botón "Hacer el tutorial guiado" para empresas que ya operan
+  // (voluntario, con salida) — arma la misma secuencia de 3 pasos que
+  // el onboarding obligatorio, pero sin tocar onboarding_completado.
+  async function activarTutorialVoluntario() {
+    if (!empresaId) return;
+
+    const pasos = pasosTutorial(esFamiliar, manejaMercaderiaEmpresa);
+    const pasoInicial = await verificarProgresoTutorial(empresaId, pasos);
+
+    setOperacionesTutorial(pasos);
+    setPasoTutorial(Math.max(pasoInicial, 0));
+    setTutorialVoluntario(true);
+    setModoTutorial(true);
+    setOfrecerTutorialVoluntario(false);
+  }
+
   useEffect(() => {
     async function cargar() {
       const { data: userData } = await supabase.auth.getUser();
@@ -348,6 +396,44 @@ function CentralDeLanzamientosTab({
       }
 
       setEmpresaId(perfil.empresa_id);
+
+      const [onboardingCompleto, manejaMercaderia] = await Promise.all([
+        empresaTieneOnboardingCompleto(perfil.empresa_id),
+        empresaManejaMercaderia(perfil.empresa_id),
+      ]);
+
+      setManejaMercaderiaEmpresa(manejaMercaderia);
+
+      const tutorialPedidoPorUrl =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('tutorial') === '1';
+      const quiereTutorial = !onboardingCompleto || tutorialPedidoPorUrl;
+
+      if (!modoEdicion && onboardingCompleto && !tutorialPedidoPorUrl) {
+        // Empresa ya operativa, entrando normalmente (sin pedir el
+        // tutorial por URL): se le ofrece la opción de hacerlo de
+        // nuevo/por primera vez de forma voluntaria, con un botón
+        // discreto — nunca se le fuerza.
+        setOfrecerTutorialVoluntario(true);
+      }
+
+      if (quiereTutorial && !modoEdicion) {
+        const pasos = pasosTutorial(esFamiliar, manejaMercaderia);
+        const pasoInicial = await verificarProgresoTutorial(perfil.empresa_id, pasos);
+
+        if (pasoInicial === -1) {
+          if (!onboardingCompleto) {
+            await marcarOnboardingCompleto(perfil.empresa_id);
+            router.push('/panel-de-control?tutorial=1');
+            return;
+          }
+        } else {
+          setOperacionesTutorial(pasos);
+          setPasoTutorial(pasoInicial);
+          setTutorialVoluntario(onboardingCompleto);
+          setModoTutorial(true);
+        }
+      }
 
       const { data: ops } = await supabase
         .from('operaciones')
@@ -723,6 +809,23 @@ function CentralDeLanzamientosTab({
       setSocio('');
 
       setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
+
+      if (modoTutorial) {
+        const pasoNuevo = await verificarProgresoTutorial(empresaId, operacionesTutorial);
+
+        if (pasoNuevo === -1) {
+          setMensajeSabio(msgTutorialCompletado(idioma));
+          setModoTutorial(false);
+
+          if (!tutorialVoluntario) {
+            await marcarOnboardingCompleto(empresaId);
+          }
+
+          setTimeout(() => router.push('/panel-de-control?tutorial=1'), 1400);
+        } else {
+          setPasoTutorial(pasoNuevo);
+        }
+      }
     } catch (e: unknown) {
       console.error('ERROR REGISTRANDO OPERACIÓN:', e);
 
@@ -760,6 +863,67 @@ function CentralDeLanzamientosTab({
 
   return (
     <div>
+      {modoTutorial && (
+        <div
+          style={{
+            background: 'linear-gradient(125deg, #142a47 0%, #1f3a5f 58%, #245a52 100%)',
+            borderRadius: 24,
+            padding: '24px 28px',
+            marginBottom: 24,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+          }}
+        >
+          <div style={{ flex: '1 1 200px', minWidth: 200 }}>
+            <p
+              style={{
+                margin: '0 0 10px',
+                color: '#86efac',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.4,
+              }}
+            >
+              {t('tutorialEyebrow')}
+            </p>
+
+            <h2 style={{ margin: '0 0 14px', color: COLORES.blanco, fontSize: 22 }}>{t('tutorialTitulo')}</h2>
+
+            {tutorialVoluntario && (
+              <button
+                type="button"
+                onClick={() => {
+                  setModoTutorial(false);
+                  setOfrecerTutorialVoluntario(true);
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: 999,
+                  color: COLORES.blanco,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {msgTutorialCancelar(idioma)}
+              </button>
+            )}
+          </div>
+
+          <SabioWidget
+            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+            idioma={idioma ?? 'ES'}
+            frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
+          />
+        </div>
+      )}
+
       <div style={panelTitulo}>
         <div>
           <p style={eyebrowVerde}>{modoEdicion ? t('editandoOperacion') : t('nuevoRegistro')}</p>
@@ -771,6 +935,29 @@ function CentralDeLanzamientosTab({
 
         <span style={estadoActivo}>{t('sistemaActivo')}</span>
       </div>
+
+      {ofrecerTutorialVoluntario && !modoTutorial && (
+        <button
+          type="button"
+          onClick={activarTutorialVoluntario}
+          style={{
+            display: 'block',
+            width: '100%',
+            textAlign: 'left',
+            background: '#f0fdf4',
+            border: '1px dashed #86efac',
+            borderRadius: 12,
+            padding: '10px 14px',
+            color: '#166534',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginBottom: 18,
+          }}
+        >
+          {t('ofrecerTutorial')}
+        </button>
+      )}
 
       {modoEdicion && (
         <p style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>

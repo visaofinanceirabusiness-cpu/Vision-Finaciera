@@ -276,3 +276,17 @@ export function msgFaltanParaSubirNivel(idioma: string, faltan: number): string 
     ? `Faltam ${faltan} operações para subir de nível.`
     : `Te faltan ${faltan} operaciones para subir de nivel.`;
 }
+
+// ==========================================================
+// BIENVENIDA AL TERMINAR EL TUTORIAL GUIADO (Fase 3 del onboarding)
+// ==========================================================
+
+export function msgBienvenidaTutorialPanel(idioma: string | null | undefined): string {
+  return esPT(idioma)
+    ? '🎉 Muito bem! Aqui você acompanha seu negócio: quanto tem em caixa, quanto deve, e como estão seus objetivos e gráficos. Vá explorando — qualquer dúvida, é só clicar em mim de novo.'
+    : '🎉 ¡Muy bien! Acá vas a seguir tu negocio: cuánto tenés en caja, cuánto debés, y cómo van tus objetivos y gráficos. Andá explorando — cualquier duda, hacé clic en mí de nuevo.';
+}
+
+export function msgCerrarTutorialPanel(idioma: string | null | undefined): string {
+  return esPT(idioma) ? 'Entendi, fechar' : 'Entendido, cerrar';
+}

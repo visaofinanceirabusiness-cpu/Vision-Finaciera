@@ -17,6 +17,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
+import { SabioWidget } from '@/components/panel/SabioWidget';
 import {
   diccionarioPanelControl,
   type ClavePanelControl,
@@ -25,6 +26,8 @@ import {
   msgFondoRespaldoProgreso,
   msgNivelBanner,
   msgFaltanParaSubirNivel,
+  msgBienvenidaTutorialPanel,
+  msgCerrarTutorialPanel,
 } from './i18n';
 
 const COLORES_BASE = {
@@ -103,6 +106,12 @@ export default function MiNegocioPage() {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [mostrarBienvenidaTutorial, setMostrarBienvenidaTutorial] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setMostrarBienvenidaTutorial(new URLSearchParams(window.location.search).get('tutorial') === '1');
+  }, []);
 
   const periodoActual = useMemo(() => {
     const fecha = new Date();
@@ -342,6 +351,54 @@ export default function MiNegocioPage() {
             {t('subtituloConEmpresa')} {empresa?.nombre ?? t('tuNegocioDefault')}.
           </p>
         </header>
+
+        {/* =================================================
+            BIENVENIDA AL TERMINAR EL TUTORIAL GUIADO
+            Llega con ?tutorial=1 desde la Central de Lançamentos, al
+            completar las 3 operaciones. No bloquea nada — es solo una
+            orientación breve, se cierra y no vuelve a aparecer.
+        ================================================== */}
+
+        {mostrarBienvenidaTutorial && (
+          <div
+            style={{
+              background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
+              borderRadius: 24,
+              padding: '24px 28px',
+              marginBottom: 20,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 20,
+              flexWrap: 'wrap',
+              boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMostrarBienvenidaTutorial(false)}
+              style={{
+                background: 'rgba(255,255,255,0.14)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 999,
+                color: colores.blanco,
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '6px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              {msgCerrarTutorialPanel(idioma)}
+            </button>
+
+            <SabioWidget
+              colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+              idioma={idioma}
+              frase={msgBienvenidaTutorialPanel(idioma)}
+              onClickFrase={() => setMostrarBienvenidaTutorial(false)}
+            />
+          </div>
+        )}
 
         {/* =================================================
             AVISO DE CONSISTENCIA CONTABLE
