@@ -17,9 +17,10 @@
 //
 // El idioma del texto sigue empresas.idioma (ES o PT) — igual que el
 // resto de la plataforma. Los NOMBRES de operación que se mencionan
-// (VENTA, COMPRA, COBRO, PAGO...) se dejan tal cual aparecen en la
-// pantalla real, porque esos valores no se traducen: son el dato
-// guardado en la tabla "operaciones", igual en cualquier idioma.
+// (Venta, Compra, Cobro, Pago...) van traducidos con
+// nombreOperacionDisplay (lib/i18n.ts), igual que en el desplegable
+// real de Operação — el dato guardado en la tabla "operaciones" sigue
+// en español siempre, esto solo ajusta lo que se muestra.
 
 import { supabase } from './supabase';
 import { empresaManejaMercaderia, empresaTieneModulo } from './perfilCapacidades';
@@ -235,7 +236,7 @@ Contabilidade é o coração do sistema: é ali que você registra cada moviment
 
 Para registrar uma operação, escolha nesta ordem:
 
-1️⃣ Operação: que tipo de movimento é (as opções aparecem em espanhol na tela — VENTA é venda, COMPRA é compra, COBRO é recebimento, PAGO é pagamento, INVERSION é aporte, EXTRACCION é retirada, e TRANSFERENCIA é mover dinheiro entre suas próprias contas).
+1️⃣ Operação: que tipo de movimento é (Compra, Venda, Recebimento, Pagamento, Investimento, Retirada, ou Transferência — para mover dinheiro entre suas próprias contas).
 2️⃣ Categoria: a que corresponde (por exemplo, qual produto você vendeu ou em que gastou).
 3️⃣ Forma de pagamento: por qual meio o dinheiro se movimentou.
 4️⃣ Com quem: seu cliente, seu fornecedor, ou quem corresponder.
@@ -255,12 +256,12 @@ Contabilidade é onde você registra cada movimentação de dinheiro da sua fam�
 
 Para registrar uma movimentação, escolha nesta ordem:
 
-1️⃣ Operação: COBRO (uma receita), PAGO (uma despesa), INVERSION (um aporte de um sócio/a), EXTRACCION (uma retirada), ou TRANSFERENCIA (mover dinheiro entre suas próprias contas, por exemplo para um Plazo Fijo).
+1️⃣ Operação: Recebimento (uma receita), Pagamento (uma despesa), Investimento (um aporte de um sócio/a), Retirada (uma retirada), ou Transferência (mover dinheiro entre suas próprias contas, por exemplo para uma aplicação).
 2️⃣ Categoria: a que corresponde (Salário, Alimentação, Transporte, etc.).
 3️⃣ Forma de pagamento: por qual meio o dinheiro se movimentou.
 4️⃣ Conforme a operação: a Fonte de renda, o Destino do pagamento, ou o Sócio/a correspondente.
 
-💡 Um detalhe importante: se você está guardando ou investindo para uma meta (como uma viagem), use sempre "TRANSFERENCIA" — assim o progresso da sua meta em "Objetivos familiares" se atualiza sozinho.
+💡 Um detalhe importante: se você está guardando ou investindo para uma meta (como uma viagem), use sempre "Transferência" — assim o progresso da sua meta em "Objetivos familiares" se atualiza sozinho.
 
 Registre as movimentações assim que acontecerem — assim o seu Painel de Controle sempre mostra a foto real da economia da sua família.
 
@@ -279,7 +280,7 @@ Tem duas abas:
 
 🔁 Movimentos de Mercadoria: o histórico de entradas (compras) e saídas (vendas), gerado automaticamente quando você registra operações em Contabilidade.
 
-💡 Minha recomendação: toda vez que comprar mercadoria, registre como "COMPRA" em Contabilidade escolhendo o produto — assim o estoque e o custo se atualizam sozinhos, sem precisar mexer aqui manualmente.
+💡 Minha recomendação: toda vez que comprar mercadoria, registre como "Compra" em Contabilidade escolhendo o produto — assim o estoque e o custo se atualizam sozinhos, sem precisar mexer aqui manualmente.
 
 Um abraço,
 Sabio 🦉`,
@@ -343,8 +344,8 @@ Esta ferramenta é onde você cadastra com quem se relaciona o dinheiro que entr
 
 Tem duas abas:
 
-💰 Fontes de renda: de onde vem o dinheiro (seu empregador, um cliente particular, um marketplace...). Cadastre aqui para poder escolhê-las depois ao registrar um COBRO.
-🏪 Destinos de pagamento: para quem você paga (o mercado, a imobiliária, a academia...). Cadastre aqui para escolhê-los ao registrar um PAGO.
+💰 Fontes de renda: de onde vem o dinheiro (seu empregador, um cliente particular, um marketplace...). Cadastre aqui para poder escolhê-las depois ao registrar um Recebimento.
+🏪 Destinos de pagamento: para quem você paga (o mercado, a imobiliária, a academia...). Cadastre aqui para escolhê-los ao registrar um Pagamento.
 
 💡 Minha recomendação: cadastre uma fonte ou destino na primeira vez que aparecer — assim da próxima vez você só escolhe da lista.
 
