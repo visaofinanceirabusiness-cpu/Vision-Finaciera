@@ -1,5 +1,23 @@
 'use client';
 
+// MENSAJES / VISÃO FINANCEIRA
+//
+// Bandeja de mensajes financieros para el emprendedor.
+// Sabio utiliza este espacio para explicar qué están diciendo
+// los números del negocio.
+//
+// Primera versión:
+// - 3 mensajes de análisis para Encanto.
+// - Los mensajes se despliegan al hacer clic.
+// - Sin gráficos ni tablas.
+// - La información visual y detallada continúa viviendo en el sistema.
+//
+// Más adelante:
+// - Los mensajes serán generados automáticamente.
+// - Se almacenarán por empresa y período.
+// - Se incorporará estado leído/no leído.
+// - Se generará un nuevo conjunto de mensajes cada mes.
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -14,60 +32,27 @@ const COLORES = {
 
 type Empresa = {
   nombre: string;
-  idioma: string;
 };
 
-type Mensagem = {
+type MensajeFinanciero = {
   id: number;
-  assuntoPT: string;
-  assuntoES: string;
-  textoPT: string;
-  textoES: string;
+  titulo: string;
+  texto: string;
 };
 
-const MENSAGENS_ENCANTO: Mensagem[] = [
+const MENSAJES_ENCANTO: MensajeFinanciero[] = [
   {
     id: 1,
 
-    assuntoPT: 'Vamos olhar para o seu resultado',
+    titulo: 'Vamos a mirar tu resultado y rentabilidad',
 
-    assuntoES: 'Vamos mirar tu resultado',
-
-    textoPT: `Olá, Brenda! 👋
-
-Estive analisando os números da Encanto e quero chamar sua atenção para uma coisa importante.
-
-Até o momento, seu negócio apresenta um resultado acumulado de R$ 771, sobre uma receita operacional de R$ 2.303.
-
-Isso significa que, depois dos custos das mercadorias e das despesas registradas, aproximadamente R$ 33,50 de cada R$ 100 vendidos permanecem como resultado.
-
-É um indicador positivo, mas existe um ponto que precisamos observar juntos.
-
-O resultado não está crescendo de forma constante. Nos últimos meses tivemos uma recuperação importante, mas setembro apresentou resultado negativo de R$ 120.
-
-Isso não significa, sozinho, que o negócio esteja indo mal.
-
-Significa que precisamos entender o que aconteceu neste mês.
-
-Pode estar relacionado ao volume de vendas, ao custo das mercadorias, às despesas ou a algum movimento extraordinário.
-
-💡 Minha recomendação: antes de aumentar compras ou assumir novos compromissos, vamos entender o que provocou essa mudança no resultado de setembro.
-
-Os números estão dizendo que a Encanto tem capacidade de gerar resultado, mas precisamos acompanhar mais de perto a evolução mensal.
-
-Abraço,
-
-Sabio 🦉
-Visão Financeira
-Clareza para decidir. Segurança para crescer.`,
-
-    textoES: `Hola, Brenda! 👋
+    texto: `Hola, Brenda! 👋
 
 Estuve analizando los números de Encanto y quiero llamar tu atención sobre algo importante.
 
 Hasta el momento, tu negocio presenta un resultado acumulado de R$ 771, sobre una facturación operativa de R$ 2.303.
 
-Eso significa que, después de los costos de las mercaderías y los gastos registrados, aproximadamente R$ 33,50 de cada R$ 100 vendidos permanecen como resultado.
+Esto significa que, después de los costos de las mercaderías y los gastos registrados, aproximadamente R$ 33,50 de cada R$ 100 vendidos permanecen como resultado.
 
 Es un indicador positivo, pero hay un punto que debemos observar juntos.
 
@@ -79,13 +64,16 @@ Significa que necesitamos entender qué ocurrió este mes.
 
 Puede estar relacionado con el volumen de ventas, el costo de las mercaderías, los gastos o algún movimiento extraordinario.
 
-💡 Mi recomendación: antes de aumentar las compras o asumir nuevos compromisos, debemos entender qué provocó este cambio en el resultado de septiembre.
+💡 Mi recomendación:
+
+Antes de aumentar las compras o asumir nuevos compromisos, debemos entender qué provocó este cambio en el resultado de septiembre.
 
 Los números indican que Encanto tiene capacidad para generar resultados, pero necesitamos acompañar más de cerca su evolución mensual.
 
 Un abrazo,
 
 Sabio 🦉
+
 Visão Financeira
 Claridad para decidir. Seguridad para crecer.`,
   },
@@ -93,49 +81,9 @@ Claridad para decidir. Seguridad para crecer.`,
   {
     id: 2,
 
-    assuntoPT: 'Onde está o dinheiro da Encanto?',
+    titulo: 'Vamos a mirar dónde está tu dinero',
 
-    assuntoES: '¿Dónde está el dinero de Encanto?',
-
-    textoPT: `Olá, Brenda! 👋
-
-Hoje quero olhar para outro ponto importante: a estrutura financeira da Encanto.
-
-Atualmente, você possui R$ 671 disponíveis em caixa e não possui passivos registrados.
-
-Isso é uma situação positiva.
-
-Significa que, dentro das informações registradas no sistema, a empresa não está dependendo de dívidas para manter sua estrutura financeira atual.
-
-Mas existe uma coisa importante para entender:
-
-ter dinheiro em caixa não significa necessariamente que esse dinheiro esteja disponível para gastar.
-
-Parte dos recursos da empresa está aplicada no estoque.
-
-Hoje, o estoque representa aproximadamente R$ 280.
-
-Ou seja, uma parte do patrimônio da Encanto está transformada em produtos que ainda precisam ser vendidos para voltar ao caixa.
-
-💡 O que isso significa?
-
-Antes de utilizar todo o caixa para comprar novos produtos, precisamos observar quanto do estoque atual está realmente girando.
-
-O objetivo não é simplesmente ter mais produtos.
-
-O objetivo é fazer o capital da empresa circular e gerar retorno.
-
-Por enquanto, sua estrutura financeira apresenta uma boa característica: caixa disponível e ausência de passivos registrados.
-
-Agora precisamos trabalhar para que esse capital seja utilizado da maneira mais eficiente possível.
-
-Abraço,
-
-Sabio 🦉
-Visão Financeira
-Clareza para decidir. Segurança para crescer.`,
-
-    textoES: `Hola, Brenda! 👋
+    texto: `Hola, Brenda! 👋
 
 Hoy quiero mirar otro punto importante: la estructura financiera de Encanto.
 
@@ -145,31 +93,34 @@ Esto es una situación positiva.
 
 Significa que, dentro de la información registrada en el sistema, la empresa no depende de deudas para mantener su estructura financiera actual.
 
-Pero hay algo importante que entender:
+Pero hay algo importante que debemos entender:
 
-tener dinero en caja no significa necesariamente que ese dinero esté disponible para gastar.
+Tener dinero en caja no significa necesariamente que todo ese dinero esté disponible para gastar.
 
 Parte de los recursos de la empresa está aplicada al stock.
 
 Actualmente, el stock representa aproximadamente R$ 280.
 
-Es decir, una parte del patrimonio de Encanto está transformada en productos que todavía deben venderse para volver a convertirse en caja.
+Es decir, una parte del patrimonio de Encanto está transformada en productos que todavía deben venderse para volver a convertirse en dinero disponible.
 
 💡 ¿Qué significa esto?
 
-Antes de utilizar toda la caja para comprar nuevos productos, debemos observar cuánto del stock actual realmente está girando.
+Antes de utilizar toda la caja para comprar nuevos productos, debemos observar cuánto del stock actual realmente está rotando.
 
 El objetivo no es simplemente tener más productos.
 
-El objetivo es hacer que el capital de la empresa circule y genere retorno.
+El objetivo es conseguir que el capital de la empresa circule y genere retorno.
 
-Por ahora, tu estructura financiera presenta una característica positiva: caja disponible y ausencia de pasivos registrados.
+Por ahora, tu estructura financiera presenta una característica positiva:
+
+Caja disponible y ausencia de pasivos registrados.
 
 Ahora necesitamos trabajar para que ese capital sea utilizado de la manera más eficiente posible.
 
 Un abrazo,
 
 Sabio 🦉
+
 Visão Financeira
 Claridad para decidir. Seguridad para crecer.`,
   },
@@ -177,51 +128,9 @@ Claridad para decidir. Seguridad para crecer.`,
   {
     id: 3,
 
-    assuntoPT: 'Vamos prestar atenção ao seu estoque',
+    titulo: 'Vamos a prestar atención a tu stock',
 
-    assuntoES: 'Vamos prestar atención a tu stock',
-
-    textoPT: `Olá, Brenda! 👋
-
-Tem uma informação dos seus números que merece nossa atenção especial.
-
-A Encanto movimentou R$ 2.303 em vendas, enquanto o custo das mercadorias vendidas foi de R$ 1.308.
-
-Isso significa que uma parcela importante da receita está sendo utilizada para repor o custo dos produtos vendidos.
-
-Até aqui, isso é normal para uma empresa comercial.
-
-O ponto interessante está em como o dinheiro está distribuído entre as categorias.
-
-Os produtos de beleza representam a maior parte das vendas, com R$ 1.683.
-
-Ao mesmo tempo, acessórios possuem uma participação muito relevante no estoque atual.
-
-💡 Isso nos leva a uma pergunta importante:
-
-Estamos colocando mais dinheiro em estoque justamente nos produtos que mais giram?
-
-Essa é uma pergunta financeira, não apenas comercial.
-
-Um produto pode ter uma boa margem e ainda assim não ser uma boa aplicação de capital se permanecer muito tempo parado.
-
-Por isso, para as próximas compras, minha sugestão é observar três coisas:
-
-margem + giro + capital investido.
-
-Não precisamos simplesmente vender mais.
-
-Precisamos fazer com que cada real investido em estoque tenha capacidade de retornar para a empresa e gerar novo resultado.
-
-Esse será um dos pontos que vale acompanhar nos próximos meses.
-
-Abraço,
-
-Sabio 🦉
-Visão Financeira
-Clareza para decidir. Segurança para crescer.`,
-
-    textoES: `Hola, Brenda! 👋
+    texto: `Hola, Brenda! 👋
 
 Hay una información de tus números que merece nuestra atención especial.
 
@@ -247,7 +156,7 @@ Un producto puede tener un buen margen y aun así no ser una buena aplicación d
 
 Por eso, para las próximas compras, mi sugerencia es observar tres cosas:
 
-margen + rotación + capital invertido.
+Margen + rotación + capital invertido.
 
 No necesitamos simplemente vender más.
 
@@ -258,6 +167,7 @@ Este será uno de los puntos que vale la pena acompañar durante los próximos m
 Un abrazo,
 
 Sabio 🦉
+
 Visão Financeira
 Claridad para decidir. Seguridad para crecer.`,
   },
@@ -267,34 +177,44 @@ export default function MensajesPage() {
   const router = useRouter();
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [abierto, setAbierto] = useState<number | null>(null);
+  const [mensajeAbierto, setMensajeAbierto] = useState<number | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     async function cargarEmpresa() {
-      const { data: userData } = await supabase.auth.getUser();
+      setError('');
 
-      if (!userData.user) {
+      const { data: usuarioData } = await supabase.auth.getUser();
+
+      if (!usuarioData.user) {
         router.push('/login');
         return;
       }
 
-      const { data: perfil } = await supabase
+      const { data: perfilData, error: errorPerfil } = await supabase
         .from('perfiles')
         .select('empresa_id')
-        .eq('id', userData.user.id)
+        .eq('id', usuarioData.user.id)
         .maybeSingle();
 
-      if (!perfil?.empresa_id) {
-        router.push('/inicio');
+      if (errorPerfil || !perfilData?.empresa_id) {
+        setError('No se pudo identificar la empresa del usuario.');
+        setCargando(false);
         return;
       }
 
-      const { data: empresaData } = await supabase
+      const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
-        .select('nombre, idioma')
-        .eq('id', perfil.empresa_id)
+        .select('nombre')
+        .eq('id', perfilData.empresa_id)
         .maybeSingle();
+
+      if (errorEmpresa) {
+        setError(`No se pudo cargar la empresa: ${errorEmpresa.message}`);
+        setCargando(false);
+        return;
+      }
 
       setEmpresa(empresaData);
       setCargando(false);
@@ -321,8 +241,69 @@ export default function MensajesPage() {
     );
   }
 
-  const idioma = empresa?.idioma === 'PT' ? 'PT' : 'ES';
-  const mensajes = MENSAGENS_ENCANTO;
+  if (error) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: COLORES.fondo,
+          padding: 24,
+        }}
+      >
+        <section
+          style={{
+            background: COLORES.blanco,
+            borderRadius: 20,
+            padding: 30,
+            maxWidth: 500,
+            textAlign: 'center',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div style={{ fontSize: 38, marginBottom: 12 }}>⚠️</div>
+
+          <h1
+            style={{
+              margin: '0 0 10px',
+              color: COLORES.azul,
+              fontSize: 21,
+            }}
+          >
+            No pudimos cargar tus mensajes
+          </h1>
+
+          <p
+            style={{
+              margin: 0,
+              color: COLORES.gris,
+              lineHeight: 1.6,
+            }}
+          >
+            {error}
+          </p>
+
+          <button
+            onClick={() => router.push('/inicio')}
+            style={{
+              marginTop: 20,
+              background: COLORES.azul,
+              border: 'none',
+              borderRadius: 12,
+              padding: '11px 18px',
+              color: COLORES.blanco,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Volver al inicio
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -333,7 +314,13 @@ export default function MensajesPage() {
         padding: 24,
       }}
     >
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <div
+        style={{
+          maxWidth: 900,
+          margin: '0 auto',
+        }}
+      >
+        {/* VOLVER */}
 
         <button
           onClick={() => router.push('/inicio')}
@@ -348,8 +335,10 @@ export default function MensajesPage() {
             fontSize: 14,
           }}
         >
-          ← {idioma === 'PT' ? 'Voltar ao início' : 'Volver al inicio'}
+          ← Volver al inicio
         </button>
+
+        {/* ENCABEZADO */}
 
         <section
           style={{
@@ -363,15 +352,50 @@ export default function MensajesPage() {
         >
           <div
             style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: 1.4,
-              color: COLORES.verde,
-              textTransform: 'uppercase',
-              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              marginBottom: 12,
             }}
           >
-            Visão Financeira
+            <div
+              style={{
+                width: 50,
+                height: 50,
+                borderRadius: 15,
+                background: `${COLORES.verde}14`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 24,
+              }}
+            >
+              ✉️
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1.4,
+                  color: COLORES.verde,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Visão Financeira
+              </div>
+
+              <div
+                style={{
+                  color: COLORES.azul,
+                  fontSize: 13,
+                  marginTop: 3,
+                }}
+              >
+                Mensajes para {empresa?.nombre ?? 'tu negocio'}
+              </div>
+            </div>
           </div>
 
           <h1
@@ -379,11 +403,10 @@ export default function MensajesPage() {
               margin: 0,
               color: COLORES.azul,
               fontSize: 28,
+              lineHeight: 1.2,
             }}
           >
-            {idioma === 'PT'
-              ? 'Mensagens sobre o seu negócio'
-              : 'Mensajes sobre tu negocio'}
+            Lo que tus números están diciendo
           </h1>
 
           <p
@@ -391,36 +414,46 @@ export default function MensajesPage() {
               margin: '10px 0 0',
               color: COLORES.gris,
               lineHeight: 1.6,
+              fontSize: 14,
             }}
           >
-            {idioma === 'PT'
-              ? 'Sabio analisou seus números e separou alguns pontos importantes para você.'
-              : 'Sabio analizó tus números y separó algunos puntos importantes para ti.'}
+            Sabio analizó la información de tu negocio y separó algunos
+            puntos importantes para que puedas tomar mejores decisiones.
           </p>
         </section>
 
-        <div style={{ display: 'grid', gap: 12 }}>
-          {mensajes.map((mensagem, index) => {
-            const isOpen = aberto === mensagem.id;
+        {/* MENSAJES */}
+
+        <div
+          style={{
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          {MENSAJES_ENCANTO.map((mensaje, indice) => {
+            const estaAbierto = mensajeAbierto === mensaje.id;
 
             return (
               <section
-                key={mensagem.id}
+                key={mensaje.id}
                 style={{
                   background: COLORES.blanco,
                   borderRadius: 18,
-                  border: isOpen
+                  border: estaAbierto
                     ? `1px solid ${COLORES.verde}`
                     : '1px solid #e5e7eb',
                   overflow: 'hidden',
-                  boxShadow: isOpen
+                  boxShadow: estaAbierto
                     ? '0 10px 25px rgba(46,139,87,0.08)'
                     : '0 5px 15px rgba(31,58,95,0.04)',
+                  transition: 'all 0.2s ease',
                 }}
               >
                 <button
                   onClick={() =>
-                    setAbierto(isOpen ? null : mensagem.id)
+                    setMensajeAbierto(
+                      estaAbierto ? null : mensaje.id
+                    )
                   }
                   style={{
                     width: '100%',
@@ -434,34 +467,41 @@ export default function MensajesPage() {
                     textAlign: 'left',
                   }}
                 >
+                  {/* ICONO */}
+
                   <div
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 13,
                       background: `${COLORES.verde}12`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: 20,
+                      fontSize: 21,
                       flexShrink: 0,
                     }}
                   >
                     ✉️
                   </div>
 
-                  <div style={{ flex: 1 }}>
+                  {/* TITULO */}
+
+                  <div
+                    style={{
+                      flex: 1,
+                    }}
+                  >
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: 800,
+                        letterSpacing: 1.2,
                         color: COLORES.verde,
-                        marginBottom: 4,
+                        marginBottom: 5,
                       }}
                     >
-                      {idioma === 'PT'
-                        ? `MENSAGEM ${index + 1}`
-                        : `MENSAJE ${index + 1}`}
+                      MENSAJE {indice + 1}
                     </div>
 
                     <div
@@ -469,27 +509,33 @@ export default function MensajesPage() {
                         color: COLORES.azul,
                         fontSize: 17,
                         fontWeight: 800,
+                        lineHeight: 1.35,
                       }}
                     >
-                      {idioma === 'PT'
-                        ? mensagem.assuntoPT
-                        : mensagem.assuntoES}
+                      {mensaje.titulo}
                     </div>
                   </div>
+
+                  {/* FLECHA */}
 
                   <div
                     style={{
                       color: COLORES.azul,
-                      fontSize: 20,
-                      transform: isOpen ? 'rotate(180deg)' : 'none',
+                      fontSize: 22,
+                      fontWeight: 700,
+                      transform: estaAbierto
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)',
                       transition: 'transform 0.2s ease',
                     }}
                   >
-                   ⌄
+                    ⌄
                   </div>
                 </button>
 
-                {isOpen && (
+                {/* CONTENIDO */}
+
+                {estaAbierto && (
                   <div
                     style={{
                       borderTop: '1px solid #edf0f2',
@@ -500,9 +546,7 @@ export default function MensajesPage() {
                       whiteSpace: 'pre-line',
                     }}
                   >
-                    {idioma === 'PT'
-                      ? mensagem.textoPT
-                      : mensagem.textoES}
+                    {mensaje.texto}
                   </div>
                 )}
               </section>
@@ -510,17 +554,19 @@ export default function MensajesPage() {
           })}
         </div>
 
+        {/* PIE */}
+
         <div
           style={{
             textAlign: 'center',
             marginTop: 28,
+            paddingBottom: 20,
             color: COLORES.gris,
             fontSize: 12,
+            lineHeight: 1.5,
           }}
         >
-          🦉 {idioma === 'PT'
-            ? 'Sabio estará aqui sempre que você quiser entender melhor seus números.'
-            : 'Sabio estará aquí cuando quieras entender mejor tus números.'}
+          🦉 Sabio estará aquí cuando quieras entender mejor tus números.
         </div>
       </div>
     </main>
