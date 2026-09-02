@@ -346,30 +346,21 @@ function CentralDeLanzamientosTab({
 
   const etiquetaRelacionActual = etiquetaRelacion(idioma, esFamiliar, operacion);
 
-  // Devuelve el índice del primer paso del tutorial que todavía no
-  // tiene ninguna operación registrada, o -1 si ya están las 3.
-  async function verificarProgresoTutorial(empresaIdActual: string, pasos: string[]) {
-    const { data } = await supabase
-      .from('registro_operaciones')
-      .select('operacion')
-      .eq('empresa_id', empresaIdActual)
-      .in('operacion', pasos);
-
-    const hechas = new Set((data ?? []).map((fila) => fila.operacion));
-    return pasos.findIndex((paso) => !hechas.has(paso));
-  }
-
   // El botón "Hacer el tutorial guiado" para empresas que ya operan
   // (voluntario, con salida) — arma la misma secuencia de 3 pasos que
   // el onboarding obligatorio, pero sin tocar onboarding_completado.
-  async function activarTutorialVoluntario() {
+  //
+  // El progreso SIEMPRE arranca en 0: no se mira el historial de
+  // registro_operaciones para decidir qué pasos están "hechos", porque
+  // una empresa que ya opera (o una nueva que ya probó el tutorial una
+  // vez) puede tener de sobra Ventas/Compras/etc. de antes — mirar el
+  // historial completo las contaba como parte de ESTE intento y
+  // saltaba directo al final con solo cargar la primera operación.
+  function activarTutorialVoluntario() {
     if (!empresaId) return;
 
-    const pasos = pasosTutorial(esFamiliar, manejaMercaderiaEmpresa);
-    const pasoInicial = await verificarProgresoTutorial(empresaId, pasos);
-
-    setOperacionesTutorial(pasos);
-    setPasoTutorial(Math.max(pasoInicial, 0));
+    setOperacionesTutorial(pasosTutorial(esFamiliar, manejaMercaderiaEmpresa));
+    setPasoTutorial(0);
     setTutorialVoluntario(true);
     setModoTutorial(true);
     setOfrecerTutorialVoluntario(false);
@@ -419,21 +410,10 @@ function CentralDeLanzamientosTab({
       }
 
       if (quiereTutorial && !modoEdicion) {
-        const pasos = pasosTutorial(esFamiliar, manejaMercaderia);
-        const pasoInicial = await verificarProgresoTutorial(perfil.empresa_id, pasos);
-
-        if (pasoInicial === -1) {
-          if (!onboardingCompleto) {
-            await marcarOnboardingCompleto(perfil.empresa_id);
-            router.push('/panel-de-control?tutorial=1');
-            return;
-          }
-        } else {
-          setOperacionesTutorial(pasos);
-          setPasoTutorial(pasoInicial);
-          setTutorialVoluntario(onboardingCompleto);
-          setModoTutorial(true);
-        }
+        setOperacionesTutorial(pasosTutorial(esFamiliar, manejaMercaderia));
+        setPasoTutorial(0);
+        setTutorialVoluntario(onboardingCompleto);
+        setModoTutorial(true);
       }
 
       const { data: ops } = await supabase
@@ -811,10 +791,14 @@ function CentralDeLanzamientosTab({
 
       setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
 
-      if (modoTutorial) {
-        const pasoNuevo = await verificarProgresoTutorial(empresaId, operacionesTutorial);
+      // El progreso del tutorial avanza SOLO si la operación recién
+      // registrada es la que tocaba en el paso actual — así una
+      // empresa que registra otra cosa mientras tanto (o que ya tenía
+      // ese tipo de operación en su historial) no hace saltar pasos.
+      if (modoTutorial && formulario.operacion === operacionesTutorial[pasoTutorial]) {
+        const pasoNuevo = pasoTutorial + 1;
 
-        if (pasoNuevo === -1) {
+        if (pasoNuevo >= operacionesTutorial.length) {
           setMensajeSabio(msgTutorialCompletado(idioma));
           setModoTutorial(false);
 
