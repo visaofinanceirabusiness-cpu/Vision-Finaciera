@@ -38,6 +38,7 @@ import {
   msgErrorOperaciones,
   msgErrorAutomaticos,
   msgErrorEmpresa,
+  msgSaldoMedioInsuficiente,
   tituloOperacion,
   stockDisponible,
   contadorRenglones,
@@ -267,6 +268,14 @@ function CentralDeLanzamientosTab({
   const [saldoPorProducto, setSaldoPorProducto] = useState<Record<string, number>>({});
   const [nombreProveedorPorId, setNombreProveedorPorId] = useState<Record<string, string>>({});
 
+  // Saldo actual de cada cuenta financiera (Efectivo, Banco, Pix...) y
+  // a qué cuenta corresponde cada forma de pago — para poder bloquear
+  // un Pago/Compra/Extracción/Transferencia que dejaría esa cuenta en
+  // negativo, igual que ya se bloquea una Venta sin stock suficiente.
+  const [saldoPorCuentaFinanciera, setSaldoPorCuentaFinanciera] = useState<Record<string, number>>({});
+  const [cuentaPorFormaPago, setCuentaPorFormaPago] = useState<Record<string, string>>({});
+  const [naturalezaPorCuentaFinanciera, setNaturalezaPorCuentaFinanciera] = useState<Record<string, string>>({});
+
   const [lineas, setLineas] = useState<LineaOperacion[]>(
     valoresIniciales?.lineas ?? [{ producto: '', cantidad: 0, monto: 0 }]
   );
@@ -365,6 +374,60 @@ function CentralDeLanzamientosTab({
       );
 
       setProductos(prods ?? []);
+
+      // Saldo actual de cada cuenta financiera (Efectivo, Banco, Pix...)
+      // — para poder bloquear un Pago/Compra/Extracción/Transferencia
+      // que dejaría esa cuenta en negativo.
+      const [
+        { data: formasPagoData },
+        { data: formaPagoCuentasData },
+        { data: cuentasData },
+        { data: operacionesParaSaldo },
+        { data: automaticosParaSaldo },
+      ] = await Promise.all([
+        supabase.from('formas_pago').select('id, nombre').eq('empresa_id', perfil.empresa_id),
+        supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', perfil.empresa_id).eq('activo', true),
+        supabase.from('plan_cuentas').select('id, nombre, naturaleza').eq('empresa_id', perfil.empresa_id),
+        supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', perfil.empresa_id),
+        supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', perfil.empresa_id),
+      ]);
+
+      const nombreCuentaPorId = new Map((cuentasData ?? []).map((c) => [c.id, c.nombre]));
+      const naturalezaPorNombre = new Map((cuentasData ?? []).map((c) => [c.nombre, c.naturaleza]));
+      const cuentaIdPorFormaPagoId = new Map((formaPagoCuentasData ?? []).map((f) => [f.forma_pago_id, f.cuenta_id]));
+
+      const cuentaPorFormaPagoNombre: Record<string, string> = {};
+      for (const fp of formasPagoData ?? []) {
+        const cuentaId = cuentaIdPorFormaPagoId.get(fp.id);
+        const cuentaNombre = cuentaId ? nombreCuentaPorId.get(cuentaId) : undefined;
+        if (cuentaNombre) {
+          cuentaPorFormaPagoNombre[fp.nombre] = cuentaNombre;
+        }
+      }
+
+      const saldoPorCuenta: Record<string, number> = {};
+
+      function acumularSaldo(cuenta: string | null | undefined, importe: number, esDebito: boolean) {
+        if (!cuenta) return;
+        const naturaleza = naturalezaPorNombre.get(cuenta);
+        const signo = naturaleza === 'ACREEDORA' ? (esDebito ? -1 : 1) : esDebito ? 1 : -1;
+        saldoPorCuenta[cuenta] = (saldoPorCuenta[cuenta] ?? 0) + importe * signo;
+      }
+
+      for (const fila of operacionesParaSaldo ?? []) {
+        acumularSaldo(fila.cuenta_debito, Number(fila.total ?? 0), true);
+        acumularSaldo(fila.cuenta_credito, Number(fila.total ?? 0), false);
+      }
+
+      for (const fila of automaticosParaSaldo ?? []) {
+        acumularSaldo(fila.cuenta_debito, Number(fila.importe ?? 0), true);
+        acumularSaldo(fila.cuenta_credito, Number(fila.importe ?? 0), false);
+      }
+
+      setCuentaPorFormaPago(cuentaPorFormaPagoNombre);
+      setSaldoPorCuentaFinanciera(saldoPorCuenta);
+      setNaturalezaPorCuentaFinanciera(Object.fromEntries(naturalezaPorNombre));
+
       setCargandoInicial(false);
     }
 
@@ -556,6 +619,41 @@ function CentralDeLanzamientosTab({
     esSalidaStock &&
     lineas.some((linea) => linea.producto && linea.cantidad > (saldoPorProducto[linea.producto] ?? 0));
 
+  // Pago, Compra, Extracción y Transferencia le "sacan" plata a un
+  // medio de pago (Efectivo, Banco, Pix...). Si ese medio es una
+  // cuenta de Activo (naturaleza DEUDORA — plata real que se tiene),
+  // no puede quedar en negativo: eso es imposible en la vida real,
+  // igual que vender stock que no existe. Si el medio es una cuenta
+  // de Pasivo (ej. una tarjeta de crédito), no se bloquea — ahí ir
+  // "para abajo" es justamente lo esperado (se está usando crédito).
+  const OPERACIONES_QUE_RESTAN_MEDIO = ['PAGO', 'COMPRA', 'EXTRACCION', 'TRANSFERENCIA'];
+
+  const cuentaMedioActual = cuentaPorFormaPago[formaPago];
+  const naturalezaMedioActual = cuentaMedioActual ? naturalezaPorCuentaFinanciera[cuentaMedioActual] : undefined;
+
+  // Al editar, el saldo cargado ya tiene descontado el monto VIEJO de
+  // esta misma operación (porque se trajo de todo registro_operaciones,
+  // incluida ella). Si no se lo devolviéramos, se compararía contra un
+  // saldo más bajo del real y podría bloquear una edición válida.
+  const totalOriginalMismaCuenta =
+    modoEdicion &&
+    valoresIniciales &&
+    OPERACIONES_QUE_RESTAN_MEDIO.includes(valoresIniciales.operacion) &&
+    cuentaPorFormaPago[valoresIniciales.formaPago] === cuentaMedioActual
+      ? valoresIniciales.lineas.reduce((s, l) => s + l.cantidad * l.monto, 0)
+      : 0;
+
+  const saldoMedioActual = cuentaMedioActual
+    ? (saldoPorCuentaFinanciera[cuentaMedioActual] ?? 0) + totalOriginalMismaCuenta
+    : 0;
+
+  const saldoMedioInsuficiente =
+    OPERACIONES_QUE_RESTAN_MEDIO.includes(operacion) &&
+    Boolean(cuentaMedioActual) &&
+    naturalezaMedioActual === 'DEUDORA' &&
+    total > 0 &&
+    saldoMedioActual - total < 0;
+
   const lineasCompletas =
     lineas.length > 0 &&
     lineas.every((linea) => linea.producto.trim() && linea.cantidad > 0 && linea.monto > 0);
@@ -571,7 +669,8 @@ function CentralDeLanzamientosTab({
       (esTransferencia || clienteProveedor.trim()) &&
       (!requiereSocio || socio.trim()) &&
       lineasCompletas &&
-      !stockInsuficiente
+      !stockInsuficiente &&
+      !saldoMedioInsuficiente
   );
 
   async function handleRegistrar() {
@@ -863,6 +962,17 @@ function CentralDeLanzamientosTab({
       {stockInsuficiente && (
         <p style={{ color: '#dc2626', fontSize: 13, margin: '10px 0 0' }}>
           {t('stockInsuficiente')}
+        </p>
+      )}
+
+      {saldoMedioInsuficiente && (
+        <p style={{ color: '#dc2626', fontSize: 13, margin: '10px 0 0' }}>
+          {msgSaldoMedioInsuficiente(
+            idioma,
+            formaPago,
+            `${simbolo} ${formatearNumeroEntero(saldoMedioActual)}`,
+            `${simbolo} ${formatearNumeroEntero(total)}`
+          )}
         </p>
       )}
 
