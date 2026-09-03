@@ -39,6 +39,42 @@ async function borrarPorEmpresa(tabla: string, empresaId: string): Promise<strin
   return null;
 }
 
+// produccion_detalle y receta_detalle no tienen empresa_id propio —
+// cuelgan de producciones/recetas por produccion_id/receta_id — así
+// que primero hay que traer los ids de la empresa y recién ahí borrar
+// por esa lista.
+async function borrarDetallePorPadre(
+  tablaDetalle: string,
+  columnaFk: string,
+  tablaPadre: string,
+  empresaId: string
+): Promise<string | null> {
+  const { data: padres, error: errorPadres } = await supabase
+    .from(tablaPadre)
+    .select('id')
+    .eq('empresa_id', empresaId);
+
+  if (errorPadres) {
+    console.error(`Error buscando ${tablaPadre} para borrar ${tablaDetalle}:`, errorPadres);
+    return `${tablaDetalle} (${errorPadres.message})`;
+  }
+
+  const ids = (padres ?? []).map((fila) => fila.id);
+
+  if (ids.length === 0) {
+    return null;
+  }
+
+  const { error: errorDetalle } = await supabase.from(tablaDetalle).delete().in(columnaFk, ids);
+
+  if (errorDetalle) {
+    console.error(`Error borrando ${tablaDetalle}:`, errorDetalle);
+    return `${tablaDetalle} (${errorDetalle.message})`;
+  }
+
+  return null;
+}
+
 export async function resetearSistema(empresaId: string): Promise<ResultadoReset> {
   const tablasLimpias: string[] = [];
   const errores: string[] = [];
@@ -52,6 +88,15 @@ export async function resetearSistema(empresaId: string): Promise<ResultadoReset
     }
   }
 
+  async function borrarDetalle(tablaDetalle: string, columnaFk: string, tablaPadre: string) {
+    const err = await borrarDetallePorPadre(tablaDetalle, columnaFk, tablaPadre, empresaId);
+    if (err) {
+      errores.push(err);
+    } else {
+      tablasLimpias.push(tablaDetalle);
+    }
+  }
+
   // 1. Movimientos y registros que cuelgan de las operaciones.
   await borrar('movimientos_stock');
   await borrar('registros_automaticos');
@@ -61,9 +106,9 @@ export async function resetearSistema(empresaId: string): Promise<ResultadoReset
   // produccion_detalle y receta_detalle dependen de producciones y
   // recetas, así que van primero.
   if (await empresaTieneModulo(empresaId, 'PRODUCCION')) {
-    await borrar('produccion_detalle');
+    await borrarDetalle('produccion_detalle', 'produccion_id', 'producciones');
     await borrar('producciones');
-    await borrar('receta_detalle');
+    await borrarDetalle('receta_detalle', 'receta_id', 'recetas');
     await borrar('recetas');
   }
 
