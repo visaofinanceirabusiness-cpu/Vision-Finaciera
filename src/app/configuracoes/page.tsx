@@ -36,6 +36,7 @@ import {
   renombrarCuentaPlan,
 } from '@/lib/categorias';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
+import { resetearSistema } from '@/lib/reset';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { resumirSuscripcion, type ResumenSuscripcion } from '@/lib/suscripcion';
 import { TarjetaEstadoSuscripcion } from '@/components/EstadoSuscripcion';
@@ -76,6 +77,10 @@ import {
   nombreOperacionDisplay,
   nombreCuentaDisplay,
   frasesSabioConfiguracoes,
+  msgResetClaveIncorrecta,
+  msgResetTextoNoCoincide,
+  msgResetExito,
+  msgResetErrorParcial,
 } from './i18n';
 
 const COLORES = {
@@ -96,7 +101,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset';
 
 type PerfilEmpresa = {
   id: string;
@@ -258,6 +263,10 @@ export default function ConfiguracoesPage() {
             <button type="button" onClick={() => setPestana('facturacion')} style={tabStyle(pestana === 'facturacion')}>
               {t('tabFacturacion')}
             </button>
+
+            <button type="button" onClick={() => setPestana('reset')} style={tabStyle(pestana === 'reset')}>
+              {t('tabReset')}
+            </button>
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
@@ -266,6 +275,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
+          {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
         </main>
       </div>
     </div>
@@ -1751,6 +1761,157 @@ function InicializacionTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
       >
         {generando ? t('botonGenerando') : matrizGenerada ? t('botonRegenerarMatriz') : t('botonGenerarMatriz')}
       </button>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA 7 — RESETEAR SISTEMA
+========================================================== */
+
+const PALABRA_CONFIRMACION = 'RESETEAR';
+
+function ResetearSistemaTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [emailUsuario, setEmailUsuario] = useState('');
+  const [clave, setClave] = useState('');
+  const [textoConfirmacion, setTextoConfirmacion] = useState('');
+  const [reseteando, setReseteando] = useState(false);
+  const [error, setError] = useState('');
+  const [resultado, setResultado] = useState<{ errores: string[] } | null>(null);
+
+  useEffect(() => {
+    async function cargarEmail() {
+      const { data } = await supabase.auth.getUser();
+      setEmailUsuario(data.user?.email ?? '');
+    }
+
+    cargarEmail();
+  }, []);
+
+  const textoConfirmado = textoConfirmacion.trim().toUpperCase() === PALABRA_CONFIRMACION;
+  const puedeConfirmar = textoConfirmado && (esAdmin || clave.length > 0);
+
+  async function confirmarReset() {
+    setError('');
+    setResultado(null);
+
+    if (!textoConfirmado) {
+      setError(msgResetTextoNoCoincide(idioma));
+      return;
+    }
+
+    setReseteando(true);
+
+    try {
+      if (!esAdmin) {
+        const { error: errorClave } = await supabase.auth.signInWithPassword({
+          email: emailUsuario,
+          password: clave,
+        });
+
+        if (errorClave) {
+          setError(msgResetClaveIncorrecta(idioma));
+          setReseteando(false);
+          return;
+        }
+      }
+
+      const { tablasLimpias, errores } = await resetearSistema(empresaId);
+
+      if (errores.length > 0) {
+        console.error('Reset con errores parciales:', errores, 'tablas limpias:', tablasLimpias);
+      }
+
+      setResultado({ errores });
+      setClave('');
+      setTextoConfirmacion('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('resetErrorInesperado'));
+    } finally {
+      setReseteando(false);
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 620, margin: '0 auto', padding: '10px 4px' }}>
+      {error && <div style={errorStyle}>{error}</div>}
+
+      {resultado && (
+        <div style={resultado.errores.length > 0 ? errorStyle : mensajeOkStyle}>
+          {resultado.errores.length > 0 ? msgResetErrorParcial(idioma, resultado.errores) : msgResetExito(idioma)}
+        </div>
+      )}
+
+      <div
+        style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: 16,
+          padding: '22px 24px',
+        }}
+      >
+        <div style={{ fontSize: 30, marginBottom: 8 }}>⚠️</div>
+
+        <h3 style={{ margin: '0 0 8px', color: '#991b1b' }}>{t('resetTitulo')}</h3>
+
+        <p style={{ margin: '0 0 14px', fontSize: 13.5, color: '#7f1d1d', lineHeight: 1.6 }}>
+          {t('resetExplicacion')}
+        </p>
+
+        <ul style={{ margin: '0 0 14px', paddingLeft: 20, fontSize: 13.5, color: '#7f1d1d', lineHeight: 1.8 }}>
+          <li>{t('resetItemOperaciones')}</li>
+          <li>{t('resetItemProductos')}</li>
+          <li>{t('resetItemProveedores')}</li>
+          <li>{t('resetItemClientes')}</li>
+        </ul>
+
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: '#7f1d1d', fontStyle: 'italic' }}>
+          {t('resetSeMantiene')}
+        </p>
+
+        <div style={{ ...campo, marginBottom: 14 }}>
+          <label style={label}>{t('resetEtiquetaConfirmacion').replace('{palabra}', PALABRA_CONFIRMACION)}</label>
+          <input
+            type="text"
+            value={textoConfirmacion}
+            onChange={(e) => setTextoConfirmacion(e.target.value)}
+            placeholder={PALABRA_CONFIRMACION}
+            style={inputFormulario}
+          />
+        </div>
+
+        {!esAdmin && (
+          <div style={{ ...campo, marginBottom: 14 }}>
+            <label style={label}>{t('resetEtiquetaClave')}</label>
+            <input
+              type="password"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              style={inputFormulario}
+            />
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={confirmarReset}
+          disabled={!puedeConfirmar || reseteando}
+          style={{
+            background: '#dc2626',
+            color: COLORES.blanco,
+            border: 'none',
+            borderRadius: 10,
+            padding: '12px 20px',
+            fontWeight: 800,
+            width: '100%',
+            opacity: !puedeConfirmar || reseteando ? 0.5 : 1,
+            cursor: !puedeConfirmar || reseteando ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {reseteando ? t('resetBotonEnCurso') : t('resetBoton')}
+        </button>
+      </div>
     </div>
   );
 }
