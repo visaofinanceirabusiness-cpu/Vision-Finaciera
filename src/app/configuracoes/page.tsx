@@ -101,7 +101,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset' | 'matriz';
 
 type PerfilEmpresa = {
   id: string;
@@ -267,6 +267,12 @@ export default function ConfiguracoesPage() {
             <button type="button" onClick={() => setPestana('reset')} style={tabStyle(pestana === 'reset')}>
               {t('tabReset')}
             </button>
+
+            {esAdmin && (
+              <button type="button" onClick={() => setPestana('matriz')} style={tabStyle(pestana === 'matriz')}>
+                {t('tabMatriz')}
+              </button>
+            )}
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
@@ -276,6 +282,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
+          {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
         </main>
       </div>
     </div>
@@ -1913,6 +1920,291 @@ function ResetearSistemaTab({ empresaId, esAdmin, idioma }: { empresaId: string;
         </button>
       </div>
     </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA 8 — MATRIZ DE OPERAÇÕES E PLANO MAESTRO (solo admin)
+========================================================== */
+
+type FilaMatriz = {
+  id: string;
+  operacion: string;
+  categoria: string;
+  forma_pago: string;
+  cuenta_debito: string;
+  cuenta_credito: string;
+  stock: string;
+  libro: string;
+  cmv: string;
+  motor: string;
+};
+
+type FilaPlanMaestro = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  cuenta_padre_codigo: string | null;
+  naturaleza: string | null;
+  tipo_saldo: string | null;
+  clasificacion: string | null;
+  flujo_caja: string | null;
+  rol_contable: string | null;
+};
+
+const PAISES_PLAN_MAESTRO = ['AR', 'BR'];
+
+function MatrizYPlanMaestroTab({ empresaId, idioma }: { empresaId: string; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [subvista, setSubvista] = useState<'empresa' | 'maestro'>('empresa');
+
+  const [matriz, setMatriz] = useState<FilaMatriz[]>([]);
+  const [cargandoMatriz, setCargandoMatriz] = useState(true);
+  const [filtroOperacion, setFiltroOperacion] = useState('TODAS');
+  const [busquedaMatriz, setBusquedaMatriz] = useState('');
+
+  const [perfiles, setPerfiles] = useState<PerfilEmpresa[]>([]);
+  const [perfilElegido, setPerfilElegido] = useState('');
+  const [paisElegido, setPaisElegido] = useState('AR');
+  const [planMaestro, setPlanMaestro] = useState<FilaPlanMaestro[]>([]);
+  const [cargandoPlanMaestro, setCargandoPlanMaestro] = useState(false);
+
+  useEffect(() => {
+    async function cargarMatriz() {
+      const { data } = await supabase
+        .from('matriz_operaciones')
+        .select('id, operacion, categoria, forma_pago, cuenta_debito, cuenta_credito, stock, libro, cmv, motor')
+        .eq('empresa_id', empresaId)
+        .order('operacion')
+        .order('categoria');
+
+      setMatriz(data ?? []);
+      setCargandoMatriz(false);
+    }
+
+    cargarMatriz();
+  }, [empresaId]);
+
+  useEffect(() => {
+    async function cargarPerfiles() {
+      const { data } = await supabase.from('perfiles_empresa').select('id, codigo, nombre, descripcion').order('nombre');
+      setPerfiles(data ?? []);
+      if (data && data.length > 0) {
+        setPerfilElegido(data[0].id);
+      }
+    }
+
+    cargarPerfiles();
+  }, []);
+
+  useEffect(() => {
+    async function cargarPlanMaestro() {
+      if (!perfilElegido) return;
+
+      setCargandoPlanMaestro(true);
+
+      const { data } = await supabase
+        .from('perfil_plan_cuentas_maestro')
+        .select('id, codigo, nombre, cuenta_padre_codigo, naturaleza, tipo_saldo, clasificacion, flujo_caja, rol_contable')
+        .eq('perfil_empresa_id', perfilElegido)
+        .eq('pais', paisElegido)
+        .order('codigo');
+
+      setPlanMaestro(data ?? []);
+      setCargandoPlanMaestro(false);
+    }
+
+    cargarPlanMaestro();
+  }, [perfilElegido, paisElegido]);
+
+  const operacionesDisponibles = Array.from(new Set(matriz.map((fila) => fila.operacion))).sort();
+
+  const matrizFiltrada = matriz.filter((fila) => {
+    if (filtroOperacion !== 'TODAS' && fila.operacion !== filtroOperacion) return false;
+    if (!busquedaMatriz.trim()) return true;
+    const texto = busquedaMatriz.trim().toLowerCase();
+    return (
+      fila.categoria.toLowerCase().includes(texto) ||
+      fila.cuenta_debito.toLowerCase().includes(texto) ||
+      fila.cuenta_credito.toLowerCase().includes(texto)
+    );
+  });
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button
+          type="button"
+          onClick={() => setSubvista('empresa')}
+          style={{ ...botonSecundario, ...(subvista === 'empresa' ? { background: COLORES.azul, color: COLORES.blanco } : {}) }}
+        >
+          {t('matrizSubvistaEmpresa')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubvista('maestro')}
+          style={{ ...botonSecundario, ...(subvista === 'maestro' ? { background: COLORES.azul, color: COLORES.blanco } : {}) }}
+        >
+          {t('matrizSubvistaMaestro')}
+        </button>
+      </div>
+
+      {subvista === 'empresa' ? (
+        cargandoMatriz ? (
+          <div style={cargandoStyle}>{t('cargandoGenerico')}</div>
+        ) : (
+          <div>
+            <p style={{ fontSize: 13, color: COLORES.gris, marginBottom: 14 }}>
+              {t('matrizContador').replace('{cantidad}', String(matriz.length))}
+            </p>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={() => setFiltroOperacion('TODAS')}
+                style={{ ...botonSecundario, padding: '7px 14px', fontSize: 12.5, ...(filtroOperacion === 'TODAS' ? { background: COLORES.verde, color: COLORES.blanco, borderColor: COLORES.verde } : {}) }}
+              >
+                {t('matrizTodasOperaciones')}
+              </button>
+              {operacionesDisponibles.map((operacion) => (
+                <button
+                  key={operacion}
+                  type="button"
+                  onClick={() => setFiltroOperacion(operacion)}
+                  style={{ ...botonSecundario, padding: '7px 14px', fontSize: 12.5, ...(filtroOperacion === operacion ? { background: COLORES.verde, color: COLORES.blanco, borderColor: COLORES.verde } : {}) }}
+                >
+                  {nombreOperacionDisplay(idioma, operacion)}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              value={busquedaMatriz}
+              onChange={(e) => setBusquedaMatriz(e.target.value)}
+              placeholder={t('matrizBuscarPlaceholder')}
+              style={{ ...inputFormulario, marginBottom: 14, maxWidth: 340 }}
+            />
+
+            <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 12 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <Th>{t('matrizColOperacion')}</Th>
+                    <Th>{t('matrizColCategoria')}</Th>
+                    <Th>{t('matrizColFormaPago')}</Th>
+                    <Th>{t('matrizColCuentaDebito')}</Th>
+                    <Th>{t('matrizColCuentaCredito')}</Th>
+                    <Th align="right">{t('matrizColStock')}</Th>
+                    <Th align="right">{t('matrizColLibro')}</Th>
+                    <Th align="right">{t('matrizColCmv')}</Th>
+                    <Th>{t('matrizColMotor')}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrizFiltrada.map((fila) => (
+                    <tr key={fila.id} style={{ borderBottom: '1px solid #f1f3f5' }}>
+                      <Td>{nombreOperacionDisplay(idioma, fila.operacion)}</Td>
+                      <Td>{fila.categoria}</Td>
+                      <Td>{fila.forma_pago}</Td>
+                      <Td>{nombreCuentaDisplay(idioma, fila.cuenta_debito)}</Td>
+                      <Td>{nombreCuentaDisplay(idioma, fila.cuenta_credito)}</Td>
+                      <Td align="right">{fila.stock}</Td>
+                      <Td align="right">{fila.libro}</Td>
+                      <Td align="right">{fila.cmv}</Td>
+                      <Td>{fila.motor}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {matrizFiltrada.length === 0 && (
+                <div style={{ padding: 24, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>{t('matrizSinFilas')}</div>
+              )}
+            </div>
+          </div>
+        )
+      ) : (
+        <div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ ...campo, minWidth: 220 }}>
+              <label style={label}>{t('matrizSelectorPerfil')}</label>
+              <select style={inputFormulario} value={perfilElegido} onChange={(e) => setPerfilElegido(e.target.value)}>
+                {perfiles.map((perfil) => (
+                  <option key={perfil.id} value={perfil.id}>
+                    {perfil.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ ...campo, minWidth: 140 }}>
+              <label style={label}>{t('matrizSelectorPais')}</label>
+              <select style={inputFormulario} value={paisElegido} onChange={(e) => setPaisElegido(e.target.value)}>
+                {PAISES_PLAN_MAESTRO.map((pais) => (
+                  <option key={pais} value={pais}>
+                    {pais}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {cargandoPlanMaestro ? (
+            <div style={cargandoStyle}>{t('cargandoGenerico')}</div>
+          ) : (
+            <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 12 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <Th>{t('matrizColCodigo')}</Th>
+                    <Th>{t('matrizColNombreCuenta')}</Th>
+                    <Th>{t('matrizColCuentaPadre')}</Th>
+                    <Th>{t('matrizColNaturaleza')}</Th>
+                    <Th>{t('matrizColTipoSaldo')}</Th>
+                    <Th>{t('matrizColClasificacion')}</Th>
+                    <Th>{t('matrizColFlujoCaja')}</Th>
+                    <Th>{t('matrizColRolContable')}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planMaestro.map((fila) => (
+                    <tr key={fila.id} style={{ borderBottom: '1px solid #f1f3f5' }}>
+                      <Td>{fila.codigo}</Td>
+                      <Td>{fila.nombre}</Td>
+                      <Td>{fila.cuenta_padre_codigo ?? '—'}</Td>
+                      <Td>{fila.naturaleza ?? '—'}</Td>
+                      <Td>{fila.tipo_saldo ?? '—'}</Td>
+                      <Td>{fila.clasificacion ?? '—'}</Td>
+                      <Td>{fila.flujo_caja ?? '—'}</Td>
+                      <Td>{fila.rol_contable ?? '—'}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {planMaestro.length === 0 && (
+                <div style={{ padding: 24, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>{t('matrizSinFilas')}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+  return (
+    <th style={{ padding: '10px 12px', color: '#374151', fontSize: 11.5, textAlign: align, whiteSpace: 'nowrap', fontWeight: 800 }}>
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
+  return (
+    <td style={{ padding: '10px 12px', fontSize: 12.5, textAlign: align, whiteSpace: 'nowrap' }}>{children}</td>
   );
 }
 

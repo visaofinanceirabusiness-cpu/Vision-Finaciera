@@ -168,7 +168,34 @@ export type ClaveConfiguracoes =
   | 'resetEtiquetaClave'
   | 'resetBoton'
   | 'resetBotonEnCurso'
-  | 'resetErrorInesperado';
+  | 'resetErrorInesperado'
+  // Pestaña 8 — Matriz de Operações e Plano Maestro (solo admin)
+  | 'tabMatriz'
+  | 'matrizSubvistaEmpresa'
+  | 'matrizSubvistaMaestro'
+  | 'matrizContador'
+  | 'matrizTodasOperaciones'
+  | 'matrizBuscarPlaceholder'
+  | 'matrizSinFilas'
+  | 'matrizColOperacion'
+  | 'matrizColCategoria'
+  | 'matrizColFormaPago'
+  | 'matrizColCuentaDebito'
+  | 'matrizColCuentaCredito'
+  | 'matrizColStock'
+  | 'matrizColLibro'
+  | 'matrizColCmv'
+  | 'matrizColMotor'
+  | 'matrizSelectorPerfil'
+  | 'matrizSelectorPais'
+  | 'matrizColCodigo'
+  | 'matrizColNombreCuenta'
+  | 'matrizColCuentaPadre'
+  | 'matrizColNaturaleza'
+  | 'matrizColTipoSaldo'
+  | 'matrizColClasificacion'
+  | 'matrizColFlujoCaja'
+  | 'matrizColRolContable';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -327,6 +354,33 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     resetBoton: 'Resetear sistema',
     resetBotonEnCurso: 'Reseteando...',
     resetErrorInesperado: 'No se pudo completar el reset.',
+    // Pestaña 8 — Matriz de Operaciones y Plan Maestro
+    tabMatriz: '🧮 Matriz y Plan Maestro',
+    matrizSubvistaEmpresa: 'Matriz de la empresa',
+    matrizSubvistaMaestro: 'Plan Maestro por perfil',
+    matrizContador: '{cantidad} reglas generadas',
+    matrizTodasOperaciones: 'Todas',
+    matrizBuscarPlaceholder: 'Buscar por categoría o cuenta...',
+    matrizSinFilas: 'No hay filas para mostrar.',
+    matrizColOperacion: 'Operación',
+    matrizColCategoria: 'Categoría',
+    matrizColFormaPago: 'Forma de pago',
+    matrizColCuentaDebito: 'Cuenta Débito',
+    matrizColCuentaCredito: 'Cuenta Crédito',
+    matrizColStock: 'Stock',
+    matrizColLibro: 'Libro',
+    matrizColCmv: 'CMV',
+    matrizColMotor: 'Motor',
+    matrizSelectorPerfil: 'Perfil',
+    matrizSelectorPais: 'País',
+    matrizColCodigo: 'Código',
+    matrizColNombreCuenta: 'Nombre',
+    matrizColCuentaPadre: 'Cuenta padre',
+    matrizColNaturaleza: 'Naturaleza',
+    matrizColTipoSaldo: 'Tipo de saldo',
+    matrizColClasificacion: 'Clasificación',
+    matrizColFlujoCaja: 'Flujo de caja',
+    matrizColRolContable: 'Rol contable',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -484,6 +538,33 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     resetBoton: 'Resetar sistema',
     resetBotonEnCurso: 'Resetando...',
     resetErrorInesperado: 'Não foi possível concluir o reset.',
+    // Pestaña 8 — Matriz de Operações e Plano Maestro
+    tabMatriz: '🧮 Matriz e Plano Maestro',
+    matrizSubvistaEmpresa: 'Matriz da empresa',
+    matrizSubvistaMaestro: 'Plano Maestro por perfil',
+    matrizContador: '{cantidad} regras geradas',
+    matrizTodasOperaciones: 'Todas',
+    matrizBuscarPlaceholder: 'Buscar por categoria ou conta...',
+    matrizSinFilas: 'Não há linhas para mostrar.',
+    matrizColOperacion: 'Operação',
+    matrizColCategoria: 'Categoria',
+    matrizColFormaPago: 'Forma de pagamento',
+    matrizColCuentaDebito: 'Conta Débito',
+    matrizColCuentaCredito: 'Conta Crédito',
+    matrizColStock: 'Estoque',
+    matrizColLibro: 'Livro',
+    matrizColCmv: 'CMV',
+    matrizColMotor: 'Motor',
+    matrizSelectorPerfil: 'Perfil',
+    matrizSelectorPais: 'País',
+    matrizColCodigo: 'Código',
+    matrizColNombreCuenta: 'Nome',
+    matrizColCuentaPadre: 'Conta pai',
+    matrizColNaturaleza: 'Natureza',
+    matrizColTipoSaldo: 'Tipo de saldo',
+    matrizColClasificacion: 'Classificação',
+    matrizColFlujoCaja: 'Fluxo de caixa',
+    matrizColRolContable: 'Papel contábil',
   },
 };
 
