@@ -240,3 +240,25 @@ export function msgEcuacionNoCierra(
     ? `⚠ A equação não fecha por ${diferencia}. Ativo: ${activo} — Passivo + Patrimônio: ${pasivoPatrimonio}.`
     : `⚠ La ecuación no cierra por ${diferencia}. Activo: ${activo} — Pasivo + Patrimonio: ${pasivoPatrimonio}.`;
 }
+
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_INFORMES: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'El Mayor te muestra el detalle cronológico de una cuenta, con su saldo corriendo.',
+    'En Sumas y Saldos, el total Debe siempre debe cerrar igual al total Haber.',
+    'Un asiento pendiente de revisión no aparece en ningún informe hasta que lo validás.',
+    'El Balance Patrimonial cierra cuando Activo es igual a Pasivo más Patrimonio.',
+    'El Estado de Resultado te muestra si tu negocio ganó o perdió en el período elegido.',
+  ],
+  PT: [
+    'O Livro Razão mostra o detalhe cronológico de uma conta, com seu saldo corrente.',
+    'Em Somas e Saldos, o total Débito sempre deve fechar igual ao total Crédito.',
+    'Um lançamento pendente de revisão não aparece em nenhum relatório até você validá-lo.',
+    'O Balanço Patrimonial fecha quando Ativo é igual a Passivo mais Patrimônio.',
+    'O Demonstrativo de Resultado mostra se seu negócio teve lucro ou prejuízo no período escolhido.',
+  ],
+};
+
+export function frasesSabioInformes(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_INFORMES[idioma === 'PT' ? 'PT' : 'ES'];
+}

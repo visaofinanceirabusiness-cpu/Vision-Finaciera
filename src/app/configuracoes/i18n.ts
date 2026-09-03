@@ -154,7 +154,21 @@ export type ClaveConfiguracoes =
   | 'facturacionPagaEnPrefijo'
   | 'facturacionPagaEnSufijo'
   | 'reales'
-  | 'pesosArgentinos';
+  | 'pesosArgentinos'
+  // Pestaña 7 — Resetear Sistema
+  | 'tabReset'
+  | 'resetTitulo'
+  | 'resetExplicacion'
+  | 'resetItemOperaciones'
+  | 'resetItemProductos'
+  | 'resetItemProveedores'
+  | 'resetItemClientes'
+  | 'resetSeMantiene'
+  | 'resetEtiquetaConfirmacion'
+  | 'resetEtiquetaClave'
+  | 'resetBoton'
+  | 'resetBotonEnCurso'
+  | 'resetErrorInesperado';
 
 export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
   ES: {
@@ -299,6 +313,20 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     facturacionPagaEnSufijo: 'a través de',
     reales: 'Reales',
     pesosArgentinos: 'Pesos argentinos',
+    // Pestaña 7 — Resetear Sistema
+    tabReset: '🗑️ Resetear Sistema',
+    resetTitulo: 'Resetear sistema',
+    resetExplicacion: 'Esta acción borra todo el dato cargado y no se puede deshacer. El sistema queda operativo pero vacío de información.',
+    resetItemOperaciones: 'Todas las operaciones registradas (Libro Diario, informes, stock).',
+    resetItemProductos: 'Todos los productos y sus recetas de producción.',
+    resetItemProveedores: 'Todos los proveedores.',
+    resetItemClientes: 'Todos los clientes.',
+    resetSeMantiene: 'Se mantiene: plan de cuentas, categorías, formas de pago, socios y objetivos — no hace falta volver a configurar nada.',
+    resetEtiquetaConfirmacion: 'Escribí {palabra} para confirmar',
+    resetEtiquetaClave: 'Tu contraseña',
+    resetBoton: 'Resetear sistema',
+    resetBotonEnCurso: 'Reseteando...',
+    resetErrorInesperado: 'No se pudo completar el reset.',
   },
   PT: {
     preparando: 'Preparando a configuração...',
@@ -442,6 +470,20 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     facturacionPagaEnSufijo: 'através de',
     reales: 'Reais',
     pesosArgentinos: 'Pesos argentinos',
+    // Pestaña 7 — Resetar Sistema
+    tabReset: '🗑️ Resetar Sistema',
+    resetTitulo: 'Resetar sistema',
+    resetExplicacion: 'Esta ação apaga todos os dados carregados e não pode ser desfeita. O sistema fica operacional, mas sem informações.',
+    resetItemOperaciones: 'Todas as operações registradas (Livro Diário, relatórios, estoque).',
+    resetItemProductos: 'Todos os produtos e suas receitas de produção.',
+    resetItemProveedores: 'Todos os fornecedores.',
+    resetItemClientes: 'Todos os clientes.',
+    resetSeMantiene: 'Mantém-se: plano de contas, categorias, formas de pagamento, sócios e objetivos — não é preciso configurar nada de novo.',
+    resetEtiquetaConfirmacion: 'Digite {palabra} para confirmar',
+    resetEtiquetaClave: 'Sua senha',
+    resetBoton: 'Resetar sistema',
+    resetBotonEnCurso: 'Resetando...',
+    resetErrorInesperado: 'Não foi possível concluir o reset.',
   },
 };
 
@@ -527,5 +569,49 @@ export function msgLinkNoConfigurado(idioma: string, plataforma: string) {
   return esPT(idioma)
     ? `🔒 O link de pagamento do ${plataforma} ainda não está configurado. Vai estar disponível em breve.`
     : `🔒 Todavía no está configurado el link de pago de ${plataforma}. Va a estar disponible próximamente.`;
+}
+
+export function msgResetClaveIncorrecta(idioma: string) {
+  return esPT(idioma) ? 'Senha incorreta.' : 'Contraseña incorrecta.';
+}
+
+export function msgResetTextoNoCoincide(idioma: string) {
+  return esPT(idioma)
+    ? 'Digite exatamente a palavra pedida para confirmar.'
+    : 'Escribí exactamente la palabra pedida para confirmar.';
+}
+
+export function msgResetExito(idioma: string) {
+  return esPT(idioma)
+    ? '✓ Sistema resetado. Já pode começar a carregar informações de novo.'
+    : '✓ Sistema reseteado. Ya podés volver a cargar información.';
+}
+
+export function msgResetErrorParcial(idioma: string, errores: string[]) {
+  return esPT(idioma)
+    ? `O reset terminou com alguns erros: ${errores.join('; ')}.`
+    : `El reset terminó con algunos errores: ${errores.join('; ')}.`;
+}
+
+// Tips de Sabio para esta pantalla — rotan en el widget permanente.
+export const FRASES_SABIO_CONFIGURACOES: Record<'ES' | 'PT', string[]> = {
+  ES: [
+    'Cada categoría, forma de pago y socio que cargués acá queda disponible en toda la app.',
+    'Generar la Matriz de Operações es lo que deja tu negocio listo para registrar operaciones.',
+    'Podés volver a generar la matriz cuando quieras — no afecta las operaciones ya registradas.',
+    'Los Objetivos te avisan cuando un indicador se aleja de la meta que definiste.',
+    'Revisá el idioma y la moneda de tu empresa acá — se aplican en toda la plataforma.',
+  ],
+  PT: [
+    'Cada categoria, forma de pagamento e sócio que você cadastrar aqui fica disponível em todo o app.',
+    'Gerar a Matriz de Operações é o que deixa seu negócio pronto para registrar operações.',
+    'Você pode gerar a matriz de novo quando quiser — não afeta as operações já registradas.',
+    'Os Objetivos avisam quando um indicador se afasta da meta que você definiu.',
+    'Revise o idioma e a moeda da sua empresa aqui — eles se aplicam em toda a plataforma.',
+  ],
+};
+
+export function frasesSabioConfiguracoes(idioma: string | null | undefined): string[] {
+  return FRASES_SABIO_CONFIGURACOES[idioma === 'PT' ? 'PT' : 'ES'];
 }
 
