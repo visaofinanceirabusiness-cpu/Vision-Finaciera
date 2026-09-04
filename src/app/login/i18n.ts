@@ -10,7 +10,8 @@ type Clave =
   | 'noTenesCuenta'
   | 'creaUnaAca'
   | 'errorEmailNoConfirmado'
-  | 'errorCredenciales';
+  | 'errorCredenciales'
+  | 'errorSinPerfil';
 
 export const diccionarioLogin: Diccionario<Clave> = {
   ES: {
@@ -25,6 +26,7 @@ export const diccionarioLogin: Diccionario<Clave> = {
     errorEmailNoConfirmado:
       'Todavía no confirmaste tu email — revisá tu casilla (y la carpeta de spam) y hacé clic en el link que te mandamos.',
     errorCredenciales: 'No pudimos iniciar sesión. Revisá tu email y contraseña.',
+    errorSinPerfil: 'Esta cuenta ya no tiene una empresa activa. Contactá al administrador.',
   },
   PT: {
     eslogan: 'Clareza para decidir. Segurança para crescer.',
@@ -38,5 +40,6 @@ export const diccionarioLogin: Diccionario<Clave> = {
     errorEmailNoConfirmado:
       'Você ainda não confirmou seu email — verifique sua caixa de entrada (e a pasta de spam) e clique no link que enviamos.',
     errorCredenciales: 'Não foi possível entrar. Verifique seu email e senha.',
+    errorSinPerfil: 'Esta conta não tem mais uma empresa ativa. Entre em contato com o administrador.',
   },
 };

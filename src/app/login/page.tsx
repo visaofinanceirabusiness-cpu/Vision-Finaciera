@@ -40,7 +40,19 @@ export default function LoginPage() {
       .eq('id', userData.user?.id)
       .maybeSingle();
 
-    router.push(perfil?.es_admin_plataforma ? '/panel-maestro' : '/');
+    // Sin fila en `perfiles` significa que la empresa fue borrada
+    // (eliminar_empresa_completa se lleva puesto el perfil junto con
+    // todo lo demás) o que el usuario nunca quedó vinculado a una
+    // empresa. En cualquiera de los dos casos no hay a dónde llevarlo:
+    // se cierra la sesión acá mismo en vez de dejarlo pasar a una
+    // pantalla rota con "No se pudo identificar la empresa del usuario".
+    if (!perfil) {
+      await supabase.auth.signOut();
+      setError(t('errorSinPerfil'));
+      return;
+    }
+
+    router.push(perfil.es_admin_plataforma ? '/panel-maestro' : '/');
   }
 
   return (
