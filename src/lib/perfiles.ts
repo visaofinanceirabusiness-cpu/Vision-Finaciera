@@ -33,10 +33,21 @@ export async function empresaYaTieneEsqueleto(empresaId: string) {
     .eq('empresa_id', empresaId);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return Boolean(count && count > 0);
+}
+
+// El plan de cuentas maestro tiene una variante por país (esquema
+// impositivo distinto) — el resto de las tablas maestras (operaciones,
+// formas de pago, categorías, reglas) son las mismas para cualquier
+// país, no tienen columna "pais". Se deriva de la moneda real del
+// negocio, no del idioma en el que trabaja (ver el comentario en
+// crear-cuenta/page.tsx). Solo existen variantes AR/BR hoy — ARS y
+// USD comparten el esquema AR hasta que exista uno propio para USD.
+export function paisDesdeMoneda(moneda?: string): 'AR' | 'BR' {
+  return moneda === 'BRL' ? 'BR' : 'AR';
 }
 
 export async function inicializarEmpresaDesdePerfil(
@@ -58,6 +69,8 @@ export async function inicializarEmpresaDesdePerfil(
     );
   }
 
+  const pais = paisDesdeMoneda(moneda);
+
   const [
     { data: cuentasMaestro, error: errorCuentas },
     { data: operacionesMaestro, error: errorOperaciones },
@@ -66,7 +79,12 @@ export async function inicializarEmpresaDesdePerfil(
     { data: categoriasOperacionMaestro, error: errorCatOp },
     { data: reglasMaestro, error: errorReglas },
   ] = await Promise.all([
-    supabase.from('perfil_plan_cuentas_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
+    supabase
+      .from('perfil_plan_cuentas_maestro')
+      .select('*')
+      .eq('perfil_empresa_id', perfilEmpresaId)
+      .eq('idioma', idioma)
+      .eq('pais', pais),
     supabase.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
     supabase.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
     supabase.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
@@ -78,12 +96,12 @@ export async function inicializarEmpresaDesdePerfil(
     errorCuentas || errorOperaciones || errorFormasPago || errorFPO || errorCatOp || errorReglas;
 
   if (primerError) {
-    throw primerError;
+    throw new Error(primerError.message);
   }
 
   if (!cuentasMaestro || cuentasMaestro.length === 0) {
     throw new Error(
-      `Todavía no existe un plan maestro cargado para este perfil en idioma "${idioma}". Avisale al administrador.`
+      `Todavía no existe un plan maestro cargado para este perfil en idioma "${idioma}" y país "${pais}". Avisale al administrador.`
     );
   }
 
@@ -111,7 +129,7 @@ export async function inicializarEmpresaDesdePerfil(
     await supabase.from('plan_cuentas').insert(filasCuentas).select('id, codigo');
 
   if (errorInsertCuentas) {
-    throw errorInsertCuentas;
+    throw new Error(errorInsertCuentas.message);
   }
 
   const idPorCodigo = new Map(
@@ -133,7 +151,7 @@ export async function inicializarEmpresaDesdePerfil(
       .eq('id', fila.id);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
   }
 
@@ -154,7 +172,7 @@ export async function inicializarEmpresaDesdePerfil(
       .select('id, nombre');
 
   if (errorInsertOperaciones) {
-    throw errorInsertOperaciones;
+    throw new Error(errorInsertOperaciones.message);
   }
 
   const operacionIdPorNombre = new Map(
@@ -178,7 +196,7 @@ export async function inicializarEmpresaDesdePerfil(
       .select('id, codigo');
 
   if (errorInsertFormasPago) {
-    throw errorInsertFormasPago;
+    throw new Error(errorInsertFormasPago.message);
   }
 
   const formaPagoIdPorCodigo = new Map(
@@ -198,7 +216,7 @@ export async function inicializarEmpresaDesdePerfil(
     const { error } = await supabase.from('forma_pago_cuentas').insert(filasFormaPagoCuentas);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
   }
 
@@ -219,7 +237,7 @@ export async function inicializarEmpresaDesdePerfil(
     const { error } = await supabase.from('formas_pago_operacion').insert(filasFormasPagoOperacion);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
   }
 
@@ -243,7 +261,7 @@ export async function inicializarEmpresaDesdePerfil(
       .select('id, operacion, codigo');
 
   if (errorInsertCatOp) {
-    throw errorInsertCatOp;
+    throw new Error(errorInsertCatOp.message);
   }
 
   const catOpIdPorClave = new Map(
@@ -264,7 +282,7 @@ export async function inicializarEmpresaDesdePerfil(
     const { error } = await supabase.from('categorias_operacion_cuentas').insert(filasCatOpCuentas);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
   }
 
@@ -292,7 +310,7 @@ export async function inicializarEmpresaDesdePerfil(
     const { error } = await supabase.from('reglas_contables').insert(filasReglas);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
   }
 
