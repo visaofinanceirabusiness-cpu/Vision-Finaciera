@@ -221,6 +221,26 @@ export default function PanelMaestroPage() {
     setResolviendoSolicitud(solicitud.id);
 
     try {
+      // Safety net: si dos personas mandaron una solicitud con el
+      // mismo nombre de empresa antes de que se aprobara ninguna
+      // (o si ya existe una empresa activa con ese nombre), no se
+      // aprueba — hay que rechazar esta y pedirle al interesado que
+      // la reenvíe con un nombre distinto.
+      const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
+        p_nombre: solicitud.nombre_empresa,
+        p_excluir_solicitud_id: solicitud.id,
+      });
+
+      if (errorNombreDuplicado) {
+        throw new Error(errorNombreDuplicado.message);
+      }
+
+      if (existeNombre) {
+        throw new Error(
+          `Ya existe una empresa (u otra solicitud pendiente) con el nombre "${solicitud.nombre_empresa}". Rechazá esta solicitud y pedile al interesado que la reenvíe con un nombre distinto.`
+        );
+      }
+
       const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
         .from('empresas')
         .insert({
@@ -1181,6 +1201,22 @@ function VincularUsuario({
     let numeroClienteNuevo: number | null = null;
 
     if (empresaId === '__nueva__') {
+      const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
+        p_nombre: nombreNuevaEmpresa.trim(),
+      });
+
+      if (errorNombreDuplicado) {
+        onError(`No se pudo validar el nombre: ${errorNombreDuplicado.message}`);
+        setEnviando(false);
+        return;
+      }
+
+      if (existeNombre) {
+        onError(`Ya existe una empresa con el nombre "${nombreNuevaEmpresa.trim()}". Elegí un nombre distinto.`);
+        setEnviando(false);
+        return;
+      }
+
       const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
         .from('empresas')
         .insert({ nombre: nombreNuevaEmpresa.trim(), rubro: rubroNuevaEmpresa.trim() || null })

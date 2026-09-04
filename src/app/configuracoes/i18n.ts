@@ -53,6 +53,7 @@ export type ClaveConfiguracoes =
   | 'mensajeGuardadoConInicializacion'
   | 'mensajeGuardadoOk'
   | 'errorNoSeIdentificoEmpresa'
+  | 'errorNombreEmpresaDuplicado'
   // Pestaña 2 — Categorías y Formas de Pago
   | 'cargandoCategorias'
   | 'sinPlanCuentasTitulo'
@@ -243,6 +244,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     mensajeGuardadoConInicializacion: 'Datos guardados y Plano de Contas inicializado — ya podés cargar categorías en la pestaña siguiente.',
     mensajeGuardadoOk: 'Datos guardados correctamente.',
     errorNoSeIdentificoEmpresa: 'No se pudo identificar la empresa del usuario.',
+    errorNombreEmpresaDuplicado: 'Ya existe otra empresa registrada con ese nombre. Elegí un nombre distinto.',
     cargandoCategorias: 'Cargando categorías...',
     sinPlanCuentasTitulo: 'Todavía no hay un Plano de Contas cargado',
     sinPlanCuentasAyuda: 'Asigná un perfil de empresa en la pestaña "Datos de la Empresa" para poder crear categorías acá.',
@@ -427,6 +429,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     mensajeGuardadoConInicializacion: 'Dados salvos e Plano de Contas inicializado — já pode cadastrar categorias na próxima aba.',
     mensajeGuardadoOk: 'Dados salvos com sucesso.',
     errorNoSeIdentificoEmpresa: 'Não foi possível identificar a empresa do usuário.',
+    errorNombreEmpresaDuplicado: 'Já existe outra empresa cadastrada com esse nome. Escolha um nome diferente.',
     cargandoCategorias: 'Carregando categorias...',
     sinPlanCuentasTitulo: 'Ainda não há um Plano de Contas carregado',
     sinPlanCuentasAyuda: 'Atribua um perfil de empresa na aba "Dados da Empresa" para poder criar categorias aqui.',

@@ -122,6 +122,22 @@ export default function CrearCuentaPage() {
 
     setEnviando(true);
 
+    const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
+      p_nombre: nombreEmpresa.trim(),
+    });
+
+    if (errorNombreDuplicado) {
+      setError(msgErrorCrearCuenta(idioma, errorNombreDuplicado.message));
+      setEnviando(false);
+      return;
+    }
+
+    if (existeNombre) {
+      setError(t('errorNombreEmpresaDuplicado'));
+      setEnviando(false);
+      return;
+    }
+
     const { data: signUpData, error: errorSignUp } = await supabase.auth.signUp({
       email: email.trim(),
       password: contrasena,

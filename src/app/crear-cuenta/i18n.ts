@@ -32,6 +32,7 @@ type Clave =
   | 'errorCuentaExistente'
   | 'errorConfirmacionPendiente'
   | 'errorSolicitud'
+  | 'errorNombreEmpresaDuplicado'
   | 'comercial'
   | 'servicios'
   | 'produccion';
@@ -71,6 +72,7 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     errorConfirmacionPendiente:
       'Ya existe una cuenta con ese email — probá iniciar sesión, o pedí que te reenvíen la confirmación.',
     errorSolicitud: 'La cuenta se creó pero no se pudo enviar la solicitud',
+    errorNombreEmpresaDuplicado: 'Ya existe una empresa registrada con ese nombre. Cambiá el nombre para poder continuar.',
     comercial: 'Comercial (compra y venta de mercadería)',
     servicios: 'Servicios',
     produccion: 'Producción',
@@ -109,6 +111,7 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     errorConfirmacionPendiente:
       'Já existe uma conta com esse email — tente entrar, ou peça o reenvio da confirmação.',
     errorSolicitud: 'A conta foi criada mas não foi possível enviar a solicitação',
+    errorNombreEmpresaDuplicado: 'Já existe uma empresa cadastrada com esse nome. Altere o nome para continuar.',
     comercial: 'Comercial (compra e venda de mercadoria)',
     servicios: 'Serviços',
     produccion: 'Produção',
