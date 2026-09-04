@@ -20,6 +20,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { motivoSinPerfil } from '@/lib/estadoCuenta';
 
 const RUTAS_PUBLICAS = ['/login', '/crear-cuenta'];
 const INTERVALO_MS = 60_000;
@@ -45,8 +46,16 @@ export function GuardiaSesion() {
 
       if (cancelado || perfil) return;
 
+      const motivo = await motivoSinPerfil(userData.user.id);
+      const parametro =
+        motivo === 'pendiente'
+          ? 'solicitud_pendiente'
+          : motivo === 'rechazada'
+            ? 'solicitud_rechazada'
+            : 'empresa_borrada';
+
       await supabase.auth.signOut();
-      router.replace('/login?motivo=empresa_borrada');
+      router.replace(`/login?motivo=${parametro}`);
     }
 
     function alVolverAPestana() {
