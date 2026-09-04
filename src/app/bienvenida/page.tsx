@@ -62,6 +62,27 @@ const PROGRESO_INICIAL: Progreso = {
   matriz: false,
 };
 
+// Varias funciones de lib/categorias.ts, lib/socios.ts y
+// bienvenida/acciones.ts hacen `throw error` con el objeto de error
+// crudo de Supabase (PostgrestError: {message, details, hint, code}),
+// no un `Error` de JS — así que `e instanceof Error` da false y el
+// mensaje real se perdía, mostrando siempre el aviso genérico de "no
+// se pudo generar la matriz" sin importar en qué paso falló de
+// verdad. Esto extrae el mensaje real de cualquiera de las dos formas.
+function mensajeDeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+
+  if (e && typeof e === 'object' && 'message' in e) {
+    const errorSupabase = e as { message?: string; details?: string; hint?: string; code?: string };
+
+    return [errorSupabase.message, errorSupabase.details, errorSupabase.hint, errorSupabase.code ? `Código: ${errorSupabase.code}` : '']
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  return '';
+}
+
 export default function BienvenidaPage() {
   const router = useRouter();
 
@@ -251,7 +272,7 @@ export default function BienvenidaPage() {
       router.push('/contabilidad');
     } catch (e) {
       console.error('Error en el onboarding:', e);
-      setErrorFinal(e instanceof Error ? e.message : t('errorMatriz'));
+      setErrorFinal(mensajeDeError(e) || t('errorMatriz'));
     } finally {
       setGuardando(false);
     }
@@ -269,6 +290,26 @@ export default function BienvenidaPage() {
     <div style={fondo}>
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
         <header style={encabezado}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push('/login');
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#cbd5e1',
+                fontSize: 13,
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              {t('salir')}
+            </button>
+          </div>
+
           <div style={eyebrow}>{t('eyebrow')}</div>
           <h1 style={{ margin: 0, fontSize: 30 }}>{t('titulo')}</h1>
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>{t('subtitulo')}</p>
