@@ -14,7 +14,7 @@ export async function motivoSinPerfil(userId: string): Promise<MotivoSinPerfil> 
     .from('solicitudes_alta')
     .select('estado')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('creado_en', { ascending: false })
     .limit(1)
     .maybeSingle();
 
