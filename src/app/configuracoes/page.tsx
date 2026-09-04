@@ -412,6 +412,23 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
     setError('');
     setMensaje('');
 
+    const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
+      p_nombre: empresa.nombre.trim(),
+      p_excluir_empresa_id: empresaId,
+    });
+
+    if (errorNombreDuplicado) {
+      setError(errorNombreDuplicado.message);
+      setGuardando(false);
+      return;
+    }
+
+    if (existeNombre) {
+      setError(t('errorNombreEmpresaDuplicado'));
+      setGuardando(false);
+      return;
+    }
+
     const asignandoPerfilPorPrimeraVez = Boolean(empresa.perfil_empresa_id) && !tieneEsqueleto;
 
     const { error: errorGuardar } = await supabase
