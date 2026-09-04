@@ -4,6 +4,7 @@ type Clave =
   | 'eyebrow'
   | 'titulo'
   | 'subtitulo'
+  | 'salir'
   | 'cargando'
   | 'errorSinEmpresa'
   | 'seccionCategoriaProductoTitulo'
@@ -35,6 +36,7 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     titulo: 'Antes de arrancar',
     subtitulo:
       'Completá estos datos básicos para que tu sistema quede listo para operar. Después vas a poder agregar todo lo que quieras desde Configurações y Recursos Humanos.',
+    salir: 'Salir / volver más tarde',
     cargando: 'Cargando...',
     errorSinEmpresa: 'No se pudo identificar la empresa del usuario.',
     seccionCategoriaProductoTitulo: '1. Categoría de producto',
@@ -65,6 +67,7 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     titulo: 'Antes de começar',
     subtitulo:
       'Preencha esses dados básicos para deixar seu sistema pronto para operar. Depois você vai poder adicionar tudo o que quiser em Configurações e Recursos Humanos.',
+    salir: 'Sair / voltar depois',
     cargando: 'Carregando...',
     errorSinEmpresa: 'Não foi possível identificar a empresa do usuário.',
     seccionCategoriaProductoTitulo: '1. Categoria de produto',
