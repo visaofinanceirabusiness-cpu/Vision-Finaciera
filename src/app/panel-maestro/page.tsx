@@ -652,6 +652,19 @@ export default function PanelMaestroPage() {
         />
 
         {/* =================================================
+            PROBAR FORMULARIO DE BIENVENIDA — acceso directo para
+            testear /bienvenida con cualquier perfil, sin tener que
+            crear una cuenta real y aprobarla cada vez.
+        ================================================== */}
+
+        <ProbarFormularioBienvenida
+          onError={(mensajeError) => {
+            setError(mensajeError);
+            setMensaje('');
+          }}
+        />
+
+        {/* =================================================
             NOTIFICACIONES — pendientes de validar, de todas
             las empresas, sin tener que entrar a cada una
         ================================================== */}
@@ -1382,6 +1395,260 @@ function VincularUsuario({
             }}
           >
             {enviando ? 'Vinculando...' : 'Vincular'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================
+   PROBAR FORMULARIO DE BIENVENIDA — crea una empresa de prueba con
+   el perfil elegido (el formulario de /bienvenida cambia según el
+   perfil: categoría de producto vs. de servicio, si pide Productos,
+   las etiquetas de Clientes/Proveedores, etc.) y entra directo a
+   ella, sin tener que pasar por todo el flujo de Crear conta +
+   aprobar solicitud cada vez que se quiere probar un caso.
+========================================================== */
+
+const OPCIONES_COMPONENTES_MIXTO = [
+  { valor: 'COMERCIAL', etiqueta: 'Comercial' },
+  { valor: 'SERVICIOS', etiqueta: 'Servicios' },
+  { valor: 'PRODUCCION', etiqueta: 'Producción' },
+];
+
+function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) => void }) {
+  const router = useRouter();
+  const [abierta, setAbierta] = useState(false);
+  const [perfiles, setPerfiles] = useState<{ id: string; codigo: string; nombre: string }[]>([]);
+  const [perfilElegido, setPerfilElegido] = useState('');
+  const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
+  const [idioma, setIdioma] = useState<'ES' | 'PT'>('ES');
+  const [moneda, setMoneda] = useState('ARS');
+  const [creando, setCreando] = useState(false);
+
+  useEffect(() => {
+    if (!abierta || perfiles.length > 0) return;
+
+    supabase
+      .from('perfiles_empresa')
+      .select('id, codigo, nombre')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+      .then(({ data }) => {
+        setPerfiles(data ?? []);
+        if (data && data.length > 0) setPerfilElegido((actual) => actual || data[0].id);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierta]);
+
+  function alternarComponente(valor: string) {
+    setComponentesMixto((actual) =>
+      actual.includes(valor) ? actual.filter((c) => c !== valor) : [...actual, valor]
+    );
+  }
+
+  const perfilCodigo = perfiles.find((p) => p.id === perfilElegido)?.codigo;
+  const esMixto = perfilCodigo === 'MIXTO';
+
+  async function crearYEntrar() {
+    if (!perfilElegido) {
+      onError('Elegí un perfil.');
+      return;
+    }
+
+    if (esMixto && componentesMixto.length === 0) {
+      onError('Elegí al menos un componente de Mixto.');
+      return;
+    }
+
+    setCreando(true);
+
+    const perfilNombre = perfiles.find((p) => p.id === perfilElegido)?.nombre ?? perfilCodigo ?? 'Prueba';
+    const nombreEmpresa = `Prueba — ${perfilNombre} (${new Date().toLocaleString('es-AR')})`;
+
+    try {
+      const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
+        p_nombre: nombreEmpresa,
+      });
+
+      if (errorNombreDuplicado) {
+        throw new Error(errorNombreDuplicado.message);
+      }
+
+      if (existeNombre) {
+        throw new Error('Ya existe una empresa con ese nombre justo ahora — probá de nuevo en un segundo.');
+      }
+
+      const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
+        .from('empresas')
+        .insert({
+          nombre: nombreEmpresa,
+          rubro: 'Empresa de prueba',
+          moneda,
+          idioma,
+          onboarding_completado: false,
+        })
+        .select('id')
+        .single();
+
+      if (errorEmpresa || !nuevaEmpresa) {
+        throw new Error(errorEmpresa?.message ?? 'No se pudo crear la empresa de prueba.');
+      }
+
+      const { error: errorPerfilEmpresa } = await supabase
+        .from('empresas')
+        .update({ perfil_empresa_id: perfilElegido })
+        .eq('id', nuevaEmpresa.id);
+
+      if (errorPerfilEmpresa) {
+        throw new Error(errorPerfilEmpresa.message);
+      }
+
+      if (esMixto && componentesMixto.length > 0) {
+        const { error: errorComponentes } = await supabase
+          .from('empresa_mixto_componentes')
+          .insert(componentesMixto.map((componente) => ({ empresa_id: nuevaEmpresa.id, componente })));
+
+        if (errorComponentes) {
+          throw new Error(errorComponentes.message);
+        }
+      }
+
+      await inicializarEmpresaDesdePerfil(nuevaEmpresa.id, perfilElegido, idioma, moneda);
+
+      // Mismo mecanismo que "descender a un universo" en el hero de
+      // esta pantalla: el admin no tiene una empresa propia fija,
+      // así que entrar a una es simplemente apuntar su perfil ahí.
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!userData.user) {
+        throw new Error('No se pudo identificar tu usuario.');
+      }
+
+      const { error: errorEntrar } = await supabase
+        .from('perfiles')
+        .update({ empresa_id: nuevaEmpresa.id })
+        .eq('id', userData.user.id);
+
+      if (errorEntrar) {
+        throw new Error('La empresa de prueba se creó, pero no se pudo entrar automáticamente — buscala en "Empresas activas" y entrá a mano.');
+      }
+
+      router.push('/');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'No se pudo crear la empresa de prueba.');
+      setCreando(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        background: COLORES_BASE.blanco,
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        padding: 22,
+        marginBottom: 24,
+        boxShadow: '0 10px 24px rgba(31,58,95,0.06)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setAbierta((a) => !a)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        <span style={{ fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+          🧪 Probar formulario de bienvenida
+        </span>
+        <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{abierta ? '▾ ocultar' : '▸ mostrar'}</span>
+      </button>
+
+      {abierta && (
+        <div style={{ marginTop: 18 }}>
+          <p style={{ fontSize: 13, color: COLORES_BASE.gris, marginTop: 0, marginBottom: 16 }}>
+            Crea una empresa de prueba (nombrada "Prueba — ...") con el perfil que elijas acá abajo, con su
+            plan de cuentas ya armado, y te entra directo al formulario de Configuração inicial tal como lo
+            vería un cliente nuevo con ese perfil — sin tener que pasar por Criar conta y aprobar una
+            solicitud. Cuando termines de probar, borrala desde "Empresas activas" (🗑️) como cualquier otra.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+            <div>
+              <label style={labelStyle}>Perfil</label>
+              <select style={inputStyle} value={perfilElegido} onChange={(e) => setPerfilElegido(e.target.value)}>
+                {perfiles.length === 0 && <option value="">Cargando...</option>}
+                {perfiles.map((perfil) => (
+                  <option key={perfil.id} value={perfil.id}>
+                    {perfil.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Idioma</label>
+              <select style={inputStyle} value={idioma} onChange={(e) => setIdioma(e.target.value as 'ES' | 'PT')}>
+                <option value="ES">Español</option>
+                <option value="PT">Português</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Moneda (define AR/BR en el plan de cuentas)</label>
+              <select style={inputStyle} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
+                <option value="ARS">Peso argentino (ARS)</option>
+                <option value="BRL">Real brasileño (BRL)</option>
+                <option value="USD">Dólar (USD)</option>
+              </select>
+            </div>
+
+            {esMixto && (
+              <div>
+                <label style={labelStyle}>Componentes de Mixto</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 8 }}>
+                  {OPCIONES_COMPONENTES_MIXTO.map((opcion) => (
+                    <label key={opcion.valor} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={componentesMixto.includes(opcion.valor)}
+                        onChange={() => alternarComponente(opcion.valor)}
+                      />
+                      {opcion.etiqueta}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={creando}
+            onClick={crearYEntrar}
+            style={{
+              marginTop: 18,
+              padding: '11px 22px',
+              borderRadius: 10,
+              border: 'none',
+              background: COLORES_BASE.verde,
+              color: COLORES_BASE.blanco,
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: creando ? 'wait' : 'pointer',
+              opacity: creando ? 0.7 : 1,
+            }}
+          >
+            {creando ? 'Creando...' : 'Crear y entrar'}
           </button>
         </div>
       )}
