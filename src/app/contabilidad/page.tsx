@@ -387,7 +387,13 @@ function CentralDeLanzamientosTab({
       primerRenderCategoria.current = false;
       return;
     }
-    setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
+    // formularioSimple no depende de la categoría en la mayoría de las
+    // operaciones (PAGO/INVERSION/EXTRACCION/TRANSFERENCIA son
+    // siempre simples), así que este efecto puede disparar sin que el
+    // de arriba se vuelva a ejecutar — si no arrancara ya en 1 acá,
+    // "cantidad > 0" nunca se cumple en el formulario simplificado y
+    // el total queda pegado en 0 pase lo que pase con el monto.
+    setLineas([{ producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0 }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoria]);
 
@@ -730,7 +736,7 @@ function CentralDeLanzamientosTab({
   }
 
   function agregarLinea() {
-    setLineas((prev) => [...prev, { producto: '', cantidad: 0, monto: 0 }]);
+    setLineas((prev) => [...prev, { producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0 }]);
   }
 
   const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
