@@ -12,6 +12,7 @@ import {
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import {
   diccionarioProduccion,
   msgStockSuficiente,
@@ -267,6 +268,8 @@ export default function ProduccionPage() {
             idioma={idioma}
             frases={frasesSabioProduccion(idioma)}
           />
+
+          <AccesosHerramientas />
         </header>
 
         {/* PANEL PRINCIPAL */}
