@@ -71,6 +71,18 @@ export async function inicializarEmpresaDesdePerfil(
 
   const pais = paisDesdeMoneda(moneda);
 
+  // El plan maestro (plan de cuentas, operaciones, formas de pago,
+  // categorías, reglas) solo está cargado en español — es el dato
+  // canónico único, igual que plan_cuentas.nombre queda siempre en
+  // español en cada empresa ya armada (ver el comentario de
+  // nombreCuentaDisplay en lib/i18n.ts). El idioma de la empresa
+  // (`idioma`, acá abajo) controla únicamente cómo se traduce ese
+  // texto en pantalla, nunca de qué maestro se copia: filtrar estas
+  // consultas por el idioma de la empresa bloqueaba por completo el
+  // alta de cualquier empresa en portugués, porque nunca se cargó un
+  // maestro con idioma "PT".
+  const IDIOMA_MAESTRO = 'ES';
+
   const [
     { data: cuentasMaestro, error: errorCuentas },
     { data: operacionesMaestro, error: errorOperaciones },
@@ -83,13 +95,13 @@ export async function inicializarEmpresaDesdePerfil(
       .from('perfil_plan_cuentas_maestro')
       .select('*')
       .eq('perfil_empresa_id', perfilEmpresaId)
-      .eq('idioma', idioma)
+      .eq('idioma', IDIOMA_MAESTRO)
       .eq('pais', pais),
-    supabase.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
-    supabase.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
-    supabase.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
-    supabase.from('perfil_categorias_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
-    supabase.from('perfil_reglas_contables_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', idioma),
+    supabase.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    supabase.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    supabase.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    supabase.from('perfil_categorias_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    supabase.from('perfil_reglas_contables_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
   ]);
 
   const primerError =
@@ -101,7 +113,7 @@ export async function inicializarEmpresaDesdePerfil(
 
   if (!cuentasMaestro || cuentasMaestro.length === 0) {
     throw new Error(
-      `Todavía no existe un plan maestro cargado para este perfil en idioma "${idioma}" y país "${pais}". Avisale al administrador.`
+      `Todavía no existe un plan maestro cargado para este perfil y país "${pais}". Avisale al administrador.`
     );
   }
 
