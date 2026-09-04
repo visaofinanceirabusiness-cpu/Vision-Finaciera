@@ -882,10 +882,15 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
           esAdmin={esAdmin}
           idioma={idioma}
           onCrear={(nombre) =>
-            manejarAccion(
-              () => crearCategoriaIngreso(empresaId, nombre, operacionServicio),
-              msgCategoriaCreada(idioma, nombre)
-            )
+            manejarAccion(async () => {
+              await crearCategoriaIngreso(empresaId, nombre, operacionServicio);
+              // Regenera la matriz enseguida — así la categoría queda
+              // usable ya mismo en la Central de Lançamentos, sin
+              // depender de que un admin la regenere a mano después
+              // (eso solo lo puede hacer un admin una vez que ya está
+              // generada, ver InicializacionTab).
+              await generarMatrizOperaciones(empresaId);
+            }, msgCategoriaCreada(idioma, nombre))
           }
           onCambiarActivo={(id, activo) =>
             manejarAccion(() => cambiarActivoCategoriaIngreso(id, activo), msgCategoriaActualizada(idioma))
@@ -1045,19 +1050,22 @@ function BloqueCategoriaServicio({
     <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
-      {esAdmin && (
-        <FormularioNuevo
-          placeholder={t('placeholderCategoriaServicio')}
-          valor={nombreNuevo}
-          idioma={idioma}
-          onCambiar={setNombreNuevo}
-          onAgregar={() => {
-            if (!nombreNuevo.trim()) return;
-            onCrear(nombreNuevo);
-            setNombreNuevo('');
-          }}
-        />
-      )}
+      {/* Crear categoría de ingreso queda abierto a cualquier usuario
+          (no solo admin) — así el cliente no depende de un admin para
+          sumar de dónde le entra plata. Editar el nombre, activar/
+          desactivar o eliminar sigue siendo exclusivo de admin (ver
+          soloLectura arriba). */}
+      <FormularioNuevo
+        placeholder={t('placeholderCategoriaServicio')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
     </SeccionCategoria>
   );
 }
