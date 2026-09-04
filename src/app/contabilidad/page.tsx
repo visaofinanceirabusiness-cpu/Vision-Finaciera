@@ -281,6 +281,12 @@ function CentralDeLanzamientosTab({
   const [categorias, setCategorias] = useState<string[]>([]);
   const [categoria, setCategoria] = useState(valoresIniciales?.categoria ?? '');
 
+  // Si la categoría elegida mueve stock (según la Matriz de Operações)
+  // o no — una Venta/Compra/Pérdida de una categoría de servicio
+  // (ej. "Clases", "Masoterapia") no tiene productos ni cantidad, se
+  // carga igual que una Inversión: categoría + descripción + monto.
+  const [stockPorCategoria, setStockPorCategoria] = useState<Record<string, string>>({});
+
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
 
@@ -322,15 +328,25 @@ function CentralDeLanzamientosTab({
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
+  // La categoría elegida es la que define si esta Compra/Venta/Pérdida
+  // mueve stock o no (mismo flag que ya usa el motor para decidir si
+  // genera movimientos_stock) — no la operación en sí. Una Venta de
+  // "Masoterapia" es tan válida como una Venta de "Ropa", pero no
+  // tiene producto ni cantidad.
+  const categoriaEsProducto = Boolean(categoria) && stockPorCategoria[categoria] === 'SI';
+
   const operacionesConProducto =
-    ['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) ||
+    (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) ||
     (operacion === 'INVERSION' && formaPago === 'Mercadería');
 
   // Pago, Inversión, Extracción y Transferencia no tienen "cantidad"
   // ni un histórico separado que aporte algo — confunden más de lo
   // que ayudan. Se simplifica a: categoría + monto (+ a quién, salvo
-  // en Transferencia).
-  const formularioSimple = ['PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'].includes(operacion);
+  // en Transferencia). Una Compra/Venta/Pérdida de una categoría de
+  // servicio (sin stock) se simplifica exactamente igual.
+  const formularioSimple =
+    ['PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'].includes(operacion) ||
+    (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && Boolean(categoria) && !categoriaEsProducto);
 
   // Transferencia es un movimiento entre cuentas propias (ej. de
   // Cuenta Bancaria a Plazo Fijo) — no hay un tercero involucrado,
@@ -343,6 +359,23 @@ function CentralDeLanzamientosTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formularioSimple]);
+
+  // Al cambiar de categoría, "producto" puede haber quedado con el id
+  // de un producto de la categoría anterior (o viceversa, un texto
+  // libre) — se limpia para no arrastrar un valor que ya no aplica al
+  // tipo de campo (select de producto vs. descripción libre) que
+  // corresponde a la nueva categoría. No se aplica en el primer
+  // render (al editar, ahí es donde llegan las líneas ya cargadas).
+  const primerRenderCategoria = useRef(true);
+
+  useEffect(() => {
+    if (primerRenderCategoria.current) {
+      primerRenderCategoria.current = false;
+      return;
+    }
+    setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoria]);
 
   const etiquetaRelacionActual = etiquetaRelacion(idioma, esFamiliar, operacion);
 
@@ -517,7 +550,7 @@ function CentralDeLanzamientosTab({
     async function cargarCategorias() {
       const { data, error: errorCategorias } = await supabase
         .from('matriz_operaciones')
-        .select('categoria')
+        .select('categoria, stock')
         .eq('empresa_id', empresaId)
         .eq('operacion', operacion);
 
@@ -530,6 +563,7 @@ function CentralDeLanzamientosTab({
       const unicas = Array.from(new Set((data ?? []).map((f) => f.categoria).filter(Boolean))) as string[];
 
       setCategorias(unicas);
+      setStockPorCategoria(Object.fromEntries((data ?? []).map((f) => [f.categoria, f.stock])));
 
       if (hidratarCategoria.current) {
         hidratarCategoria.current = false;
@@ -687,7 +721,7 @@ function CentralDeLanzamientosTab({
 
   const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
 
-  const esSalidaStock = operacion === 'VENTA' || operacion === 'PERDIDA';
+  const esSalidaStock = (operacion === 'VENTA' || operacion === 'PERDIDA') && categoriaEsProducto;
 
   const stockInsuficiente =
     esSalidaStock &&
