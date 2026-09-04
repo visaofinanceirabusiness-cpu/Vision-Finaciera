@@ -16,6 +16,7 @@ type Clave =
   | 'sistemaActivo'
   | 'tutorialEyebrow'
   | 'tutorialTitulo'
+  | 'tutorialSalir'
   | 'ofrecerTutorial'
   | 'avisoEdicion'
   | 'labelFecha'
@@ -97,6 +98,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     sistemaActivo: 'Sistema activo',
     tutorialEyebrow: 'TUTORIAL GUIADO',
     tutorialTitulo: 'Cargá tu primera operación',
+    tutorialSalir: 'Salir / continuar más tarde',
     ofrecerTutorial: '🦉 ¿Querés que Sabio te guíe para cargar 3 operaciones de práctica?',
     avisoEdicion: '⚠ Al guardar, la operación se recalcula de cero (stock, costo y diario) bajo el mismo ID.',
     labelFecha: 'Fecha',
@@ -179,6 +181,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     sistemaActivo: 'Sistema ativo',
     tutorialEyebrow: 'TUTORIAL GUIADO',
     tutorialTitulo: 'Registre sua primeira operação',
+    tutorialSalir: 'Sair / continuar depois',
     ofrecerTutorial: '🦉 Quer que o Sabio te guie para registrar 3 operações de prática?',
     avisoEdicion: '⚠ Ao salvar, a operação é recalculada do zero (estoque, custo e diário) com o mesmo ID.',
     labelFecha: 'Data',
