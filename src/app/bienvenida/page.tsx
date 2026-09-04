@@ -4,9 +4,18 @@
 //
 // Pantalla obligatoria para toda empresa con onboarding_completado =
 // false (ver lib/onboarding.ts). Junta lo mínimo para que la empresa
-// quede operativa: categoría de producto/servicio, categoría de
-// gasto, socio/a, 2 proveedores/destinos de pago, 2 clientes/fuentes
-// de ingreso y (si maneja mercadería) productos.
+// quede operativa: categoría de producto/servicio, (si maneja
+// mercadería) productos, socio/a, 2 proveedores/destinos de pago y 2
+// clientes/fuentes de ingreso.
+//
+// La categoría de gasto NO se pide acá: el plan de cuentas de cada
+// perfil ya viene con sus categorías de gasto de fábrica (Alquiler,
+// Sueldos, Marketing, etc. — ver la migración
+// pago_categorias_gasto_de_fabrica), así que la operación PAGO queda
+// habilitada desde el arranque sin este paso. Quien necesite una
+// categoría de gasto que no esté entre esas puede darla de alta
+// después, ella misma, desde CONFIGURAÇÕES → Categorias e Formas de
+// Pagamento (ver BloqueCategoriaGasto).
 //
 // No marca onboarding_completado = true acá — eso lo hace la Fase 3
 // (las 3 operaciones guiadas en la Central de Lançamentos). Esta
@@ -17,7 +26,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { crearTraductor } from '@/lib/i18n';
-import { crearCategoriaProducto, crearCategoriaGasto, crearCategoriaIngreso } from '@/lib/categorias';
+import { crearCategoriaProducto, crearCategoriaIngreso } from '@/lib/categorias';
 import { crearSocio } from '@/lib/socios';
 import { generarMatrizOperaciones } from '@/lib/motor';
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
@@ -37,7 +46,6 @@ type Producto = { nombre: string; categoria: string };
 
 type Progreso = {
   categorias: boolean;
-  gastos: boolean;
   socios: boolean;
   proveedores: boolean;
   clientes: boolean;
@@ -47,7 +55,6 @@ type Progreso = {
 
 const PROGRESO_INICIAL: Progreso = {
   categorias: false,
-  gastos: false,
   socios: false,
   proveedores: false,
   clientes: false,
@@ -67,14 +74,12 @@ export default function BienvenidaPage() {
   const [error, setError] = useState('');
 
   const [categorias, setCategorias] = useState<string[]>([]);
-  const [gastos, setGastos] = useState<string[]>([]);
   const [socios, setSocios] = useState<string[]>([]);
   const [proveedores, setProveedores] = useState<string[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
 
   const [campoCategoria, setCampoCategoria] = useState('');
-  const [campoGasto, setCampoGasto] = useState('');
   const [campoSocio, setCampoSocio] = useState('');
   const [campoProveedor, setCampoProveedor] = useState('');
   const [campoCliente, setCampoCliente] = useState('');
@@ -172,7 +177,6 @@ export default function BienvenidaPage() {
     if (!empresaId) return;
 
     if (categorias.length === 0) return setErrorFinal(t('errorMinimoCategoria'));
-    if (gastos.length === 0) return setErrorFinal(t('errorMinimoGasto'));
     if (socios.length === 0) return setErrorFinal(t('errorMinimoSocio'));
     if (proveedores.length < 2) return setErrorFinal(t('errorMinimoProveedores'));
     if (clientes.length < 2) return setErrorFinal(t('errorMinimoClientes'));
@@ -191,13 +195,6 @@ export default function BienvenidaPage() {
           }
         }
         setProgreso((actual) => ({ ...actual, categorias: true }));
-      }
-
-      if (!progreso.gastos) {
-        for (const nombre of gastos) {
-          await crearCategoriaGasto(empresaId, nombre);
-        }
-        setProgreso((actual) => ({ ...actual, gastos: true }));
       }
 
       if (!progreso.socios) {
@@ -289,50 +286,6 @@ export default function BienvenidaPage() {
             <Chips items={categorias} onQuitar={(i) => quitar(i, categorias, setCategorias)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
           </Seccion>
 
-          <Seccion titulo={t('seccionGastoTitulo')} ayuda={t('seccionGastoAyuda')}>
-            <FilaAgregar
-              valor={campoGasto}
-              onChange={setCampoGasto}
-              onAgregar={() => agregar(campoGasto, gastos, setGastos, () => setCampoGasto(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={gastos} onQuitar={(i) => quitar(i, gastos, setGastos)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
-
-          <Seccion titulo={t('seccionSocioTitulo')} ayuda={t('seccionSocioAyuda')}>
-            <FilaAgregar
-              valor={campoSocio}
-              onChange={setCampoSocio}
-              onAgregar={() => agregar(campoSocio, socios, setSocios, () => setCampoSocio(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={socios} onQuitar={(i) => quitar(i, socios, setSocios)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
-
-          <Seccion titulo={`4. ${etiquetasProveedor.plural}`} ayuda="">
-            <FilaAgregar
-              valor={campoProveedor}
-              onChange={setCampoProveedor}
-              onAgregar={() => agregar(campoProveedor, proveedores, setProveedores, () => setCampoProveedor(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={proveedores} onQuitar={(i) => quitar(i, proveedores, setProveedores)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
-
-          <Seccion titulo={`5. ${etiquetasCliente.plural}`} ayuda="">
-            <FilaAgregar
-              valor={campoCliente}
-              onChange={setCampoCliente}
-              onAgregar={() => agregar(campoCliente, clientes, setClientes, () => setCampoCliente(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={clientes} onQuitar={(i) => quitar(i, clientes, setClientes)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
-
           {manejaMercaderia && (
             <Seccion titulo={t('seccionProductoTitulo')} ayuda={t('seccionProductoAyuda')}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -383,6 +336,39 @@ export default function BienvenidaPage() {
               )}
             </Seccion>
           )}
+
+          <Seccion titulo={t('seccionSocioTitulo')} ayuda={t('seccionSocioAyuda')}>
+            <FilaAgregar
+              valor={campoSocio}
+              onChange={setCampoSocio}
+              onAgregar={() => agregar(campoSocio, socios, setSocios, () => setCampoSocio(''))}
+              placeholder={t('nombrePlaceholder')}
+              botonLabel={t('agregar')}
+            />
+            <Chips items={socios} onQuitar={(i) => quitar(i, socios, setSocios)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+          </Seccion>
+
+          <Seccion titulo={`4. ${etiquetasProveedor.plural}`} ayuda="">
+            <FilaAgregar
+              valor={campoProveedor}
+              onChange={setCampoProveedor}
+              onAgregar={() => agregar(campoProveedor, proveedores, setProveedores, () => setCampoProveedor(''))}
+              placeholder={t('nombrePlaceholder')}
+              botonLabel={t('agregar')}
+            />
+            <Chips items={proveedores} onQuitar={(i) => quitar(i, proveedores, setProveedores)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+          </Seccion>
+
+          <Seccion titulo={`5. ${etiquetasCliente.plural}`} ayuda="">
+            <FilaAgregar
+              valor={campoCliente}
+              onChange={setCampoCliente}
+              onAgregar={() => agregar(campoCliente, clientes, setClientes, () => setCampoCliente(''))}
+              placeholder={t('nombrePlaceholder')}
+              botonLabel={t('agregar')}
+            />
+            <Chips items={clientes} onQuitar={(i) => quitar(i, clientes, setClientes)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+          </Seccion>
 
           {errorFinal && <div style={errorBox}>{errorFinal}</div>}
 

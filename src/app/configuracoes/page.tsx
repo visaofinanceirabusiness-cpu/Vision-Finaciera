@@ -901,7 +901,14 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         esAdmin={esAdmin}
         idioma={idioma}
         onCrear={(nombre) =>
-          manejarAccion(() => crearCategoriaGasto(empresaId, nombre), msgCategoriaCreada(idioma, nombre))
+          manejarAccion(async () => {
+            await crearCategoriaGasto(empresaId, nombre);
+            // Mismo motivo que en BloqueCategoriaProducto/Servicio: sin
+            // esto la categoría queda creada pero no aparece en la
+            // Central de Lançamentos hasta que un admin regenere la
+            // matriz a mano.
+            await generarMatrizOperaciones(empresaId);
+          }, msgCategoriaCreada(idioma, nombre))
         }
         onCambiarActivo={(id, activo) =>
           manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), msgCategoriaActualizada(idioma))
@@ -1085,19 +1092,17 @@ function BloqueCategoriaGasto({
     <SeccionCategoria titulo={t('tituloCategoriaGasto')} subtitulo={t('subtituloCategoriaGasto')}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
-      {esAdmin && (
-        <FormularioNuevo
-          placeholder={t('placeholderCategoriaGasto')}
-          valor={nombreNuevo}
-          idioma={idioma}
-          onCambiar={setNombreNuevo}
-          onAgregar={() => {
-            if (!nombreNuevo.trim()) return;
-            onCrear(nombreNuevo);
-            setNombreNuevo('');
-          }}
-        />
-      )}
+      <FormularioNuevo
+        placeholder={t('placeholderCategoriaGasto')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
     </SeccionCategoria>
   );
 }
