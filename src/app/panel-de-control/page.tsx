@@ -336,79 +336,70 @@ export default function MiNegocioPage() {
         ================================================== */}
 
         <header style={encabezadoEstandar}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/?vista=empresa" style={volverEstandar}>
-              {t('volver')}
-            </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+            <div style={{ flex: '1 1 240px', minWidth: 200 }}>
+              <Link href="/?vista=empresa" style={volverEstandar}>
+                {t('volver')}
+              </Link>
+
+              <div style={eyebrowEstandar}>{t('eyebrowGestionFinanciera')}</div>
+
+              <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
+
+              <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
+                {t('subtituloConEmpresa')} {empresa?.nombre ?? t('tuNegocioDefault')}.
+              </p>
+            </div>
+
+            {/* =================================================
+                SABIO — permanente en esta pantalla, con tips propios
+                del Panel de Controle. Vive en el mismo panel del
+                encabezado, entre el título y los accesos rápidos. Si
+                se llega con ?tutorial=1 (recién terminado el
+                onboarding guiado en Contabilidad), primero muestra una
+                bienvenida fija y cerrable; después vuelve a rotar los
+                tips de siempre.
+            ================================================== */}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              {mostrarBienvenidaTutorial && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarBienvenidaTutorial(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.14)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: 999,
+                    color: colores.blanco,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {msgCerrarTutorialPanel(idioma)}
+                </button>
+              )}
+
+              {mostrarBienvenidaTutorial ? (
+                <SabioWidget
+                  colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+                  idioma={idioma}
+                  frase={msgBienvenidaTutorialPanel(idioma)}
+                  onClickFrase={() => setMostrarBienvenidaTutorial(false)}
+                />
+              ) : (
+                <SabioWidget
+                  colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+                  idioma={idioma}
+                  frases={frasesSabioPanel(idioma)}
+                />
+              )}
+            </div>
 
             <AccesosHerramientas />
           </div>
-
-          <div style={eyebrowEstandar}>{t('eyebrowGestionFinanciera')}</div>
-
-          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
-
-          <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            {t('subtituloConEmpresa')} {empresa?.nombre ?? t('tuNegocioDefault')}.
-          </p>
         </header>
-
-        {/* =================================================
-            SABIO — permanente en esta pantalla, con tips propios del
-            Panel de Controle. Si se llega con ?tutorial=1 (recién
-            terminado el onboarding guiado en Contabilidad), primero
-            muestra una bienvenida fija y cerrable; después vuelve a
-            rotar los tips de siempre.
-        ================================================== */}
-
-        <div
-          style={{
-            background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
-            borderRadius: 24,
-            padding: '24px 28px',
-            marginBottom: 20,
-            display: 'flex',
-            justifyContent: mostrarBienvenidaTutorial ? 'space-between' : 'flex-end',
-            alignItems: 'center',
-            gap: 20,
-            flexWrap: 'wrap',
-            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
-          }}
-        >
-          {mostrarBienvenidaTutorial && (
-            <button
-              type="button"
-              onClick={() => setMostrarBienvenidaTutorial(false)}
-              style={{
-                background: 'rgba(255,255,255,0.14)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: 999,
-                color: colores.blanco,
-                fontSize: 12,
-                fontWeight: 700,
-                padding: '6px 12px',
-                cursor: 'pointer',
-              }}
-            >
-              {msgCerrarTutorialPanel(idioma)}
-            </button>
-          )}
-
-          {mostrarBienvenidaTutorial ? (
-            <SabioWidget
-              colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
-              idioma={idioma}
-              frase={msgBienvenidaTutorialPanel(idioma)}
-              onClickFrase={() => setMostrarBienvenidaTutorial(false)}
-            />
-          ) : (
-            <SabioWidget
-              colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
-              idioma={idioma}
-              frases={frasesSabioPanel(idioma)}
-            />
-          )}
-        </div>
 
         {/* =================================================
             AVISO DE CONSISTENCIA CONTABLE

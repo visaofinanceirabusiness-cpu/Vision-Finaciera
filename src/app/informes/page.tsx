@@ -198,44 +198,33 @@ export default function InformesPage() {
     <div style={fondo}>
       <div style={{ maxWidth: 1250, margin: '0 auto' }}>
         <header style={encabezado}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/?vista=empresa" style={volver}>
-              {t('volver')}
-            </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+            <div style={{ flex: '1 1 240px', minWidth: 200 }}>
+              <Link href="/?vista=empresa" style={volver}>
+                {t('volver')}
+              </Link>
+
+              <div style={eyebrow}>{t('eyebrow')}</div>
+
+              <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
+
+              <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
+                {t('subtitulo')}
+              </p>
+            </div>
+
+            {/* SABIO — permanente, con tips propios de Informes. Vive en
+                el mismo panel del encabezado, entre el título y los
+                accesos rápidos. */}
+            <SabioWidget
+              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+              idioma={idioma}
+              frases={frasesSabioInformes(idioma)}
+            />
 
             <AccesosHerramientas />
           </div>
-
-          <div style={eyebrow}>{t('eyebrow')}</div>
-
-          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
-
-          <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            {t('subtitulo')}
-          </p>
         </header>
-
-        {/* SABIO — permanente, con tips propios de Informes. */}
-        <div
-          style={{
-            background: `linear-gradient(125deg, ${COLORES.azul} 0%, ${COLORES.azul} 58%, ${COLORES.verde} 100%)`,
-            borderRadius: 24,
-            padding: '24px 28px',
-            marginBottom: 20,
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 20,
-            flexWrap: 'wrap',
-            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
-          }}
-        >
-          <SabioWidget
-            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-            idioma={idioma}
-            frases={frasesSabioInformes(idioma)}
-          />
-        </div>
 
         <main style={panel}>
           <div
