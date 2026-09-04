@@ -419,6 +419,95 @@ function CentralDeLanzamientosTab({
     setOfrecerTutorialVoluntario(false);
   }
 
+  // Stock disponible por producto y saldo de cada cuenta financiera —
+  // se usan para bloquear una Venta sin stock o un Pago/Compra que
+  // dejaría una cuenta en negativo. Se separó del resto de la carga
+  // inicial (que solo corre una vez, al montar) para poder volver a
+  // pedirlos después de cada operación registrada: sin esto, quedaban
+  // pegados en lo que había AL ENTRAR a la pantalla — una Compra que
+  // recién le da stock a un producto no se reflejaba hasta recargar
+  // la página entera, así que la Venta de eso mismo, en la misma
+  // sesión, seguía viendo "stock: 0".
+  async function cargarDatosOperativos(empresaIdActual: string) {
+    const { data: prods } = await supabase
+      .from('productos')
+      .select('id, nombre, categoria, proveedor_id')
+      .eq('empresa_id', empresaIdActual);
+
+    const { data: saldos } = await supabase
+      .from('saldo_stock')
+      .select('producto_id, saldo')
+      .eq('empresa_id', empresaIdActual);
+
+    const { data: proveedoresData } = await supabase
+      .from('proveedores')
+      .select('id, nombre')
+      .eq('empresa_id', empresaIdActual);
+
+    setSaldoPorProducto(
+      Object.fromEntries((saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)]))
+    );
+
+    setNombreProveedorPorId(
+      Object.fromEntries((proveedoresData ?? []).map((proveedor) => [proveedor.id, proveedor.nombre]))
+    );
+
+    setProductos(prods ?? []);
+
+    // Saldo actual de cada cuenta financiera (Efectivo, Banco, Pix...)
+    // — para poder bloquear un Pago/Compra/Extracción/Transferencia
+    // que dejaría esa cuenta en negativo.
+    const [
+      { data: formasPagoData },
+      { data: formaPagoCuentasData },
+      { data: cuentasData },
+      { data: operacionesParaSaldo },
+      { data: automaticosParaSaldo },
+    ] = await Promise.all([
+      supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaIdActual),
+      supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaIdActual).eq('activo', true),
+      supabase.from('plan_cuentas').select('id, nombre, naturaleza').eq('empresa_id', empresaIdActual),
+      supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', empresaIdActual),
+      supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', empresaIdActual),
+    ]);
+
+    const nombreCuentaPorId = new Map((cuentasData ?? []).map((c) => [c.id, c.nombre]));
+    const naturalezaPorNombre = new Map((cuentasData ?? []).map((c) => [c.nombre, c.naturaleza]));
+    const cuentaIdPorFormaPagoId = new Map((formaPagoCuentasData ?? []).map((f) => [f.forma_pago_id, f.cuenta_id]));
+
+    const cuentaPorFormaPagoNombre: Record<string, string> = {};
+    for (const fp of formasPagoData ?? []) {
+      const cuentaId = cuentaIdPorFormaPagoId.get(fp.id);
+      const cuentaNombre = cuentaId ? nombreCuentaPorId.get(cuentaId) : undefined;
+      if (cuentaNombre) {
+        cuentaPorFormaPagoNombre[fp.nombre] = cuentaNombre;
+      }
+    }
+
+    const saldoPorCuenta: Record<string, number> = {};
+
+    function acumularSaldo(cuenta: string | null | undefined, importe: number, esDebito: boolean) {
+      if (!cuenta) return;
+      const naturaleza = naturalezaPorNombre.get(cuenta);
+      const signo = naturaleza === 'ACREEDORA' ? (esDebito ? -1 : 1) : esDebito ? 1 : -1;
+      saldoPorCuenta[cuenta] = (saldoPorCuenta[cuenta] ?? 0) + importe * signo;
+    }
+
+    for (const fila of operacionesParaSaldo ?? []) {
+      acumularSaldo(fila.cuenta_debito, Number(fila.total ?? 0), true);
+      acumularSaldo(fila.cuenta_credito, Number(fila.total ?? 0), false);
+    }
+
+    for (const fila of automaticosParaSaldo ?? []) {
+      acumularSaldo(fila.cuenta_debito, Number(fila.importe ?? 0), true);
+      acumularSaldo(fila.cuenta_credito, Number(fila.importe ?? 0), false);
+    }
+
+    setCuentaPorFormaPago(cuentaPorFormaPagoNombre);
+    setSaldoPorCuentaFinanciera(saldoPorCuenta);
+    setNaturalezaPorCuentaFinanciera(Object.fromEntries(naturalezaPorNombre));
+  }
+
   useEffect(() => {
     async function cargar() {
       const { data: userData } = await supabase.auth.getUser();
@@ -477,83 +566,7 @@ function CentralDeLanzamientosTab({
 
       setOperaciones((ops ?? []).map((o) => o.nombre));
 
-      const { data: prods } = await supabase
-        .from('productos')
-        .select('id, nombre, categoria, proveedor_id')
-        .eq('empresa_id', perfil.empresa_id);
-
-      const { data: saldos } = await supabase
-        .from('saldo_stock')
-        .select('producto_id, saldo')
-        .eq('empresa_id', perfil.empresa_id);
-
-      const { data: proveedoresData } = await supabase
-        .from('proveedores')
-        .select('id, nombre')
-        .eq('empresa_id', perfil.empresa_id);
-
-      setSaldoPorProducto(
-        Object.fromEntries((saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)]))
-      );
-
-      setNombreProveedorPorId(
-        Object.fromEntries((proveedoresData ?? []).map((proveedor) => [proveedor.id, proveedor.nombre]))
-      );
-
-      setProductos(prods ?? []);
-
-      // Saldo actual de cada cuenta financiera (Efectivo, Banco, Pix...)
-      // — para poder bloquear un Pago/Compra/Extracción/Transferencia
-      // que dejaría esa cuenta en negativo.
-      const [
-        { data: formasPagoData },
-        { data: formaPagoCuentasData },
-        { data: cuentasData },
-        { data: operacionesParaSaldo },
-        { data: automaticosParaSaldo },
-      ] = await Promise.all([
-        supabase.from('formas_pago').select('id, nombre').eq('empresa_id', perfil.empresa_id),
-        supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', perfil.empresa_id).eq('activo', true),
-        supabase.from('plan_cuentas').select('id, nombre, naturaleza').eq('empresa_id', perfil.empresa_id),
-        supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', perfil.empresa_id),
-        supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', perfil.empresa_id),
-      ]);
-
-      const nombreCuentaPorId = new Map((cuentasData ?? []).map((c) => [c.id, c.nombre]));
-      const naturalezaPorNombre = new Map((cuentasData ?? []).map((c) => [c.nombre, c.naturaleza]));
-      const cuentaIdPorFormaPagoId = new Map((formaPagoCuentasData ?? []).map((f) => [f.forma_pago_id, f.cuenta_id]));
-
-      const cuentaPorFormaPagoNombre: Record<string, string> = {};
-      for (const fp of formasPagoData ?? []) {
-        const cuentaId = cuentaIdPorFormaPagoId.get(fp.id);
-        const cuentaNombre = cuentaId ? nombreCuentaPorId.get(cuentaId) : undefined;
-        if (cuentaNombre) {
-          cuentaPorFormaPagoNombre[fp.nombre] = cuentaNombre;
-        }
-      }
-
-      const saldoPorCuenta: Record<string, number> = {};
-
-      function acumularSaldo(cuenta: string | null | undefined, importe: number, esDebito: boolean) {
-        if (!cuenta) return;
-        const naturaleza = naturalezaPorNombre.get(cuenta);
-        const signo = naturaleza === 'ACREEDORA' ? (esDebito ? -1 : 1) : esDebito ? 1 : -1;
-        saldoPorCuenta[cuenta] = (saldoPorCuenta[cuenta] ?? 0) + importe * signo;
-      }
-
-      for (const fila of operacionesParaSaldo ?? []) {
-        acumularSaldo(fila.cuenta_debito, Number(fila.total ?? 0), true);
-        acumularSaldo(fila.cuenta_credito, Number(fila.total ?? 0), false);
-      }
-
-      for (const fila of automaticosParaSaldo ?? []) {
-        acumularSaldo(fila.cuenta_debito, Number(fila.importe ?? 0), true);
-        acumularSaldo(fila.cuenta_credito, Number(fila.importe ?? 0), false);
-      }
-
-      setCuentaPorFormaPago(cuentaPorFormaPagoNombre);
-      setSaldoPorCuentaFinanciera(saldoPorCuenta);
-      setNaturalezaPorCuentaFinanciera(Object.fromEntries(naturalezaPorNombre));
+      await cargarDatosOperativos(perfil.empresa_id);
 
       setCargandoInicial(false);
     }
@@ -833,6 +846,13 @@ function CentralDeLanzamientosTab({
       }
 
       await registrarOperacion(empresaId, formulario);
+
+      // Sin esto, el stock y los saldos de cuentas financieras que se
+      // ven en pantalla quedaban pegados en lo que había al entrar a
+      // la pestaña — una Compra que le da stock a un producto no se
+      // reflejaba hasta recargar la página entera, así que vender ese
+      // mismo producto en la misma sesión seguía viendo "stock: 0".
+      await cargarDatosOperativos(empresaId);
 
       setMensajeSabio(msgOperacionRegistrada(idioma));
 
