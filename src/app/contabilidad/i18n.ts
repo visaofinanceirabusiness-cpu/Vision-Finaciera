@@ -413,7 +413,15 @@ export function msgSaldoMedioInsuficiente(
 // mercadería. Ver pasosTutorial() más abajo, que arma esta secuencia.
 
 export function pasosTutorial(esFamiliar: boolean, manejaMercaderia: boolean): string[] {
-  return ['INVERSION', esFamiliar ? 'COBRO' : 'VENTA', manejaMercaderia ? 'COMPRA' : 'PAGO'];
+  // Si maneja mercadería, la Venta tiene que ir DESPUÉS de la Compra:
+  // recién nacida, la empresa no tiene ningún stock — pedirle una
+  // Venta antes de que exista una Compra la deja sin poder completar
+  // el paso (elige un producto que todavía tiene 0 de stock).
+  if (manejaMercaderia) {
+    return ['INVERSION', 'COMPRA', 'VENTA'];
+  }
+
+  return ['INVERSION', esFamiliar ? 'COBRO' : 'VENTA', 'PAGO'];
 }
 
 export function msgTutorialCancelar(idioma: string | null | undefined): string {
