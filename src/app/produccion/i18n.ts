@@ -5,7 +5,6 @@ type Clave =
   | 'eyebrow'
   | 'titulo'
   | 'subtitulo'
-  | 'asistidoPor'
   | 'eyebrowNueva'
   | 'prepararProduccion'
   | 'moduloActivo'
@@ -45,7 +44,6 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     eyebrow: 'GESTIÓN DE PRODUCCIÓN',
     titulo: 'Producción',
     subtitulo: 'Calculá los insumos necesarios para fabricar tus productos.',
-    asistidoPor: 'ASISTIDO POR',
     eyebrowNueva: 'NUEVA PRODUCCIÓN',
     prepararProduccion: 'Preparar producción',
     moduloActivo: 'Módulo activo',
@@ -85,7 +83,6 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     eyebrow: 'GESTÃO DE PRODUÇÃO',
     titulo: 'Produção',
     subtitulo: 'Calcule os insumos necessários para fabricar seus produtos.',
-    asistidoPor: 'ASSISTIDO POR',
     eyebrowNueva: 'NOVA PRODUÇÃO',
     prepararProduccion: 'Preparar produção',
     moduloActivo: 'Módulo ativo',

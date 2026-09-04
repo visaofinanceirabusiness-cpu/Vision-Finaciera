@@ -260,39 +260,14 @@ export default function ProduccionPage() {
             </p>
           </div>
 
-          <div style={sabioMarca}>
-            <span style={sabioTexto}>{t('asistidoPor')}</span>
-
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png"
-              alt="Sabio"
-              style={sabioLogo}
-            />
-          </div>
-        </header>
-
-        {/* SABIO — permanente, con tips propios de Produção. */}
-        <div
-          style={{
-            background: `linear-gradient(125deg, ${COLORES.azul} 0%, ${COLORES.azul} 58%, ${COLORES.verde} 100%)`,
-            borderRadius: 24,
-            padding: '24px 28px',
-            marginBottom: 20,
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 20,
-            flexWrap: 'wrap',
-            boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
-          }}
-        >
+          {/* SABIO — permanente, con tips propios de Produção. Vive en
+              el mismo panel del encabezado. */}
           <SabioWidget
             colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
             idioma={idioma}
             frases={frasesSabioProduccion(idioma)}
           />
-        </div>
+        </header>
 
         {/* PANEL PRINCIPAL */}
         <main style={panel}>
@@ -652,7 +627,7 @@ const encabezado: React.CSSProperties = {
   position: 'relative',
   overflow: 'hidden',
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 28,
   minHeight: 180,
@@ -664,34 +639,6 @@ const encabezado: React.CSSProperties = {
   boxShadow: '0 18px 40px rgba(20, 42, 71, 0.18)',
   marginBottom: 24,
   flexWrap: 'wrap',
-};
-
-const sabioMarca: React.CSSProperties = {
-  minWidth: 145,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 8,
-  padding: '15px 20px',
-  borderRadius: 20,
-  background: 'rgba(255,255,255,0.1)',
-  border: '1px solid rgba(255,255,255,0.18)',
-  backdropFilter: 'blur(8px)',
-};
-
-const sabioTexto: React.CSSProperties = {
-  color: '#dbeafe',
-  fontSize: 9,
-  fontWeight: 700,
-  letterSpacing: 1.4,
-};
-
-const sabioLogo: React.CSSProperties = {
-  width: 132,
-  height: 82,
-  objectFit: 'contain',
-  filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.18))',
 };
 
 const panel: React.CSSProperties = {
