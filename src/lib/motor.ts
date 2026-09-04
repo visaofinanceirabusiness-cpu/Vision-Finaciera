@@ -380,38 +380,6 @@ async function generarIdOperacion(
 }
 
 // =====================================================
-// OBTENER CÓDIGO DE CATEGORÍA
-// =====================================================
-
-function obtenerCodigoCategoria(
-  categoria: string
-): string {
-  const normalizada = categoria
-    .trim()
-    .toUpperCase();
-
-  if (normalizada === 'ACCESORIO') {
-    return 'ACC';
-  }
-
-  if (normalizada === 'PROD. BELLEZA') {
-    return 'PBE';
-  }
-
-  if (normalizada === 'PERFUME') {
-    return 'PER';
-  }
-
-  if (normalizada === 'ROPA') {
-    return 'ROP';
-  }
-
-  throw new Error(
-    `No existe código configurado para la categoría "${categoria}".`
-  );
-}
-
-// =====================================================
 // ELIMINAR DATOS DE UNA OPERACIÓN
 // =====================================================
 
@@ -774,11 +742,6 @@ export async function registrarOperacion(
     regla.cmv === 'SI' &&
     costosCMV.length > 0
   ) {
-    const codigoCategoria =
-      obtenerCodigoCategoria(
-        formulario.categoria
-      );
-
     // ------------------------------------------------
     // Buscar categoría de producto
     // ------------------------------------------------
@@ -791,8 +754,8 @@ export async function registrarOperacion(
       .select('id')
       .eq('empresa_id', empresaId)
       .eq(
-        'codigo',
-        codigoCategoria
+        'nombre',
+        formulario.categoria
       )
       .maybeSingle();
 
