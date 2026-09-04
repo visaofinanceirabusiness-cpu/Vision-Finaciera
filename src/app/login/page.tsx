@@ -68,20 +68,21 @@ export default function LoginPage() {
     // mismo en vez de dejarlo pasar a una pantalla rota, pero con el
     // mensaje que corresponda a cada caso.
     if (!perfil) {
+      // El motivo hay que averiguarlo ANTES de cerrar sesión: la
+      // consulta a `solicitudes_alta` depende de auth.uid() por RLS, y
+      // signOut() lo deja en null — sin la sesión, la consulta no
+      // devuelve nada y siempre parecía "empresa borrada".
+      const motivo = userData.user ? await motivoSinPerfil(userData.user.id) : 'sin_empresa';
+
       await supabase.auth.signOut();
 
-      if (userData.user) {
-        const motivo = await motivoSinPerfil(userData.user.id);
-        setError(
-          motivo === 'pendiente'
-            ? t('errorSolicitudPendiente')
-            : motivo === 'rechazada'
-              ? t('errorSolicitudRechazada')
-              : t('errorSinPerfil')
-        );
-      } else {
-        setError(t('errorSinPerfil'));
-      }
+      setError(
+        motivo === 'pendiente'
+          ? t('errorSolicitudPendiente')
+          : motivo === 'rechazada'
+            ? t('errorSolicitudRechazada')
+            : t('errorSinPerfil')
+      );
 
       return;
     }
