@@ -143,21 +143,35 @@ export default function ContabilidadPage() {
         ================================================== */}
 
         <header style={encabezado}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/?vista=empresa" style={volver}>
-              {t('volver')}
-            </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+            <div style={{ flex: '1 1 240px', minWidth: 200 }}>
+              <Link href="/?vista=empresa" style={volver}>
+                {t('volver')}
+              </Link>
+
+              <div style={eyebrow}>{t('eyebrow')}</div>
+
+              <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
+
+              <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
+                {t('subtitulo')}
+              </p>
+            </div>
+
+            {/* SABIO — permanente, con tips propios de Contabilidad.
+                Vive en el mismo panel del encabezado, entre el título y
+                los accesos rápidos, igual que en el resto de las
+                herramientas. El de dentro de Central de Lançamentos
+                sigue existiendo aparte, pero solo durante el tutorial
+                guiado (ver CentralDeLanzamientosTab). */}
+            <SabioWidget
+              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+              idioma={idioma ?? 'ES'}
+              frases={frasesSabioContabilidad(idioma)}
+            />
 
             <AccesosHerramientas />
           </div>
-
-          <div style={eyebrow}>{t('eyebrow')}</div>
-
-          <h1 style={{ margin: 0, fontSize: 32 }}>{t('titulo')}</h1>
-
-          <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-            {t('subtitulo')}
-          </p>
         </header>
 
         {/* =================================================
@@ -882,7 +896,11 @@ function CentralDeLanzamientosTab({
 
   return (
     <div>
-      {!modoEdicion && (
+      {/* Este banner solo aparece durante el tutorial guiado — el Sabio
+          "de siempre" (frases rotativas) ya vive arriba, en el
+          encabezado de la página, igual que en el resto de las
+          herramientas. */}
+      {!modoEdicion && modoTutorial && (
         <div
           style={{
             background: 'linear-gradient(125deg, #142a47 0%, #1f3a5f 58%, #245a52 100%)',
@@ -907,14 +925,14 @@ function CentralDeLanzamientosTab({
                 letterSpacing: 1.4,
               }}
             >
-              {modoTutorial ? t('tutorialEyebrow') : t('eyebrow')}
+              {t('tutorialEyebrow')}
             </p>
 
             <h2 style={{ margin: '0 0 14px', color: COLORES.blanco, fontSize: 22 }}>
-              {modoTutorial ? t('tutorialTitulo') : t('titulo')}
+              {t('tutorialTitulo')}
             </h2>
 
-            {modoTutorial && tutorialVoluntario && (
+            {tutorialVoluntario && (
               <button
                 type="button"
                 onClick={() => {
@@ -937,19 +955,11 @@ function CentralDeLanzamientosTab({
             )}
           </div>
 
-          {modoTutorial ? (
-            <SabioWidget
-              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-              idioma={idioma ?? 'ES'}
-              frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
-            />
-          ) : (
-            <SabioWidget
-              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-              idioma={idioma ?? 'ES'}
-              frases={frasesSabioContabilidad(idioma)}
-            />
-          )}
+          <SabioWidget
+            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+            idioma={idioma ?? 'ES'}
+            frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
+          />
         </div>
       )}
 
