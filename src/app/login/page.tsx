@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { crearTraductor } from '@/lib/i18n';
+import { motivoSinPerfil } from '@/lib/estadoCuenta';
 import { diccionarioLogin } from './i18n';
 
 export default function LoginPage() {
@@ -16,13 +17,19 @@ export default function LoginPage() {
 
   const t = crearTraductor(diccionarioLogin, idioma);
 
-  // GuardiaSesion redirige acá con ?motivo=empresa_borrada cuando corta
-  // una sesión que ya estaba abierta porque su empresa fue borrada
-  // mientras tanto. Se lee de window.location en vez de useSearchParams
-  // para no forzar un Suspense boundary en esta pantalla.
+  // GuardiaSesion redirige acá con ?motivo=... cuando corta una sesión
+  // que ya estaba abierta y ya no tiene fila en `perfiles`. Se lee de
+  // window.location en vez de useSearchParams para no forzar un
+  // Suspense boundary en esta pantalla.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('motivo') === 'empresa_borrada') {
+    const motivo = params.get('motivo');
+
+    if (motivo === 'solicitud_pendiente') {
+      setError(t('errorSolicitudPendiente'));
+    } else if (motivo === 'solicitud_rechazada') {
+      setError(t('errorSolicitudRechazada'));
+    } else if (motivo === 'empresa_borrada') {
       setError(t('errorSinPerfil'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,15 +59,30 @@ export default function LoginPage() {
       .eq('id', userData.user?.id)
       .maybeSingle();
 
-    // Sin fila en `perfiles` significa que la empresa fue borrada
-    // (eliminar_empresa_completa se lleva puesto el perfil junto con
-    // todo lo demás) o que el usuario nunca quedó vinculado a una
-    // empresa. En cualquiera de los dos casos no hay a dónde llevarlo:
-    // se cierra la sesión acá mismo en vez de dejarlo pasar a una
-    // pantalla rota con "No se pudo identificar la empresa del usuario".
+    // Sin fila en `perfiles` puede ser: (a) el usuario recién se
+    // registró y su solicitud todavía no la aprobó un admin — estado
+    // normal y esperable, no un bloqueo; (b) la solicitud fue
+    // rechazada; o (c) la empresa fue borrada (eliminar_empresa_completa
+    // se lleva puesto el perfil junto con todo lo demás). En los tres
+    // casos no hay a dónde llevarlo todavía: se cierra la sesión acá
+    // mismo en vez de dejarlo pasar a una pantalla rota, pero con el
+    // mensaje que corresponda a cada caso.
     if (!perfil) {
       await supabase.auth.signOut();
-      setError(t('errorSinPerfil'));
+
+      if (userData.user) {
+        const motivo = await motivoSinPerfil(userData.user.id);
+        setError(
+          motivo === 'pendiente'
+            ? t('errorSolicitudPendiente')
+            : motivo === 'rechazada'
+              ? t('errorSolicitudRechazada')
+              : t('errorSinPerfil')
+        );
+      } else {
+        setError(t('errorSinPerfil'));
+      }
+
       return;
     }
 
