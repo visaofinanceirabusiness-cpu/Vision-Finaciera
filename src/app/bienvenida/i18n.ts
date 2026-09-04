@@ -10,8 +10,6 @@ type Clave =
   | 'seccionCategoriaProductoAyuda'
   | 'seccionCategoriaServicioTitulo'
   | 'seccionCategoriaServicioAyuda'
-  | 'seccionGastoTitulo'
-  | 'seccionGastoAyuda'
   | 'seccionSocioTitulo'
   | 'seccionSocioAyuda'
   | 'seccionProductoTitulo'
@@ -24,7 +22,6 @@ type Clave =
   | 'botonFinalizar'
   | 'procesando'
   | 'errorMinimoCategoria'
-  | 'errorMinimoGasto'
   | 'errorMinimoSocio'
   | 'errorMinimoProveedores'
   | 'errorMinimoClientes'
@@ -44,11 +41,9 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     seccionCategoriaProductoAyuda: 'Ej.: "Indumentaria", "Bebidas", "Electrónica". Cargá al menos una.',
     seccionCategoriaServicioTitulo: '1. Categoría de servicio o ingreso',
     seccionCategoriaServicioAyuda: 'Ej.: "Consultoría", "Sueldo", "Honorarios". Cargá al menos una.',
-    seccionGastoTitulo: '2. Categoría de gasto',
-    seccionGastoAyuda: 'Ej.: "Alquiler", "Sueldos", "Servicios". Cargá al menos una.',
     seccionSocioTitulo: '3. Socio/a',
     seccionSocioAyuda: 'Quién puede aportar o retirar dinero del negocio (podés ponerte a vos mismo/a). Cargá al menos uno/a.',
-    seccionProductoTitulo: '6. Productos',
+    seccionProductoTitulo: '2. Productos',
     seccionProductoAyuda: 'Al menos un producto, asignado a una de tus categorías.',
     nombrePlaceholder: 'Nombre',
     categoriaPlaceholder: 'Categoría...',
@@ -58,7 +53,6 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     botonFinalizar: 'Terminar configuración',
     procesando: 'Configurando tu sistema...',
     errorMinimoCategoria: 'Cargá al menos una categoría.',
-    errorMinimoGasto: 'Cargá al menos una categoría de gasto.',
     errorMinimoSocio: 'Cargá al menos un socio/a.',
     errorMinimoProveedores: 'Cargá al menos 2.',
     errorMinimoClientes: 'Cargá al menos 2.',
@@ -77,11 +71,9 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     seccionCategoriaProductoAyuda: 'Ex.: "Vestuário", "Bebidas", "Eletrônicos". Cadastre pelo menos uma.',
     seccionCategoriaServicioTitulo: '1. Categoria de serviço ou receita',
     seccionCategoriaServicioAyuda: 'Ex.: "Consultoria", "Salário", "Honorários". Cadastre pelo menos uma.',
-    seccionGastoTitulo: '2. Categoria de despesa',
-    seccionGastoAyuda: 'Ex.: "Aluguel", "Salários", "Serviços". Cadastre pelo menos uma.',
     seccionSocioTitulo: '3. Sócio/a',
     seccionSocioAyuda: 'Quem pode fazer aportes ou retiradas do negócio (pode ser você mesmo/a). Cadastre pelo menos um/a.',
-    seccionProductoTitulo: '6. Produtos',
+    seccionProductoTitulo: '2. Produtos',
     seccionProductoAyuda: 'Pelo menos um produto, associado a uma das suas categorias.',
     nombrePlaceholder: 'Nome',
     categoriaPlaceholder: 'Categoria...',
@@ -91,7 +83,6 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     botonFinalizar: 'Concluir configuração',
     procesando: 'Configurando seu sistema...',
     errorMinimoCategoria: 'Cadastre pelo menos uma categoria.',
-    errorMinimoGasto: 'Cadastre pelo menos uma categoria de despesa.',
     errorMinimoSocio: 'Cadastre pelo menos um sócio/a.',
     errorMinimoProveedores: 'Cadastre pelo menos 2.',
     errorMinimoClientes: 'Cadastre pelo menos 2.',
