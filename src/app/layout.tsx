@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import React from 'react';
 import { RegistrarServiceWorker } from '@/components/RegistrarServiceWorker';
+import { GuardiaSesion } from '@/components/GuardiaSesion';
 
 export const metadata: Metadata = {
   title: 'Visão Financeira',
@@ -37,6 +38,7 @@ export default function RootLayout({
         }}
       >
         <RegistrarServiceWorker />
+        <GuardiaSesion />
         {children}
       </body>
     </html>

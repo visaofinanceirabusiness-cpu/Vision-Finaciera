@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { crearTraductor } from '@/lib/i18n';
@@ -15,6 +15,18 @@ export default function LoginPage() {
   const [idioma, setIdioma] = useState<'ES' | 'PT'>('PT');
 
   const t = crearTraductor(diccionarioLogin, idioma);
+
+  // GuardiaSesion redirige acá con ?motivo=empresa_borrada cuando corta
+  // una sesión que ya estaba abierta porque su empresa fue borrada
+  // mientras tanto. Se lee de window.location en vez de useSearchParams
+  // para no forzar un Suspense boundary en esta pantalla.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('motivo') === 'empresa_borrada') {
+      setError(t('errorSinPerfil'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function iniciarSesion(e: React.FormEvent) {
     e.preventDefault();
