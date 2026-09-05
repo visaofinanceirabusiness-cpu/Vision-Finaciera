@@ -88,7 +88,8 @@ export type IndicadoresPanel = {
   // Gráficos
   ventasMensuales: PuntoMes[];
   evolucionLucro: PuntoLucroMes[];
-  ventasCategorias: PuntoGrafico[];
+  ventasProductoCategorias: PuntoGrafico[];
+  ventasServicioCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
   liquidezPorCuenta: PuntoGrafico[];
   gastosCategorias: PuntoGrafico[];
@@ -424,8 +425,17 @@ export async function obtenerIndicadores(
     };
   });
 
-  // Ventas por categoría: del período seleccionado.
-  const ventasPorCategoria = new Map<string, number>();
+  // Ventas por categoría: del período seleccionado, separadas en dos
+  // gráficos — Productos y Servicios — porque un perfil Mixto puede
+  // vender ambas cosas y mezclarlas en una sola torta no deja ver
+  // ninguna de las dos con claridad. Una categoría es "de producto" si
+  // generó algún movimiento de stock (movimientos_stock solo se crea
+  // para categorías con stock='SI' en la matriz); si nunca generó
+  // stock, es una categoría de servicio.
+  const categoriasConStock = new Set(movimientos.map((m) => String(m.categoria ?? '')));
+
+  const ventasProductoPorCategoria = new Map<string, number>();
+  const ventasServicioPorCategoria = new Map<string, number>();
 
   for (const fila of operaciones) {
     if (fila.operacion !== 'VENTA' || !dentroDelPeriodo(String(fila.fecha ?? ''))) {
@@ -433,13 +443,16 @@ export async function obtenerIndicadores(
     }
 
     const categoria = String(fila.categoria ?? 'Sin categoría');
-    ventasPorCategoria.set(
-      categoria,
-      (ventasPorCategoria.get(categoria) ?? 0) + aNumero(fila.total)
-    );
+    const destino = categoriasConStock.has(categoria) ? ventasProductoPorCategoria : ventasServicioPorCategoria;
+
+    destino.set(categoria, (destino.get(categoria) ?? 0) + aNumero(fila.total));
   }
 
-  const ventasCategorias: PuntoGrafico[] = Array.from(ventasPorCategoria.entries())
+  const ventasProductoCategorias: PuntoGrafico[] = Array.from(ventasProductoPorCategoria.entries())
+    .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
+    .sort((a, b) => b.valor - a.valor);
+
+  const ventasServicioCategorias: PuntoGrafico[] = Array.from(ventasServicioPorCategoria.entries())
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
@@ -552,7 +565,8 @@ export async function obtenerIndicadores(
 
     ventasMensuales,
     evolucionLucro,
-    ventasCategorias,
+    ventasProductoCategorias,
+    ventasServicioCategorias,
     stockCategorias,
     liquidezPorCuenta,
     gastosCategorias,

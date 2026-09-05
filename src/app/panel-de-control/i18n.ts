@@ -72,6 +72,8 @@ export type ClavePanelControl =
   | 'tituloDistribucionIngresos'
   | 'subtituloDistribucionIngresos'
   | 'vacioDistribucionIngresos'
+  | 'tituloVentasProducto'
+  | 'tituloVentasServicio'
   | 'tituloDistribucionLiquidez'
   | 'subtituloDistribucionLiquidez'
   | 'vacioDistribucionLiquidez'
@@ -172,6 +174,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloDistribucionIngresos: '👥 Distribución de ingresos',
     subtituloDistribucionIngresos: 'Cuánto aportó cada socio/a este período',
     vacioDistribucionIngresos: 'Todavía no hay ingresos con socio/a asignado en este período.',
+    tituloVentasProducto: '🛍️ Ventas por categoría de producto',
+    tituloVentasServicio: '🧰 Ventas por categoría de servicio',
     tituloDistribucionLiquidez: '💧 Distribución de la liquidez',
     subtituloDistribucionLiquidez: 'Caja, banco y todo lo que hay para cobrar (clientes, tarjetas, etc.)',
     vacioDistribucionLiquidez: 'Todavía no hay dinero disponible para graficar.',
@@ -271,6 +275,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloDistribucionIngresos: '👥 Distribuição de receitas',
     subtituloDistribucionIngresos: 'Quanto cada sócio/a contribuiu neste período',
     vacioDistribucionIngresos: 'Ainda não há receitas com sócio/a atribuído neste período.',
+    tituloVentasProducto: '🛍️ Vendas por categoria de produto',
+    tituloVentasServicio: '🧰 Vendas por categoria de serviço',
     tituloDistribucionLiquidez: '💧 Distribuição da liquidez',
     subtituloDistribucionLiquidez: 'Caixa, banco e tudo o que há para receber (clientes, cartões, etc.)',
     vacioDistribucionLiquidez: 'Ainda não há dinheiro disponível para exibir no gráfico.',
