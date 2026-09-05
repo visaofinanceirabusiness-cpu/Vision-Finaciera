@@ -344,16 +344,36 @@ export default function MercaderiaPage() {
   const movimientosVisibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
 
-    const ordenados = movimientos.slice().sort((a, b) => {
-      const numeroA = extraerNumero(a.id_operacion);
-      const numeroB = extraerNumero(b.id_operacion);
+    // Orden cronológico (no por N° de operación): en esta ventana lo
+    // que importa es ver cómo se fue moviendo el stock a través del
+    // tiempo, para que la columna de saldo acumulado tenga sentido al
+    // leerla de arriba hacia abajo. Ante fechas iguales, se desempata
+    // por N° de operación para que el orden sea siempre el mismo.
+    const cronologicos = movimientos.slice().sort((a, b) => {
+      const comparacionFecha = String(a.fecha ?? '').localeCompare(String(b.fecha ?? ''));
 
-      if (numeroA !== numeroB) {
-        return numeroB - numeroA;
+      if (comparacionFecha !== 0) {
+        return comparacionFecha;
       }
 
-      return String(b.fecha ?? '').localeCompare(String(a.fecha ?? ''));
+      return extraerNumero(a.id_operacion) - extraerNumero(b.id_operacion);
     });
+
+    // Saldo acumulado de CANTIDAD, por producto — sumando ENTRADA y
+    // restando SALIDA en el mismo orden cronológico de arriba, así
+    // cada fila muestra cuánto quedaba de ESE producto justo después
+    // de ese movimiento.
+    const saldoPorProducto: Record<string, number> = {};
+
+    const conSaldo = cronologicos.map((fila) => {
+      const signo = fila.tipo === 'ENTRADA' ? 1 : -1;
+      const saldoActualizado = (saldoPorProducto[fila.producto_id] ?? 0) + signo * Number(fila.cantidad ?? 0);
+      saldoPorProducto[fila.producto_id] = saldoActualizado;
+
+      return { ...fila, saldoAcumulado: saldoActualizado };
+    });
+
+    const ordenados = conSaldo.slice().reverse();
 
     if (!termino) {
       return ordenados;
@@ -894,6 +914,9 @@ export default function MercaderiaPage() {
                     <Th align="right" style={anchoColumna(65)}>
                       {t('cantidad')}
                     </Th>
+                    <Th align="right" style={anchoColumna(65)}>
+                      {t('saldoAcumuladoHeader')}
+                    </Th>
                     <Th align="right" style={anchoColumna(75)}>
                       {t('montoUnitario')}
                     </Th>
@@ -934,6 +957,7 @@ export default function MercaderiaPage() {
                         </Td>
 
                         <Td align="right">{fila.cantidad}</Td>
+                        <Td align="right">{fila.saldoAcumulado}</Td>
                         <Td align="right">{simbolo} {formatearNumeroEntero(Number(fila.costo_unitario))}</Td>
                         <Td align="right">
                           {simbolo} {formatearNumeroEntero(Number(fila.total ?? fila.cantidad * fila.costo_unitario))}
@@ -969,7 +993,7 @@ export default function MercaderiaPage() {
 
                   {!movimientosVisibles.length && (
                     <tr>
-                      <td colSpan={esAdmin ? 11 : 10} style={vacioStyle}>
+                      <td colSpan={esAdmin ? 12 : 11} style={vacioStyle}>
                         {t('sinMovimientos')}
                       </td>
                     </tr>
