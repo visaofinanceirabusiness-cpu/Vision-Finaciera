@@ -789,66 +789,70 @@ export default function MiNegocioPage() {
               )}
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(310px, 1fr))',
-                gap: 16,
-                marginBottom: 16,
-              }}
-            >
-              {esFamiliar ? (
-                <>
-                  <DistribucionPieChart
-                    datos={indicadores?.gastosCategorias ?? []}
-                    simbolo={simbolo}
-                    idioma={idioma}
-                    titulo={t('tituloDistribucionGastos')}
-                    subtitulo={t('subtituloDistribucionGastos')}
-                    mensajeVacio={t('vacioDistribucionGastos')}
-                  />
+            {esFamiliar ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(310px, 1fr))',
+                  gap: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <DistribucionPieChart
+                  datos={indicadores?.gastosCategorias ?? []}
+                  simbolo={simbolo}
+                  idioma={idioma}
+                  titulo={t('tituloDistribucionGastos')}
+                  subtitulo={t('subtituloDistribucionGastos')}
+                  mensajeVacio={t('vacioDistribucionGastos')}
+                />
 
-                  <DistribucionPieChart
-                    datos={indicadores?.ingresosSocios ?? []}
-                    simbolo={simbolo}
-                    idioma={idioma}
-                    titulo={t('tituloDistribucionIngresos')}
-                    subtitulo={t('subtituloDistribucionIngresos')}
-                    mensajeVacio={t('vacioDistribucionIngresos')}
-                  />
-                </>
-              ) : (
-                <>
+                <DistribucionPieChart
+                  datos={indicadores?.ingresosSocios ?? []}
+                  simbolo={simbolo}
+                  idioma={idioma}
+                  titulo={t('tituloDistribucionIngresos')}
+                  subtitulo={t('subtituloDistribucionIngresos')}
+                  mensajeVacio={t('vacioDistribucionIngresos')}
+                />
+              </div>
+            ) : (
+              // Apilados uno debajo del otro (no en grilla): "Ventas
+              // por categoría" puede crecer mucho a lo ancho a medida
+              // que la empresa suma categorías, así que compartir fila
+              // con otro gráfico lo aprieta. Cada uno ocupa todo el
+              // ancho disponible.
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
+                <CategoryChart
+                  datos={indicadores?.ventasProductoCategorias ?? []}
+                  color={colores.acento}
+                  simbolo={simbolo}
+                  idioma={idioma}
+                  titulo={t('tituloVentasProducto')}
+                />
+
+                {(indicadores?.ventasServicioCategorias?.length ?? 0) > 0 && (
                   <CategoryChart
-                    datos={indicadores?.ventasProductoCategorias ?? []}
-                    color={colores.acento}
+                    datos={indicadores?.ventasServicioCategorias ?? []}
+                    color={colores.azul}
                     simbolo={simbolo}
                     idioma={idioma}
-                    titulo={t('tituloVentasProducto')}
+                    titulo={t('tituloVentasServicio')}
                   />
+                )}
 
-                  {(indicadores?.ventasServicioCategorias?.length ?? 0) > 0 && (
-                    <CategoryChart
-                      datos={indicadores?.ventasServicioCategorias ?? []}
-                      color={colores.azul}
-                      simbolo={simbolo}
-                      idioma={idioma}
-                      titulo={t('tituloVentasServicio')}
-                    />
-                  )}
-
-                  <DistribucionPieChart
-                    datos={indicadores?.liquidezPorCuenta ?? []}
-                    simbolo={simbolo}
-                    idioma={idioma}
-                    titulo={t('tituloDistribucionLiquidez')}
-                    subtitulo={t('subtituloDistribucionLiquidez')}
-                    mensajeVacio={t('vacioDistribucionLiquidez')}
-                  />
-                </>
-              )}
-            </div>
+                <DistribucionPieChart
+                  datos={indicadores?.liquidezPorCuenta ?? []}
+                  simbolo={simbolo}
+                  idioma={idioma}
+                  titulo={t('tituloDistribucionLiquidez')}
+                  subtitulo={t('subtituloDistribucionLiquidez')}
+                  mensajeVacio={t('vacioDistribucionLiquidez')}
+                  grande
+                />
+              </div>
+            )}
 
             {esFamiliar ? (
               <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
