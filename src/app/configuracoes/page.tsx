@@ -368,7 +368,12 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
       .upload(ruta, archivo, { upsert: true, cacheControl: '3600' });
 
     if (errorSubida) {
-      setError(t('errorSubidaLogo'));
+      // Antes acá se mostraba solo un texto genérico ("No se pudo
+      // subir el logo") sin importar la causa real — así no había
+      // forma de saber si era un archivo muy pesado, un problema de
+      // permisos u otra cosa. Se agrega el mensaje real de Supabase
+      // para poder diagnosticarlo.
+      setError(`${t('errorSubidaLogo')} (${errorSubida.message})`);
       setSubiendoLogo(false);
       return;
     }
