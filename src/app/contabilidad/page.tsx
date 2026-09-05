@@ -1129,6 +1129,7 @@ function CentralDeLanzamientosTab({
             type="text"
             value={historico}
             onChange={(e) => setHistorico(e.target.value)}
+            placeholder={t('placeholderHistorico')}
             style={campoInput}
           />
         </Campo>

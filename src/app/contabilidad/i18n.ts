@@ -26,6 +26,7 @@ type Clave =
   | 'labelFormaPago'
   | 'labelDesdeCuenta'
   | 'labelHistorico'
+  | 'placeholderHistorico'
   | 'labelSocio'
   | 'seleccionar'
   | 'avisoTransferencia'
@@ -107,7 +108,8 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelHaciaCuenta: 'Hacia (cuenta de ahorro)',
     labelFormaPago: 'Forma de Pago',
     labelDesdeCuenta: 'Desde (cuenta de origen)',
-    labelHistorico: 'Histórico',
+    labelHistorico: 'Nota Fiscal N°',
+    placeholderHistorico: 'Ej.: NF-00123',
     labelSocio: 'Socio/a',
     seleccionar: 'Seleccionar...',
     avisoTransferencia:
@@ -190,7 +192,8 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelHaciaCuenta: 'Para (conta de poupança)',
     labelFormaPago: 'Forma de Pagamento',
     labelDesdeCuenta: 'De (conta de origem)',
-    labelHistorico: 'Histórico',
+    labelHistorico: 'Nota Fiscal N°',
+    placeholderHistorico: 'Ex.: NF-00123',
     labelSocio: 'Sócio/a',
     seleccionar: 'Selecionar...',
     avisoTransferencia:
