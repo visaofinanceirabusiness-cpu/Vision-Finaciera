@@ -6,9 +6,17 @@ import { diccionarioCharts } from './i18nCharts';
 
 type PuntoMesFamiliar = {
   mes: string;
+  clave: string; // "YYYY-MM"
   ingresos: number;
   gastos: number;
 };
+
+// Ver LucroChart.tsx: ubica cada punto según la distancia real en
+// meses entre el primero y el último, no por índice.
+function claveANumeroDeMes(clave: string): number {
+  const [anio, mes] = clave.split('-').map(Number);
+  return anio * 12 + (mes - 1);
+}
 
 // GRÁFICO EVOLUCIÓN FAMILIAR — Ingresos, Gastos y Ahorro
 // =====================================================
@@ -46,11 +54,23 @@ export function EvolucionFamiliarChart({ datos, simbolo = 'R$', idioma = 'ES' }:
   const anchoUtil = ancho - margenIzq - margenDer;
   const altoUtil = alto - margenSup - margenInf;
 
-  const pasoX = conAhorro.length > 1 ? anchoUtil / (conAhorro.length - 1) : anchoUtil;
   const rango = maxValor - minValor || 1;
 
+  const numerosDeMes = conAhorro.map((dato) => claveANumeroDeMes(dato.clave));
+  const numeroMin = numerosDeMes.length > 0 ? Math.min(...numerosDeMes) : 0;
+  const numeroMax = numerosDeMes.length > 0 ? Math.max(...numerosDeMes) : 0;
+  const rangoMeses = numeroMax - numeroMin;
+
+  function posicionX(indice: number) {
+    if (rangoMeses === 0) {
+      return margenIzq + anchoUtil / 2;
+    }
+
+    return margenIzq + ((numerosDeMes[indice] - numeroMin) / rangoMeses) * anchoUtil;
+  }
+
   function coordenadas(valor: number, indice: number) {
-    const x = margenIzq + indice * pasoX;
+    const x = posicionX(indice);
     const y = margenSup + altoUtil - ((valor - minValor) / rango) * altoUtil;
     return { x, y };
   }
