@@ -71,6 +71,7 @@ export default function PanelMaestroPage() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [nivelesPorEmpresa, setNivelesPorEmpresa] = useState<Record<string, ProgresoGamificacion>>({});
+  const [ultimoAccesoPorEmpresa, setUltimoAccesoPorEmpresa] = useState<Record<string, string | null>>({});
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudAlta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -168,6 +169,24 @@ export default function PanelMaestroPage() {
     setNivelesPorEmpresa(
       Object.fromEntries(resultados.filter((r): r is readonly [string, ProgresoGamificacion] => r !== null))
     );
+
+    // Último acceso de cada cliente — Supabase Auth ya lo guarda solo
+    // (auth.users.last_sign_in_at), este RPC solo lo entrega agrupado
+    // por empresa (ver migración rpc_ultimo_acceso_por_empresa).
+    const { data: accesos, error: errorAccesos } = await supabase.rpc('obtener_ultimo_acceso_por_empresa');
+
+    if (errorAccesos) {
+      console.warn('No se pudo cargar el último acceso de las empresas:', errorAccesos);
+    } else {
+      setUltimoAccesoPorEmpresa(
+        Object.fromEntries(
+          (accesos ?? []).map((fila: { empresa_id: string; ultimo_acceso: string | null }) => [
+            fila.empresa_id,
+            fila.ultimo_acceso,
+          ])
+        )
+      );
+    }
   }
 
   async function cargarSolicitudes() {
@@ -775,6 +794,18 @@ export default function PanelMaestroPage() {
                   <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
                     {empresa.rubro ?? 'Sin rubro definido'}
                   </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      marginTop: 3,
+                      color: ultimoAccesoPorEmpresa[empresa.id] ? '#16a34a' : '#b91c1c',
+                    }}
+                  >
+                    {ultimoAccesoPorEmpresa[empresa.id] === undefined
+                      ? 'Último acceso: cargando...'
+                      : formatearUltimoAcceso(ultimoAccesoPorEmpresa[empresa.id])}
+                  </div>
                 </div>
               </div>
 
@@ -862,6 +893,23 @@ export default function PanelMaestroPage() {
 ========================================================== */
 
 const MEDIOS_PAGO = ['InfinitePay', 'Naranja X', 'Otro'];
+
+// Último acceso — el dato sale de auth.users.last_sign_in_at (ver RPC
+// obtener_ultimo_acceso_por_empresa). null significa que esa empresa
+// nunca inició sesión desde que se dio de alta.
+function formatearUltimoAcceso(fecha: string | null | undefined): string {
+  if (!fecha) {
+    return 'Nunca inició sesión';
+  }
+
+  return `Último acceso: ${new Date(fecha).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
 
 function diasEnSistema(fechaAlta: string): number {
   const msPorDia = 1000 * 60 * 60 * 24;
