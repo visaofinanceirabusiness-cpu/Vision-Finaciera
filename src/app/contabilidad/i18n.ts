@@ -302,6 +302,34 @@ export function msgElegirCategoria(idioma: string | null | undefined, operacion:
   return esPT(idioma) ? `Escolha a categoria para "${nombre}".` : `Elegí la categoría para "${nombre}".`;
 }
 
+export function msgElegirFormaPago(idioma: string | null | undefined): string {
+  return esPT(idioma) ? 'Agora escolha a forma de pagamento.' : 'Ahora elegí la forma de pago.';
+}
+
+export function msgCompletarHistorico(idioma: string | null | undefined): string {
+  return esPT(idioma) ? 'Preencha a Nota Fiscal N°.' : 'Completá la Nota Fiscal N°.';
+}
+
+export function msgCompletarRelacion(idioma: string | null | undefined, etiqueta: string): string {
+  return esPT(idioma) ? `Agora complete "${etiqueta}".` : `Ahora completá "${etiqueta}".`;
+}
+
+export function msgCompletarSocio(idioma: string | null | undefined): string {
+  return esPT(idioma) ? 'Escolha qual sócio recebeu esse ingresso.' : 'Elegí qué socio recibió ese ingreso.';
+}
+
+export function msgCompletarDetalle(idioma: string | null | undefined): string {
+  return esPT(idioma)
+    ? 'Falta só o detalhe: carregue os produtos (ou a descrição) e o valor.'
+    : 'Falta solo el detalle: cargá los productos (o la descripción) y el monto.';
+}
+
+export function msgListoParaRegistrar(idioma: string | null | undefined): string {
+  return esPT(idioma)
+    ? 'Está tudo certo — agora registre a operação.'
+    : 'Ya está todo listo — ahora registrá la operación.';
+}
+
 export function msgOperacionActualizada(idioma: string | null | undefined): string {
   return esPT(idioma) ? 'Operação atualizada com sucesso!' : '¡Operación actualizada con éxito!';
 }
