@@ -717,6 +717,25 @@ export async function registrarOperacion(
             valorDisponible /
             cantidadDisponible;
 
+          // No se puede vender por debajo de lo que costó: eso no es
+          // una venta, es una pérdida (dar de baja stock reconociendo
+          // que vale menos de lo que costó). Se bloquea acá, antes de
+          // grabar nada, para no dejar una Venta con margen negativo
+          // sin que nadie lo note.
+          if (Number(linea.monto) < costoUnitario) {
+            const { data: productoInfo } = await supabase
+              .from('productos')
+              .select('nombre')
+              .eq('id', linea.producto)
+              .maybeSingle();
+
+            const nombreProducto = productoInfo?.nombre ?? 'seleccionado';
+
+            throw new Error(
+              `El precio de venta de "${nombreProducto}" (${Number(linea.monto).toFixed(2)}) es menor a su costo (${costoUnitario.toFixed(2)}). Si es una baja de stock a pérdida, usá la operación Pérdida en vez de Venta.`
+            );
+          }
+
           costosCMV.push({
             cantidad: Number(
               linea.cantidad
