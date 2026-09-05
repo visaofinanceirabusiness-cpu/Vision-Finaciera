@@ -441,7 +441,7 @@ async function limpiarOperacion(
 // SALDO ACTUAL DE UNA CUENTA (para no dejarla en negativo)
 // =====================================================
 
-async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string) {
+async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string, fechaLimite: string) {
   const { data: cuenta } = await supabase
     .from('plan_cuentas')
     .select('naturaleza, tipo_saldo, saldo_inicial')
@@ -453,16 +453,22 @@ async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string) {
     return null;
   }
 
+  // Importante: el saldo se calcula SOLO con los movimientos hasta
+  // fechaLimite (la fecha de la operación que se está por registrar),
+  // no con el total histórico. Si no se filtrara por fecha, cargar una
+  // operación con fecha atrasada podría aprobarse mirando el saldo de
+  // HOY (que ya incluye ingresos posteriores a esa fecha) aunque en
+  // esa fecha vieja la cuenta hubiera quedado en negativo.
   const [
     { data: comoDebito },
     { data: comoCredito },
     { data: autoComoDebito },
     { data: autoComoCredito },
   ] = await Promise.all([
-    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta),
-    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta),
-    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta),
-    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta),
+    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite),
+    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite),
+    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite),
+    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite),
   ]);
 
   const sumar = (filas: { total?: unknown; importe?: unknown }[] | null, campo: 'total' | 'importe') =>
@@ -542,7 +548,7 @@ export async function registrarOperacion(
   // ---------------------------------------------------
 
   if (regla.cuenta_credito) {
-    const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito);
+    const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito, formulario.fecha);
 
     if (cuentaCredito && cuentaCredito.tipoSaldo === 'ACTIVO' && cuentaCredito.naturaleza === 'DEUDORA') {
       const saldoResultante = cuentaCredito.saldo - total;
@@ -556,7 +562,7 @@ export async function registrarOperacion(
   }
 
   if (regla.cuenta_debito) {
-    const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito);
+    const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito, formulario.fecha);
 
     if (cuentaDebito && cuentaDebito.tipoSaldo === 'PASIVO' && cuentaDebito.naturaleza === 'ACREEDORA') {
       const saldoResultante = cuentaDebito.saldo - total;
