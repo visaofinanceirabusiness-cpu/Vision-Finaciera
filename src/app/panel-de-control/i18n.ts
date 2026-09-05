@@ -6,7 +6,7 @@
 // Fuera de alcance a propósito (igual que en Configurações →
 // Objetivos): el texto de ayuda de cada indicador vive en
 // CATALOGO_INDICADORES (lib/objetivos.ts), un catálogo aparte. Los
-// componentes de gráfico (CategoryChart, StockChart, LucroChart,
+// componentes de gráfico (CategoryChart, LucroChart,
 // EvolucionFamiliarChart) tienen textos internos propios que tampoco
 // se tocan acá — quedan para una iteración futura.
 
@@ -72,6 +72,9 @@ export type ClavePanelControl =
   | 'tituloDistribucionIngresos'
   | 'subtituloDistribucionIngresos'
   | 'vacioDistribucionIngresos'
+  | 'tituloDistribucionLiquidez'
+  | 'subtituloDistribucionLiquidez'
+  | 'vacioDistribucionLiquidez'
   | 'eyebrowEquilibrio'
   | 'endeudamiento'
   | 'ayudaEndeudamiento'
@@ -169,6 +172,9 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloDistribucionIngresos: '👥 Distribución de ingresos',
     subtituloDistribucionIngresos: 'Cuánto aportó cada socio/a este período',
     vacioDistribucionIngresos: 'Todavía no hay ingresos con socio/a asignado en este período.',
+    tituloDistribucionLiquidez: '💧 Distribución de la liquidez',
+    subtituloDistribucionLiquidez: 'Cómo está repartido el dinero disponible hoy (caja, banco, etc.)',
+    vacioDistribucionLiquidez: 'Todavía no hay dinero disponible para graficar.',
     eyebrowEquilibrio: 'EQUILIBRIO',
     endeudamiento: 'Endeudamiento',
     ayudaEndeudamiento: 'Cuánto de lo que tenés depende de deuda.',
@@ -265,6 +271,9 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloDistribucionIngresos: '👥 Distribuição de receitas',
     subtituloDistribucionIngresos: 'Quanto cada sócio/a contribuiu neste período',
     vacioDistribucionIngresos: 'Ainda não há receitas com sócio/a atribuído neste período.',
+    tituloDistribucionLiquidez: '💧 Distribuição da liquidez',
+    subtituloDistribucionLiquidez: 'Como está repartido o dinheiro disponível hoje (caixa, banco, etc.)',
+    vacioDistribucionLiquidez: 'Ainda não há dinheiro disponível para exibir no gráfico.',
     eyebrowEquilibrio: 'EQUILÍBRIO',
     endeudamiento: 'Endividamento',
     ayudaEndeudamiento: 'Quanto do que você tem depende de dívida.',

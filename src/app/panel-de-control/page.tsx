@@ -9,7 +9,6 @@ import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
-import { StockChart } from '@/components/panel/StockChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
@@ -828,10 +827,13 @@ export default function MiNegocioPage() {
                     idioma={idioma}
                   />
 
-                  <StockChart
-                    datos={indicadores?.stockCategorias ?? []}
-                    color={colores.acento}
+                  <DistribucionPieChart
+                    datos={indicadores?.liquidezPorCuenta ?? []}
+                    simbolo={simbolo}
                     idioma={idioma}
+                    titulo={t('tituloDistribucionLiquidez')}
+                    subtitulo={t('subtituloDistribucionLiquidez')}
+                    mensajeVacio={t('vacioDistribucionLiquidez')}
                   />
                 </>
               )}
