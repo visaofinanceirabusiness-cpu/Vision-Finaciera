@@ -312,8 +312,17 @@ function CentralDeLanzamientosTab({
   const [sociosIngreso, setSociosIngreso] = useState<string[]>([]);
 
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [saldoPorProducto, setSaldoPorProducto] = useState<Record<string, number>>({});
   const [nombreProveedorPorId, setNombreProveedorPorId] = useState<Record<string, string>>({});
+
+  // Movimientos de stock (ENTRADA/SALIDA) de todos los productos, para
+  // calcular cuánto había disponible A LA FECHA elegida en el
+  // formulario — no el stock de hoy. Si se mostrara el stock de hoy,
+  // una Venta con fecha atrasada podía parecer válida (ej. "estoque:
+  // 205") usando unidades de una Compra que en esa fecha vieja todavía
+  // no existía, aunque el registro final la vaya a rechazar.
+  const [movimientosStock, setMovimientosStock] = useState<
+    { producto_id: string; tipo: string; cantidad: number; fecha: string }[]
+  >([]);
 
   // Saldo actual de cada cuenta financiera (Efectivo, Banco, Pix...) y
   // a qué cuenta corresponde cada forma de pago — para poder bloquear
@@ -434,18 +443,24 @@ function CentralDeLanzamientosTab({
       .select('id, nombre, categoria, proveedor_id')
       .eq('empresa_id', empresaIdActual);
 
-    const { data: saldos } = await supabase
-      .from('saldo_stock')
-      .select('producto_id, saldo')
-      .eq('empresa_id', empresaIdActual);
+    const { data: movimientos } = await supabase
+      .from('movimientos_stock')
+      .select('producto_id, tipo, cantidad, fecha')
+      .eq('empresa_id', empresaIdActual)
+      .in('tipo', ['ENTRADA', 'SALIDA']);
 
     const { data: proveedoresData } = await supabase
       .from('proveedores')
       .select('id, nombre')
       .eq('empresa_id', empresaIdActual);
 
-    setSaldoPorProducto(
-      Object.fromEntries((saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)]))
+    setMovimientosStock(
+      (movimientos ?? []).map((m) => ({
+        producto_id: m.producto_id,
+        tipo: m.tipo,
+        cantidad: Number(m.cantidad ?? 0),
+        fecha: m.fecha,
+      }))
     );
 
     setNombreProveedorPorId(
@@ -756,9 +771,25 @@ function CentralDeLanzamientosTab({
 
   const esSalidaStock = (operacion === 'VENTA' || operacion === 'PERDIDA') && categoriaEsProducto;
 
+  // Stock disponible por producto A LA FECHA elegida (no el de hoy):
+  // suma ENTRADA y resta SALIDA de todos los movimientos con fecha <=
+  // la del formulario, igual que hace la validación real en el motor.
+  const saldoPorProductoAFecha = useMemo(() => {
+    const saldos: Record<string, number> = {};
+
+    for (const movimiento of movimientosStock) {
+      if (movimiento.fecha > fecha) continue;
+
+      const signo = movimiento.tipo === 'ENTRADA' ? 1 : -1;
+      saldos[movimiento.producto_id] = (saldos[movimiento.producto_id] ?? 0) + signo * movimiento.cantidad;
+    }
+
+    return saldos;
+  }, [movimientosStock, fecha]);
+
   const stockInsuficiente =
     esSalidaStock &&
-    lineas.some((linea) => linea.producto && linea.cantidad > (saldoPorProducto[linea.producto] ?? 0));
+    lineas.some((linea) => linea.producto && linea.cantidad > (saldoPorProductoAFecha[linea.producto] ?? 0));
 
   // Pago, Compra, Extracción y Transferencia le "sacan" plata a un
   // medio de pago (Efectivo, Banco, Pix...). Si ese medio es una
@@ -1195,10 +1226,10 @@ function CentralDeLanzamientosTab({
                       <option
                         key={p.id}
                         value={p.id}
-                        disabled={esSalidaStock && (saldoPorProducto[p.id] ?? 0) <= 0}
+                        disabled={esSalidaStock && (saldoPorProductoAFecha[p.id] ?? 0) <= 0}
                       >
                         {p.nombre}
-                        {esSalidaStock ? stockDisponible(idioma, saldoPorProducto[p.id] ?? 0) : ''}
+                        {esSalidaStock ? stockDisponible(idioma, saldoPorProductoAFecha[p.id] ?? 0) : ''}
                       </option>
                     ))}
                 </select>

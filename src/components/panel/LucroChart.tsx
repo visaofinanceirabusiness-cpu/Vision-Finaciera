@@ -6,10 +6,22 @@ import { diccionarioCharts } from './i18nCharts';
 
 type PuntoLucroMes = {
   mes: string;
+  clave: string; // "YYYY-MM"
   ingresos: number;
   costos: number;
   gastos: number;
 };
+
+// Convierte "YYYY-MM" a un número de mes absoluto (año*12 + mes), para
+// poder ubicar cada punto en el eje X según la distancia real en el
+// tiempo entre meses — no por índice. Así, si un emprendedor cargó
+// operaciones en Febrero y recién volvió a cargar en Septiembre, ese
+// hueco de 7 meses se ve como un tramo largo del gráfico, en vez de
+// mostrar los dos puntos pegados como si fueran consecutivos.
+function claveANumeroDeMes(clave: string): number {
+  const [anio, mes] = clave.split('-').map(Number);
+  return anio * 12 + (mes - 1);
+}
 
 // GRÁFICO EVOLUCIÓN DE LUCRO
 // =====================================================
@@ -61,10 +73,21 @@ export function LucroChart({
   const anchoUtil = ancho - margenIzq - margenDer;
   const altoUtil = alto - margenSup - margenInf;
 
-  const pasoX = datos.length > 1 ? anchoUtil / (datos.length - 1) : anchoUtil;
+  const numerosDeMes = datos.map((dato) => claveANumeroDeMes(dato.clave));
+  const numeroMin = numerosDeMes.length > 0 ? Math.min(...numerosDeMes) : 0;
+  const numeroMax = numerosDeMes.length > 0 ? Math.max(...numerosDeMes) : 0;
+  const rangoMeses = numeroMax - numeroMin;
+
+  function posicionX(indice: number) {
+    if (rangoMeses === 0) {
+      return margenIzq + anchoUtil / 2;
+    }
+
+    return margenIzq + ((numerosDeMes[indice] - numeroMin) / rangoMeses) * anchoUtil;
+  }
 
   function coordenadas(valor: number, indice: number) {
-    const x = margenIzq + indice * pasoX;
+    const x = posicionX(indice);
     const y = margenSup + altoUtil - (valor / maxValor) * altoUtil;
     return { x, y };
   }

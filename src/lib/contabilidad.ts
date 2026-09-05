@@ -61,6 +61,7 @@ export type PuntoMes = {
 
 export type PuntoLucroMes = {
   mes: string;
+  clave: string; // "YYYY-MM" — para ubicar el punto según la fecha real, no por índice
   ingresos: number;
   costos: number;
   gastos: number;
@@ -415,6 +416,7 @@ export async function obtenerIndicadores(
 
     return {
       mes: MESES_CORTOS[mes - 1] ?? clave,
+      clave,
       ingresos: redondear(totalTipoEnMes('INGRESO', clave)),
       costos: redondear(totalTipoEnMes('COSTO', clave)),
       gastos: redondear(totalTipoEnMes('GASTO', clave)),

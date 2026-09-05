@@ -692,15 +692,23 @@ export async function registrarOperacion(
           }
         }
 
-        if (cantidadDisponible <= 0) {
-          throw new Error(
-            `No hay stock disponible para el producto seleccionado. Producto: ${linea.producto}`
-          );
-        }
+        if (cantidadDisponible <= 0 || Number(linea.cantidad) > cantidadDisponible) {
+          const { data: productoInfo } = await supabase
+            .from('productos')
+            .select('nombre')
+            .eq('id', linea.producto)
+            .maybeSingle();
 
-        if (Number(linea.cantidad) > cantidadDisponible) {
+          const nombreProducto = productoInfo?.nombre ?? 'seleccionado';
+
+          if (cantidadDisponible <= 0) {
+            throw new Error(
+              `No hay stock de "${nombreProducto}" disponible en la fecha elegida (${formulario.fecha}). Revisá que la Compra correspondiente tenga una fecha igual o anterior a esta operación.`
+            );
+          }
+
           throw new Error(
-            `No hay stock suficiente — quedan ${cantidadDisponible} unidades disponibles y se pidieron ${Number(linea.cantidad)}. Producto: ${linea.producto}`
+            `No hay stock suficiente de "${nombreProducto}" en la fecha elegida (${formulario.fecha}) — quedan ${cantidadDisponible} unidades disponibles y se pidieron ${Number(linea.cantidad)}.`
           );
         }
 
