@@ -555,7 +555,7 @@ export async function registrarOperacion(
 
       if (saldoResultante < 0) {
         throw new Error(
-          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación. Saldo actual: R$ ${cuentaCredito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación en la fecha indicada. Saldo disponible al ${formulario.fecha}: R$ ${cuentaCredito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}. Registrá una Inversión (aporte) con fecha anterior o igual a esta para cubrir la diferencia.`
         );
       }
     }
@@ -569,7 +569,7 @@ export async function registrarOperacion(
 
       if (saldoResultante < 0) {
         throw new Error(
-          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo), y todavía no hay una cuenta de anticipo para eso. Saldo actual: R$ ${cuentaDebito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) en la fecha indicada, y todavía no hay una cuenta de anticipo para eso. Saldo al ${formulario.fecha}: R$ ${cuentaDebito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
         );
       }
     }
