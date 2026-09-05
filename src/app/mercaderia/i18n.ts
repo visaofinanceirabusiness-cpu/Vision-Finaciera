@@ -59,6 +59,7 @@ type Clave =
   | 'cantidad'
   | 'montoUnitario'
   | 'total'
+  | 'saldoAcumuladoHeader'
   | 'historico'
   | 'validadoHeader'
   | 'validadoBtn'
@@ -139,6 +140,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     cantidad: 'Cantidad',
     montoUnitario: 'Monto unitario',
     total: 'Total',
+    saldoAcumuladoHeader: 'Saldo',
     historico: 'Histórico',
     validadoHeader: 'Validado',
     validadoBtn: 'Validado',
@@ -218,6 +220,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     cantidad: 'Quantidade',
     montoUnitario: 'Valor unitário',
     total: 'Total',
+    saldoAcumuladoHeader: 'Saldo',
     historico: 'Histórico',
     validadoHeader: 'Validado',
     validadoBtn: 'Validado',
