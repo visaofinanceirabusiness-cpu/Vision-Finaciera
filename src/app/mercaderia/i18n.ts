@@ -79,7 +79,12 @@ type Clave =
   | 'opcionKg'
   | 'opcionG'
   | 'opcionL'
-  | 'opcionMl';
+  | 'opcionMl'
+  | 'tortaTitulo'
+  | 'tortaSubtitulo'
+  | 'porCantidad'
+  | 'porValor'
+  | 'tortaSinDatos';
 
 export const diccionarioMercaderia: Diccionario<Clave> = {
   ES: {
@@ -162,6 +167,11 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     opcionG: 'G',
     opcionL: 'L',
     opcionMl: 'Ml',
+    tortaTitulo: '🥧 Distribuição por categoria',
+    tortaSubtitulo: 'Cómo se reparte el stock disponible entre categorías',
+    porCantidad: 'Por cantidad',
+    porValor: 'Por valor',
+    tortaSinDatos: 'Todavía no hay stock disponible para graficar.',
   },
   PT: {
     volver: '← Voltar para Meu Negócio',
@@ -243,6 +253,11 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     opcionG: 'G',
     opcionL: 'L',
     opcionMl: 'Ml',
+    tortaTitulo: '🥧 Distribuição por categoria',
+    tortaSubtitulo: 'Como o estoque disponível se reparte entre categorias',
+    porCantidad: 'Por quantidade',
+    porValor: 'Por valor',
+    tortaSinDatos: 'Ainda não há estoque disponível para exibir no gráfico.',
   },
 };
 
