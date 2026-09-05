@@ -1163,8 +1163,28 @@ function BalancePatrimonialTab({
   }
 
   function bloque(tipo: string) {
+    // Casi todas las cuentas de un tipo comparten naturaleza (ej. todo
+    // PATRIMONIO es ACREEDORA), pero puede haber alguna "contra"
+    // adrede con la naturaleza opuesta (ej. Retiro Personal es
+    // PATRIMONIO pero DEUDORA, porque resta patrimonio en vez de
+    // sumarlo). calcularMovimiento() ya da el saldo en la dirección
+    // PROPIA de cada cuenta — acá se lleva a la dirección del GRUPO
+    // (negando las que van al revés) para que tanto cada fila como el
+    // total reflejen correctamente si suman o restan del bloque.
+    const naturalezaDelBloque = tipo === 'PASIVO' || tipo === 'PATRIMONIO' ? 'ACREEDORA' : 'DEUDORA';
+
     const filas = hojas
-      .map((cuenta) => ({ cuenta, grupo: nombreGrupo(cuenta), ...calcularMovimiento(cuenta, asientos, true) }))
+      .map((cuenta) => {
+        const movimiento = calcularMovimiento(cuenta, asientos, true);
+        const signo = cuenta.naturaleza === naturalezaDelBloque ? 1 : -1;
+
+        return {
+          cuenta,
+          grupo: nombreGrupo(cuenta),
+          ...movimiento,
+          saldoFinal: movimiento.saldoFinal * signo,
+        };
+      })
       .filter((fila) => fila.cuenta.tipo_saldo === tipo);
 
     // El total siempre suma TODAS las cuentas del tipo (los ceros no
