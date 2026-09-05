@@ -361,6 +361,23 @@ export default function MercaderiaPage() {
   const totalUnidadesConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventarioConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.valorInventario, 0);
 
+  // Distribución por categoría para el gráfico de torta — sobre TODO
+  // lo que tiene saldo (no lo que quedó filtrado por el buscador), en
+  // cantidad de unidades y en valor de inventario.
+  const distribucionPorCategoria = useMemo(() => {
+    const acumulador = new Map<string, { cantidad: number; valor: number }>();
+
+    for (const producto of productosConSaldo) {
+      const categoria = producto.categoria || t('sinCategoria');
+      const actual = acumulador.get(categoria) ?? { cantidad: 0, valor: 0 };
+      actual.cantidad += producto.saldo;
+      actual.valor += producto.valorInventario;
+      acumulador.set(categoria, actual);
+    }
+
+    return Array.from(acumulador.entries()).map(([nombre, datos]) => ({ nombre, ...datos }));
+  }, [productosConSaldo, t]);
+
   const movimientosVisibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
 
@@ -949,6 +966,15 @@ export default function MercaderiaPage() {
                 idioma={idioma}
                 t={t}
               />
+
+              <div style={{ height: 24 }} />
+
+              <GraficoTortaCategorias
+                datos={distribucionPorCategoria}
+                simbolo={simboloMoneda(moneda)}
+                idioma={idioma}
+                t={t}
+              />
             </>
           ) : (
             <div style={tablaContenedorSolo}>
@@ -1056,6 +1082,156 @@ export default function MercaderiaPage() {
     </div>
   );
 }
+
+/* ==========================================================
+   GRÁFICO DE TORTA — DISTRIBUCIÓN POR CATEGORÍA
+========================================================== */
+
+const PALETA_TORTA = ['#2e8b57', '#dc2626', '#f59e0b', '#0ea5e9', '#a855f7', '#ec4899', '#6366f1', '#0d9488', '#facc15', '#94a3b8'];
+
+function GraficoTortaCategorias({
+  datos,
+  simbolo,
+  idioma,
+  t,
+}: {
+  datos: { nombre: string; cantidad: number; valor: number }[];
+  simbolo: string;
+  idioma: string | null;
+  t: (clave: any) => string;
+}) {
+  const [modo, setModo] = useState<'cantidad' | 'valor'>('cantidad');
+  const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
+
+  const porciones = datos
+    .map((dato) => ({ nombre: dato.nombre, valor: modo === 'cantidad' ? dato.cantidad : dato.valor }))
+    .filter((dato) => dato.valor > 0)
+    .sort((a, b) => b.valor - a.valor);
+
+  const total = porciones.reduce((suma, dato) => suma + dato.valor, 0);
+
+  // Grande a propósito, ocupando todo el ancho de la pantalla — a
+  // diferencia de DistribucionPieChart (pensado para tarjetas chicas
+  // del Panel de Control), este va solo al pie de Mercadoria.
+  const tamano = 420;
+  const cx = tamano / 2;
+  const cy = tamano / 2;
+  const radio = tamano / 2 - 20;
+
+  let acumulado = 0;
+
+  const arcos = porciones.map((dato, indice) => {
+    const proporcion = total > 0 ? dato.valor / total : 0;
+    const anguloInicio = acumulado * 2 * Math.PI;
+    acumulado += proporcion;
+    const anguloFin = acumulado * 2 * Math.PI;
+
+    const x1 = cx + radio * Math.sin(anguloInicio);
+    const y1 = cy - radio * Math.cos(anguloInicio);
+    const x2 = cx + radio * Math.sin(anguloFin);
+    const y2 = cy - radio * Math.cos(anguloFin);
+
+    const arcoGrande = anguloFin - anguloInicio > Math.PI ? 1 : 0;
+    const color = PALETA_TORTA[indice % PALETA_TORTA.length];
+
+    const path =
+      proporcion >= 0.999
+        ? `M ${cx} ${cy - radio} A ${radio} ${radio} 0 1 1 ${cx - 0.01} ${cy - radio} Z`
+        : `M ${cx} ${cy} L ${x1} ${y1} A ${radio} ${radio} 0 ${arcoGrande} 1 ${x2} ${y2} Z`;
+
+    return { ...dato, proporcion, color, path };
+  });
+
+  function formatearValor(valor: number) {
+    return modo === 'cantidad'
+      ? valor.toLocaleString(locale, { maximumFractionDigits: 0 })
+      : `${simbolo} ${formatearNumeroEntero(valor)}`;
+  }
+
+  return (
+    <section style={tortaContenedor}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 14,
+          flexWrap: 'wrap',
+          marginBottom: 18,
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, color: COLORES.azul, fontSize: 21 }}>{t('tortaTitulo')}</h2>
+          <p style={{ margin: '4px 0 0', color: COLORES.gris, fontSize: 12 }}>{t('tortaSubtitulo')}</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" onClick={() => setModo('cantidad')} style={tortaBotonModo(modo === 'cantidad')}>
+            {t('porCantidad')}
+          </button>
+          <button type="button" onClick={() => setModo('valor')} style={tortaBotonModo(modo === 'valor')}>
+            {t('porValor')}
+          </button>
+        </div>
+      </div>
+
+      {total <= 0 ? (
+        <div style={vacioStyle}>{t('tortaSinDatos')}</div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 40, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <svg viewBox={`0 0 ${tamano} ${tamano}`} style={{ width: '100%', maxWidth: tamano, height: 'auto', flexShrink: 0 }}>
+            {arcos.map((arco) => (
+              <path key={arco.nombre} d={arco.path} fill={arco.color} stroke="#ffffff" strokeWidth="3" />
+            ))}
+
+            <circle cx={cx} cy={cy} r={radio * 0.55} fill="#ffffff" />
+
+            <text x={cx} y={cy - 10} textAnchor="middle" fontSize="16" fontWeight="700" fill={COLORES.gris}>
+              {modo === 'cantidad' ? t('porCantidad') : t('porValor')}
+            </text>
+
+            <text x={cx} y={cy + 22} textAnchor="middle" fontSize="26" fontWeight="800" fill={COLORES.azul}>
+              {formatearValor(total)}
+            </text>
+          </svg>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minWidth: 260, maxWidth: 480 }}>
+            {arcos.map((arco) => (
+              <div key={arco.nombre} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 16, height: 16, borderRadius: '50%', background: arco.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#374151', flex: 1 }}>{arco.nombre}</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: COLORES.azul }}>{formatearValor(arco.valor)}</span>
+                <span style={{ fontSize: 13, color: COLORES.gris, minWidth: 44, textAlign: 'right' }}>
+                  {(arco.proporcion * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function tortaBotonModo(activo: boolean): React.CSSProperties {
+  return {
+    padding: '8px 16px',
+    borderRadius: 10,
+    border: activo ? 'none' : '1px solid #d1d5db',
+    background: activo ? COLORES.verde : COLORES.blanco,
+    color: activo ? COLORES.blanco : COLORES.azul,
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: 'pointer',
+  };
+}
+
+const tortaContenedor: React.CSSProperties = {
+  border: '1px solid #e5e7eb',
+  borderRadius: 18,
+  padding: 24,
+  background: COLORES.blanco,
+};
 
 /* ==========================================================
    SECCIÓN DE PRODUCTOS (desplegable)
