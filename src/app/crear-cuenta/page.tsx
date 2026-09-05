@@ -52,6 +52,7 @@ export default function CrearCuentaPage() {
   const [cargandoPerfiles, setCargandoPerfiles] = useState(true);
 
   const [nombre, setNombre] = useState('');
+  const [sexo, setSexo] = useState<'M' | 'F' | ''>('');
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [paisTelefono, setPaisTelefono] = useState('+55');
@@ -99,6 +100,7 @@ export default function CrearCuentaPage() {
 
     if (
       !nombre.trim() ||
+      !sexo ||
       !email.trim() ||
       !contrasena ||
       !numeroTelefono.trim() ||
@@ -176,6 +178,7 @@ export default function CrearCuentaPage() {
       user_id: signUpData.user.id,
       email: email.trim(),
       nombre: nombre.trim(),
+      sexo,
       telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
       nombre_empresa: nombreEmpresa.trim(),
       rubro: rubro.trim(),
@@ -260,6 +263,15 @@ export default function CrearCuentaPage() {
           <div>
             <label style={labelStyle}>{t('tuNombre')}</label>
             <input style={inputStyle} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t('tuNombrePlaceholder')} />
+          </div>
+
+          <div>
+            <label style={labelStyle}>{t('tuSexo')}</label>
+            <select style={inputStyle} value={sexo} onChange={(e) => setSexo(e.target.value as 'M' | 'F' | '')}>
+              <option value="">{t('seleccionar')}</option>
+              <option value="F">{t('sexoFemenino')}</option>
+              <option value="M">{t('sexoMasculino')}</option>
+            </select>
           </div>
 
           <div>
