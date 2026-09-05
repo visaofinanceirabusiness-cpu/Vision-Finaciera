@@ -34,6 +34,12 @@ import {
   msgEditandoOperacion,
   msgElegirOperacion,
   msgElegirCategoria,
+  msgElegirFormaPago,
+  msgCompletarHistorico,
+  msgCompletarRelacion,
+  msgCompletarSocio,
+  msgCompletarDetalle,
+  msgListoParaRegistrar,
   msgOperacionActualizada,
   msgOperacionRegistrada,
   msgErrorCategorias,
@@ -661,6 +667,7 @@ function CentralDeLanzamientosTab({
         setFormaPago(valoresIniciales?.formaPago ?? '');
       } else {
         setFormaPago('');
+        setMensajeSabio(msgElegirFormaPago(idioma));
       }
 
       setError('');
@@ -848,6 +855,60 @@ function CentralDeLanzamientosTab({
       !stockInsuficiente &&
       !saldoMedioInsuficiente
   );
+
+  // Guía paso a paso de "Sabio" (mensaje verde) una vez que ya se
+  // eligió operación, categoría y forma de pago: en ese punto el
+  // siguiente campo a completar depende de qué pide cada operación
+  // (Nota Fiscal, cliente/proveedor, socio, o directo el detalle), así
+  // que se recalcula acá en un solo lugar en vez de un mensaje fijo.
+  // No corre en modo edición (ahí el mensaje es "Editando la
+  // operación X") ni mientras no haya operación/categoría/forma de
+  // pago elegidos (esos pasos ya tienen su propio mensaje puesto en
+  // los efectos de arriba).
+  useEffect(() => {
+    if (modoEdicion || !operacion || !categoria || !formaPago) {
+      return;
+    }
+
+    if (!formularioSimple && !historico.trim()) {
+      setMensajeSabio(msgCompletarHistorico(idioma));
+      return;
+    }
+
+    if (!esTransferencia && !clienteProveedor.trim()) {
+      setMensajeSabio(msgCompletarRelacion(idioma, etiquetaRelacionActual));
+      return;
+    }
+
+    if (requiereSocio && !socio.trim()) {
+      setMensajeSabio(msgCompletarSocio(idioma));
+      return;
+    }
+
+    if (!lineasCompletas) {
+      setMensajeSabio(msgCompletarDetalle(idioma));
+      return;
+    }
+
+    if (!stockInsuficiente && !saldoMedioInsuficiente) {
+      setMensajeSabio(msgListoParaRegistrar(idioma));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    modoEdicion,
+    operacion,
+    categoria,
+    formaPago,
+    formularioSimple,
+    historico,
+    esTransferencia,
+    clienteProveedor,
+    requiereSocio,
+    socio,
+    lineasCompletas,
+    stockInsuficiente,
+    saldoMedioInsuficiente,
+  ]);
 
   async function handleRegistrar() {
     if (!empresaId) return;
