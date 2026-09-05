@@ -90,6 +90,7 @@ export type IndicadoresPanel = {
   evolucionLucro: PuntoLucroMes[];
   ventasCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
+  liquidezPorCuenta: PuntoGrafico[];
   gastosCategorias: PuntoGrafico[];
   ingresosSocios: PuntoGrafico[];
 
@@ -460,6 +461,16 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
+  // Distribución de la liquidez: cómo se reparte el dinero disponible
+  // HOY (grupo 1.1.1.x — Caja, Banco, Billetera Virtual, etc., el
+  // mismo grupo que ya arma "cajaDisponible") entre esas cuentas. No
+  // incluye Clientes a Cobrar ni Stock: eso no es líquido.
+  const liquidezPorCuenta: PuntoGrafico[] = hojas
+    .filter((cuenta) => (cuenta.codigo ?? '').startsWith('1.1.1.'))
+    .map((cuenta) => ({ nombre: cuenta.nombre, valor: redondear(saldoDe(cuenta, acumuladoTotal, true)) }))
+    .filter((punto) => punto.valor > 0)
+    .sort((a, b) => b.valor - a.valor);
+
   // Gastos por categoría: del período seleccionado. Se agrupa por
   // CUENTA de tipo GASTO (no por tipo de operación) para que el total
   // coincida siempre con la tarjeta "Gastos" — no todo lo que es
@@ -539,6 +550,7 @@ export async function obtenerIndicadores(
     evolucionLucro,
     ventasCategorias,
     stockCategorias,
+    liquidezPorCuenta,
     gastosCategorias,
     ingresosSocios,
 
