@@ -583,7 +583,27 @@ export default function PanelMaestroPage() {
               PANEL MAESTRO · VISÃO FINANCEIRA
             </div>
 
-            <NotificacionesPush />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <NotificacionesPush />
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  router.push('/login');
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: COLORES_BASE.blanco,
+                  borderRadius: 999,
+                  padding: '7px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </div>
 
           <h1 style={{ margin: 0, fontSize: 34, display: 'flex', alignItems: 'center', gap: 12 }}>
