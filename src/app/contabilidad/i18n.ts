@@ -36,6 +36,7 @@ type Clave =
   | 'cantidadPlaceholder'
   | 'montoPlaceholder'
   | 'agregarLinea'
+  | 'eliminarLinea'
   | 'total'
   | 'camposCompletos'
   | 'faltanCampos'
@@ -120,6 +121,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     cantidadPlaceholder: 'Cant.',
     montoPlaceholder: 'Monto',
     agregarLinea: '+ Agregar línea',
+    eliminarLinea: 'Eliminar línea',
     total: 'Total',
     camposCompletos: '✓ Todos los campos están completos',
     faltanCampos: '⚠ Faltan campos por completar',
@@ -204,6 +206,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     cantidadPlaceholder: 'Qtd.',
     montoPlaceholder: 'Valor',
     agregarLinea: '+ Adicionar linha',
+    eliminarLinea: 'Remover linha',
     total: 'Total',
     camposCompletos: '✓ Todos os campos estão completos',
     faltanCampos: '⚠ Faltam campos por preencher',

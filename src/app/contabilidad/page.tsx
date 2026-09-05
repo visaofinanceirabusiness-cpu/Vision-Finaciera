@@ -767,6 +767,10 @@ function CentralDeLanzamientosTab({
     setLineas((prev) => [...prev, { producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0 }]);
   }
 
+  function eliminarLinea(indice: number) {
+    setLineas((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== indice) : prev));
+  }
+
   const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
 
   const esSalidaStock = (operacion === 'VENTA' || operacion === 'PERDIDA') && categoriaEsProducto;
@@ -1260,6 +1264,17 @@ function CentralDeLanzamientosTab({
                 onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                 style={{ ...campoInput, flex: 1 }}
               />
+
+              {lineas.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => eliminarLinea(i)}
+                  title={t('eliminarLinea')}
+                  style={botonEliminarLinea}
+                >
+                  ×
+                </button>
+              )}
             </div>
           ))}
 
@@ -2305,6 +2320,19 @@ const filaProducto: React.CSSProperties = {
   gap: 8,
   marginBottom: 8,
   flexWrap: 'wrap',
+};
+
+const botonEliminarLinea: React.CSSProperties = {
+  flex: '0 0 auto',
+  width: 36,
+  border: '1px solid #fecaca',
+  borderRadius: 8,
+  background: '#fef2f2',
+  color: '#b91c1c',
+  fontSize: 18,
+  fontWeight: 700,
+  cursor: 'pointer',
+  lineHeight: 1,
 };
 
 const totalStyle: React.CSSProperties = {
