@@ -29,6 +29,7 @@ export function DistribucionPieChart({
   titulo = '🧾 Distribución de gastos',
   subtitulo = 'En qué se fue la plata este período',
   mensajeVacio = 'Todavía no hay datos registrados en este período.',
+  grande = false,
 }: {
   datos: DatosCategoria[];
   simbolo?: string;
@@ -36,6 +37,10 @@ export function DistribucionPieChart({
   titulo?: string;
   subtitulo?: string;
   mensajeVacio?: string;
+  // Versión grande: a todo el ancho disponible, pensada para ocupar
+  // una fila propia (apilada) en vez de compartir grilla con otras
+  // tarjetas chicas.
+  grande?: boolean;
 }) {
   const t = crearTraductor(diccionarioCharts, idioma);
   const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
@@ -58,9 +63,10 @@ export function DistribucionPieChart({
     );
   }
 
-  const cx = 110;
-  const cy = 110;
-  const radio = 90;
+  const tamano = grande ? 340 : 220;
+  const cx = tamano / 2;
+  const cy = tamano / 2;
+  const radio = tamano / 2 - 20;
 
   let acumulado = 0;
 
@@ -94,46 +100,50 @@ export function DistribucionPieChart({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 24,
+          gap: grande ? 40 : 24,
           flexWrap: 'wrap',
+          justifyContent: grande ? 'center' : undefined,
         }}
       >
-        <svg viewBox="0 0 220 220" style={{ width: 220, height: 220, flexShrink: 0 }}>
+        <svg
+          viewBox={`0 0 ${tamano} ${tamano}`}
+          style={{ width: grande ? '100%' : tamano, maxWidth: tamano, height: 'auto', flexShrink: 0 }}
+        >
           {porciones.map((porcion) => (
-            <path key={porcion.nombre} d={porcion.path} fill={porcion.color} stroke="#ffffff" strokeWidth="2" />
+            <path key={porcion.nombre} d={porcion.path} fill={porcion.color} stroke="#ffffff" strokeWidth={grande ? 3 : 2} />
           ))}
 
           <circle cx={cx} cy={cy} r={radio * 0.55} fill="#ffffff" />
 
-          <text x={cx} y={cy - 6} textAnchor="middle" fontSize="12" fontWeight="700" fill="#6e7781">
+          <text x={cx} y={cy - (grande ? 10 : 6)} textAnchor="middle" fontSize={grande ? 16 : 12} fontWeight="700" fill="#6e7781">
             {t('total')}
           </text>
 
-          <text x={cx} y={cy + 16} textAnchor="middle" fontSize="17" fontWeight="800" fill="#1f3a5f">
+          <text x={cx} y={cy + (grande ? 22 : 16)} textAnchor="middle" fontSize={grande ? 26 : 17} fontWeight="800" fill="#1f3a5f">
             {simbolo}{total.toLocaleString(locale, { maximumFractionDigits: 0 })}
           </text>
         </svg>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minWidth: 180 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: grande ? 14 : 10, flex: 1, minWidth: 260, maxWidth: grande ? 480 : undefined }}>
           {porciones.map((porcion) => (
             <div key={porcion.nombre} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
                 style={{
-                  width: 12,
-                  height: 12,
+                  width: grande ? 16 : 12,
+                  height: grande ? 16 : 12,
                   borderRadius: '50%',
                   background: porcion.color,
                   flexShrink: 0,
                 }}
               />
 
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#374151', flex: 1 }}>{porcion.nombre}</span>
+              <span style={{ fontSize: grande ? 15 : 13, fontWeight: 700, color: '#374151', flex: 1 }}>{porcion.nombre}</span>
 
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#1f3a5f' }}>
+              <span style={{ fontSize: grande ? 15 : 13, fontWeight: 800, color: '#1f3a5f' }}>
                 {simbolo}{porcion.valor.toLocaleString(locale, { maximumFractionDigits: 0 })}
               </span>
 
-              <span style={{ fontSize: 12, color: '#6e7781', minWidth: 38, textAlign: 'right' }}>
+              <span style={{ fontSize: grande ? 13 : 12, color: '#6e7781', minWidth: 44, textAlign: 'right' }}>
                 {(porcion.proporcion * 100).toFixed(0)}%
               </span>
             </div>
