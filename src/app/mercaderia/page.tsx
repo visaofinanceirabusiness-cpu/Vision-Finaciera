@@ -143,6 +143,7 @@ export default function MercaderiaPage() {
 
   const [mostrarConSaldo, setMostrarConSaldo] = useState(true);
   const [mostrarSinSaldo, setMostrarSinSaldo] = useState(false);
+  const [categoriasCerradas, setCategoriasCerradas] = useState<Record<string, boolean>>({});
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -340,6 +341,25 @@ export default function MercaderiaPage() {
     () => filtrarPorBusqueda(productosSinSaldo),
     [productosSinSaldo, busqueda]
   );
+
+  // "Con saldo" agrupado por categoría — cada categoría es su propio
+  // desplegable, en vez de una sola tabla larga con todos los
+  // productos mezclados.
+  const gruposConSaldoPorCategoria = useMemo(() => {
+    const grupos = new Map<string, ProductoFila[]>();
+
+    for (const producto of conSaldoVisibles) {
+      const categoria = producto.categoria || t('sinCategoria');
+      const lista = grupos.get(categoria) ?? [];
+      lista.push(producto);
+      grupos.set(categoria, lista);
+    }
+
+    return Array.from(grupos.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es', { sensitivity: 'base' }));
+  }, [conSaldoVisibles, t]);
+
+  const totalUnidadesConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.saldo, 0);
+  const totalInventarioConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.valorInventario, 0);
 
   const movimientosVisibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -666,9 +686,24 @@ export default function MercaderiaPage() {
             </div>
 
             {pestana === 'saldo' && (
-              <button type="button" onClick={abrirNuevoProducto} style={botonNuevo}>
-                {t('nuevoProducto')}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setMostrarConSaldo((actual) => !actual)}
+                  style={botonToggleConSaldo}
+                  title={t('conSaldo')}
+                >
+                  <span>{mostrarConSaldo ? '▾' : '▸'}</span>
+                  <span>🟢 {t('conSaldo')} ({conSaldoVisibles.length})</span>
+                  <span style={{ color: COLORES.gris, fontWeight: 600 }}>
+                    · {t('saldoTotalEtiqueta')} {totalUnidadesConSaldo} {t('unidades')} · {simboloMoneda(moneda)} {formatearNumeroEntero(totalInventarioConSaldo)}
+                  </span>
+                </button>
+
+                <button type="button" onClick={abrirNuevoProducto} style={botonNuevo}>
+                  {t('nuevoProducto')}
+                </button>
+              </div>
             )}
           </div>
 
@@ -866,22 +901,36 @@ export default function MercaderiaPage() {
             <div style={cargandoStyle}>{t('cargandoDatos')}</div>
           ) : pestana === 'saldo' ? (
             <>
-              <SeccionProductos
-                titulo={t('conSaldo')}
-                esConSaldo
-                emoji="🟢"
-                productos={conSaldoVisibles}
-                abierta={mostrarConSaldo}
-                onToggle={() => setMostrarConSaldo((actual) => !actual)}
-                mensajeVacio={t('sinProductosConSaldo')}
-                esAdmin={esAdmin}
-                simbolo={simboloMoneda(moneda)}
-                onEditar={abrirEditarProducto}
-                onEliminar={eliminarProducto}
-                eliminandoId={eliminandoProductoId}
-                idioma={idioma}
-                t={t}
-              />
+              {mostrarConSaldo && (
+                <>
+                  {gruposConSaldoPorCategoria.length === 0 && (
+                    <div style={{ ...vacioStyle, marginBottom: 14 }}>{t('sinProductosConSaldo')}</div>
+                  )}
+
+                  {gruposConSaldoPorCategoria.map(([categoria, productosDeCategoria]) => (
+                    <div key={categoria} style={{ marginBottom: 10 }}>
+                      <SeccionProductos
+                        titulo={categoria}
+                        esConSaldo
+                        emoji="📦"
+                        productos={productosDeCategoria}
+                        abierta={!categoriasCerradas[categoria]}
+                        onToggle={() =>
+                          setCategoriasCerradas((actual) => ({ ...actual, [categoria]: !actual[categoria] }))
+                        }
+                        mensajeVacio={t('sinProductosConSaldo')}
+                        esAdmin={esAdmin}
+                        simbolo={simboloMoneda(moneda)}
+                        onEditar={abrirEditarProducto}
+                        onEliminar={eliminarProducto}
+                        eliminandoId={eliminandoProductoId}
+                        idioma={idioma}
+                        t={t}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
 
               <div style={{ height: 14 }} />
 
@@ -1362,6 +1411,20 @@ const botonNuevo: React.CSSProperties = {
   cursor: 'pointer',
   fontWeight: 800,
   boxShadow: '0 8px 20px rgba(46,139,87,0.20)',
+};
+
+const botonToggleConSaldo: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  background: '#f0fdf4',
+  color: COLORES.verde,
+  border: '1px solid #bbf7d0',
+  borderRadius: 12,
+  padding: '10px 16px',
+  cursor: 'pointer',
+  fontWeight: 800,
+  fontSize: 13,
 };
 
 const botonValidar: React.CSSProperties = {
