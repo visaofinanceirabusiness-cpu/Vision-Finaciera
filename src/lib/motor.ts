@@ -532,25 +532,29 @@ export async function registrarOperacion(
   // ---------------------------------------------------
   // 1.b VALIDAR QUE NINGUNA CUENTA INVOLUCRADA QUEDE EN NEGATIVO
   //
-  // Dos casos simétricos:
-  //   - El lado que se ACREDITA (sale plata/stock) de una cuenta de
-  //     Activo (Caja, Banco, Stock, etc.) no puede quedar negativo.
-  //   - El lado que se DEBITA de una cuenta de Pasivo (Proveedor,
-  //     etc.) tampoco: si se debita más de lo que se debe, quedaría
-  //     un saldo "a favor" que hoy no tiene una cuenta propia (sería
-  //     un anticipo, que se modela con otra cuenta — pendiente de
-  //     desarrollar). Hasta que eso exista, se bloquea la operación
-  //     en vez de dejar el pasivo en negativo.
+  // Regla general, para cuentas de CUALQUIER tipo_saldo (Activo,
+  // Pasivo, Patrimonio, Ingreso, Gasto, Costo): el saldo se mueve
+  // según la naturaleza de la cuenta, no según su tipo. Dos casos
+  // simétricos:
+  //   - El lado que se ACREDITA de una cuenta DEUDORA (Caja, Banco,
+  //     Stock, un Gasto, un Costo) resta de su saldo — no puede
+  //     quedar negativo.
+  //   - El lado que se DEBITA de una cuenta ACREEDORA (Proveedor, un
+  //     Ingreso, Patrimonio) resta de su saldo — tampoco puede quedar
+  //     negativo: sería un saldo "a favor" que hoy no tiene una cuenta
+  //     propia (sería un anticipo, que se modela con otra cuenta —
+  //     pendiente de desarrollar). Hasta que eso exista, se bloquea la
+  //     operación en vez de dejar la cuenta en negativo.
   //
-  // Una cuenta de Pasivo creciendo por el crédito (una deuda nueva o
-  // más grande) es normal y no se bloquea acá, ni tampoco una cuenta
-  // de Activo creciendo por el débito.
+  // Una cuenta ACREEDORA creciendo por el crédito (una deuda nueva o
+  // más grande, un ingreso) es normal y no se bloquea acá, ni tampoco
+  // una cuenta DEUDORA creciendo por el débito.
   // ---------------------------------------------------
 
   if (regla.cuenta_credito) {
     const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito, formulario.fecha);
 
-    if (cuentaCredito && cuentaCredito.tipoSaldo === 'ACTIVO' && cuentaCredito.naturaleza === 'DEUDORA') {
+    if (cuentaCredito && cuentaCredito.naturaleza === 'DEUDORA') {
       const saldoResultante = cuentaCredito.saldo - total;
 
       if (saldoResultante < 0) {
@@ -564,7 +568,7 @@ export async function registrarOperacion(
   if (regla.cuenta_debito) {
     const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito, formulario.fecha);
 
-    if (cuentaDebito && cuentaDebito.tipoSaldo === 'PASIVO' && cuentaDebito.naturaleza === 'ACREEDORA') {
+    if (cuentaDebito && cuentaDebito.naturaleza === 'ACREEDORA') {
       const saldoResultante = cuentaDebito.saldo - total;
 
       if (saldoResultante < 0) {
@@ -632,13 +636,18 @@ export async function registrarOperacion(
       // stock='SI' y no sea COMPRA)
       //
       // Se calcula lo que efectivamente queda disponible
-      // en stock — cantidad y valor — tomando todo el
-      // historial de movimientos (ENTRADA y SALIDA) del
-      // producto y restando lo ya consumido. El costo
-      // unitario de cada SALIDA pasada ya refleja el
-      // promedio vigente en su momento, así que restar su
-      // cantidad*costo_unitario es equivalente a "consumir"
-      // ese valor del stock (promedio ponderado perpetuo).
+      // en stock — cantidad y valor — tomando el historial
+      // de movimientos (ENTRADA y SALIDA) del producto HASTA
+      // LA FECHA de esta operación (no todo el histórico:
+      // igual que con el saldo de las cuentas financieras,
+      // si no se filtrara por fecha se podría cargar una
+      // venta con fecha atrasada usando stock de una compra
+      // posterior que en esa fecha vieja todavía no existía)
+      // y restando lo ya consumido. El costo unitario de cada
+      // SALIDA pasada ya refleja el promedio vigente en su
+      // momento, así que restar su cantidad*costo_unitario es
+      // equivalente a "consumir" ese valor del stock (promedio
+      // ponderado perpetuo).
       //
       // Ninguna SALIDA puede pedir más cantidad de la que
       // hay disponible — así ninguna operación deja el
@@ -660,7 +669,8 @@ export async function registrarOperacion(
             'producto_id',
             linea.producto
           )
-          .in('tipo', ['ENTRADA', 'SALIDA']);
+          .in('tipo', ['ENTRADA', 'SALIDA'])
+          .lte('fecha', formulario.fecha);
 
         if (error) {
           throw error;
