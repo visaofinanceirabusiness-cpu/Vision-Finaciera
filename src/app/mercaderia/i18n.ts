@@ -38,6 +38,7 @@ type Clave =
   | 'sinProductosSinSaldo'
   | 'unidades'
   | 'valorInventarioEtiqueta'
+  | 'saldoTotalEtiqueta'
   | 'codigoHeader'
   | 'productoHeader'
   | 'categoriaHeader'
@@ -119,6 +120,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     sinProductosSinSaldo: 'No hay productos sin saldo.',
     unidades: 'unidades',
     valorInventarioEtiqueta: 'Valor inventario:',
+    saldoTotalEtiqueta: 'Saldo total:',
     codigoHeader: 'Código',
     productoHeader: 'Producto',
     categoriaHeader: 'Categoría',
@@ -199,6 +201,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     sinProductosSinSaldo: 'Não há produtos sem saldo.',
     unidades: 'unidades',
     valorInventarioEtiqueta: 'Valor do estoque:',
+    saldoTotalEtiqueta: 'Saldo total:',
     codigoHeader: 'Código',
     productoHeader: 'Produto',
     categoriaHeader: 'Categoria',
