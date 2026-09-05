@@ -239,7 +239,7 @@ export default function MiNegocioPage() {
         }));
 
       setPeriodos(listaPeriodos);
-      setPeriodoSeleccionado(periodoActual);
+      setPeriodoSeleccionado('TODOS');
       setCargando(false);
     }
 
@@ -488,6 +488,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
                   emoji="💵"
                   color={colores.verde}
+                  ayuda={t('ayudaDineroDisponible')}
                 />
 
                 <ResumenEjecutivoCard
@@ -495,6 +496,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                   emoji="💗"
                   color="#b91c1c"
+                  ayuda={t('ayudaDeudaTotal')}
                 />
 
                 <ResumenEjecutivoCard
@@ -502,6 +504,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
                   emoji="💙"
                   color={colores.azul}
+                  ayuda={t('ayudaPatrimonioNeto')}
                 />
               </>
             ) : (
@@ -511,6 +514,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                   emoji="💚"
                   color={colores.verde}
+                  ayuda={t('ayudaActivo')}
                 />
 
                 <ResumenEjecutivoCard
@@ -518,6 +522,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                   emoji="💗"
                   color="#b91c1c"
+                  ayuda={t('ayudaPasivo')}
                 />
 
                 <ResumenEjecutivoCard
@@ -525,6 +530,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
                   emoji="💙"
                   color={colores.azul}
+                  ayuda={t('ayudaCapital')}
                 />
 
                 <ResumenEjecutivoCard
@@ -532,6 +538,7 @@ export default function MiNegocioPage() {
                   valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
                   emoji="💵"
                   color={colores.azul}
+                  ayuda={t('ayudaSaldoEnCaja')}
                 />
 
                 <ResumenEjecutivoCard
@@ -539,6 +546,7 @@ export default function MiNegocioPage() {
                   valor={`${indicadores?.stockBajo ?? 0} ${t('productos')}`}
                   emoji="📦"
                   color={colores.acento}
+                  ayuda={t('ayudaStockBajo')}
                 />
               </>
             )}
@@ -702,6 +710,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
                     color={colores.verde}
+                    ayuda={t('ayudaIngresosDelPeriodo')}
                   />
 
                   <ResumenEjecutivoCard
@@ -709,6 +718,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
                     color="#c2410c"
+                    ayuda={t('ayudaGastosDelPeriodo')}
                   />
 
                   <ResumenEjecutivoCard
@@ -716,6 +726,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="🐷"
                     color={colores.azul}
+                    ayuda={t('ayudaAhorroDelPeriodo')}
                   />
 
                   <ResumenEjecutivoCard
@@ -723,6 +734,7 @@ export default function MiNegocioPage() {
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
                     color={colores.verde}
+                    ayuda={t('ayudaTasaDeAhorro')}
                   />
                 </>
               ) : (
@@ -732,6 +744,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
                     color={colores.verde}
+                    ayuda={t('ayudaIngresoOperativo')}
                   />
 
                   <ResumenEjecutivoCard
@@ -739,6 +752,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.cmv ?? 0)}`}
                     emoji="🏷️"
                     color="#b45309"
+                    ayuda={t('ayudaCmv')}
                   />
 
                   <ResumenEjecutivoCard
@@ -746,6 +760,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
                     color="#c2410c"
+                    ayuda={t('ayudaGastos')}
                   />
 
                   <ResumenEjecutivoCard
@@ -753,6 +768,7 @@ export default function MiNegocioPage() {
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="💰"
                     color={colores.azul}
+                    ayuda={t('ayudaLucro')}
                   />
 
                   <ResumenEjecutivoCard
@@ -760,6 +776,7 @@ export default function MiNegocioPage() {
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
                     color={colores.verde}
+                    ayuda={t('ayudaRentabilidad')}
                   />
 
                   <ResumenEjecutivoCard
@@ -767,6 +784,7 @@ export default function MiNegocioPage() {
                     valor={`${formatearNumero(indicadores?.liquidez ?? 0)}`}
                     emoji="💧"
                     color="#ca8a04"
+                    ayuda={t('ayudaLiquidezCorriente')}
                   />
                 </>
               )}
@@ -1479,11 +1497,13 @@ function ResumenEjecutivoCard({
   valor,
   emoji,
   color,
+  ayuda,
 }: {
   titulo: string;
   valor: string;
   emoji: string;
   color: string;
+  ayuda?: string;
 }) {
   return (
     <div
@@ -1499,9 +1519,13 @@ function ResumenEjecutivoCard({
           fontSize: 12,
           color: COLORES_BASE.gris,
           marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
         }}
       >
-        {emoji} {titulo}
+        <span>{emoji} {titulo}</span>
+        {ayuda && <IconoAyuda texto={ayuda} color={color} />}
       </div>
 
       <strong

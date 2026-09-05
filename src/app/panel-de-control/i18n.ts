@@ -48,6 +48,24 @@ export type ClavePanelControl =
   | 'lucro'
   | 'rentabilidad'
   | 'liquidezCorriente'
+  | 'ayudaDineroDisponible'
+  | 'ayudaDeudaTotal'
+  | 'ayudaPatrimonioNeto'
+  | 'ayudaActivo'
+  | 'ayudaPasivo'
+  | 'ayudaCapital'
+  | 'ayudaSaldoEnCaja'
+  | 'ayudaStockBajo'
+  | 'ayudaIngresosDelPeriodo'
+  | 'ayudaGastosDelPeriodo'
+  | 'ayudaAhorroDelPeriodo'
+  | 'ayudaTasaDeAhorro'
+  | 'ayudaIngresoOperativo'
+  | 'ayudaCmv'
+  | 'ayudaGastos'
+  | 'ayudaLucro'
+  | 'ayudaRentabilidad'
+  | 'ayudaLiquidezCorriente'
   | 'tituloDistribucionGastos'
   | 'subtituloDistribucionGastos'
   | 'vacioDistribucionGastos'
@@ -127,6 +145,24 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     lucro: 'Lucro',
     rentabilidad: 'Rentabilidad',
     liquidezCorriente: 'Liquidez corriente',
+    ayudaDineroDisponible: 'Es la plata que tenés disponible ahora mismo en efectivo y cuentas bancarias — no incluye lo invertido ni lo que te deben.',
+    ayudaDeudaTotal: 'Lo que la familia debe en total (tarjetas, préstamos, etc.), sin restar lo que tiene a favor.',
+    ayudaPatrimonioNeto: 'Lo que realmente "es tuyo": todo lo que tenés (dinero, ahorros, inversiones) menos lo que debés.',
+    ayudaActivo: 'Todo lo que la empresa posee: caja, banco, stock, cuentas por cobrar, etc. Cuanto más alto, más recursos tiene el negocio.',
+    ayudaPasivo: 'Todo lo que la empresa debe: proveedores, préstamos, tarjetas. Es dinero que en algún momento hay que devolver.',
+    ayudaCapital: 'Lo que le queda a la empresa después de restarle las deudas a todo lo que posee: Activo menos Pasivo.',
+    ayudaSaldoEnCaja: 'Cuánto dinero líquido tiene la empresa ahora mismo, sumando todas sus cuentas (caja, banco, billetera virtual).',
+    ayudaStockBajo: 'Cantidad de productos con muy poco stock disponible — revisalos para no quedarte sin mercadería para vender.',
+    ayudaIngresosDelPeriodo: 'Todo lo que ingresó a la familia en el período elegido: sueldos, ventas, cobros, etc.',
+    ayudaGastosDelPeriodo: 'Todo lo que se gastó en el período elegido, sin contar inversiones ni retiros personales.',
+    ayudaAhorroDelPeriodo: 'Lo que quedó después de pagar todos los gastos del período: Ingresos menos Gastos.',
+    ayudaTasaDeAhorro: 'Qué porcentaje de lo que ingresó se pudo ahorrar en el período. Cuanto más alto, mejor.',
+    ayudaIngresoOperativo: 'Todo lo que la empresa facturó o cobró en el período por su actividad principal (ventas, cobros de servicios).',
+    ayudaCmv: 'Costo de Mercadería Vendida: cuánto costó comprar o producir lo que se vendió en el período. No incluye gastos generales.',
+    ayudaGastos: 'Gastos operativos del período (alquiler, servicios, sueldos, etc.), sin contar el costo de lo vendido (CMV).',
+    ayudaLucro: 'Lo que realmente ganó la empresa en el período: Ingresos menos CMV menos Gastos.',
+    ayudaRentabilidad: 'Qué porcentaje de lo facturado se convirtió en ganancia (Lucro / Ingresos). Cuanto más alto, más eficiente el negocio.',
+    ayudaLiquidezCorriente: 'Compara lo que la empresa tiene disponible en el corto plazo (caja, banco, stock, cuentas por cobrar) contra lo que debe pagar en el corto plazo. Un valor mayor a 1 significa que alcanza para cubrir esas deudas; menor a 1 es una señal de alerta.',
     tituloDistribucionGastos: '🧾 Distribución de gastos',
     subtituloDistribucionGastos: 'En qué se fue la plata este período',
     vacioDistribucionGastos: 'Todavía no hay gastos registrados en este período.',
@@ -205,6 +241,24 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     lucro: 'Lucro',
     rentabilidad: 'Rentabilidade',
     liquidezCorriente: 'Liquidez corrente',
+    ayudaDineroDisponible: 'É o dinheiro que você tem disponível agora, em espécie e contas bancárias — não inclui o que está investido nem o que te devem.',
+    ayudaDeudaTotal: 'O que a família deve no total (cartões, empréstimos, etc.), sem descontar o que tem a favor.',
+    ayudaPatrimonioNeto: 'O que realmente "é seu": tudo o que você tem (dinheiro, poupança, investimentos) menos o que você deve.',
+    ayudaActivo: 'Tudo o que a empresa possui: caixa, banco, estoque, contas a receber, etc. Quanto mais alto, mais recursos tem o negócio.',
+    ayudaPasivo: 'Tudo o que a empresa deve: fornecedores, empréstimos, cartões. É dinheiro que em algum momento precisa ser devolvido.',
+    ayudaCapital: 'O que sobra para a empresa depois de descontar as dívidas de tudo o que ela possui: Ativo menos Passivo.',
+    ayudaSaldoEnCaja: 'Quanto dinheiro líquido a empresa tem agora, somando todas as suas contas (caixa, banco, carteira virtual).',
+    ayudaStockBajo: 'Quantidade de produtos com pouquíssimo estoque disponível — revise-os para não ficar sem mercadoria para vender.',
+    ayudaIngresosDelPeriodo: 'Tudo o que entrou para a família no período escolhido: salários, vendas, recebimentos, etc.',
+    ayudaGastosDelPeriodo: 'Tudo o que foi gasto no período escolhido, sem contar investimentos nem retiradas pessoais.',
+    ayudaAhorroDelPeriodo: 'O que sobrou depois de pagar todas as despesas do período: Receitas menos Despesas.',
+    ayudaTasaDeAhorro: 'Qual porcentagem do que entrou foi possível poupar no período. Quanto mais alto, melhor.',
+    ayudaIngresoOperativo: 'Tudo o que a empresa faturou ou recebeu no período pela sua atividade principal (vendas, recebimentos de serviços).',
+    ayudaCmv: 'Custo da Mercadoria Vendida: quanto custou comprar ou produzir o que foi vendido no período. Não inclui despesas gerais.',
+    ayudaGastos: 'Despesas operacionais do período (aluguel, serviços, salários, etc.), sem contar o custo do que foi vendido (CMV).',
+    ayudaLucro: 'O que a empresa realmente ganhou no período: Receitas menos CMV menos Despesas.',
+    ayudaRentabilidad: 'Qual porcentagem do faturado virou lucro (Lucro / Receitas). Quanto mais alto, mais eficiente o negócio.',
+    ayudaLiquidezCorriente: 'Compara o que a empresa tem disponível no curto prazo (caixa, banco, estoque, contas a receber) com o que ela precisa pagar no curto prazo. Um valor maior que 1 significa que dá para cobrir essas dívidas; menor que 1 é um sinal de alerta.',
     tituloDistribucionGastos: '🧾 Distribuição de despesas',
     subtituloDistribucionGastos: 'Para onde foi o dinheiro neste período',
     vacioDistribucionGastos: 'Ainda não há despesas registradas neste período.',
