@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
+import { avatarPorDefecto } from '@/lib/avatares';
 import { eliminarOperacion } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
@@ -56,6 +57,7 @@ type SolicitudAlta = {
   user_id: string;
   email: string;
   nombre: string;
+  sexo: string | null;
   telefono: string;
   nombre_empresa: string;
   rubro: string | null;
@@ -192,7 +194,7 @@ export default function PanelMaestroPage() {
   async function cargarSolicitudes() {
     const { data, error: errorSolicitudes } = await supabase
       .from('solicitudes_alta')
-      .select('id, user_id, email, nombre, telefono, nombre_empresa, rubro, moneda, idioma, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
+      .select('id, user_id, email, nombre, sexo, telefono, nombre_empresa, rubro, moneda, idioma, perfil_empresa_id, componentes_mixto, creado_en, perfiles_empresa(nombre, codigo)')
       .eq('estado', 'PENDIENTE')
       .order('creado_en', { ascending: true });
 
@@ -279,6 +281,10 @@ export default function PanelMaestroPage() {
           email: solicitud.email,
           moneda: solicitud.moneda,
           idioma: solicitud.idioma,
+          // Avatar por defecto según el sexo del emprendedor, en vez
+          // de arrancar con la letra inicial — lo puede cambiar
+          // cuando quiera desde Configurações → Logo.
+          logo_url: avatarPorDefecto(solicitud.sexo),
           // Las empresas nuevas arrancan sin operar: el onboarding
           // guiado (wizard de datos + 3 operaciones con Sabio) las
           // deja operativas y recién ahí pone esto en true. Las
@@ -1520,6 +1526,7 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
   const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
   const [idioma, setIdioma] = useState<'ES' | 'PT'>('ES');
   const [moneda, setMoneda] = useState('ARS');
+  const [sexo, setSexo] = useState<'M' | 'F' | ''>('');
   const [creando, setCreando] = useState(false);
 
   useEffect(() => {
@@ -1557,6 +1564,11 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
       return;
     }
 
+    if (!sexo) {
+      onError('Elegí el sexo (define el avatar por defecto de la empresa de prueba).');
+      return;
+    }
+
     setCreando(true);
 
     const perfilNombre = perfiles.find((p) => p.id === perfilElegido)?.nombre ?? perfilCodigo ?? 'Prueba';
@@ -1582,6 +1594,7 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
           rubro: 'Empresa de prueba',
           moneda,
           idioma,
+          logo_url: avatarPorDefecto(sexo),
           onboarding_completado: false,
         })
         .select('id')
@@ -1704,6 +1717,15 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
                 <option value="ARS">Peso argentino (ARS)</option>
                 <option value="BRL">Real brasileño (BRL)</option>
                 <option value="USD">Dólar (USD)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Sexo (define el avatar por defecto)</label>
+              <select style={inputStyle} value={sexo} onChange={(e) => setSexo(e.target.value as 'M' | 'F' | '')}>
+                <option value="">Seleccionar...</option>
+                <option value="F">Femenino</option>
+                <option value="M">Masculino</option>
               </select>
             </div>
 

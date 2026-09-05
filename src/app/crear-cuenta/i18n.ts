@@ -6,6 +6,10 @@ type Clave =
   | 'subtitulo'
   | 'tuNombre'
   | 'tuNombrePlaceholder'
+  | 'tuSexo'
+  | 'sexoFemenino'
+  | 'sexoMasculino'
+  | 'seleccionar'
   | 'email'
   | 'emailPlaceholder'
   | 'contrasena'
@@ -44,6 +48,10 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
       'Completá tus datos y los de tu negocio. Un administrador va a revisar y aprobar tu solicitud antes de que puedas empezar a operar.',
     tuNombre: 'Tu nombre *',
     tuNombrePlaceholder: 'Ej: Brenda',
+    tuSexo: 'Sexo *',
+    sexoFemenino: 'Femenino',
+    sexoMasculino: 'Masculino',
+    seleccionar: 'Seleccionar...',
     email: 'Email *',
     emailPlaceholder: 'tuemail@ejemplo.com',
     contrasena: 'Contraseña *',
@@ -83,6 +91,10 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
       'Preencha seus dados e os do seu negócio. Um administrador vai revisar e aprovar sua solicitação antes que você possa começar a operar.',
     tuNombre: 'Seu nome *',
     tuNombrePlaceholder: 'Ex: Brenda',
+    tuSexo: 'Sexo *',
+    sexoFemenino: 'Feminino',
+    sexoMasculino: 'Masculino',
+    seleccionar: 'Selecionar...',
     email: 'Email *',
     emailPlaceholder: 'seuemail@exemplo.com',
     contrasena: 'Senha *',
