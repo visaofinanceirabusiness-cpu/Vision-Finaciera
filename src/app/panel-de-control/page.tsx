@@ -821,11 +821,22 @@ export default function MiNegocioPage() {
               ) : (
                 <>
                   <CategoryChart
-                    datos={indicadores?.ventasCategorias ?? []}
+                    datos={indicadores?.ventasProductoCategorias ?? []}
                     color={colores.acento}
                     simbolo={simbolo}
                     idioma={idioma}
+                    titulo={t('tituloVentasProducto')}
                   />
+
+                  {(indicadores?.ventasServicioCategorias?.length ?? 0) > 0 && (
+                    <CategoryChart
+                      datos={indicadores?.ventasServicioCategorias ?? []}
+                      color={colores.azul}
+                      simbolo={simbolo}
+                      idioma={idioma}
+                      titulo={t('tituloVentasServicio')}
+                    />
+                  )}
 
                   <DistribucionPieChart
                     datos={indicadores?.liquidezPorCuenta ?? []}
