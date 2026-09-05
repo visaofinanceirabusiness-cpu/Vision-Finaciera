@@ -234,6 +234,16 @@ export default function PanelMaestroPage() {
     cargar();
   }, [router]);
 
+  const [actualizando, setActualizando] = useState(false);
+
+  async function actualizarTodo() {
+    setActualizando(true);
+    setError('');
+    setMensaje('');
+    await Promise.all([cargarEmpresas(), cargarPendientes(), cargarSolicitudes()]);
+    setActualizando(false);
+  }
+
   async function aprobarSolicitud(solicitud: SolicitudAlta) {
     setError('');
     setMensaje('');
@@ -585,6 +595,23 @@ export default function PanelMaestroPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <NotificacionesPush />
+              <button
+                onClick={actualizarTodo}
+                disabled={actualizando}
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: COLORES_BASE.blanco,
+                  borderRadius: 999,
+                  padding: '7px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: actualizando ? 'default' : 'pointer',
+                  opacity: actualizando ? 0.7 : 1,
+                }}
+              >
+                {actualizando ? '↻ Actualizando...' : '↻ Actualizar'}
+              </button>
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
