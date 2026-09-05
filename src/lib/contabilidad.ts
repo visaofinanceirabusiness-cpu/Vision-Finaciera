@@ -461,12 +461,16 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
-  // Distribución de la liquidez: cómo se reparte el dinero disponible
-  // HOY (grupo 1.1.1.x — Caja, Banco, Billetera Virtual, etc., el
-  // mismo grupo que ya arma "cajaDisponible") entre esas cuentas. No
-  // incluye Clientes a Cobrar ni Stock: eso no es líquido.
+  // Distribución de la liquidez: cómo se reparte HOY el dinero
+  // disponible (grupo 1.1.1.x — Caja, Banco, Billetera Virtual, etc.)
+  // junto con todo lo que está por cobrar (grupo 1.1.2.x — Clientes a
+  // Cobrar, Tarjeta de Crédito a Cobrar, etc.). No incluye Stock
+  // (1.1.3.x) ni Anticipos a Proveedores (1.1.4.x).
   const liquidezPorCuenta: PuntoGrafico[] = hojas
-    .filter((cuenta) => (cuenta.codigo ?? '').startsWith('1.1.1.'))
+    .filter((cuenta) => {
+      const codigo = cuenta.codigo ?? '';
+      return codigo.startsWith('1.1.1.') || codigo.startsWith('1.1.2.');
+    })
     .map((cuenta) => ({ nombre: cuenta.nombre, valor: redondear(saldoDe(cuenta, acumuladoTotal, true)) }))
     .filter((punto) => punto.valor > 0)
     .sort((a, b) => b.valor - a.valor);
