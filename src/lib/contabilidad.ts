@@ -255,19 +255,43 @@ export async function obtenerIndicadores(
       : inicial + debito - credito;
   }
 
+  // Naturaleza "de fábrica" que se espera para cada tipo_saldo. La
+  // mayoría de las cuentas de un grupo la respetan (ej. casi todo
+  // PATRIMONIO es ACREEDORA), pero puede haber alguna cuenta "contra"
+  // con la naturaleza opuesta a propósito (ej. Retiro Personal es
+  // PATRIMONIO pero DEUDORA, porque resta patrimonio en vez de
+  // sumarlo). saldoDe() ya devuelve el saldo en la dirección PROPIA de
+  // cada cuenta — para sumar varias cuentas de un mismo grupo hay que
+  // llevarlas todas a la dirección del grupo primero, restando (no
+  // sumando) las que van al revés.
+  function naturalezaCanonica(tipoSaldo: string | null | undefined): 'DEUDORA' | 'ACREEDORA' {
+    return tipoSaldo === 'PASIVO' || tipoSaldo === 'PATRIMONIO' || tipoSaldo === 'INGRESO'
+      ? 'ACREEDORA'
+      : 'DEUDORA';
+  }
+
+  function saldoConSigno(
+    cuenta: CuentaPlan,
+    acumulado: { debitos: Map<string, number>; creditos: Map<string, number> },
+    incluirSaldoInicial: boolean
+  ): number {
+    const saldo = saldoDe(cuenta, acumulado, incluirSaldoInicial);
+    return cuenta.naturaleza === naturalezaCanonica(cuenta.tipo_saldo) ? saldo : -saldo;
+  }
+
   // ---------------------------------------------------------------
   // 3. Patrimoniales: siempre acumulados a la fecha
   // ---------------------------------------------------------------
   function totalPorTipo(tipo: string): number {
     return hojas
       .filter((cuenta) => cuenta.tipo_saldo === tipo)
-      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoTotal, true), 0);
+      .reduce((suma, cuenta) => suma + saldoConSigno(cuenta, acumuladoTotal, true), 0);
   }
 
   function totalPorPrefijo(prefijo: string): number {
     return hojas
       .filter((cuenta) => (cuenta.codigo ?? '').startsWith(prefijo))
-      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoTotal, true), 0);
+      .reduce((suma, cuenta) => suma + saldoConSigno(cuenta, acumuladoTotal, true), 0);
   }
 
   const activos = totalPorTipo('ACTIVO');
@@ -289,7 +313,7 @@ export async function obtenerIndicadores(
   function circulanteAlCierre(prefijo: string): number {
     return hojas
       .filter((cuenta) => (cuenta.codigo ?? '').startsWith(prefijo))
-      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoHastaFin, true), 0);
+      .reduce((suma, cuenta) => suma + saldoConSigno(cuenta, acumuladoHastaFin, true), 0);
   }
 
   const activoCirculante = circulanteAlCierre('1.1.');
@@ -310,7 +334,7 @@ export async function obtenerIndicadores(
       .filter((cuenta) => cuenta.tipo_saldo === tipo)
       .reduce(
         (suma, cuenta) =>
-          suma + saldoDe(cuenta, acumuladoPeriodo, incluirInicialEnResultado),
+          suma + saldoConSigno(cuenta, acumuladoPeriodo, incluirInicialEnResultado),
         0
       );
   }
@@ -327,7 +351,7 @@ export async function obtenerIndicadores(
     .filter((cuenta) => (cuenta.codigo ?? '').startsWith('5.1.'))
     .reduce(
       (suma, cuenta) =>
-        suma + saldoDe(cuenta, acumuladoPeriodo, incluirInicialEnResultado),
+        suma + saldoConSigno(cuenta, acumuladoPeriodo, incluirInicialEnResultado),
       0
     );
 
