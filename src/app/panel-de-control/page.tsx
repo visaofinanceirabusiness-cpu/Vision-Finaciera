@@ -17,6 +17,7 @@ import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import {
   diccionarioPanelControl,
   type ClavePanelControl,
@@ -399,6 +400,26 @@ export default function MiNegocioPage() {
             <AccesosHerramientas />
           </div>
         </header>
+
+        {/* Prototipo: versión flotante de Sabio, compacta mientras se
+            scrollea y expandible al tocar — para que "siga siempre en
+            pantalla" también cuando el widget de arriba ya se
+            scrolleó fuera de vista. Si funciona bien acá, se lleva al
+            resto de las pantallas. */}
+        {mostrarBienvenidaTutorial ? (
+          <SabioFlotante
+            colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+            idioma={idioma}
+            frase={msgBienvenidaTutorialPanel(idioma)}
+            onClickFrase={() => setMostrarBienvenidaTutorial(false)}
+          />
+        ) : (
+          <SabioFlotante
+            colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+            idioma={idioma}
+            frases={frasesSabioPanel(idioma)}
+          />
+        )}
 
         {/* =================================================
             AVISO DE CONSISTENCIA CONTABLE
