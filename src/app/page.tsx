@@ -22,6 +22,7 @@ import {
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
@@ -692,6 +693,8 @@ export default function InicioPage() {
           }
           objetivos={objetivos}
         />
+
+        <SabioFlotante colores={colores} idioma={idioma} />
 
         {/* =================================================
             MENSAJES
