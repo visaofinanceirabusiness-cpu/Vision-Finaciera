@@ -753,203 +753,229 @@ export default function PanelMaestroPage() {
           onRechazarMovimiento={rechazarMovimiento}
         />
 
-        {/* LISTA DE EMPRESAS */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 18,
-          }}
-        >
-          {empresas.map((empresa) => (
-            <div
-              key={empresa.id}
-              onClick={() => cambiando === null && entrarAEmpresa(empresa.id)}
-              style={{
-                background: COLORES_BASE.blanco,
-                border: '1px solid #e5e7eb',
-                borderRadius: 22,
-                padding: 22,
-                textAlign: 'left',
-                cursor: cambiando ? 'wait' : 'pointer',
-                boxShadow: '0 10px 24px rgba(31,58,95,0.06)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-                opacity: cambiando && cambiando !== empresa.id ? 0.5 : 1,
-                transition: 'opacity 0.2s ease',
-                position: 'relative',
-              }}
-            >
-              <button
-                type="button"
-                title={`Eliminar ${empresa.nombre} y todo lo conectado`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  eliminarEmpresa(empresa);
-                }}
-                disabled={eliminandoEmpresa !== null}
+        {/* LISTA DE EMPRESAS — agrupadas por perfil, para poder ver de
+            un vistazo cuántas empresas hay de cada tipo. */}
+        {Array.from(
+          empresas.reduce((grupos, empresa) => {
+            const nombrePerfil = empresa.perfiles_empresa?.nombre ?? 'Sin perfil';
+            grupos.set(nombrePerfil, [...(grupos.get(nombrePerfil) ?? []), empresa]);
+            return grupos;
+          }, new Map<string, Empresa[]>())
+        )
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([nombrePerfil, empresasDelGrupo]) => (
+            <div key={nombrePerfil} style={{ marginBottom: 28 }}>
+              <h2
                 style={{
-                  position: 'absolute',
-                  top: 14,
-                  right: 14,
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  border: '1px solid #fecaca',
-                  background: '#fef2f2',
-                  color: '#b91c1c',
                   fontSize: 13,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontWeight: 800,
+                  letterSpacing: 0.5,
+                  color: COLORES_BASE.azul,
+                  textTransform: 'uppercase',
+                  margin: '0 0 12px',
                 }}
               >
-                {eliminandoEmpresa === empresa.id ? '...' : '🗑️'}
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 16,
-                    background: '#fbfcfd',
-                    border: `2px solid ${COLORES_BASE.gris}33`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                  }}
-                >
-                  {empresa.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={empresa.logo_url}
-                      alt={`Logo de ${empresa.nombre}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }}
-                    />
-                  ) : (
-                    <span style={{ fontSize: 24, fontWeight: 800, color: COLORES_BASE.azul }}>
-                      {empresa.nombre.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 19, fontWeight: 800, color: COLORES_BASE.azul }}>
-                    {empresa.nombre}{' '}
-                    <span style={{ fontSize: 12, fontWeight: 700, color: COLORES_BASE.gris }}>
-                      · Cliente #{empresa.numero_cliente}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
-                    {empresa.rubro ?? 'Sin rubro definido'}
-                  </div>
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      marginTop: 3,
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: `${COLORES_BASE.azul}14`,
-                      color: COLORES_BASE.azul,
-                    }}
-                  >
-                    {empresa.perfiles_empresa?.nombre ?? 'Sin perfil'}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      marginTop: 3,
-                      color: ultimoAccesoPorEmpresa[empresa.id] ? '#16a34a' : '#b91c1c',
-                    }}
-                  >
-                    {ultimoAccesoPorEmpresa[empresa.id] === undefined
-                      ? 'Último acceso: cargando...'
-                      : formatearUltimoAcceso(ultimoAccesoPorEmpresa[empresa.id])}
-                  </div>
-                </div>
-              </div>
-
-              <div onClick={(e) => e.stopPropagation()}>
-                <BloqueSuscripcionEmpresa
-                  empresaId={empresa.id}
-                  fechaVencimiento={empresa.fecha_vencimiento_suscripcion}
-                  fechaAlta={empresa.creado_en}
-                  onActualizado={cargarEmpresas}
-                />
-              </div>
-
-              {nivelesPorEmpresa[empresa.id] && (
-                <div
-                  style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 14,
-                    padding: '12px 14px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      color: COLORES_BASE.azul,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span>
-                      {nivelesPorEmpresa[empresa.id].emoji} Nivel {nivelesPorEmpresa[empresa.id].nivel} ·{' '}
-                      {nivelesPorEmpresa[empresa.id].nombre}
-                    </span>
-                    <span style={{ color: COLORES_BASE.gris, fontWeight: 600 }}>
-                      {nivelesPorEmpresa[empresa.id].operaciones} op.
-                    </span>
-                  </div>
-
-                  <div style={{ height: 7, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${nivelesPorEmpresa[empresa.id].progreso}%`,
-                        height: '100%',
-                        borderRadius: 999,
-                        background: COLORES_BASE.verde,
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginTop: 6, fontSize: 11, color: COLORES_BASE.gris }}>
-                    {nivelesPorEmpresa[empresa.id].operacionesMax === null
-                      ? 'Nivel máximo alcanzado'
-                      : `Faltan ${nivelesPorEmpresa[empresa.id].faltan} operaciones para el próximo nivel`}
-                  </div>
-                </div>
-              )}
+                {nombrePerfil} · {empresasDelGrupo.length}
+              </h2>
 
               <div
                 style={{
-                  textAlign: 'center',
-                  padding: '10px 0',
-                  borderRadius: 12,
-                  background: `${COLORES_BASE.verde}12`,
-                  color: COLORES_BASE.verde,
-                  fontWeight: 700,
-                  fontSize: 13,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: 18,
                 }}
               >
-                {cambiando === empresa.id ? 'Entrando...' : 'Entrar a este universo →'}
+                {empresasDelGrupo.map((empresa) => (
+                  <div
+                    key={empresa.id}
+                    onClick={() => cambiando === null && entrarAEmpresa(empresa.id)}
+                    style={{
+                      background: COLORES_BASE.blanco,
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 22,
+                      padding: 22,
+                      textAlign: 'left',
+                      cursor: cambiando ? 'wait' : 'pointer',
+                      boxShadow: '0 10px 24px rgba(31,58,95,0.06)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 14,
+                      opacity: cambiando && cambiando !== empresa.id ? 0.5 : 1,
+                      transition: 'opacity 0.2s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      title={`Eliminar ${empresa.nombre} y todo lo conectado`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        eliminarEmpresa(empresa);
+                      }}
+                      disabled={eliminandoEmpresa !== null}
+                      style={{
+                        position: 'absolute',
+                        top: 14,
+                        right: 14,
+                        width: 30,
+                        height: 30,
+                        borderRadius: 8,
+                        border: '1px solid #fecaca',
+                        background: '#fef2f2',
+                        color: '#b91c1c',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {eliminandoEmpresa === empresa.id ? '...' : '🗑️'}
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 16,
+                          background: '#fbfcfd',
+                          border: `2px solid ${COLORES_BASE.gris}33`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {empresa.logo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={empresa.logo_url}
+                            alt={`Logo de ${empresa.nombre}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 24, fontWeight: 800, color: COLORES_BASE.azul }}>
+                            {empresa.nombre.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 19, fontWeight: 800, color: COLORES_BASE.azul }}>
+                          {empresa.nombre}{' '}
+                          <span style={{ fontSize: 12, fontWeight: 700, color: COLORES_BASE.gris }}>
+                            · Cliente #{empresa.numero_cliente}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
+                          {empresa.rubro ?? 'Sin rubro definido'}
+                        </div>
+                        <div
+                          style={{
+                            display: 'inline-block',
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            marginTop: 3,
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            background: `${COLORES_BASE.azul}14`,
+                            color: COLORES_BASE.azul,
+                          }}
+                        >
+                          {empresa.perfiles_empresa?.nombre ?? 'Sin perfil'}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            marginTop: 3,
+                            color: ultimoAccesoPorEmpresa[empresa.id] ? '#16a34a' : '#b91c1c',
+                          }}
+                        >
+                          {ultimoAccesoPorEmpresa[empresa.id] === undefined
+                            ? 'Último acceso: cargando...'
+                            : formatearUltimoAcceso(ultimoAccesoPorEmpresa[empresa.id])}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <BloqueSuscripcionEmpresa
+                        empresaId={empresa.id}
+                        fechaVencimiento={empresa.fecha_vencimiento_suscripcion}
+                        fechaAlta={empresa.creado_en}
+                        onActualizado={cargarEmpresas}
+                      />
+                    </div>
+
+                    {nivelesPorEmpresa[empresa.id] && (
+                      <div
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 14,
+                          padding: '12px 14px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            color: COLORES_BASE.azul,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span>
+                            {nivelesPorEmpresa[empresa.id].emoji} Nivel {nivelesPorEmpresa[empresa.id].nivel} ·{' '}
+                            {nivelesPorEmpresa[empresa.id].nombre}
+                          </span>
+                          <span style={{ color: COLORES_BASE.gris, fontWeight: 600 }}>
+                            {nivelesPorEmpresa[empresa.id].operaciones} op.
+                          </span>
+                        </div>
+
+                        <div style={{ height: 7, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${nivelesPorEmpresa[empresa.id].progreso}%`,
+                              height: '100%',
+                              borderRadius: 999,
+                              background: COLORES_BASE.verde,
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ marginTop: 6, fontSize: 11, color: COLORES_BASE.gris }}>
+                          {nivelesPorEmpresa[empresa.id].operacionesMax === null
+                            ? 'Nivel máximo alcanzado'
+                            : `Faltan ${nivelesPorEmpresa[empresa.id].faltan} operaciones para el próximo nivel`}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        padding: '10px 0',
+                        borderRadius: 12,
+                        background: `${COLORES_BASE.verde}12`,
+                        color: COLORES_BASE.verde,
+                        fontWeight: 700,
+                        fontSize: 13,
+                      }}
+                    >
+                      {cambiando === empresa.id ? 'Entrando...' : 'Entrar a este universo →'}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
-        </div>
       </div>
     </main>
   );
