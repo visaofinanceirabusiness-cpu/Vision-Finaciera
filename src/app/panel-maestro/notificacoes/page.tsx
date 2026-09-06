@@ -61,6 +61,11 @@ export default function NotificacoesPage() {
   const [validando, setValidando] = useState<string | null>(null);
   const [rechazando, setRechazando] = useState<string | null>(null);
 
+  // Default con el que arranca marcado el selector Automático/Manual
+  // de cada solicitud nueva — configurable acá mismo, no hardcodeado.
+  const [modoAutomaticoDefault, setModoAutomaticoDefault] = useState(true);
+  const [guardandoDefault, setGuardandoDefault] = useState(false);
+
   async function cargarEmpresas() {
     const { data } = await supabase
       .from('empresas')
@@ -224,8 +229,44 @@ export default function NotificacoesPage() {
     );
   }
 
+  async function cargarConfiguracion() {
+    const { data, error: errorConfig } = await supabase
+      .from('configuracion_plataforma')
+      .select('modo_automatico_default')
+      .eq('id', true)
+      .maybeSingle();
+
+    if (errorConfig) {
+      console.warn('No se pudo cargar la configuración de la plataforma:', errorConfig);
+      return;
+    }
+
+    setModoAutomaticoDefault(data?.modo_automatico_default ?? true);
+  }
+
+  async function cambiarModoDefault(nuevoValor: boolean) {
+    setError('');
+    setMensaje('');
+    setGuardandoDefault(true);
+
+    const { error: errorGuardar } = await supabase
+      .from('configuracion_plataforma')
+      .update({ modo_automatico_default: nuevoValor, actualizado_en: new Date().toISOString() })
+      .eq('id', true);
+
+    if (errorGuardar) {
+      setError(`No se pudo cambiar el modo por defecto: ${errorGuardar.message}`);
+    } else {
+      setModoAutomaticoDefault(nuevoValor);
+      setMensaje(`Las altas nuevas van a arrancar marcadas en modo ${nuevoValor ? 'Automático' : 'Manual'} por defecto.`);
+    }
+
+    setGuardandoDefault(false);
+  }
+
   async function cargarTodo() {
     await Promise.all([
+      cargarConfiguracion(),
       cargarEmpresas(),
       cargarSolicitudesPendientes(),
       cargarSolicitudesHistorial(),
@@ -562,9 +603,62 @@ export default function NotificacoesPage() {
 
         {tab === 'pendientes' ? (
           <>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+                background: COLORES_BASE.blanco,
+                border: '1px solid #e5e7eb',
+                borderRadius: 16,
+                padding: '14px 18px',
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORES_BASE.azul }}>
+                  Modo por defecto para altas nuevas
+                </div>
+                <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
+                  Con qué arranca marcado el selector de cada solicitud — se puede cambiar igual, solicitud por solicitud, antes de aprobar.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(
+                  [
+                    { valor: true, etiqueta: '⚡ Automático' },
+                    { valor: false, etiqueta: '🕒 Manual' },
+                  ]
+                ).map((opcion) => (
+                  <button
+                    key={String(opcion.valor)}
+                    type="button"
+                    disabled={guardandoDefault}
+                    onClick={() => cambiarModoDefault(opcion.valor)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      border: modoAutomaticoDefault === opcion.valor ? 'none' : '1px solid #e5e7eb',
+                      background: modoAutomaticoDefault === opcion.valor ? COLORES_BASE.azul : COLORES_BASE.blanco,
+                      color: modoAutomaticoDefault === opcion.valor ? COLORES_BASE.blanco : COLORES_BASE.gris,
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: guardandoDefault ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {opcion.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <SolicitudesAlta
               solicitudes={solicitudes}
               resolviendo={resolviendoSolicitud}
+              modoDefault={modoAutomaticoDefault}
               onAprobar={aprobarSolicitud}
               onRechazar={rechazarSolicitud}
             />
