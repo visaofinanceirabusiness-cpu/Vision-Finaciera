@@ -21,6 +21,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, estadoDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
@@ -645,6 +646,12 @@ export default function MercaderiaPage() {
             <AccesosHerramientas />
           </div>
         </header>
+
+        <SabioFlotante
+          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+          idioma={idioma}
+          frases={frasesSabioMercaderia(idioma)}
+        />
 
         {/* =================================================
             CONTENIDO

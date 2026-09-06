@@ -12,6 +12,7 @@ import {
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import {
   diccionarioProduccion,
@@ -271,6 +272,12 @@ export default function ProduccionPage() {
 
           <AccesosHerramientas />
         </header>
+
+        <SabioFlotante
+          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+          idioma={idioma}
+          frases={frasesSabioProduccion(idioma)}
+        />
 
         {/* PANEL PRINCIPAL */}
         <main style={panel}>

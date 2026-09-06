@@ -54,6 +54,7 @@ import {
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import {
   diccionarioConfiguracoes,
   type ClaveConfiguracoes,
@@ -218,6 +219,12 @@ export default function ConfiguracoesPage() {
             <AccesosHerramientas />
           </div>
         </header>
+
+        <SabioFlotante
+          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+          idioma={idioma}
+          frases={frasesSabioConfiguracoes(idioma)}
+        />
 
         <main style={panel}>
           <div
