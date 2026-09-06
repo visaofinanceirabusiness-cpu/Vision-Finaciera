@@ -72,6 +72,12 @@ export type IndicadoresPanel = {
   activos: number;
   pasivos: number;
   patrimonio: number;
+  // Ingresos - Gastos - Costos acumulados a la fecha, todavía sin
+  // "cerrar" contra Patrimonio (ver comentario en el cálculo). Se
+  // expone aparte porque Patrimonio Neto real = patrimonio +
+  // resultadoAcumulado — sin sumarlo, Activo no cierra contra
+  // Pasivo + Patrimonio a simple vista.
+  resultadoAcumulado: number;
   cajaDisponible: number;
   ahorroInversiones: number;
   stockBajo: number;
@@ -574,6 +580,7 @@ export async function obtenerIndicadores(
     activos: redondear(activos),
     pasivos: redondear(pasivos),
     patrimonio: redondear(patrimonio),
+    resultadoAcumulado: redondear(resultadoAcumulado),
     cajaDisponible: redondear(cajaDisponible),
     ahorroInversiones: redondear(ahorroInversiones),
     stockBajo,
