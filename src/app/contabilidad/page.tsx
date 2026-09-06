@@ -28,6 +28,7 @@ import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import {
   diccionarioContabilidad,
   etiquetaRelacion,
@@ -179,6 +180,12 @@ export default function ContabilidadPage() {
             <AccesosHerramientas />
           </div>
         </header>
+
+        <SabioFlotante
+          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+          idioma={idioma ?? 'ES'}
+          frases={frasesSabioContabilidad(idioma)}
+        />
 
         {/* =================================================
             CONTENIDO

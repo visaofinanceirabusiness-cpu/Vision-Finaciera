@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
+import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
@@ -225,6 +226,12 @@ export default function InformesPage() {
             <AccesosHerramientas />
           </div>
         </header>
+
+        <SabioFlotante
+          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+          idioma={idioma}
+          frases={frasesSabioInformes(idioma)}
+        />
 
         <main style={panel}>
           <div
