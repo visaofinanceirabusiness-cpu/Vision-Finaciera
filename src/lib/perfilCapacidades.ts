@@ -7,10 +7,14 @@
 // le arman los objetivos de Mercadería — así que se centraliza acá
 // para no repetir el mismo cálculo en cada lugar.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-export async function empresaManejaMercaderia(empresaId: string): Promise<boolean> {
-  const { data: empresa } = await supabase
+export async function empresaManejaMercaderia(
+  empresaId: string,
+  cliente: SupabaseClient = supabase
+): Promise<boolean> {
+  const { data: empresa } = await cliente
     .from('empresas')
     .select('perfil_empresa_id, perfiles_empresa(codigo)')
     .eq('id', empresaId)
@@ -24,7 +28,7 @@ export async function empresaManejaMercaderia(empresaId: string): Promise<boolea
   }
 
   if (perfilCodigo === 'MIXTO') {
-    const { data: componentes } = await supabase
+    const { data: componentes } = await cliente
       .from('empresa_mixto_componentes')
       .select('componente')
       .eq('empresa_id', empresaId);
@@ -52,8 +56,12 @@ export async function empresaManejaMercaderia(empresaId: string): Promise<boolea
 // módulo fijo, depende de qué componentes tildó la empresa al darse
 // de alta — así que para Mixto la respuesta sale de
 // empresa_mixto_componentes en vez de perfil_modulos.
-export async function empresaTieneModulo(empresaId: string, modulo: string): Promise<boolean> {
-  const { data: empresa } = await supabase
+export async function empresaTieneModulo(
+  empresaId: string,
+  modulo: string,
+  cliente: SupabaseClient = supabase
+): Promise<boolean> {
+  const { data: empresa } = await cliente
     .from('empresas')
     .select('perfil_empresa_id, perfiles_empresa(codigo)')
     .eq('id', empresaId)
@@ -64,7 +72,7 @@ export async function empresaTieneModulo(empresaId: string, modulo: string): Pro
     ?.perfiles_empresa?.codigo;
 
   if (perfilCodigo === 'MIXTO') {
-    const { data: componentes } = await supabase
+    const { data: componentes } = await cliente
       .from('empresa_mixto_componentes')
       .select('componente')
       .eq('empresa_id', empresaId);
@@ -76,7 +84,7 @@ export async function empresaTieneModulo(empresaId: string, modulo: string): Pro
     return false;
   }
 
-  const { data: modulosData } = await supabase
+  const { data: modulosData } = await cliente
     .from('perfil_modulos')
     .select('modulo')
     .eq('perfil_empresa_id', perfilEmpresaId)

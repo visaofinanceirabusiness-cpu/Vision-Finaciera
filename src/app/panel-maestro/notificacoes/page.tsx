@@ -62,9 +62,18 @@ export default function NotificacoesPage() {
   const [rechazando, setRechazando] = useState<string | null>(null);
 
   // Default con el que arranca marcado el selector Automático/Manual
-  // de cada solicitud nueva — configurable acá mismo, no hardcodeado.
+  // (validación de operaciones) de cada solicitud nueva — configurable
+  // acá mismo, no hardcodeado.
   const [modoAutomaticoDefault, setModoAutomaticoDefault] = useState(true);
   const [guardandoDefault, setGuardandoDefault] = useState(false);
+
+  // Válvula de caudal, aparte de lo anterior: si está prendida, la
+  // solicitud de alta se aprueba sola apenas se crea (crea la empresa
+  // al instante, sin esperar a que un admin la vea y toque "Aprobar").
+  // Si el volumen de altas se dispara, se puede apagar para volver a
+  // aprobar a mano y no perder el control del ritmo.
+  const [altaAutomaticaActiva, setAltaAutomaticaActiva] = useState(true);
+  const [guardandoAltaAutomatica, setGuardandoAltaAutomatica] = useState(false);
 
   async function cargarEmpresas() {
     const { data } = await supabase
@@ -232,7 +241,7 @@ export default function NotificacoesPage() {
   async function cargarConfiguracion() {
     const { data, error: errorConfig } = await supabase
       .from('configuracion_plataforma')
-      .select('modo_automatico_default')
+      .select('modo_automatico_default, alta_automatica_activa')
       .eq('id', true)
       .maybeSingle();
 
@@ -242,6 +251,7 @@ export default function NotificacoesPage() {
     }
 
     setModoAutomaticoDefault(data?.modo_automatico_default ?? true);
+    setAltaAutomaticaActiva(data?.alta_automatica_activa ?? true);
   }
 
   async function cambiarModoDefault(nuevoValor: boolean) {
@@ -262,6 +272,30 @@ export default function NotificacoesPage() {
     }
 
     setGuardandoDefault(false);
+  }
+
+  async function cambiarAltaAutomatica(nuevoValor: boolean) {
+    setError('');
+    setMensaje('');
+    setGuardandoAltaAutomatica(true);
+
+    const { error: errorGuardar } = await supabase
+      .from('configuracion_plataforma')
+      .update({ alta_automatica_activa: nuevoValor, actualizado_en: new Date().toISOString() })
+      .eq('id', true);
+
+    if (errorGuardar) {
+      setError(`No se pudo cambiar el alta automática: ${errorGuardar.message}`);
+    } else {
+      setAltaAutomaticaActiva(nuevoValor);
+      setMensaje(
+        nuevoValor
+          ? 'Alta automática activada: las solicitudes nuevas se van a aprobar solas, al instante.'
+          : 'Alta automática desactivada: las solicitudes nuevas van a quedar esperando a que las apruebes a mano.'
+      );
+    }
+
+    setGuardandoAltaAutomatica(false);
   }
 
   async function cargarTodo() {
@@ -610,6 +644,58 @@ export default function NotificacoesPage() {
                 justifyContent: 'space-between',
                 gap: 12,
                 flexWrap: 'wrap',
+                background: altaAutomaticaActiva ? '#f0fdf4' : '#fffbeb',
+                border: `1px solid ${altaAutomaticaActiva ? '#bbf7d0' : '#fde68a'}`,
+                borderRadius: 16,
+                padding: '14px 18px',
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORES_BASE.azul }}>
+                  Alta automática de empresas
+                </div>
+                <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
+                  Con esto prendido, cada solicitud nueva se aprueba sola apenas se crea — no espera a que la veas acá. Apagalo si el volumen de altas se dispara y preferís aprobar a mano, a tu ritmo.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(
+                  [
+                    { valor: true, etiqueta: '⚡ Automático' },
+                    { valor: false, etiqueta: '🕒 Manual' },
+                  ]
+                ).map((opcion) => (
+                  <button
+                    key={String(opcion.valor)}
+                    type="button"
+                    disabled={guardandoAltaAutomatica}
+                    onClick={() => cambiarAltaAutomatica(opcion.valor)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      border: altaAutomaticaActiva === opcion.valor ? 'none' : '1px solid #e5e7eb',
+                      background: altaAutomaticaActiva === opcion.valor ? COLORES_BASE.azul : COLORES_BASE.blanco,
+                      color: altaAutomaticaActiva === opcion.valor ? COLORES_BASE.blanco : COLORES_BASE.gris,
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: guardandoAltaAutomatica ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {opcion.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
                 background: COLORES_BASE.blanco,
                 border: '1px solid #e5e7eb',
                 borderRadius: 16,
@@ -619,10 +705,10 @@ export default function NotificacoesPage() {
             >
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORES_BASE.azul }}>
-                  Modo por defecto para altas nuevas
+                  Modo de validación por defecto (Automático/Manual de operaciones)
                 </div>
                 <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
-                  Con qué arranca marcado el selector de cada solicitud — se puede cambiar igual, solicitud por solicitud, antes de aprobar.
+                  Con qué arranca marcado el selector de cada solicitud — se puede cambiar igual, solicitud por solicitud, antes de aprobar. No tiene que ver con si la solicitud se aprueba sola o no (eso es el interruptor de arriba).
                 </div>
               </div>
 

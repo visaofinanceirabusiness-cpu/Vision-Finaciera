@@ -174,19 +174,23 @@ export default function CrearCuentaPage() {
       return;
     }
 
-    const { error: errorSolicitud } = await supabase.from('solicitudes_alta').insert({
-      user_id: signUpData.user.id,
-      email: email.trim(),
-      nombre: nombre.trim(),
-      sexo,
-      telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
-      nombre_empresa: nombreEmpresa.trim(),
-      rubro: rubro.trim(),
-      perfil_empresa_id: perfilElegido,
-      componentes_mixto: esMixto ? componentesMixto : [],
-      moneda,
-      idioma,
-    });
+    const { data: solicitudCreada, error: errorSolicitud } = await supabase
+      .from('solicitudes_alta')
+      .insert({
+        user_id: signUpData.user.id,
+        email: email.trim(),
+        nombre: nombre.trim(),
+        sexo,
+        telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
+        nombre_empresa: nombreEmpresa.trim(),
+        rubro: rubro.trim(),
+        perfil_empresa_id: perfilElegido,
+        componentes_mixto: esMixto ? componentesMixto : [],
+        moneda,
+        idioma,
+      })
+      .select('id')
+      .single();
 
     if (errorSolicitud) {
       setError(`${t('errorSolicitud')}: ${errorSolicitud.message}`);
@@ -198,6 +202,21 @@ export default function CrearCuentaPage() {
       titulo: 'Nueva solicitud de alta',
       cuerpo: `${nombreEmpresa.trim()} · ${nombre.trim()}`,
       url: '/panel-maestro',
+    });
+
+    // Si el admin dejó prendida el "Alta automática" (Panel Maestro →
+    // Notificações), esto crea la empresa al toque, sin esperar a que
+    // alguien la vea y la apruebe a mano — el email de confirmación
+    // sigue siendo un paso aparte e inevitable, pero al menos no se
+    // suma la espera de un admin. Se dispara sin bloquear esta
+    // pantalla: si falla, la solicitud queda igual pendiente en
+    // Notificações para aprobar a mano, como hasta ahora.
+    fetch('/api/solicitudes/auto-aprobar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ solicitud_id: solicitudCreada.id }),
+    }).catch((errorAutoAprobar) => {
+      console.warn('No se pudo intentar el alta automática:', errorAutoAprobar);
     });
 
     setEnviado(true);

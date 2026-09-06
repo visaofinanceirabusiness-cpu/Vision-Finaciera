@@ -22,6 +22,7 @@
 // real de Operação — el dato guardado en la tabla "operaciones" sigue
 // en español siempre, esto solo ajusta lo que se muestra.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { empresaManejaMercaderia, empresaTieneModulo } from './perfilCapacidades';
 import { nombreOperacionDisplay, perfilEmpresaDisplay } from './i18n';
@@ -383,15 +384,16 @@ function primerDiaDelMes(): string {
 export async function crearMensajesTutorialModelo(
   empresaId: string,
   perfilCodigo: string | undefined,
-  idioma: string | null | undefined
+  idioma: string | null | undefined,
+  cliente: SupabaseClient = supabase
 ) {
   const idiomaFinal = idioma === 'PT' ? 'PT' : 'ES';
   const textos = TEXTOS[idiomaFinal];
   const esFamiliar = perfilCodigo === 'FAMILIAR';
 
   const [manejaMercaderia, tieneProduccion] = await Promise.all([
-    empresaManejaMercaderia(empresaId),
-    empresaTieneModulo(empresaId, 'PRODUCCION'),
+    empresaManejaMercaderia(empresaId, cliente),
+    empresaTieneModulo(empresaId, 'PRODUCCION', cliente),
   ]);
 
   const codigos: CodigoTutorial[] = [
@@ -414,7 +416,7 @@ export async function crearMensajesTutorialModelo(
     leido: false,
   }));
 
-  const { error } = await supabase.from('mensajes_financieros').insert(filas);
+  const { error } = await cliente.from('mensajes_financieros').insert(filas);
 
   if (error) {
     throw error;
@@ -480,11 +482,12 @@ export async function crearMensajeBienvenidaOnboarding(
   empresaId: string,
   perfilCodigo: string | undefined,
   perfilNombre: string | undefined,
-  idioma: string | null | undefined
+  idioma: string | null | undefined,
+  cliente: SupabaseClient = supabase
 ) {
   const idiomaFinal: 'ES' | 'PT' = idioma === 'PT' ? 'PT' : 'ES';
 
-  const { data: operacionesData, error: errorOperaciones } = await supabase
+  const { data: operacionesData, error: errorOperaciones } = await cliente
     .from('operaciones')
     .select('nombre')
     .eq('empresa_id', empresaId)
@@ -507,7 +510,7 @@ export async function crearMensajeBienvenidaOnboarding(
 
   const contenido = textoBienvenidaOnboarding(idiomaFinal, nombrePerfilTraducido, nombresOperaciones);
 
-  const { error } = await supabase.from('mensajes_financieros').insert({
+  const { error } = await cliente.from('mensajes_financieros').insert({
     empresa_id: empresaId,
     periodo: primerDiaDelMes(),
     titulo: contenido.titulo,
