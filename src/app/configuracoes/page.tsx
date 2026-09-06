@@ -945,7 +945,15 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         socios={socios}
         esAdmin={esAdmin}
         idioma={idioma}
-        onCrear={(nombre) => manejarAccion(() => crearSocio(empresaId, nombre), msgSocioAgregado(idioma, nombre))}
+        onCrear={(nombre) =>
+          manejarAccion(async () => {
+            await crearSocio(empresaId, nombre);
+            // Mismo motivo que en las categorías: por consistencia con
+            // el resto de las altas de autoservicio, y por si algún
+            // perfil llega a tener una regla que dependa del socio.
+            await generarMatrizOperaciones(empresaId);
+          }, msgSocioAgregado(idioma, nombre))
+        }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoSocio(id, activo), msgSocioActualizado(idioma))}
         onEliminar={(id, nombre) => manejarAccion(() => eliminarSocio(id), msgSocioEliminado(idioma, nombre))}
       />
@@ -975,19 +983,17 @@ function BloqueSocios({
     <SeccionCategoria titulo={t('tituloSocios')} subtitulo={t('subtituloSocios')}>
       <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
-      {esAdmin && (
-        <FormularioNuevo
-          placeholder={t('placeholderSocio')}
-          valor={nombreNuevo}
-          idioma={idioma}
-          onCambiar={setNombreNuevo}
-          onAgregar={() => {
-            if (!nombreNuevo.trim()) return;
-            onCrear(nombreNuevo);
-            setNombreNuevo('');
-          }}
-        />
-      )}
+      <FormularioNuevo
+        placeholder={t('placeholderSocio')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
     </SeccionCategoria>
   );
 }

@@ -8,6 +8,13 @@
 // mercadería) productos, socio/a, 2 proveedores/destinos de pago y 2
 // clientes/fuentes de ingreso.
 //
+// EXCEPCIÓN — perfil Familiar: solo pide la categoría. No tiene
+// sentido pedir socio/a (se da de alta solo con el nombre de quien se
+// registró — se pueden sumar más integrantes después desde
+// Configurações → Socios), ni destino de pago/fuente de ingreso (la
+// categoría ya alcanza y dejaron de ser obligatorios en el día a día,
+// ver "esFamiliar" en Central de Lançamentos).
+//
 // La categoría de gasto NO se pide acá: el plan de cuentas de cada
 // perfil ya viene con sus categorías de gasto de fábrica (Alquiler,
 // Sueldos, Marketing, etc. — ver la migración
@@ -87,6 +94,7 @@ export default function BienvenidaPage() {
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [nombreRegistrante, setNombreRegistrante] = useState('');
   const [idioma, setIdioma] = useState<string | null>(null);
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [manejaMercaderia, setManejaMercaderia] = useState(false);
@@ -128,7 +136,7 @@ export default function BienvenidaPage() {
 
       const { data: perfil, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select('empresa_id')
+        .select('empresa_id, nombre')
         .eq('id', userData.user.id)
         .maybeSingle();
 
@@ -158,6 +166,7 @@ export default function BienvenidaPage() {
       )?.perfiles_empresa?.codigo;
 
       setEmpresaId(perfil.empresa_id);
+      setNombreRegistrante(perfil.nombre ?? '');
       setIdioma(empresa?.idioma ?? null);
       setEsFamiliar(perfilCodigo === 'FAMILIAR');
       setManejaMercaderia(manejaMercaderiaResultado);
@@ -198,9 +207,18 @@ export default function BienvenidaPage() {
     if (!empresaId) return;
 
     if (categorias.length === 0) return setErrorFinal(t('errorMinimoCategoria'));
-    if (socios.length === 0) return setErrorFinal(t('errorMinimoSocio'));
-    if (proveedores.length < 2) return setErrorFinal(t('errorMinimoProveedores'));
-    if (clientes.length < 2) return setErrorFinal(t('errorMinimoClientes'));
+
+    // Para el perfil Familiar el wizard queda solo en la categoría:
+    // el socio se completa solo con quien se registró (no hace falta
+    // preguntarlo), y "destino de pago"/"fuente de ingreso" dejaron de
+    // ser obligatorios en el día a día (ver Central de Lançamentos),
+    // así que no tiene sentido exigirlos acá tampoco.
+    if (!esFamiliar) {
+      if (socios.length === 0) return setErrorFinal(t('errorMinimoSocio'));
+      if (proveedores.length < 2) return setErrorFinal(t('errorMinimoProveedores'));
+      if (clientes.length < 2) return setErrorFinal(t('errorMinimoClientes'));
+    }
+
     if (manejaMercaderia && productos.length === 0) return setErrorFinal(t('errorMinimoProducto'));
 
     setErrorFinal('');
@@ -219,22 +237,33 @@ export default function BienvenidaPage() {
       }
 
       if (!progreso.socios) {
-        for (const nombre of socios) {
+        // Familiar no pasa por el paso de Socio/a: se da de alta un
+        // único socio con el nombre de quien se registró, para que
+        // Cobro ya tenga a quién atribuirle el ingreso desde el
+        // arranque. Se pueden sumar más integrantes de la familia
+        // después desde Configurações → Socios.
+        const listaSocios = esFamiliar ? [nombreRegistrante].filter((nombre) => nombre.trim()) : socios;
+
+        for (const nombre of listaSocios) {
           await crearSocio(empresaId, nombre);
         }
         setProgreso((actual) => ({ ...actual, socios: true }));
       }
 
       if (!progreso.proveedores) {
-        for (const nombre of proveedores) {
-          await crearContacto(empresaId, 'proveedores', nombre);
+        if (!esFamiliar) {
+          for (const nombre of proveedores) {
+            await crearContacto(empresaId, 'proveedores', nombre);
+          }
         }
         setProgreso((actual) => ({ ...actual, proveedores: true }));
       }
 
       if (!progreso.clientes) {
-        for (const nombre of clientes) {
-          await crearContacto(empresaId, 'clientes', nombre);
+        if (!esFamiliar) {
+          for (const nombre of clientes) {
+            await crearContacto(empresaId, 'clientes', nombre);
+          }
         }
         setProgreso((actual) => ({ ...actual, clientes: true }));
       }
@@ -378,38 +407,42 @@ export default function BienvenidaPage() {
             </Seccion>
           )}
 
-          <Seccion titulo={t('seccionSocioTitulo')} ayuda={t('seccionSocioAyuda')}>
-            <FilaAgregar
-              valor={campoSocio}
-              onChange={setCampoSocio}
-              onAgregar={() => agregar(campoSocio, socios, setSocios, () => setCampoSocio(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={socios} onQuitar={(i) => quitar(i, socios, setSocios)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
+          {!esFamiliar && (
+            <>
+              <Seccion titulo={t('seccionSocioTitulo')} ayuda={t('seccionSocioAyuda')}>
+                <FilaAgregar
+                  valor={campoSocio}
+                  onChange={setCampoSocio}
+                  onAgregar={() => agregar(campoSocio, socios, setSocios, () => setCampoSocio(''))}
+                  placeholder={t('nombrePlaceholder')}
+                  botonLabel={t('agregar')}
+                />
+                <Chips items={socios} onQuitar={(i) => quitar(i, socios, setSocios)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+              </Seccion>
 
-          <Seccion titulo={`4. ${etiquetasProveedor.plural}`} ayuda="">
-            <FilaAgregar
-              valor={campoProveedor}
-              onChange={setCampoProveedor}
-              onAgregar={() => agregar(campoProveedor, proveedores, setProveedores, () => setCampoProveedor(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={proveedores} onQuitar={(i) => quitar(i, proveedores, setProveedores)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
+              <Seccion titulo={`4. ${etiquetasProveedor.plural}`} ayuda="">
+                <FilaAgregar
+                  valor={campoProveedor}
+                  onChange={setCampoProveedor}
+                  onAgregar={() => agregar(campoProveedor, proveedores, setProveedores, () => setCampoProveedor(''))}
+                  placeholder={t('nombrePlaceholder')}
+                  botonLabel={t('agregar')}
+                />
+                <Chips items={proveedores} onQuitar={(i) => quitar(i, proveedores, setProveedores)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+              </Seccion>
 
-          <Seccion titulo={`5. ${etiquetasCliente.plural}`} ayuda="">
-            <FilaAgregar
-              valor={campoCliente}
-              onChange={setCampoCliente}
-              onAgregar={() => agregar(campoCliente, clientes, setClientes, () => setCampoCliente(''))}
-              placeholder={t('nombrePlaceholder')}
-              botonLabel={t('agregar')}
-            />
-            <Chips items={clientes} onQuitar={(i) => quitar(i, clientes, setClientes)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
-          </Seccion>
+              <Seccion titulo={`5. ${etiquetasCliente.plural}`} ayuda="">
+                <FilaAgregar
+                  valor={campoCliente}
+                  onChange={setCampoCliente}
+                  onAgregar={() => agregar(campoCliente, clientes, setClientes, () => setCampoCliente(''))}
+                  placeholder={t('nombrePlaceholder')}
+                  botonLabel={t('agregar')}
+                />
+                <Chips items={clientes} onQuitar={(i) => quitar(i, clientes, setClientes)} quitarLabel={t('quitar')} vacio={t('sinCargar')} />
+              </Seccion>
+            </>
+          )}
 
           {errorFinal && <div style={errorBox}>{errorFinal}</div>}
 

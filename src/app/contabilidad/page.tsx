@@ -849,7 +849,11 @@ function CentralDeLanzamientosTab({
       categoria &&
       formaPago &&
       (formularioSimple || historico.trim()) &&
-      (esTransferencia || clienteProveedor.trim()) &&
+      // Para el perfil Familiar, "destino de pago"/"fuente de
+      // ingreso" ya no es obligatorio: la categoría (que además ahora
+      // viene precargada de fábrica) alcanza para describir el
+      // movimiento — no hace falta además nombrar una contraparte.
+      (esTransferencia || esFamiliar || clienteProveedor.trim()) &&
       (!requiereSocio || socio.trim()) &&
       lineasCompletas &&
       !stockInsuficiente &&
@@ -875,7 +879,7 @@ function CentralDeLanzamientosTab({
       return;
     }
 
-    if (!esTransferencia && !clienteProveedor.trim()) {
+    if (!esTransferencia && !esFamiliar && !clienteProveedor.trim()) {
       setMensajeSabio(msgCompletarRelacion(idioma, etiquetaRelacionActual));
       return;
     }
@@ -902,6 +906,7 @@ function CentralDeLanzamientosTab({
     formularioSimple,
     historico,
     esTransferencia,
+    esFamiliar,
     clienteProveedor,
     requiereSocio,
     socio,
