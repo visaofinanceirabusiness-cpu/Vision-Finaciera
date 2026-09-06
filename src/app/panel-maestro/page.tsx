@@ -28,6 +28,7 @@ type Empresa = {
   moneda: string | null;
   fecha_vencimiento_suscripcion: string;
   creado_en: string;
+  perfiles_empresa: { nombre: string } | null;
 };
 
 type PendienteRegistro = {
@@ -145,7 +146,7 @@ export default function PanelMaestroPage() {
   async function cargarEmpresas() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
-      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en')
+      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, perfiles_empresa(nombre)')
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
 
@@ -154,7 +155,7 @@ export default function PanelMaestroPage() {
       return;
     }
 
-    setEmpresas(empresasData ?? []);
+    setEmpresas((empresasData ?? []) as unknown as Empresa[]);
 
     const resultados = await Promise.all(
       (empresasData ?? []).map(async (empresa) => {
@@ -846,6 +847,20 @@ export default function PanelMaestroPage() {
                   </div>
                   <div style={{ fontSize: 12, color: COLORES_BASE.gris, marginTop: 2 }}>
                     {empresa.rubro ?? 'Sin rubro definido'}
+                  </div>
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      marginTop: 3,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: `${COLORES_BASE.azul}14`,
+                      color: COLORES_BASE.azul,
+                    }}
+                  >
+                    {empresa.perfiles_empresa?.nombre ?? 'Sin perfil'}
                   </div>
                   <div
                     style={{
