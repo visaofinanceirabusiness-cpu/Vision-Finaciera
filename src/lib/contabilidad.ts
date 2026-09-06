@@ -99,7 +99,7 @@ export type IndicadoresPanel = {
   stockCategorias: PuntoGrafico[];
   liquidezPorCuenta: PuntoGrafico[];
   gastosCategorias: PuntoGrafico[];
-  ingresosSocios: PuntoGrafico[];
+  ingresosCategorias: PuntoGrafico[];
 
   // Control de consistencia contable
   descuadre: number;
@@ -545,33 +545,30 @@ export async function obtenerIndicadores(
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
-  // Ingresos por socio: del período seleccionado. Se agrupa por cuenta
-  // de tipo INGRESO (mismo criterio que gastos) y por el campo "socio"
-  // — que es quién de la familia generó ese ingreso, no la fuente de
-  // ingreso (empleador/cliente). Solo hay dato acá para las filas
-  // donde se cargó el socio (hoy, Cobro en perfil Familia).
+  // Ingresos por categoría: del período seleccionado. Mismo criterio
+  // que Gastos por categoría — se agrupa por CUENTA de tipo INGRESO
+  // (no por tipo de operación), así una Inversión/Aporte (que se
+  // acredita contra una cuenta de PATRIMONIO, no de INGRESO) queda
+  // afuera aunque su categoría "suene" a ingreso.
   const cuentasIngreso = new Set(
     hojas.filter((cuenta) => cuenta.tipo_saldo === 'INGRESO').map((cuenta) => cuenta.nombre)
   );
 
-  const ingresosPorSocio = new Map<string, number>();
+  const ingresosPorCategoria = new Map<string, number>();
 
   for (const fila of operaciones) {
-    const socio = (fila as { socio?: string | null }).socio;
-
-    if (
-      !socio ||
-      !dentroDelPeriodo(String(fila.fecha ?? '')) ||
-      !fila.cuenta_credito ||
-      !cuentasIngreso.has(fila.cuenta_credito)
-    ) {
+    if (!dentroDelPeriodo(String(fila.fecha ?? '')) || !fila.cuenta_credito || !cuentasIngreso.has(fila.cuenta_credito)) {
       continue;
     }
 
-    ingresosPorSocio.set(socio, (ingresosPorSocio.get(socio) ?? 0) + aNumero(fila.total));
+    const categoria = String(fila.categoria ?? 'Sin categoría');
+    ingresosPorCategoria.set(
+      categoria,
+      (ingresosPorCategoria.get(categoria) ?? 0) + aNumero(fila.total)
+    );
   }
 
-  const ingresosSocios: PuntoGrafico[] = Array.from(ingresosPorSocio.entries())
+  const ingresosCategorias: PuntoGrafico[] = Array.from(ingresosPorCategoria.entries())
     .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
     .sort((a, b) => b.valor - a.valor);
 
@@ -601,7 +598,7 @@ export async function obtenerIndicadores(
     stockCategorias,
     liquidezPorCuenta,
     gastosCategorias,
-    ingresosSocios,
+    ingresosCategorias,
 
     descuadre: redondear(descuadre),
   };
