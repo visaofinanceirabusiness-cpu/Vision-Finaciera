@@ -748,7 +748,17 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
       { data: empresaData },
     ] = await Promise.all([
       supabase.from('categorias_productos').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
-      supabase.from('categorias_operacion').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).eq('operacion', 'PAGO').order('nombre'),
+      // tipo=GASTO: además de las categorías de gasto propiamente
+      // dichas, PAGO también tiene categorías de tipo PASIVO
+      // (pago de tarjeta/préstamo) que debitan directo esa cuenta —
+      // esas no son "gastos" editables acá, viven fijas en el motor.
+      supabase
+        .from('categorias_operacion')
+        .select('id, codigo, nombre, activo')
+        .eq('empresa_id', empresaId)
+        .eq('operacion', 'PAGO')
+        .eq('tipo', 'GASTO')
+        .order('nombre'),
       supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('socios').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
