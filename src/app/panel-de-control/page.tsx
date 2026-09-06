@@ -825,7 +825,7 @@ export default function MiNegocioPage() {
                 />
 
                 <DistribucionPieChart
-                  datos={indicadores?.ingresosSocios ?? []}
+                  datos={indicadores?.ingresosCategorias ?? []}
                   simbolo={simbolo}
                   idioma={idioma}
                   titulo={t('tituloDistribucionIngresos')}
