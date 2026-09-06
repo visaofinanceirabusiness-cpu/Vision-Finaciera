@@ -480,75 +480,91 @@ export default function MiNegocioPage() {
               gap: 12,
             }}
           >
-            {esFamiliar ? (
-              <>
-                <ResumenEjecutivoCard
-                  titulo={t('activo')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
-                  emoji="💚"
-                  color={colores.verde}
-                  ayuda={t('ayudaActivoFamilia')}
-                />
+            {(() => {
+              // Patrimonio Neto/Capital real = lo aportado (capital,
+              // acumulado en el tipo PATRIMONIO) + el resultado
+              // acumulado a la fecha (Ingresos - Gastos - Costos,
+              // todavía sin "cerrar" contra Patrimonio). Sin sumarlo
+              // acá, Activo no cierra a simple vista contra
+              // Pasivo + esta tarjeta — se muestra el total con su
+              // composición abajo, en chico, para que se entienda.
+              const aportado = indicadores?.patrimonio ?? 0;
+              const resultado = indicadores?.resultadoAcumulado ?? 0;
+              const patrimonioNetoTotal = aportado + resultado;
+              const detallePatrimonio = `${t('capitalAportado')} ${simbolo} ${formatearNumero(aportado)} · ${t('resultadoAcumuladoLabel')} ${simbolo} ${formatearNumero(resultado)}`;
 
-                <ResumenEjecutivoCard
-                  titulo={t('pasivo')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
-                  emoji="💗"
-                  color="#b91c1c"
-                  ayuda={t('ayudaPasivo')}
-                />
+              return esFamiliar ? (
+                <>
+                  <ResumenEjecutivoCard
+                    titulo={t('activo')}
+                    valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
+                    emoji="💚"
+                    color={colores.verde}
+                    ayuda={t('ayudaActivoFamilia')}
+                  />
 
-                <ResumenEjecutivoCard
-                  titulo={t('patrimonioNeto')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
-                  emoji="💙"
-                  color={colores.azul}
-                  ayuda={t('ayudaPatrimonioNeto')}
-                />
-              </>
-            ) : (
-              <>
-                <ResumenEjecutivoCard
-                  titulo={t('activo')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
-                  emoji="💚"
-                  color={colores.verde}
-                  ayuda={t('ayudaActivo')}
-                />
+                  <ResumenEjecutivoCard
+                    titulo={t('pasivo')}
+                    valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+                    emoji="💗"
+                    color="#b91c1c"
+                    ayuda={t('ayudaPasivo')}
+                  />
 
-                <ResumenEjecutivoCard
-                  titulo={t('pasivo')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
-                  emoji="💗"
-                  color="#b91c1c"
-                  ayuda={t('ayudaPasivo')}
-                />
+                  <ResumenEjecutivoCard
+                    titulo={t('patrimonioNeto')}
+                    valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
+                    emoji="💙"
+                    color={colores.azul}
+                    ayuda={t('ayudaPatrimonioNeto')}
+                    detalle={detallePatrimonio}
+                  />
+                </>
+              ) : (
+                <>
+                  <ResumenEjecutivoCard
+                    titulo={t('activo')}
+                    valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
+                    emoji="💚"
+                    color={colores.verde}
+                    ayuda={t('ayudaActivo')}
+                  />
 
-                <ResumenEjecutivoCard
-                  titulo={t('capital')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.patrimonio ?? 0)}`}
-                  emoji="💙"
-                  color={colores.azul}
-                  ayuda={t('ayudaCapital')}
-                />
+                  <ResumenEjecutivoCard
+                    titulo={t('pasivo')}
+                    valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
+                    emoji="💗"
+                    color="#b91c1c"
+                    ayuda={t('ayudaPasivo')}
+                  />
 
-                <ResumenEjecutivoCard
-                  titulo={t('saldoEnCaja')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
-                  emoji="💵"
-                  color={colores.azul}
-                  ayuda={t('ayudaSaldoEnCaja')}
-                />
+                  <ResumenEjecutivoCard
+                    titulo={t('capital')}
+                    valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
+                    emoji="💙"
+                    color={colores.azul}
+                    ayuda={t('ayudaCapital')}
+                    detalle={detallePatrimonio}
+                  />
 
-                <ResumenEjecutivoCard
-                  titulo={t('stockBajo')}
-                  valor={`${indicadores?.stockBajo ?? 0} ${t('productos')}`}
-                  emoji="📦"
-                  color={colores.acento}
-                  ayuda={t('ayudaStockBajo')}
-                />
-              </>
-            )}
+                  <ResumenEjecutivoCard
+                    titulo={t('saldoEnCaja')}
+                    valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+                    emoji="💵"
+                    color={colores.azul}
+                    ayuda={t('ayudaSaldoEnCaja')}
+                  />
+
+                  <ResumenEjecutivoCard
+                    titulo={t('stockBajo')}
+                    valor={`${indicadores?.stockBajo ?? 0} ${t('productos')}`}
+                    emoji="📦"
+                    color={colores.acento}
+                    ayuda={t('ayudaStockBajo')}
+                  />
+                </>
+              );
+            })()}
           </div>
         </section>
 
@@ -1515,12 +1531,14 @@ function ResumenEjecutivoCard({
   emoji,
   color,
   ayuda,
+  detalle,
 }: {
   titulo: string;
   valor: string;
   emoji: string;
   color: string;
   ayuda?: string;
+  detalle?: string;
 }) {
   return (
     <div
@@ -1553,6 +1571,12 @@ function ResumenEjecutivoCard({
       >
         {valor}
       </strong>
+
+      {detalle && (
+        <div style={{ marginTop: 4, fontSize: 10.5, color: COLORES_BASE.gris, lineHeight: 1.4 }}>
+          {detalle}
+        </div>
+      )}
     </div>
   );
 }

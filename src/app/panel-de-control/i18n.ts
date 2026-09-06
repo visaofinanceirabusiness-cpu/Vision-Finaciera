@@ -50,6 +50,8 @@ export type ClavePanelControl =
   | 'ayudaPatrimonioNeto'
   | 'ayudaActivo'
   | 'ayudaActivoFamilia'
+  | 'capitalAportado'
+  | 'resultadoAcumuladoLabel'
   | 'ayudaPasivo'
   | 'ayudaCapital'
   | 'ayudaSaldoEnCaja'
@@ -150,6 +152,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaPatrimonioNeto: 'Lo que realmente "es tuyo": todo lo que tenés (dinero, ahorros, inversiones) menos lo que debés.',
     ayudaActivo: 'Todo lo que la empresa posee: caja, banco, stock, cuentas por cobrar, etc. Cuanto más alto, más recursos tiene el negocio.',
     ayudaActivoFamilia: 'Todo lo que la familia tiene: dinero, ahorros, inversiones, lo que te deben, etc. — sin restar las deudas.',
+    capitalAportado: 'Aportado',
+    resultadoAcumuladoLabel: 'Resultado acumulado',
     ayudaPasivo: 'Todo lo que la empresa debe: proveedores, préstamos, tarjetas. Es dinero que en algún momento hay que devolver.',
     ayudaCapital: 'Lo que le queda a la empresa después de restarle las deudas a todo lo que posee: Activo menos Pasivo.',
     ayudaSaldoEnCaja: 'Cuánto dinero líquido tiene la empresa ahora mismo, sumando todas sus cuentas (caja, banco, billetera virtual).',
@@ -249,6 +253,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaPatrimonioNeto: 'O que realmente "é seu": tudo o que você tem (dinheiro, poupança, investimentos) menos o que você deve.',
     ayudaActivo: 'Tudo o que a empresa possui: caixa, banco, estoque, contas a receber, etc. Quanto mais alto, mais recursos tem o negócio.',
     ayudaActivoFamilia: 'Tudo o que a família tem: dinheiro, poupança, investimentos, o que te devem, etc. — sem descontar as dívidas.',
+    capitalAportado: 'Aportado',
+    resultadoAcumuladoLabel: 'Resultado acumulado',
     ayudaPasivo: 'Tudo o que a empresa deve: fornecedores, empréstimos, cartões. É dinheiro que em algum momento precisa ser devolvido.',
     ayudaCapital: 'O que sobra para a empresa depois de descontar as dívidas de tudo o que ela possui: Ativo menos Passivo.',
     ayudaSaldoEnCaja: 'Quanto dinheiro líquido a empresa tem agora, somando todas as suas contas (caixa, banco, carteira virtual).',
