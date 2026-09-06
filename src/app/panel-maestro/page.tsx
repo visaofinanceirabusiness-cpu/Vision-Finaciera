@@ -2,72 +2,22 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { avatarPorDefecto } from '@/lib/avatares';
-import { eliminarOperacion } from '@/lib/motor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { resumirSuscripcion, marcarPagoRecibido, restarDiasDeTest } from '@/lib/suscripcion';
 import { BadgeEstadoSuscripcion } from '@/components/EstadoSuscripcion';
+import type { Empresa, Pendiente, PendienteMovimiento, SolicitudAlta } from '@/lib/panelMaestroTipos';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
   verde: '#2e8b57',
   gris: '#6e7781',
   blanco: '#ffffff',
-};
-
-type Empresa = {
-  id: string;
-  nombre: string;
-  rubro: string | null;
-  logo_url: string | null;
-  numero_cliente: number;
-  moneda: string | null;
-  fecha_vencimiento_suscripcion: string;
-  creado_en: string;
-  perfiles_empresa: { nombre: string } | null;
-};
-
-type PendienteRegistro = {
-  tipo: 'registro';
-  empresaId: string;
-  idOperacion: string;
-  fecha: string;
-  operacion: string;
-  categoria: string;
-  total: number;
-  historico: string | null;
-};
-
-type PendienteMovimiento = {
-  tipo: 'movimiento';
-  empresaId: string;
-  idOperacion: string;
-  fecha: string;
-  lineas: number;
-  total: number;
-};
-
-type Pendiente = PendienteRegistro | PendienteMovimiento;
-
-type SolicitudAlta = {
-  id: string;
-  user_id: string;
-  email: string;
-  nombre: string;
-  sexo: string | null;
-  telefono: string;
-  nombre_empresa: string;
-  rubro: string | null;
-  moneda: string;
-  idioma: string;
-  perfil_empresa_id: string;
-  componentes_mixto: string[];
-  creado_en: string;
-  perfiles_empresa: { nombre: string; codigo: string } | null;
 };
 
 export default function PanelMaestroPage() {
@@ -79,10 +29,8 @@ export default function PanelMaestroPage() {
   const [solicitudes, setSolicitudes] = useState<SolicitudAlta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [cambiando, setCambiando] = useState<string | null>(null);
-  const [validando, setValidando] = useState<string | null>(null);
-  const [rechazando, setRechazando] = useState<string | null>(null);
   const [eliminandoEmpresa, setEliminandoEmpresa] = useState<string | null>(null);
-  const [resolviendoSolicitud, setResolviendoSolicitud] = useState<string | null>(null);
+  const [alternandoAutomatico, setAlternandoAutomatico] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -146,7 +94,9 @@ export default function PanelMaestroPage() {
   async function cargarEmpresas() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
-      .select('id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, perfiles_empresa(nombre)')
+      .select(
+        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, validacion_automatica, perfiles_empresa(nombre)'
+      )
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
 
@@ -247,237 +197,31 @@ export default function PanelMaestroPage() {
     setActualizando(false);
   }
 
-  async function aprobarSolicitud(solicitud: SolicitudAlta) {
+  // Modo Automático vs Manual, por empresa. Automático: las
+  // operaciones que carga esa empresa entran directo como VALIDADO,
+  // sin pasar por la cola de "Pendientes de validar" acá — pensado a
+  // futuro como diferenciador de plan (Automático = Pro, informes al
+  // instante; Manual = Básico, con la demora de esta validación).
+  async function alternarValidacionAutomatica(empresa: Empresa) {
     setError('');
     setMensaje('');
-    setResolviendoSolicitud(solicitud.id);
+    setAlternandoAutomatico(empresa.id);
 
-    try {
-      // Safety net: si dos personas mandaron una solicitud con el
-      // mismo nombre de empresa antes de que se aprobara ninguna
-      // (o si ya existe una empresa activa con ese nombre), no se
-      // aprueba — hay que rechazar esta y pedirle al interesado que
-      // la reenvíe con un nombre distinto.
-      const { data: existeNombre, error: errorNombreDuplicado } = await supabase.rpc('existe_nombre_empresa', {
-        p_nombre: solicitud.nombre_empresa,
-        p_excluir_solicitud_id: solicitud.id,
-      });
+    const nuevoValor = !empresa.validacion_automatica;
 
-      if (errorNombreDuplicado) {
-        throw new Error(errorNombreDuplicado.message);
-      }
+    const { error: errorAlternar } = await supabase
+      .from('empresas')
+      .update({ validacion_automatica: nuevoValor })
+      .eq('id', empresa.id);
 
-      if (existeNombre) {
-        throw new Error(
-          `Ya existe una empresa (u otra solicitud pendiente) con el nombre "${solicitud.nombre_empresa}". Rechazá esta solicitud y pedile al interesado que la reenvíe con un nombre distinto.`
-        );
-      }
-
-      const { data: nuevaEmpresa, error: errorEmpresa } = await supabase
-        .from('empresas')
-        .insert({
-          nombre: solicitud.nombre_empresa,
-          rubro: solicitud.rubro,
-          telefono: solicitud.telefono,
-          email: solicitud.email,
-          moneda: solicitud.moneda,
-          idioma: solicitud.idioma,
-          // Avatar por defecto según el sexo del emprendedor, en vez
-          // de arrancar con la letra inicial — lo puede cambiar
-          // cuando quiera desde Configurações → Logo.
-          logo_url: avatarPorDefecto(solicitud.sexo),
-          // Las empresas nuevas arrancan sin operar: el onboarding
-          // guiado (wizard de datos + 3 operaciones con Sabio) las
-          // deja operativas y recién ahí pone esto en true. Las
-          // empresas que ya existían antes de este campo quedaron en
-          // true por el default de la migración — no se les vuelve a
-          // pedir el tutorial.
-          onboarding_completado: false,
-        })
-        .select('id, numero_cliente')
-        .single();
-
-      if (errorEmpresa || !nuevaEmpresa) {
-        throw new Error(errorEmpresa?.message ?? 'No se pudo crear la empresa.');
-      }
-
-      const { error: errorPerfilEmpresa } = await supabase
-        .from('empresas')
-        .update({ perfil_empresa_id: solicitud.perfil_empresa_id })
-        .eq('id', nuevaEmpresa.id);
-
-      if (errorPerfilEmpresa) {
-        throw new Error(errorPerfilEmpresa.message);
-      }
-
-      if (solicitud.componentes_mixto.length > 0) {
-        const { error: errorComponentes } = await supabase.from('empresa_mixto_componentes').insert(
-          solicitud.componentes_mixto.map((componente) => ({ empresa_id: nuevaEmpresa.id, componente }))
-        );
-
-        if (errorComponentes) {
-          throw new Error(errorComponentes.message);
-        }
-      }
-
-      await inicializarEmpresaDesdePerfil(nuevaEmpresa.id, solicitud.perfil_empresa_id, solicitud.idioma, solicitud.moneda);
-
-      const { error: errorVincular } = await supabase.rpc('vincular_usuario_a_empresa', {
-        p_email: solicitud.email,
-        p_empresa_id: nuevaEmpresa.id,
-        p_rol: 'Cliente',
-        p_nombre: solicitud.nombre,
-      });
-
-      if (errorVincular) {
-        throw new Error(errorVincular.message);
-      }
-
-      const { error: errorCerrarSolicitud } = await supabase
-        .from('solicitudes_alta')
-        .update({ estado: 'APROBADA', empresa_id: nuevaEmpresa.id, resuelto_en: new Date().toISOString() })
-        .eq('id', solicitud.id);
-
-      if (errorCerrarSolicitud) {
-        throw new Error(errorCerrarSolicitud.message);
-      }
-
-      setMensaje(`${solicitud.nombre_empresa} quedó dado de alta como Cliente #${nuevaEmpresa.numero_cliente}, con su plan de cuentas listo.`);
+    if (errorAlternar) {
+      setError(`No se pudo cambiar el modo de ${empresa.nombre}: ${errorAlternar.message}`);
+    } else {
+      setMensaje(`${empresa.nombre} quedó en modo ${nuevoValor ? 'Automático' : 'Manual'}.`);
       await cargarEmpresas();
-      await cargarSolicitudes();
-    } catch (errorAprobar) {
-      setError(
-        `No se pudo aprobar la solicitud de ${solicitud.nombre_empresa}: ${
-          errorAprobar instanceof Error ? errorAprobar.message : 'error desconocido'
-        }`
-      );
     }
 
-    setResolviendoSolicitud(null);
-  }
-
-  async function rechazarSolicitud(solicitud: SolicitudAlta) {
-    setError('');
-    setMensaje('');
-    setResolviendoSolicitud(solicitud.id);
-
-    const { error: errorRechazar } = await supabase
-      .from('solicitudes_alta')
-      .update({ estado: 'RECHAZADA', resuelto_en: new Date().toISOString() })
-      .eq('id', solicitud.id);
-
-    if (errorRechazar) {
-      setError(`No se pudo rechazar la solicitud: ${errorRechazar.message}`);
-    } else {
-      setMensaje(`Solicitud de ${solicitud.nombre_empresa} rechazada.`);
-      await cargarSolicitudes();
-    }
-
-    setResolviendoSolicitud(null);
-  }
-
-  async function validarRegistro(pendiente: PendienteRegistro) {
-    setError('');
-    setMensaje('');
-    setValidando(`registro-${pendiente.idOperacion}`);
-
-    const { error: errorValidar } = await supabase
-      .from('registro_operaciones')
-      .update({ estado: 'VALIDADO' })
-      .eq('empresa_id', pendiente.empresaId)
-      .eq('id_operacion', pendiente.idOperacion);
-
-    if (errorValidar) {
-      setError(`No se pudo validar ${pendiente.idOperacion}.`);
-    } else {
-      setMensaje(`${pendiente.idOperacion} validada.`);
-      await cargarPendientes();
-    }
-
-    setValidando(null);
-  }
-
-  async function validarMovimiento(pendiente: PendienteMovimiento) {
-    setError('');
-    setMensaje('');
-    setValidando(`movimiento-${pendiente.idOperacion}`);
-
-    const [{ error: errorMovimiento }, { error: errorAutomatico }] = await Promise.all([
-      supabase
-        .from('movimientos_stock')
-        .update({ estado: 'VALIDADO' })
-        .eq('empresa_id', pendiente.empresaId)
-        .eq('id_operacion', pendiente.idOperacion),
-
-      supabase
-        .from('registros_automaticos')
-        .update({ estado: 'VALIDADO' })
-        .eq('empresa_id', pendiente.empresaId)
-        .eq('id_operacion', pendiente.idOperacion),
-    ]);
-
-    if (errorMovimiento || errorAutomatico) {
-      setError(`No se pudo validar el movimiento ${pendiente.idOperacion}.`);
-    } else {
-      setMensaje(`Movimiento ${pendiente.idOperacion} validado.`);
-      await cargarPendientes();
-    }
-
-    setValidando(null);
-  }
-
-  // Rechazar = anular la operación por completo, con el mismo efecto
-  // cadena que ya usa "Eliminar y recargar" en Registro de
-  // Operaciones (borra registro_operaciones, movimientos_stock y
-  // registros_automaticos ligados al mismo id_operacion). No hay
-  // "estado RECHAZADO" — la operación deja de existir, tal como si
-  // nunca se hubiera cargado.
-  async function rechazarRegistro(pendiente: PendienteRegistro) {
-    if (!window.confirm(`¿Rechazar y borrar por completo la operación ${pendiente.idOperacion}? No se puede deshacer.`)) {
-      return;
-    }
-
-    setError('');
-    setMensaje('');
-    setRechazando(`registro-${pendiente.idOperacion}`);
-
-    try {
-      await eliminarOperacion(pendiente.empresaId, pendiente.idOperacion);
-      setMensaje(`${pendiente.idOperacion} rechazada y borrada.`);
-      await cargarPendientes();
-    } catch (errorRechazar) {
-      setError(
-        errorRechazar instanceof Error
-          ? errorRechazar.message
-          : `No se pudo rechazar ${pendiente.idOperacion}.`
-      );
-    }
-
-    setRechazando(null);
-  }
-
-  async function rechazarMovimiento(pendiente: PendienteMovimiento) {
-    if (!window.confirm(`¿Rechazar y borrar por completo el movimiento ${pendiente.idOperacion}? No se puede deshacer.`)) {
-      return;
-    }
-
-    setError('');
-    setMensaje('');
-    setRechazando(`movimiento-${pendiente.idOperacion}`);
-
-    try {
-      await eliminarOperacion(pendiente.empresaId, pendiente.idOperacion);
-      setMensaje(`Movimiento ${pendiente.idOperacion} rechazado y borrado.`);
-      await cargarPendientes();
-    } catch (errorRechazar) {
-      setError(
-        errorRechazar instanceof Error
-          ? errorRechazar.message
-          : `No se pudo rechazar el movimiento ${pendiente.idOperacion}.`
-      );
-    }
-
-    setRechazando(null);
+    setAlternandoAutomatico(null);
   }
 
   // Borra la empresa entera y TODO lo que cuelga de ella (plan de
@@ -695,16 +439,71 @@ export default function PanelMaestroPage() {
         )}
 
         {/* =================================================
-            SOLICITUDES DE ALTA — pedidos de cuenta nueva hechos
-            por el propio cliente desde /crear-cuenta
+            NOTIFICAÇÕES — antes acá vivían las listas completas de
+            Solicitudes de alta y Pendientes de validar, pero al
+            resolverlas desaparecían sin dejar rastro. Ahora el lobby
+            solo muestra un resumen con contadores; la lista completa
+            (Pendientes + Historial) se mudó a su propia pantalla, que
+            va a ir sumando más funciones de administración con el
+            tiempo.
         ================================================== */}
 
-        <SolicitudesAlta
-          solicitudes={solicitudes}
-          resolviendo={resolviendoSolicitud}
-          onAprobar={aprobarSolicitud}
-          onRechazar={rechazarSolicitud}
-        />
+        <Link
+          href="/panel-maestro/notificacoes"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+            background: COLORES_BASE.blanco,
+            border: '1px solid #bfdbfe',
+            borderRadius: 20,
+            padding: '18px 22px',
+            marginBottom: 24,
+            boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+            🔔 Notificações
+            {solicitudes.length > 0 && (
+              <span
+                style={{
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  borderRadius: 999,
+                  padding: '3px 10px',
+                  fontSize: 13,
+                  fontWeight: 800,
+                }}
+              >
+                {solicitudes.length} solicitud{solicitudes.length === 1 ? '' : 'es'}
+              </span>
+            )}
+            {pendientes.length > 0 && (
+              <span
+                style={{
+                  background: '#f59e0b',
+                  color: '#ffffff',
+                  borderRadius: 999,
+                  padding: '3px 10px',
+                  fontSize: 13,
+                  fontWeight: 800,
+                }}
+              >
+                {pendientes.length} pendiente{pendientes.length === 1 ? '' : 's'} de validar
+              </span>
+            )}
+            {solicitudes.length === 0 && pendientes.length === 0 && (
+              <span style={{ color: COLORES_BASE.gris, fontSize: 13, fontWeight: 600 }}>
+                nada pendiente por ahora
+              </span>
+            )}
+          </span>
+
+          <span style={{ color: '#2563eb', fontSize: 13, fontWeight: 700 }}>Ver todo →</span>
+        </Link>
 
         {/* =================================================
             ALTA DE CLIENTES — vincular un usuario ya creado
@@ -735,22 +534,6 @@ export default function PanelMaestroPage() {
             setError(mensajeError);
             setMensaje('');
           }}
-        />
-
-        {/* =================================================
-            NOTIFICACIONES — pendientes de validar, de todas
-            las empresas, sin tener que entrar a cada una
-        ================================================== */}
-
-        <NotificacionesPendientes
-          pendientes={pendientes}
-          empresas={empresas}
-          validando={validando}
-          rechazando={rechazando}
-          onValidarRegistro={validarRegistro}
-          onValidarMovimiento={validarMovimiento}
-          onRechazarRegistro={rechazarRegistro}
-          onRechazarMovimiento={rechazarMovimiento}
         />
 
         {/* LISTA DE EMPRESAS — agrupadas por perfil, para poder ver de
@@ -886,6 +669,34 @@ export default function PanelMaestroPage() {
                         >
                           {empresa.perfiles_empresa?.nombre ?? 'Sin perfil'}
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            alternarValidacionAutomatica(empresa);
+                          }}
+                          disabled={alternandoAutomatico === empresa.id}
+                          title="Automático: sus operaciones se validan solas. Manual: quedan pendientes hasta que un admin las valide."
+                          style={{
+                            display: 'inline-block',
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            marginTop: 3,
+                            marginLeft: 6,
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            border: 'none',
+                            cursor: alternandoAutomatico === empresa.id ? 'wait' : 'pointer',
+                            background: empresa.validacion_automatica ? `${COLORES_BASE.verde}18` : '#fef3c7',
+                            color: empresa.validacion_automatica ? COLORES_BASE.verde : '#92400e',
+                          }}
+                        >
+                          {alternandoAutomatico === empresa.id
+                            ? '...'
+                            : empresa.validacion_automatica
+                              ? '⚡ Automático'
+                              : '🕒 Manual'}
+                        </button>
                         <div
                           style={{
                             fontSize: 11.5,
@@ -1167,126 +978,6 @@ function BloqueSuscripcionEmpresa({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ==========================================================
-   SOLICITUDES DE ALTA — pedidos hechos desde /crear-cuenta
-========================================================== */
-
-function SolicitudesAlta({
-  solicitudes,
-  resolviendo,
-  onAprobar,
-  onRechazar,
-}: {
-  solicitudes: SolicitudAlta[];
-  resolviendo: string | null;
-  onAprobar: (s: SolicitudAlta) => void;
-  onRechazar: (s: SolicitudAlta) => void;
-}) {
-  if (solicitudes.length === 0) return null;
-
-  return (
-    <div
-      style={{
-        background: COLORES_BASE.blanco,
-        border: '1px solid #bfdbfe',
-        borderRadius: 20,
-        padding: 22,
-        marginBottom: 24,
-        boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul, marginBottom: 16 }}>
-        📥 Solicitudes de alta nuevas
-        <span
-          style={{
-            background: '#2563eb',
-            color: '#ffffff',
-            borderRadius: 999,
-            padding: '3px 10px',
-            fontSize: 13,
-            fontWeight: 800,
-          }}
-        >
-          {solicitudes.length}
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {solicitudes.map((s) => (
-          <div
-            key={s.id}
-            style={{
-              padding: '14px 16px',
-              borderRadius: 14,
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ fontSize: 13.5, color: COLORES_BASE.azul, lineHeight: 1.6 }}>
-              <strong>{s.nombre_empresa}</strong>
-              {s.rubro && <span style={{ color: COLORES_BASE.gris }}> · {s.rubro}</span>}
-              <br />
-              <span style={{ color: COLORES_BASE.gris }}>
-                {s.nombre} · {s.email} · {s.telefono}
-              </span>
-              <br />
-              Perfil elegido: <strong>{s.perfiles_empresa?.nombre ?? '—'}</strong>
-              {s.componentes_mixto.length > 0 && (
-                <span style={{ color: COLORES_BASE.gris }}> ({s.componentes_mixto.join(', ')})</span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                disabled={resolviendo === s.id}
-                onClick={() => onAprobar(s)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: '1px solid #bbf7d0',
-                  background: '#f0fdf4',
-                  color: '#166534',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {resolviendo === s.id ? 'Aprobando...' : 'Aprobar ✓'}
-              </button>
-
-              <button
-                type="button"
-                disabled={resolviendo === s.id}
-                onClick={() => onRechazar(s)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: '1px solid #fecaca',
-                  background: '#fef2f2',
-                  color: '#b91c1c',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Rechazar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1814,187 +1505,3 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
   );
 }
 
-/* ==========================================================
-   NOTIFICACIONES PENDIENTES DE VALIDAR — todas las empresas
-========================================================== */
-
-function NotificacionesPendientes({
-  pendientes,
-  empresas,
-  validando,
-  rechazando,
-  onValidarRegistro,
-  onValidarMovimiento,
-  onRechazarRegistro,
-  onRechazarMovimiento,
-}: {
-  pendientes: Pendiente[];
-  empresas: Empresa[];
-  validando: string | null;
-  rechazando: string | null;
-  onValidarRegistro: (p: PendienteRegistro) => void;
-  onValidarMovimiento: (p: PendienteMovimiento) => void;
-  onRechazarRegistro: (p: PendienteRegistro) => void;
-  onRechazarMovimiento: (p: PendienteMovimiento) => void;
-}) {
-  const [abierta, setAbierta] = useState(true);
-  const nombrePorEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
-  const simboloPorEmpresa = new Map(empresas.map((e) => [e.id, simboloMoneda(e.moneda)]));
-
-  const porEmpresa = new Map<string, Pendiente[]>();
-  for (const p of pendientes) {
-    const lista = porEmpresa.get(p.empresaId) ?? [];
-    lista.push(p);
-    porEmpresa.set(p.empresaId, lista);
-  }
-
-  if (pendientes.length === 0) {
-    return (
-      <div
-        style={{
-          background: COLORES_BASE.blanco,
-          border: '1px solid #e5e7eb',
-          borderRadius: 20,
-          padding: '18px 22px',
-          marginBottom: 24,
-          color: COLORES_BASE.gris,
-          fontSize: 14,
-          fontWeight: 600,
-        }}
-      >
-        ✅ No hay nada pendiente de validar en ninguna empresa.
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        background: COLORES_BASE.blanco,
-        border: '1px solid #fde68a',
-        borderRadius: 20,
-        padding: 22,
-        marginBottom: 24,
-        boxShadow: '0 10px 24px rgba(217,119,6,0.08)',
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setAbierta((a) => !a)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-        }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
-          🔔 Pendientes de validar
-          <span
-            style={{
-              background: '#f59e0b',
-              color: '#ffffff',
-              borderRadius: 999,
-              padding: '3px 10px',
-              fontSize: 13,
-              fontWeight: 800,
-            }}
-          >
-            {pendientes.length}
-          </span>
-        </span>
-
-        <span style={{ color: COLORES_BASE.gris, fontSize: 13 }}>{abierta ? '▾ ocultar' : '▸ mostrar'}</span>
-      </button>
-
-      {abierta && (
-        <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {Array.from(porEmpresa.entries()).map(([empresaId, items]) => (
-            <div key={empresaId}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: COLORES_BASE.azul, marginBottom: 8 }}>
-                {nombrePorEmpresa.get(empresaId) ?? 'Empresa'}{' '}
-                <span style={{ color: COLORES_BASE.gris, fontWeight: 600 }}>· {items.length} pendiente{items.length === 1 ? '' : 's'}</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {items.map((p) => (
-                  <div
-                    key={`${p.tipo}-${p.idOperacion}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      padding: '10px 14px',
-                      borderRadius: 12,
-                      background: '#fffbeb',
-                      border: '1px solid #fde68a',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, color: COLORES_BASE.azul }}>
-                      <strong>{p.idOperacion}</strong>{' '}
-                      <span style={{ color: COLORES_BASE.gris }}>
-                        {p.tipo === 'registro'
-                          ? `· ${p.operacion} · ${p.categoria}${p.historico ? ` · ${p.historico}` : ''}`
-                          : `· Movimiento de mercadería · ${p.lineas} línea${p.lineas === 1 ? '' : 's'}`}
-                      </span>
-                      {' — '}
-                      <span style={{ fontWeight: 700 }}>
-                        {simboloPorEmpresa.get(empresaId) ?? 'R$'} {formatearNumeroEntero(p.total)}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        type="button"
-                        disabled={validando === `${p.tipo}-${p.idOperacion}` || rechazando === `${p.tipo}-${p.idOperacion}`}
-                        onClick={() => (p.tipo === 'registro' ? onValidarRegistro(p) : onValidarMovimiento(p))}
-                        style={{
-                          padding: '7px 14px',
-                          borderRadius: 8,
-                          border: '1px solid #bbf7d0',
-                          background: '#f0fdf4',
-                          color: '#166534',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {validando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Validado ✓'}
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={validando === `${p.tipo}-${p.idOperacion}` || rechazando === `${p.tipo}-${p.idOperacion}`}
-                        onClick={() => (p.tipo === 'registro' ? onRechazarRegistro(p) : onRechazarMovimiento(p))}
-                        style={{
-                          padding: '7px 14px',
-                          borderRadius: 8,
-                          border: '1px solid #fecaca',
-                          background: '#fef2f2',
-                          color: '#b91c1c',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {rechazando === `${p.tipo}-${p.idOperacion}` ? '...' : 'Rechazar ✗'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

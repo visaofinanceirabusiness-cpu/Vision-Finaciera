@@ -516,12 +516,22 @@ export async function registrarOperacion(
   // 1. BUSCAR REGLA
   // ---------------------------------------------------
 
-  const regla = await buscarRegla(
-    empresaId,
-    formulario.operacion.trim(),
-    formulario.categoria.trim(),
-    formulario.formaPago.trim()
-  );
+  const [regla, { data: empresaConfig }] = await Promise.all([
+    buscarRegla(
+      empresaId,
+      formulario.operacion.trim(),
+      formulario.categoria.trim(),
+      formulario.formaPago.trim()
+    ),
+    supabase.from('empresas').select('validacion_automatica').eq('id', empresaId).maybeSingle(),
+  ]);
+
+  // Modo automático (por empresa, ver Panel Maestro → Notificações):
+  // en vez de quedar "PENDIENTE" de que un admin la valide a mano, la
+  // operación entra directo como "VALIDADO" — la empresa sigue
+  // operando exactamente igual, solo cambia si requiere ese paso
+  // manual antes de reflejarse en sus informes.
+  const estadoInicial = empresaConfig?.validacion_automatica ? 'VALIDADO' : 'PENDIENTE';
 
   if (!regla) {
     throw new Error(
@@ -761,7 +771,7 @@ export async function registrarOperacion(
           costoUnitario,
         historico:
           formulario.historico,
-        estado: 'PENDIENTE',
+        estado: estadoInicial,
       });
     }
   }
@@ -949,7 +959,7 @@ export async function registrarOperacion(
               regla.cuenta_debito,
             cuenta_credito:
               regla.cuenta_credito,
-            estado: 'PENDIENTE',
+            estado: estadoInicial,
           });
 
       if (error) {
@@ -997,8 +1007,7 @@ export async function registrarOperacion(
               datosCMV.importe,
             historico:
               `CMV generado automáticamente - ${idOperacion}`,
-            estado:
-              'PENDIENTE',
+            estado: estadoInicial,
           });
 
       if (error) {
