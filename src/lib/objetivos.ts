@@ -15,6 +15,7 @@
 // adelante; por ahora CATALOGO_INDICADORES no tiene ninguno de esa
 // categoría a propósito).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { obtenerIndicadores } from './contabilidad';
 
@@ -648,8 +649,8 @@ export async function eliminarObjetivo(id: string) {
 //     si la empresa no maneja stock (perfil Servicios o Familiar, o
 //     Mixto sin componente Comercial/Producción) — se omiten en ese
 //     caso.
-export async function crearObjetivosModelo(empresaId: string) {
-  const { data: empresa } = await supabase
+export async function crearObjetivosModelo(empresaId: string, cliente: SupabaseClient = supabase) {
+  const { data: empresa } = await cliente
     .from('empresas')
     .select('moneda, idioma, perfil_empresa_id, perfiles_empresa(codigo)')
     .eq('id', empresaId)
@@ -664,7 +665,7 @@ export async function crearObjetivosModelo(empresaId: string) {
   let manejaMercaderia = perfilCodigo !== 'SERVICIOS' && perfilCodigo !== 'FAMILIAR';
 
   if (perfilCodigo === 'MIXTO') {
-    const { data: componentes } = await supabase
+    const { data: componentes } = await cliente
       .from('empresa_mixto_componentes')
       .select('componente')
       .eq('empresa_id', empresaId);
@@ -713,7 +714,7 @@ export async function crearObjetivosModelo(empresaId: string) {
     activo: true,
   }));
 
-  const { error } = await supabase.from('objetivos_empresa').insert(filas);
+  const { error } = await cliente.from('objetivos_empresa').insert(filas);
 
   if (error) {
     throw error;

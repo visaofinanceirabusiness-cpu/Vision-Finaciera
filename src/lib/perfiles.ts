@@ -22,12 +22,13 @@
 // función NO toca empresas.matriz_generada — ese campo lo marca
 // exclusivamente generarMatrizInicial(), más abajo.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { crearObjetivosModelo } from './objetivos';
 import { crearMensajesTutorialModelo, crearMensajeBienvenidaOnboarding } from './mensajesTutorial';
 
-export async function empresaYaTieneEsqueleto(empresaId: string) {
-  const { count, error } = await supabase
+export async function empresaYaTieneEsqueleto(empresaId: string, cliente: SupabaseClient = supabase) {
+  const { count, error } = await cliente
     .from('plan_cuentas')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId);
@@ -59,9 +60,10 @@ export async function inicializarEmpresaDesdePerfil(
   // guardó empresas.moneda en la base un paso antes. Se recibe igual
   // para no romper esa llamada, que pasa los 4 datos del formulario
   // juntos.
-  moneda?: string
+  moneda?: string,
+  cliente: SupabaseClient = supabase
 ) {
-  const yaTieneEsqueleto = await empresaYaTieneEsqueleto(empresaId);
+  const yaTieneEsqueleto = await empresaYaTieneEsqueleto(empresaId, cliente);
 
   if (yaTieneEsqueleto) {
     throw new Error(
@@ -91,17 +93,17 @@ export async function inicializarEmpresaDesdePerfil(
     { data: categoriasOperacionMaestro, error: errorCatOp },
     { data: reglasMaestro, error: errorReglas },
   ] = await Promise.all([
-    supabase
+    cliente
       .from('perfil_plan_cuentas_maestro')
       .select('*')
       .eq('perfil_empresa_id', perfilEmpresaId)
       .eq('idioma', IDIOMA_MAESTRO)
       .eq('pais', pais),
-    supabase.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
-    supabase.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
-    supabase.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
-    supabase.from('perfil_categorias_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
-    supabase.from('perfil_reglas_contables_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfil_operaciones_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfil_formas_pago_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfil_categorias_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfil_reglas_contables_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
   ]);
 
   const primerError =
@@ -138,7 +140,7 @@ export async function inicializarEmpresaDesdePerfil(
   }));
 
   const { data: cuentasCreadas, error: errorInsertCuentas } =
-    await supabase.from('plan_cuentas').insert(filasCuentas).select('id, codigo');
+    await cliente.from('plan_cuentas').insert(filasCuentas).select('id, codigo');
 
   if (errorInsertCuentas) {
     throw new Error(errorInsertCuentas.message);
@@ -157,7 +159,7 @@ export async function inicializarEmpresaDesdePerfil(
     .filter((fila) => fila.id && fila.cuenta_padre_id);
 
   for (const fila of actualizacionesPadre) {
-    const { error } = await supabase
+    const { error } = await cliente
       .from('plan_cuentas')
       .update({ cuenta_padre_id: fila.cuenta_padre_id })
       .eq('id', fila.id);
@@ -172,7 +174,7 @@ export async function inicializarEmpresaDesdePerfil(
   // ---------------------------------------------------
 
   const { data: operacionesCreadas, error: errorInsertOperaciones } =
-    await supabase
+    await cliente
       .from('operaciones')
       .insert(
         (operacionesMaestro ?? []).map((o) => ({
@@ -196,7 +198,7 @@ export async function inicializarEmpresaDesdePerfil(
   // ---------------------------------------------------
 
   const { data: formasPagoCreadas, error: errorInsertFormasPago } =
-    await supabase
+    await cliente
       .from('formas_pago')
       .insert(
         (formasPagoMaestro ?? []).map((f) => ({
@@ -225,7 +227,7 @@ export async function inicializarEmpresaDesdePerfil(
     .filter((fila) => fila.forma_pago_id && fila.cuenta_id);
 
   if (filasFormaPagoCuentas.length > 0) {
-    const { error } = await supabase.from('forma_pago_cuentas').insert(filasFormaPagoCuentas);
+    const { error } = await cliente.from('forma_pago_cuentas').insert(filasFormaPagoCuentas);
 
     if (error) {
       throw new Error(error.message);
@@ -246,7 +248,7 @@ export async function inicializarEmpresaDesdePerfil(
     .filter((fila) => fila.operacion_id && fila.forma_pago_id);
 
   if (filasFormasPagoOperacion.length > 0) {
-    const { error } = await supabase.from('formas_pago_operacion').insert(filasFormasPagoOperacion);
+    const { error } = await cliente.from('formas_pago_operacion').insert(filasFormasPagoOperacion);
 
     if (error) {
       throw new Error(error.message);
@@ -258,7 +260,7 @@ export async function inicializarEmpresaDesdePerfil(
   // ---------------------------------------------------
 
   const { data: categoriasOperacionCreadas, error: errorInsertCatOp } =
-    await supabase
+    await cliente
       .from('categorias_operacion')
       .insert(
         (categoriasOperacionMaestro ?? []).map((c) => ({
@@ -291,7 +293,7 @@ export async function inicializarEmpresaDesdePerfil(
     .filter((fila) => fila.categoria_operacion_id && fila.cuenta_id);
 
   if (filasCatOpCuentas.length > 0) {
-    const { error } = await supabase.from('categorias_operacion_cuentas').insert(filasCatOpCuentas);
+    const { error } = await cliente.from('categorias_operacion_cuentas').insert(filasCatOpCuentas);
 
     if (error) {
       throw new Error(error.message);
@@ -319,7 +321,7 @@ export async function inicializarEmpresaDesdePerfil(
   }));
 
   if (filasReglas.length > 0) {
-    const { error } = await supabase.from('reglas_contables').insert(filasReglas);
+    const { error } = await cliente.from('reglas_contables').insert(filasReglas);
 
     if (error) {
       throw new Error(error.message);
@@ -335,7 +337,7 @@ export async function inicializarEmpresaDesdePerfil(
   // después solo por un admin).
   // ---------------------------------------------------
 
-  await crearObjetivosModelo(empresaId);
+  await crearObjetivosModelo(empresaId, cliente);
 
   // ---------------------------------------------------
   // 8. SEMBRAR LOS MENSAJES TUTORIALES
@@ -346,19 +348,20 @@ export async function inicializarEmpresaDesdePerfil(
   // según su perfil (ver lib/mensajesTutorial.ts).
   // ---------------------------------------------------
 
-  const { data: perfilEmpresaData } = await supabase
+  const { data: perfilEmpresaData } = await cliente
     .from('perfiles_empresa')
     .select('codigo, nombre')
     .eq('id', perfilEmpresaId)
     .maybeSingle();
 
   try {
-    await crearMensajesTutorialModelo(empresaId, perfilEmpresaData?.codigo, idioma);
+    await crearMensajesTutorialModelo(empresaId, perfilEmpresaData?.codigo, idioma, cliente);
     await crearMensajeBienvenidaOnboarding(
       empresaId,
       perfilEmpresaData?.codigo,
       perfilEmpresaData?.nombre,
-      idioma
+      idioma,
+      cliente
     );
   } catch (errorMensajes) {
     // No queremos que un problema con los tutoriales le impida a la
