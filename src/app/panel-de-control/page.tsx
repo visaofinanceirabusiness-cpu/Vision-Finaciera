@@ -483,19 +483,19 @@ export default function MiNegocioPage() {
             {esFamiliar ? (
               <>
                 <ResumenEjecutivoCard
-                  titulo={t('dineroDisponible')}
-                  valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
-                  emoji="💵"
+                  titulo={t('activo')}
+                  valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
+                  emoji="💚"
                   color={colores.verde}
-                  ayuda={t('ayudaDineroDisponible')}
+                  ayuda={t('ayudaActivoFamilia')}
                 />
 
                 <ResumenEjecutivoCard
-                  titulo={t('deudaTotal')}
+                  titulo={t('pasivo')}
                   valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                   emoji="💗"
                   color="#b91c1c"
-                  ayuda={t('ayudaDeudaTotal')}
+                  ayuda={t('ayudaPasivo')}
                 />
 
                 <ResumenEjecutivoCard
