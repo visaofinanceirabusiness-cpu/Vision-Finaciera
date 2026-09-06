@@ -375,7 +375,7 @@ function CentralDeLanzamientosTab({
   // en Transferencia). Una Compra/Venta/Pérdida de una categoría de
   // servicio (sin stock) se simplifica exactamente igual.
   const formularioSimple =
-    ['PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'].includes(operacion) ||
+    ['PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA', 'COBRO'].includes(operacion) ||
     (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && Boolean(categoria) && !categoriaEsProducto);
 
   // Transferencia es un movimiento entre cuentas propias (ej. de
@@ -1255,7 +1255,15 @@ function CentralDeLanzamientosTab({
         </Campo>
       )}
 
-      {!esTransferencia && (
+      {/*
+        Para Familia no se pide Cliente/Proveedor ("Fuente de ingreso"
+        en un Cobro, "Destino de pago" en un Pago): la categoría
+        elegida (que sale del plan de cuentas del perfil, ej. "Uber",
+        "Alquiler") ya identifica de dónde viene o a dónde va la
+        plata. Pedirlo de nuevo acá es información redundante que
+        además no tiene sentido completar en el día a día familiar.
+      */}
+      {!esTransferencia && !esFamiliar && (
         <Campo label={etiquetaRelacionActual}>
           <select
             value={clienteProveedor}
