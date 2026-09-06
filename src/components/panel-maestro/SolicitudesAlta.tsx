@@ -18,17 +18,21 @@ const COLORES_BASE = {
 export function SolicitudesAlta({
   solicitudes,
   resolviendo,
+  modoDefault = true,
   onAprobar,
   onRechazar,
 }: {
   solicitudes: SolicitudAltaTipo[];
   resolviendo: string | null;
+  // Con qué arranca marcado el selector de cada solicitud — configurable
+  // desde "Modo por defecto para altas nuevas", arriba de esta lista.
+  modoDefault?: boolean;
   onAprobar: (s: SolicitudAltaTipo, modoAutomatico: boolean) => void;
   onRechazar: (s: SolicitudAltaTipo) => void;
 }) {
-  // Modo con el que arranca cada empresa nueva al aprobarse — por
-  // defecto Automático (informes al instante, sin esperar validación
-  // manual). El alta en sí siempre es instantánea con cualquiera de
+  // Modo con el que arranca cada empresa nueva al aprobarse — el
+  // admin lo puede cambiar acá, solicitud por solicitud, antes de
+  // aprobar. El alta en sí siempre es instantánea con cualquiera de
   // los dos: esto solo decide si sus operaciones futuras necesitan
   // que un admin las valide a mano antes de reflejarse.
   const [modoPorSolicitud, setModoPorSolicitud] = useState<Record<string, boolean>>({});
@@ -64,7 +68,7 @@ export function SolicitudesAlta({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {solicitudes.map((s) => {
-          const modoAutomatico = modoPorSolicitud[s.id] ?? true;
+          const modoAutomatico = modoPorSolicitud[s.id] ?? modoDefault;
 
           return (
             <div
