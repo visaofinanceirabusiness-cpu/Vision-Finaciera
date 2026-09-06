@@ -291,6 +291,7 @@ function CentralDeLanzamientosTab({
   const [pasoTutorial, setPasoTutorial] = useState(0);
   const [operacionesTutorial, setOperacionesTutorial] = useState<string[]>([]);
   const [manejaMercaderiaEmpresa, setManejaMercaderiaEmpresa] = useState(false);
+  const [esFamiliarEmpresa, setEsFamiliarEmpresa] = useState(false);
   const [ofrecerTutorialVoluntario, setOfrecerTutorialVoluntario] = useState(false);
 
   const [fecha, setFecha] = useState(() => valoresIniciales?.fecha ?? fechaLocalHoy());
@@ -427,7 +428,7 @@ function CentralDeLanzamientosTab({
   function activarTutorialVoluntario() {
     if (!empresaId) return;
 
-    setOperacionesTutorial(pasosTutorial(esFamiliar, manejaMercaderiaEmpresa));
+    setOperacionesTutorial(pasosTutorial(esFamiliarEmpresa, manejaMercaderiaEmpresa));
     setPasoTutorial(0);
     setTutorialVoluntario(true);
     setModoTutorial(true);
@@ -552,12 +553,30 @@ function CentralDeLanzamientosTab({
 
       setEmpresaId(perfil.empresa_id);
 
-      const [onboardingCompleto, manejaMercaderia] = await Promise.all([
+      const [onboardingCompleto, manejaMercaderia, empresaPerfil] = await Promise.all([
         empresaTieneOnboardingCompleto(perfil.empresa_id),
         empresaManejaMercaderia(perfil.empresa_id),
+        supabase
+          .from('empresas')
+          .select('perfiles_empresa(codigo)')
+          .eq('id', perfil.empresa_id)
+          .maybeSingle(),
       ]);
 
+      // No se usa el "esFamiliar" del contexto acá: ese lo carga
+      // ContabilidadPage con su propia consulta async, en paralelo a
+      // este efecto — cuando este efecto arranca (montaje del tab),
+      // ese fetch todavía no resolvió y el contexto trae el valor
+      // inicial (false), sin importar que se actualice después: este
+      // efecto corre una sola vez y ya quedó con ese valor stale en
+      // el closure. Por eso se resuelve acá de nuevo, con datos
+      // frescos, en vez de confiar en el contexto para esta cuenta.
+      const empresaEsFamiliar =
+        (empresaPerfil.data as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
+          ?.perfiles_empresa?.codigo === 'FAMILIAR';
+
       setManejaMercaderiaEmpresa(manejaMercaderia);
+      setEsFamiliarEmpresa(empresaEsFamiliar);
 
       const tutorialPedidoPorUrl =
         typeof window !== 'undefined' &&
@@ -573,7 +592,7 @@ function CentralDeLanzamientosTab({
       }
 
       if (quiereTutorial && !modoEdicion) {
-        setOperacionesTutorial(pasosTutorial(esFamiliar, manejaMercaderia));
+        setOperacionesTutorial(pasosTutorial(empresaEsFamiliar, manejaMercaderia));
         setPasoTutorial(0);
         setTutorialVoluntario(onboardingCompleto);
         setModoTutorial(true);
