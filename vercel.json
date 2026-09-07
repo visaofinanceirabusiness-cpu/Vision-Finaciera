@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/calendario/verificar-recordatorios",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

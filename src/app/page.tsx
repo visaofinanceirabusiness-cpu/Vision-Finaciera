@@ -24,6 +24,7 @@ import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { PieVisao } from '@/components/panel/PieVisao';
+import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
 
@@ -102,6 +103,7 @@ export default function InicioPage() {
   const router = useRouter();
 
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [configuracion, setConfiguracion] =
     useState<ConfiguracionDashboard | null>(null);
@@ -179,6 +181,7 @@ export default function InicioPage() {
       }
 
       setPerfil(perfilData);
+      setUsuarioId(userData.user.id);
 
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
@@ -862,6 +865,23 @@ export default function InicioPage() {
             </div>
           </section>
         </Link>
+
+        {/* =================================================
+            CALENDÁRIO ORGANIZADOR
+            Vive directo acá en el lobby (no es una tarjeta más de
+            herramientas) — cualquier usuario de la empresa puede
+            crear, editar o borrar eventos, prioridades del mes y la
+            nota libre.
+        ================================================== */}
+
+        {perfil && usuarioId && empresa && (
+          <CalendarioOrganizador
+            empresaId={perfil.empresa_id}
+            usuarioId={usuarioId}
+            idioma={idioma}
+            colores={colores}
+          />
+        )}
 
         {/* =================================================
             HERRAMIENTAS
