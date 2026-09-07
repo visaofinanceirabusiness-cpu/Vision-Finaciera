@@ -36,6 +36,13 @@ export type PrioridadCalendario = {
   orden: number;
 };
 
+export type AnotacionCalendario = {
+  id: string;
+  texto: string;
+  completada: boolean;
+  orden: number;
+};
+
 type InfoCategoria = {
   color: string;
   labelES: string;
@@ -186,31 +193,39 @@ export async function eliminarPrioridad(id: string) {
 }
 
 // =====================================================
-// NOTA LIBRE DEL MES
+// ANOTAÇÕES DEL MES (papeletas: se agregan, se tachan, se borran —
+// misma mecánica que las prioridades, pero para notas sueltas)
 // =====================================================
 
-export async function obtenerNotaDelMes(empresaId: string, mesReferencia: Date): Promise<string> {
+export async function listarAnotacionesDelMes(empresaId: string, mesReferencia: Date): Promise<AnotacionCalendario[]> {
   const { data, error } = await supabase
-    .from('calendario_notas')
-    .select('texto')
+    .from('calendario_anotaciones')
+    .select('id, texto, completada, orden')
     .eq('empresa_id', empresaId)
     .eq('mes', primerDiaDelMes(mesReferencia))
-    .maybeSingle();
+    .order('orden', { ascending: true });
 
   if (error) throw error;
-  return data?.texto ?? '';
+  return (data ?? []) as AnotacionCalendario[];
 }
 
-export async function guardarNotaDelMes(empresaId: string, mesReferencia: Date, texto: string) {
-  const { error } = await supabase.from('calendario_notas').upsert(
-    {
-      empresa_id: empresaId,
-      mes: primerDiaDelMes(mesReferencia),
-      texto,
-      actualizado_en: new Date().toISOString(),
-    },
-    { onConflict: 'empresa_id,mes' }
-  );
+export async function crearAnotacion(empresaId: string, mesReferencia: Date, texto: string, orden: number) {
+  const { error } = await supabase.from('calendario_anotaciones').insert({
+    empresa_id: empresaId,
+    mes: primerDiaDelMes(mesReferencia),
+    texto,
+    orden,
+  });
 
+  if (error) throw error;
+}
+
+export async function alternarAnotacion(id: string, completada: boolean) {
+  const { error } = await supabase.from('calendario_anotaciones').update({ completada }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function eliminarAnotacion(id: string) {
+  const { error } = await supabase.from('calendario_anotaciones').delete().eq('id', id);
   if (error) throw error;
 }
