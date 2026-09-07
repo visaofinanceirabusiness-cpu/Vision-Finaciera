@@ -885,7 +885,9 @@ function CentralDeLanzamientosTab({
       operacion &&
       categoria &&
       formaPago &&
-      (formularioSimple || historico.trim()) &&
+      // En Venta el histórico se numera solo (ver más abajo) y su
+      // input queda oculto — nunca debe bloquear el registro.
+      (formularioSimple || operacion === 'VENTA' || historico.trim()) &&
       // Para el perfil Familiar, "destino de pago"/"fuente de
       // ingreso" ya no es obligatorio: la categoría (que además ahora
       // viene precargada de fábrica) alcanza para describir el
@@ -911,7 +913,7 @@ function CentralDeLanzamientosTab({
       return;
     }
 
-    if (!formularioSimple && !historico.trim()) {
+    if (!formularioSimple && operacion !== 'VENTA' && !historico.trim()) {
       setMensajeSabio(msgCompletarHistorico(idioma));
       return;
     }
