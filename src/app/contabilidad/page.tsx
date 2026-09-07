@@ -2148,6 +2148,12 @@ type MovimientoDiario = {
   importe: number;
   estado: string | null;
   tipo_registro: 'OPERACION' | 'AUTOMATICO';
+  // Solo presentes en filas tipo_registro==='OPERACION' — se usan
+  // para poder reenviar el comprobante de una Venta ya validada
+  // (ver BotonReenviarComprobante). Los registros_automaticos
+  // (CMV, etc.) no tienen cliente ni forma de pago propia.
+  cliente_proveedor?: string | null;
+  forma_pago?: string | null;
 };
 
 type GrupoOperacion = {
@@ -2166,6 +2172,8 @@ function LibroDiarioTab() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [nombreEmpresa, setNombreEmpresa] = useState('');
 
   async function cargar(empresaId: string) {
     setError('');
@@ -2186,7 +2194,9 @@ function LibroDiarioTab() {
           cuenta_debito,
           cuenta_credito,
           total,
-          estado
+          estado,
+          cliente_proveedor,
+          forma_pago
           `
         )
         .eq('empresa_id', empresaId),
@@ -2232,6 +2242,8 @@ function LibroDiarioTab() {
       importe: Number(fila.total ?? 0),
       estado: fila.estado,
       tipo_registro: 'OPERACION',
+      cliente_proveedor: fila.cliente_proveedor,
+      forma_pago: fila.forma_pago,
     }));
 
     const filasAutomaticas: MovimientoDiario[] = (automaticos ?? []).map((fila) => ({
@@ -2287,6 +2299,16 @@ function LibroDiarioTab() {
         setCargando(false);
         return;
       }
+
+      setEmpresaId(perfil.empresa_id);
+
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('nombre')
+        .eq('id', perfil.empresa_id)
+        .maybeSingle();
+
+      setNombreEmpresa(empresaData?.nombre ?? '');
 
       await cargar(perfil.empresa_id);
       setCargando(false);
@@ -2386,7 +2408,14 @@ function LibroDiarioTab() {
           {!grupos.length ? (
             <div style={vacioOperacion}>{t('sinMovimientosContables')}</div>
           ) : (
-            grupos.map((grupo) => <GrupoOperacionCard key={grupo.id_operacion} grupo={grupo} />)
+            grupos.map((grupo) => (
+              <GrupoOperacionCard
+                key={grupo.id_operacion}
+                grupo={grupo}
+                empresaId={empresaId}
+                nombreEmpresa={nombreEmpresa}
+              />
+            ))
           )}
         </div>
       )}
@@ -2394,7 +2423,15 @@ function LibroDiarioTab() {
   );
 }
 
-function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
+function GrupoOperacionCard({
+  grupo,
+  empresaId,
+  nombreEmpresa,
+}: {
+  grupo: GrupoOperacion;
+  empresaId: string | null;
+  nombreEmpresa: string;
+}) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
@@ -2491,7 +2528,23 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
                 </Td>
 
                 <Td>
-                  <Estado estado={fila.estado} idioma={idioma} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Estado estado={fila.estado} idioma={idioma} />
+
+                    {empresaId &&
+                      fila.tipo_registro === 'OPERACION' &&
+                      fila.operacion === 'VENTA' &&
+                      (fila.estado || '').toUpperCase() === 'VALIDADO' &&
+                      fila.cliente_proveedor && (
+                        <BotonReenviarComprobante
+                          empresaId={empresaId}
+                          nombreEmpresa={nombreEmpresa}
+                          idioma={idioma}
+                          simbolo={simbolo}
+                          fila={fila}
+                        />
+                      )}
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -2499,6 +2552,84 @@ function GrupoOperacionCard({ grupo }: { grupo: GrupoOperacion }) {
         </table>
       </div>
     </section>
+  );
+}
+
+// Reenvía el comprobante de una Venta ya validada — misma mecánica
+// que el botón que aparece al registrar (ver lib/whatsapp.ts), pero
+// reconstruyendo el mensaje a partir de la fila del Libro Diario en
+// vez de tenerlo ya armado en memoria.
+function BotonReenviarComprobante({
+  empresaId,
+  nombreEmpresa,
+  idioma,
+  simbolo,
+  fila,
+}: {
+  empresaId: string;
+  nombreEmpresa: string;
+  idioma: string | null;
+  simbolo: string;
+  fila: MovimientoDiario;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+  const esPT = idioma === 'PT';
+
+  async function reenviar() {
+    setEnviando(true);
+    setError('');
+
+    try {
+      const telefono = await buscarTelefonoCliente(empresaId, fila.cliente_proveedor ?? '');
+
+      if (!empresaTieneTelefonoValido(telefono)) {
+        setError(esPT ? 'Esse cliente não tem telefone cadastrado.' : 'Ese cliente no tiene teléfono cargado.');
+        return;
+      }
+
+      const mensaje = armarMensajeComprobante({
+        idioma,
+        nombreEmpresa: nombreEmpresa || (esPT ? 'Meu Negócio' : 'Mi Negocio'),
+        numeroComprobante: fila.id_operacion,
+        fecha: fila.fecha,
+        cliente: fila.cliente_proveedor ?? '',
+        detalle: fila.historico ?? '',
+        formaPago: fila.forma_pago ?? '',
+        total: Number(fila.importe ?? 0),
+        simboloMoneda: simbolo,
+      });
+
+      window.open(enlaceWhatsapp(telefono as string, mensaje), '_blank', 'noopener,noreferrer');
+    } catch (errorReenviar) {
+      setError((errorReenviar as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+      <button
+        onClick={reenviar}
+        disabled={enviando}
+        style={{
+          border: 'none',
+          background: '#25D366',
+          color: '#fff',
+          borderRadius: 8,
+          padding: '4px 9px',
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: enviando ? 'default' : 'pointer',
+          opacity: enviando ? 0.7 : 1,
+        }}
+      >
+        📲 {esPT ? 'Reenviar comprovante' : 'Reenviar comprobante'}
+      </button>
+
+      {error && <span style={{ fontSize: 10, color: '#dc2626' }}>{error}</span>}
+    </span>
   );
 }
 
