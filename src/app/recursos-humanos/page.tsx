@@ -444,6 +444,14 @@ export default function RecursosHumanosPage() {
                     placeholder={t('telefonoPlaceholder')}
                     style={inputFormulario}
                   />
+
+                  {pestana === 'clientes' && (
+                    <span style={{ fontSize: 11, color: '#6b7280', marginTop: 4, display: 'block' }}>
+                      {idioma === 'PT'
+                        ? 'Com código do país (ex: 5511987654321) — é o número usado para enviar o comprovante por WhatsApp.'
+                        : 'Con código de país (ej: 5491122334455) — es el número que se usa para mandar el comprobante por WhatsApp.'}
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ ...campo, gridColumn: 'span 2' }}>

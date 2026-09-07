@@ -27,6 +27,7 @@ import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18n';
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
+import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import {
@@ -285,7 +286,9 @@ function CentralDeLanzamientosTab({
   const modoEdicion = Boolean(idOperacionEditar);
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [cargandoInicial, setCargandoInicial] = useState(true);
+  const [comprobanteWhatsapp, setComprobanteWhatsapp] = useState<{ cliente: string; enlace: string } | null>(null);
 
   // Tutorial guiado (Fase 3 del onboarding): activo siempre para una
   // empresa nueva (onboarding_completado = false) y opcionalmente
@@ -565,10 +568,14 @@ function CentralDeLanzamientosTab({
         empresaManejaMercaderia(perfil.empresa_id),
         supabase
           .from('empresas')
-          .select('perfiles_empresa(codigo)')
+          .select('nombre, perfiles_empresa(codigo)')
           .eq('id', perfil.empresa_id)
           .maybeSingle(),
       ]);
+
+      setNombreEmpresa(
+        (empresaPerfil.data as unknown as { nombre?: string } | null)?.nombre ?? ''
+      );
 
       // No se usa el "esFamiliar" del contexto acá: ese lo carga
       // ContabilidadPage con su propia consulta async, en paralelo a
@@ -972,7 +979,7 @@ function CentralDeLanzamientosTab({
         return;
       }
 
-      await registrarOperacion(empresaId, formulario);
+      const resultado = await registrarOperacion(empresaId, formulario);
 
       // Sin esto, el stock y los saldos de cuentas financieras que se
       // ven en pantalla quedaban pegados en lo que había al entrar a
@@ -982,6 +989,44 @@ function CentralDeLanzamientosTab({
       await cargarDatosOperativos(empresaId);
 
       setMensajeSabio(msgOperacionRegistrada(idioma));
+
+      // Comprobante por WhatsApp: solo tiene sentido en Venta/Cobro
+      // (hay un cliente real elegido de RH, no un texto libre — ver el
+      // <select> de "contactos" más abajo) y solo si ese cliente tiene
+      // teléfono cargado. No es automático: se abre WhatsApp con el
+      // mensaje ya armado y el emprendedor toca Enviar — no hay
+      // integración de WhatsApp Business API (ver lib/whatsapp.ts).
+      setComprobanteWhatsapp(null);
+
+      if (
+        (formulario.operacion === 'VENTA' || formulario.operacion === 'COBRO') &&
+        formulario.clienteProveedor
+      ) {
+        try {
+          const telefono = await buscarTelefonoCliente(empresaId, formulario.clienteProveedor);
+
+          if (empresaTieneTelefonoValido(telefono)) {
+            const mensaje = armarMensajeComprobante({
+              idioma,
+              nombreEmpresa: nombreEmpresa || (idioma === 'PT' ? 'Meu Negócio' : 'Mi Negocio'),
+              numeroComprobante: resultado.idOperacion,
+              fecha: formulario.fecha,
+              cliente: formulario.clienteProveedor,
+              detalle: formulario.historico,
+              formaPago: formulario.formaPago,
+              total: resultado.total,
+              simboloMoneda: simbolo,
+            });
+
+            setComprobanteWhatsapp({
+              cliente: formulario.clienteProveedor,
+              enlace: enlaceWhatsapp(telefono as string, mensaje),
+            });
+          }
+        } catch (errorWhatsapp) {
+          console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
+        }
+      }
 
       setOperacion('');
       setCategoria('');
@@ -1413,6 +1458,56 @@ function CentralDeLanzamientosTab({
       )}
 
       <p style={{ color: COLORES.verde, fontSize: 13, margin: '14px 0 0' }}>{mensajeSabio}</p>
+
+      {comprobanteWhatsapp && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: '12px 14px',
+            borderRadius: 12,
+            background: '#e7f9ef',
+            border: '1px solid #bbf0d1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 13, color: COLORES.azul }}>
+            {idioma === 'PT'
+              ? `Enviar o comprovante para ${comprobanteWhatsapp.cliente}?`
+              : `¿Enviar el comprobante a ${comprobanteWhatsapp.cliente}?`}
+          </span>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a
+              href={comprobanteWhatsapp.enlace}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setComprobanteWhatsapp(null)}
+              style={{
+                background: '#25D366',
+                color: '#fff',
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: 'none',
+              }}
+            >
+              📲 {idioma === 'PT' ? 'Enviar por WhatsApp' : 'Enviar por WhatsApp'}
+            </a>
+
+            <button
+              onClick={() => setComprobanteWhatsapp(null)}
+              style={{ border: 'none', background: 'transparent', color: COLORES.azul, cursor: 'pointer', fontSize: 13 }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
