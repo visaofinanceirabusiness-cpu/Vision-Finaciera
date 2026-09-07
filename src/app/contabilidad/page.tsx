@@ -28,6 +28,9 @@ import { crearTraductor, estadoDisplay, nombreOperacionDisplay } from '@/lib/i18
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
+import { crearOUsarClientePorTelefono } from '@/lib/clientes';
+
+const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import {
@@ -289,6 +292,7 @@ function CentralDeLanzamientosTab({
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [comprobanteWhatsapp, setComprobanteWhatsapp] = useState<{ cliente: string; enlace: string } | null>(null);
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
 
   // Tutorial guiado (Fase 3 del onboarding): activo siempre para una
   // empresa nueva (onboarding_completado = false) y opcionalmente
@@ -960,9 +964,16 @@ function CentralDeLanzamientosTab({
         operacion: operacion.trim(),
         categoria: categoria.trim(),
         formaPago: formaPago.trim(),
-        historico: formularioSimple
-          ? historico.trim() || lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
-          : historico.trim(),
+        // En Venta el input de histórico queda oculto (se numera solo
+        // más abajo, con el id_operacion) — igual conviene armar acá
+        // una descripción a partir de los productos/categoría, porque
+        // se usa como "detalle" del comprobante de WhatsApp.
+        historico:
+          operacion === 'VENTA'
+            ? lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
+            : formularioSimple
+              ? historico.trim() || lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
+              : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
         socio: requiereSocio ? socio.trim() : '',
         lineas: lineas.map((linea) => ({
@@ -980,6 +991,24 @@ function CentralDeLanzamientosTab({
       }
 
       const resultado = await registrarOperacion(empresaId, formulario);
+
+      // En Venta, el histórico pasa a ser el número de comprobante
+      // (el id_operacion recién asignado) en vez del texto/producto
+      // que se haya usado para armar la operación — ver el aviso en
+      // el formulario más abajo. formulario.historico (la descripción
+      // original) se sigue usando tal cual para el "detalle" del
+      // mensaje de WhatsApp, no se pierde.
+      if (formulario.operacion === 'VENTA') {
+        try {
+          await supabase
+            .from('registro_operaciones')
+            .update({ historico: resultado.idOperacion })
+            .eq('empresa_id', empresaId)
+            .eq('id_operacion', resultado.idOperacion);
+        } catch (errorNumerar) {
+          console.warn('No se pudo numerar el comprobante:', errorNumerar);
+        }
+      }
 
       // Sin esto, el stock y los saldos de cuentas financieras que se
       // ven en pantalla quedaban pegados en lo que había al entrar a
@@ -1295,16 +1324,31 @@ function CentralDeLanzamientosTab({
         </p>
       )}
 
-      {!formularioSimple && (
-        <Campo label={t('labelHistorico')}>
-          <input
-            type="text"
-            value={historico}
-            onChange={(e) => setHistorico(e.target.value)}
-            placeholder={t('placeholderHistorico')}
-            style={campoInput}
-          />
-        </Campo>
+      {/*
+        En Venta, el histórico deja de ser texto libre: se completa
+        solo con el número de comprobante (el id_operacion que ya se
+        usa como hilo conductor de toda la operación) apenas se
+        guarda — ver handleRegistrar. Acá solo se muestra un aviso, no
+        un input editable.
+      */}
+      {operacion === 'VENTA' ? (
+        <p style={{ fontSize: 12.5, color: '#6b7280', margin: '0 0 16px' }}>
+          {idioma === 'PT'
+            ? 'Um número de comprovante sequencial é atribuído automaticamente ao salvar.'
+            : 'Se asigna automáticamente un número de comprobante secuencial al guardar.'}
+        </p>
+      ) : (
+        !formularioSimple && (
+          <Campo label={t('labelHistorico')}>
+            <input
+              type="text"
+              value={historico}
+              onChange={(e) => setHistorico(e.target.value)}
+              placeholder={t('placeholderHistorico')}
+              style={campoInput}
+            />
+          </Campo>
+        )
       )}
 
       {/*
@@ -1319,8 +1363,14 @@ function CentralDeLanzamientosTab({
         <Campo label={etiquetaRelacionActual}>
           <select
             value={clienteProveedor}
-            onChange={(e) => setClienteProveedor(e.target.value)}
-            disabled={!operacion || contactos.length === 0}
+            onChange={(e) => {
+              if (e.target.value === NUEVO_CLIENTE_OPCION) {
+                setModalNuevoCliente(true);
+                return;
+              }
+              setClienteProveedor(e.target.value);
+            }}
+            disabled={!operacion || (contactos.length === 0 && operacion !== 'VENTA')}
             style={campoInput}
           >
             <option value="">{t('seleccionar')}</option>
@@ -1330,8 +1380,35 @@ function CentralDeLanzamientosTab({
                 {contacto}
               </option>
             ))}
+
+            {operacion === 'VENTA' && (
+              <option value={NUEVO_CLIENTE_OPCION}>
+                {idioma === 'PT' ? '➕ Novo cliente...' : '➕ Nuevo cliente...'}
+              </option>
+            )}
           </select>
         </Campo>
+      )}
+
+      {modalNuevoCliente && empresaId && (
+        <ModalNuevoCliente
+          idioma={idioma}
+          onCancelar={() => setModalNuevoCliente(false)}
+          onCreado={(cliente) => {
+            setContactos((prev) => (prev.includes(cliente.nombre) ? prev : [...prev, cliente.nombre]));
+            setClienteProveedor(cliente.nombre);
+            setModalNuevoCliente(false);
+
+            if (cliente.yaExistia) {
+              setMensajeSabio(
+                idioma === 'PT'
+                  ? `Já existe um cliente com esse telefone: ${cliente.nombre}. Foi selecionado.`
+                  : `Ya existe un cliente con ese teléfono: ${cliente.nombre}. Se seleccionó.`
+              );
+            }
+          }}
+          empresaId={empresaId}
+        />
       )}
 
       {requiereSocio && (
@@ -1575,6 +1652,134 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
       </label>
 
       {children}
+    </div>
+  );
+}
+
+// Alta rápida de un cliente nuevo sin salir de Contabilidad — va
+// directo a la misma tabla `clientes` que usa Recursos Humanos. La
+// clave para no duplicar es el teléfono (ver lib/clientes.ts): si ya
+// existe un cliente con ese número, se reutiliza en vez de crear uno
+// repetido.
+function ModalNuevoCliente({
+  empresaId,
+  idioma,
+  onCreado,
+  onCancelar,
+}: {
+  empresaId: string;
+  idioma: string | null;
+  onCreado: (cliente: { nombre: string; yaExistia: boolean }) => void;
+  onCancelar: () => void;
+}) {
+  const esPT = idioma === 'PT';
+  const [nombre, setNombre] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+
+  async function confirmar() {
+    if (!nombre.trim()) {
+      setError(esPT ? 'Coloque um nome.' : 'Poné un nombre.');
+      return;
+    }
+
+    if (!telefono.trim()) {
+      setError(esPT ? 'Coloque um telefone (com código do país).' : 'Poné un teléfono (con código de país).');
+      return;
+    }
+
+    setError('');
+    setGuardando(true);
+
+    try {
+      const cliente = await crearOUsarClientePorTelefono(empresaId, nombre, telefono);
+      onCreado({ nombre: cliente.nombre, yaExistia: cliente.yaExistia });
+    } catch (errorCrear) {
+      setError((errorCrear as Error).message);
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        zIndex: 1000,
+      }}
+      onClick={onCancelar}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff',
+          borderRadius: 20,
+          padding: 24,
+          maxWidth: 400,
+          width: '100%',
+          boxShadow: '0 20px 50px rgba(15,23,42,0.25)',
+        }}
+      >
+        <h3 style={{ margin: '0 0 16px', color: COLORES.azul, fontSize: 18 }}>
+          {esPT ? 'Novo cliente' : 'Nuevo cliente'}
+        </h3>
+
+        <Campo label={esPT ? 'Nome' : 'Nombre'}>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} style={campoInput} autoFocus />
+        </Campo>
+
+        <Campo label={esPT ? 'Telefone (com código do país)' : 'Teléfono (con código de país)'}>
+          <input
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder={esPT ? 'Ex: 5511987654321' : 'Ej: 5491122334455'}
+            style={campoInput}
+          />
+        </Campo>
+
+        {error && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 4 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button
+            onClick={confirmar}
+            disabled={guardando}
+            style={{
+              flex: 1,
+              background: COLORES.verde,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 12,
+              padding: '11px 16px',
+              fontWeight: 700,
+              cursor: guardando ? 'default' : 'pointer',
+              opacity: guardando ? 0.7 : 1,
+            }}
+          >
+            {guardando ? (esPT ? 'Salvando...' : 'Guardando...') : esPT ? 'Salvar' : 'Guardar'}
+          </button>
+
+          <button
+            onClick={onCancelar}
+            style={{
+              background: 'transparent',
+              border: '1px solid #d1d5db',
+              borderRadius: 12,
+              padding: '11px 16px',
+              fontWeight: 700,
+              color: COLORES.azul,
+              cursor: 'pointer',
+            }}
+          >
+            {esPT ? 'Cancelar' : 'Cancelar'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
