@@ -1201,7 +1201,12 @@ function BloqueFormasDePago({
     <SeccionCategoria titulo={t('tituloFormasPago')} subtitulo={t('subtituloFormasPago')}>
       <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
-      {esAdmin && (
+      {/* Crear una forma de pago nueva (ej. "Banco Santander") queda
+          habilitado para cualquier usuario de la empresa, no solo
+          para el admin de la plataforma — es su propia cuenta, tiene
+          sentido que la puedan cargar ellos mismos. Activar/desactivar
+          o eliminar una ya existente sigue restringido, porque afecta
+          operaciones históricas. */}
       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
@@ -1285,7 +1290,6 @@ function BloqueFormasDePago({
           </button>
         </div>
       </div>
-      )}
     </SeccionCategoria>
   );
 }
