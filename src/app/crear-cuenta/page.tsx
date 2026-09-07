@@ -174,23 +174,28 @@ export default function CrearCuentaPage() {
       return;
     }
 
-    const { data: solicitudCreada, error: errorSolicitud } = await supabase
-      .from('solicitudes_alta')
-      .insert({
-        user_id: signUpData.user.id,
-        email: email.trim(),
-        nombre: nombre.trim(),
-        sexo,
-        telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
-        nombre_empresa: nombreEmpresa.trim(),
-        rubro: rubro.trim(),
-        perfil_empresa_id: perfilElegido,
-        componentes_mixto: esMixto ? componentesMixto : [],
-        moneda,
-        idioma,
-      })
-      .select('id')
-      .single();
+    // El id se genera acá en vez de pedirlo de vuelta con .select()
+    // después del insert: recién registrado, sin el email confirmado
+    // todavía, este usuario no tiene una sesión con la que pasar las
+    // políticas de SELECT de solicitudes_alta — traía de vuelta un
+    // "viola row-level security" enganoso (el INSERT en sí sí está
+    // permitido para cualquiera, es la lectura posterior la que no).
+    const idSolicitud = crypto.randomUUID();
+
+    const { error: errorSolicitud } = await supabase.from('solicitudes_alta').insert({
+      id: idSolicitud,
+      user_id: signUpData.user.id,
+      email: email.trim(),
+      nombre: nombre.trim(),
+      sexo,
+      telefono: `${paisTelefono} ${numeroTelefono.trim()}`,
+      nombre_empresa: nombreEmpresa.trim(),
+      rubro: rubro.trim(),
+      perfil_empresa_id: perfilElegido,
+      componentes_mixto: esMixto ? componentesMixto : [],
+      moneda,
+      idioma,
+    });
 
     if (errorSolicitud) {
       setError(`${t('errorSolicitud')}: ${errorSolicitud.message}`);
@@ -214,7 +219,7 @@ export default function CrearCuentaPage() {
     fetch('/api/solicitudes/auto-aprobar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ solicitud_id: solicitudCreada.id }),
+      body: JSON.stringify({ solicitud_id: idSolicitud }),
     }).catch((errorAutoAprobar) => {
       console.warn('No se pudo intentar el alta automática:', errorAutoAprobar);
     });
