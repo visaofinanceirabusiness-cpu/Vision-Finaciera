@@ -27,6 +27,7 @@ import { supabase } from './supabase';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
+import { saldoDeFormaDePago } from './saldoCuenta';
 
 type Paso =
   | 'OPERACION'
@@ -191,6 +192,17 @@ async function avanzarAProductoODetalle(empresaId: string, datos: Datos): Promis
   return `¿Qué producto?\n\n${numerarLista(opcionesTexto)}`;
 }
 
+// Línea de saldo en vivo (mismo cálculo que ya usa registrarOperacion
+// para bloquear una operación que dejaría la cuenta en negativo) —
+// igual que se muestra el stock al elegir un producto. Devuelve '' si
+// esa forma de pago no tiene una cuenta detrás (ej. no es un medio
+// financiero real).
+async function lineaSaldo(empresaId: string, nombreFormaPago: string, simbolo: string): Promise<string> {
+  const resultado = await saldoDeFormaDePago(empresaId, nombreFormaPago, fechaLocalHoy());
+  if (!resultado) return '';
+  return `\n💰 Saldo en ${resultado.cuenta} hoy: ${simbolo} ${formatearNumeroEntero(resultado.saldo)}`;
+}
+
 function etiquetaContacto(operacion: string): string {
   if (operacion === 'VENTA' || operacion === 'COBRO') return 'cliente';
   if (operacion === 'COMPRA' || operacion === 'PAGO') return 'proveedor';
@@ -280,7 +292,12 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const nuevosDatos: Datos = { ...datos, categoria, esStock, opciones: formasPago };
     await guardarConversacion(empresaId, 'FORMA_PAGO', nuevosDatos);
 
-    return `Forma de pago:\n\n${numerarLista(formasPago)}`;
+    // En Transferencia, "categoría" es la cuenta destino — mostrar su
+    // saldo acá (si tiene una cuenta real detrás; Plazo Fijo/
+    // Inversiones no la tienen y simplemente no agrega nada).
+    const saldoDestino = datos.operacion === 'TRANSFERENCIA' ? await lineaSaldo(empresaId, categoria, datos.simbolo ?? 'R$') : '';
+
+    return `Forma de pago:\n\n${numerarLista(formasPago)}${saldoDestino}`;
   }
 
   // ---------------------------------------------------
@@ -298,8 +315,14 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const operacion = datos.operacion ?? '';
     const esTransferencia = operacion === 'TRANSFERENCIA';
 
+    const saldoOrigen =
+      operacion === 'PAGO' || operacion === 'COMPRA' || esTransferencia
+        ? await lineaSaldo(empresaId, formaPago, datos.simbolo ?? 'R$')
+        : '';
+
     if (esTransferencia || datos.esFamiliar) {
-      return avanzarAProductoODetalle(empresaId, { ...datos, formaPago });
+      const siguiente = await avanzarAProductoODetalle(empresaId, { ...datos, formaPago });
+      return `${siguiente}${saldoOrigen}`;
     }
 
     const contactos = await pedirContactos(empresaId, operacion);
@@ -308,13 +331,13 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     if (contactos.length === 0) {
       const nuevosDatos: Datos = { ...datos, formaPago, opciones: [], pidiendoContactoLibre: true };
       await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
-      return `¿Cuál es el nombre del/de la ${etiqueta}?`;
+      return `¿Cuál es el nombre del/de la ${etiqueta}?${saldoOrigen}`;
     }
 
     const nuevosDatos: Datos = { ...datos, formaPago, opciones: contactos };
     await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
 
-    return `¿${etiqueta === 'cliente' ? 'Cliente' : etiqueta === 'proveedor' ? 'Proveedor' : 'Socio/a'}?\n\n${numerarLista(contactos)}\n\n0) Escribir otro nombre`;
+    return `¿${etiqueta === 'cliente' ? 'Cliente' : etiqueta === 'proveedor' ? 'Proveedor' : 'Socio/a'}?\n\n${numerarLista(contactos)}\n\n0) Escribir otro nombre${saldoOrigen}`;
   }
 
   // ---------------------------------------------------

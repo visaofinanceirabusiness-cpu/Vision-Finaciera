@@ -237,6 +237,58 @@ export async function generarMatrizOperaciones(
       continue;
     }
 
+    // ---------------------------------------------------
+    // TRANSFERENCIA "MEDIO A MEDIO" — caso especial.
+    //
+    // Las demás reglas de TRANSFERENCIA (Plazo Fijo, Inversiones) son
+    // "hacia una cuenta fija" — cualquier medio financiero como
+    // origen, siempre el mismo destino. Esta regla (categoria_codigo
+    // = 'MEDIO_A_MEDIO', ambos roles = MEDIO_FINANCIERO) es al revés:
+    // el destino también es cualquier medio financiero, así que hay
+    // que generar una fila por cada PAR (origen, destino) distinto —
+    // Caja→Banco, Banco→Billetera Virtual, Banco→Banco Santander,
+    // etc. — en vez de un solo medio por fila como en el resto del
+    // motor. La categoría de esta fila no sale de categorias_operacion
+    // (no tiene una cuenta fija): es el nombre del medio destino.
+    // ---------------------------------------------------
+
+    if (regla.operacion === 'TRANSFERENCIA' && regla.categoria_codigo === 'MEDIO_A_MEDIO') {
+      const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
+      const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
+
+      const mediosValidos = formasPagoIds
+        .map((id) => formaPagoPorId.get(id))
+        .filter((forma): forma is { id: string; codigo: string; nombre: string } => Boolean(forma));
+
+      for (const destino of mediosValidos) {
+        const cuentaDestino = cuentaPorFormaPago.get(destino.id);
+
+        for (const origen of mediosValidos) {
+          if (origen.id === destino.id) continue;
+
+          const cuentaOrigen = cuentaPorFormaPago.get(origen.id);
+
+          if (!cuentaDestino || !cuentaOrigen || cuentaDestino === cuentaOrigen) continue;
+
+          filas.push({
+            empresa_id: empresaId,
+            clave: `TRANSFERENCIA.${destino.nombre}.${origen.nombre}`,
+            operacion: 'TRANSFERENCIA',
+            categoria: destino.nombre,
+            forma_pago: origen.nombre,
+            cuenta_debito: cuentaDestino,
+            cuenta_credito: cuentaOrigen,
+            stock: regla.stock,
+            libro: regla.libro,
+            cmv: regla.cmv,
+            motor: regla.motor,
+          });
+        }
+      }
+
+      continue;
+    }
+
     const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
     const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
 
@@ -441,7 +493,7 @@ async function limpiarOperacion(
 // SALDO ACTUAL DE UNA CUENTA (para no dejarla en negativo)
 // =====================================================
 
-async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string, fechaLimite: string) {
+export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string, fechaLimite: string) {
   const { data: cuenta } = await supabase
     .from('plan_cuentas')
     .select('naturaleza, tipo_saldo, saldo_inicial')
