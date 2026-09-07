@@ -269,6 +269,24 @@ export default function ConfiguracoesPage() {
                 {t('tabMatriz')}
               </button>
             )}
+
+            <Link
+              href="/sabio-bot"
+              style={{
+                marginLeft: 'auto',
+                alignSelf: 'center',
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: '#7c3aed',
+                textDecoration: 'none',
+                padding: '6px 10px',
+                borderRadius: 999,
+                background: '#f3e8ff',
+              }}
+              title={idioma === 'PT' ? 'Testar o assistente por chat (beta)' : 'Probar el asistente por chat (beta)'}
+            >
+              🦉 {idioma === 'PT' ? 'Sabio Bot (beta)' : 'Sabio Bot (beta)'}
+            </Link>
           </div>
 
           {pestana === 'empresa' && <DadosDaEmpresaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
