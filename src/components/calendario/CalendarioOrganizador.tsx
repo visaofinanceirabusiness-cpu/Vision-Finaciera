@@ -2,7 +2,7 @@
 // CALENDÁRIO ORGANIZADOR — vive directo en el lobby (no es una
 // "herramienta" con acceso aparte). A ancho completo del contenedor
 // del lobby. Cualquier usuario de la empresa puede crear, editar o
-// borrar eventos, prioridades del mes y la nota libre.
+// borrar eventos y anotações del mes.
 
 import { useEffect, useState } from 'react';
 import {
@@ -10,19 +10,14 @@ import {
   type AnotacionCalendario,
   type CategoriaEvento,
   type EventoCalendario,
-  type PrioridadCalendario,
   actualizarEvento,
   alternarAnotacion,
-  alternarPrioridad,
   crearAnotacion,
   crearEvento,
-  crearPrioridad,
   eliminarAnotacion,
   eliminarEvento,
-  eliminarPrioridad,
   listarAnotacionesDelMes,
   listarEventosDelMes,
-  listarPrioridadesDelMes,
   nombreCategoria,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
@@ -92,18 +87,15 @@ export function CalendarioOrganizador({
 
   const [mesReferencia, setMesReferencia] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   const [eventos, setEventos] = useState<EventoCalendario[]>([]);
-  const [prioridades, setPrioridades] = useState<PrioridadCalendario[]>([]);
   const [anotaciones, setAnotaciones] = useState<AnotacionCalendario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   const [referenciasAbiertas, setReferenciasAbiertas] = useState(true);
-  const [prioridadesAbiertas, setPrioridadesAbiertas] = useState(true);
   const [notasAbiertas, setNotasAbiertas] = useState(true);
 
   const [modal, setModal] = useState<{ evento: EventoCalendario | null; fecha: string } | null>(null);
   const [diaExpandido, setDiaExpandido] = useState<string | null>(null);
-  const [nuevaPrioridad, setNuevaPrioridad] = useState('');
   const [nuevaAnotacion, setNuevaAnotacion] = useState('');
 
   useEffect(() => {
@@ -133,14 +125,12 @@ export function CalendarioOrganizador({
       setError('');
 
       try {
-        const [eventosData, prioridadesData, anotacionesData] = await Promise.all([
+        const [eventosData, anotacionesData] = await Promise.all([
           listarEventosDelMes(empresaId, mesReferencia),
-          listarPrioridadesDelMes(empresaId, mesReferencia),
           listarAnotacionesDelMes(empresaId, mesReferencia),
         ]);
 
         setEventos(eventosData);
-        setPrioridades(prioridadesData);
         setAnotaciones(anotacionesData);
       } catch (erroCarga) {
         setError((erroCarga as Error).message);
@@ -198,27 +188,6 @@ export function CalendarioOrganizador({
     await eliminarEvento(modal.evento.id);
     await refrescarEventos();
     setModal(null);
-  }
-
-  async function agregarPrioridad() {
-    const texto = nuevaPrioridad.trim();
-    if (!texto) return;
-
-    setNuevaPrioridad('');
-    await crearPrioridad(empresaId, mesReferencia, texto, prioridades.length);
-    setPrioridades(await listarPrioridadesDelMes(empresaId, mesReferencia));
-  }
-
-  async function tildarPrioridad(prioridad: PrioridadCalendario) {
-    setPrioridades((prev) =>
-      prev.map((p) => (p.id === prioridad.id ? { ...p, completado: !p.completado } : p))
-    );
-    await alternarPrioridad(prioridad.id, !prioridad.completado);
-  }
-
-  async function borrarPrioridad(id: string) {
-    setPrioridades((prev) => prev.filter((p) => p.id !== id));
-    await eliminarPrioridad(id);
   }
 
   async function agregarAnotacion() {
@@ -428,61 +397,6 @@ export function CalendarioOrganizador({
                   <span style={{ color: colores.azul }}>{nombreCategoria(codigo, idioma)}</span>
                 </div>
               ))}
-            </div>
-          </BloqueColapsable>
-
-          {/* PRIORIDADES */}
-          <BloqueColapsable
-            titulo={esPT ? 'Prioridades' : 'Prioridades'}
-            abierto={prioridadesAbiertas}
-            onToggle={() => setPrioridadesAbiertas((p) => !p)}
-            colores={colores}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-              {prioridades.map((p) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input type="checkbox" checked={p.completado} onChange={() => tildarPrioridad(p)} />
-                  <span
-                    style={{
-                      flex: 1,
-                      fontSize: 13,
-                      color: colores.azul,
-                      textDecoration: p.completado ? 'line-through' : 'none',
-                      opacity: p.completado ? 0.55 : 1,
-                    }}
-                  >
-                    {p.texto}
-                  </span>
-                  <button
-                    onClick={() => borrarPrioridad(p.id)}
-                    style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              {prioridades.length === 0 && (
-                <div style={{ fontSize: 12, color: colores.acento }}>
-                  {esPT ? 'Nenhuma prioridade ainda.' : 'Todavía no hay prioridades.'}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
-                value={nuevaPrioridad}
-                onChange={(e) => setNuevaPrioridad(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && agregarPrioridad()}
-                placeholder={esPT ? 'Nova prioridade...' : 'Nueva prioridad...'}
-                style={{ flex: 1, padding: '7px 9px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12.5 }}
-              />
-              <button
-                onClick={agregarPrioridad}
-                style={{ border: 'none', background: colores.verde, color: '#fff', borderRadius: 8, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}
-              >
-                +
-              </button>
             </div>
           </BloqueColapsable>
 

@@ -1,9 +1,9 @@
 // lib/calendario.ts
 //
-// Calendário Organizador del lobby — eventos/actividades, prioridades
-// del mes y una nota libre, todo por empresa. Cualquier usuario de la
-// empresa puede crear, editar o borrar (no es exclusivo del admin) —
-// el aislamiento entre empresas lo da RLS, no un chequeo acá.
+// Calendário Organizador del lobby — eventos/actividades y anotações
+// del mes, todo por empresa. Cualquier usuario de la empresa puede
+// crear, editar o borrar (no es exclusivo del admin) — el aislamiento
+// entre empresas lo da RLS, no un chequeo acá.
 
 import { supabase } from './supabase';
 
@@ -27,13 +27,6 @@ export type EventoCalendario = {
   notas: string | null;
   notificar: boolean;
   antelacion_minutos: number;
-};
-
-export type PrioridadCalendario = {
-  id: string;
-  texto: string;
-  completado: boolean;
-  orden: number;
 };
 
 export type AnotacionCalendario = {
@@ -156,45 +149,7 @@ export async function eliminarEvento(id: string) {
 }
 
 // =====================================================
-// PRIORIDADES DEL MES
-// =====================================================
-
-export async function listarPrioridadesDelMes(empresaId: string, mesReferencia: Date): Promise<PrioridadCalendario[]> {
-  const { data, error } = await supabase
-    .from('calendario_prioridades')
-    .select('id, texto, completado, orden')
-    .eq('empresa_id', empresaId)
-    .eq('mes', primerDiaDelMes(mesReferencia))
-    .order('orden', { ascending: true });
-
-  if (error) throw error;
-  return (data ?? []) as PrioridadCalendario[];
-}
-
-export async function crearPrioridad(empresaId: string, mesReferencia: Date, texto: string, orden: number) {
-  const { error } = await supabase.from('calendario_prioridades').insert({
-    empresa_id: empresaId,
-    mes: primerDiaDelMes(mesReferencia),
-    texto,
-    orden,
-  });
-
-  if (error) throw error;
-}
-
-export async function alternarPrioridad(id: string, completado: boolean) {
-  const { error } = await supabase.from('calendario_prioridades').update({ completado }).eq('id', id);
-  if (error) throw error;
-}
-
-export async function eliminarPrioridad(id: string) {
-  const { error } = await supabase.from('calendario_prioridades').delete().eq('id', id);
-  if (error) throw error;
-}
-
-// =====================================================
-// ANOTAÇÕES DEL MES (papeletas: se agregan, se tachan, se borran —
-// misma mecánica que las prioridades, pero para notas sueltas)
+// ANOTAÇÕES DEL MES (papeletas: se agregan, se tachan, se borran)
 // =====================================================
 
 export async function listarAnotacionesDelMes(empresaId: string, mesReferencia: Date): Promise<AnotacionCalendario[]> {
