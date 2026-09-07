@@ -736,7 +736,7 @@ type CuentaOpcion = { id: string; codigo: string; nombre: string };
 type OperacionOpcion = { id: string; nombre: string };
 type Socio = { id: string; codigo: string; nombre: string; activo: boolean };
 
-const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO'];
+const OPERACIONES_FORMA_PAGO = ['COMPRA', 'VENTA', 'PAGO', 'INVERSION', 'EXTRACCION', 'COBRO', 'TRANSFERENCIA'];
 
 function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
   const t = crearTraductor(diccionarioConfiguracoes, idioma);
