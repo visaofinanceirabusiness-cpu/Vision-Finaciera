@@ -221,9 +221,18 @@ export default function RecursosHumanosPage() {
     }
 
     const nombreLimpio = formulario.nombre.trim();
+    const telefonoLimpio = formulario.telefono.trim();
 
     if (!nombreLimpio) {
       setError(t('errorNombreObligatorio'));
+      return;
+    }
+
+    // Solo para clientes: el teléfono es la clave para no duplicar
+    // (ver lib/clientes.ts) y el número al que se manda el
+    // comprobante por WhatsApp — sin él no tiene sentido la ficha.
+    if (pestana === 'clientes' && !telefonoLimpio) {
+      setError(t('errorTelefonoObligatorio'));
       return;
     }
 
@@ -436,7 +445,10 @@ export default function RecursosHumanosPage() {
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>{t('telefono')}</label>
+                  <label style={label}>
+                    {t('telefono')}
+                    {pestana === 'clientes' && ' *'}
+                  </label>
 
                   <input
                     value={formulario.telefono}

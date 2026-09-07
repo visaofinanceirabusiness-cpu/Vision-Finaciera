@@ -33,6 +33,7 @@ type Clave =
   | 'errorEmpresa'
   | 'errorEmpresaGuardar'
   | 'errorNombreObligatorio'
+  | 'errorTelefonoObligatorio'
   | 'errorActualizar'
   | 'errorCrear';
 
@@ -70,6 +71,7 @@ export const diccionarioRecursosHumanos: Diccionario<Clave> = {
     errorEmpresa: 'No se pudo identificar la empresa del usuario.',
     errorEmpresaGuardar: 'No se pudo identificar la empresa.',
     errorNombreObligatorio: 'El nombre es obligatorio.',
+    errorTelefonoObligatorio: 'El teléfono es obligatorio (con código de país) — es la clave para no duplicar clientes y para poder mandarles el comprobante por WhatsApp.',
     errorActualizar: 'No se pudo actualizar el registro.',
     errorCrear: 'No se pudo crear el registro.',
   },
@@ -106,6 +108,7 @@ export const diccionarioRecursosHumanos: Diccionario<Clave> = {
     errorEmpresa: 'Não foi possível identificar a empresa do usuário.',
     errorEmpresaGuardar: 'Não foi possível identificar a empresa.',
     errorNombreObligatorio: 'O nome é obrigatório.',
+    errorTelefonoObligatorio: 'O telefone é obrigatório (com código do país) — é a chave para não duplicar clientes e para poder enviar o comprovante por WhatsApp.',
     errorActualizar: 'Não foi possível atualizar o registro.',
     errorCrear: 'Não foi possível criar o registro.',
   },
