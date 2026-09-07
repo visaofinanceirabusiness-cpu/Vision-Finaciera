@@ -71,6 +71,16 @@ export async function GET(request: NextRequest) {
 
   const empresaIds = Array.from(new Set(listos.map((ev) => ev.empresa_id)));
 
+  const { data: empresasData } = await admin
+    .from('empresas')
+    .select('id, idioma')
+    .in('id', empresaIds);
+
+  const idiomaPorEmpresa = new Map<string, string>();
+  for (const e of empresasData ?? []) {
+    idiomaPorEmpresa.set(e.id, e.idioma ?? 'ES');
+  }
+
   const { data: perfilesEmpresas } = await admin
     .from('perfiles')
     .select('id, empresa_id')
@@ -106,9 +116,11 @@ export async function GET(request: NextRequest) {
 
   for (const ev of listos) {
     const usuarios = usuariosPorEmpresa.get(ev.empresa_id) ?? [];
+    const esPT = idiomaPorEmpresa.get(ev.empresa_id) === 'PT';
+    const horaCorta = ev.hora ? String(ev.hora).slice(0, 5) : '';
     const payload = JSON.stringify({
       title: `📅 ${ev.titulo}`,
-      body: ev.hora ? `Hoje às ${String(ev.hora).slice(0, 5)}` : '',
+      body: horaCorta ? (esPT ? `Hoje às ${horaCorta}` : `Hoy a las ${horaCorta}`) : '',
       url: '/',
     });
 

@@ -26,10 +26,8 @@ import { ModalEvento } from './ModalEvento';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
-const DIAS_SEMANA_ES = ['SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO', 'DOMINGO'];
-// El propio mockup del cliente usa las etiquetas en portugués para los
-// días — se mantienen así en ambos idiomas por ser parte del formato
-// visual del calendario, no un texto de la plataforma.
+const DIAS_SEMANA_ES = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
+const DIAS_SEMANA_PT = ['SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO', 'DOMINGO'];
 const MESES_ES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -82,6 +80,7 @@ export function CalendarioOrganizador({
 }) {
   const esPT = idioma === 'PT';
   const meses = esPT ? MESES_PT : MESES_ES;
+  const diasSemana = esPT ? DIAS_SEMANA_PT : DIAS_SEMANA_ES;
   const hoy = new Date();
 
   const [mesReferencia, setMesReferencia] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
@@ -315,7 +314,7 @@ export function CalendarioOrganizador({
         {/* GRILLA MENSUAL */}
         <div style={{ flex: '1 1 640px', minWidth: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
-            {DIAS_SEMANA_ES.map((dia) => (
+            {diasSemana.map((dia) => (
               <div key={dia} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: colores.acento, letterSpacing: 0.5 }}>
                 {dia}
               </div>
