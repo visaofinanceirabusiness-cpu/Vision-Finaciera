@@ -203,6 +203,17 @@ async function lineaSaldo(empresaId: string, nombreFormaPago: string, simbolo: s
   return `\n💰 Saldo en ${resultado.cuenta} hoy: ${simbolo} ${formatearNumeroEntero(resultado.saldo)}`;
 }
 
+// En el resumen final, Transferencia usa "Hacia/Desde" en vez de
+// "Categoría/Forma de pago" — mismo criterio que el título de cada
+// paso (ver arriba) y que el formulario web.
+function etiquetaCategoria(operacion?: string): string {
+  return operacion === 'TRANSFERENCIA' ? 'Hacia' : 'Categoría';
+}
+
+function etiquetaFormaPago(operacion?: string): string {
+  return operacion === 'TRANSFERENCIA' ? 'Desde' : 'Forma de pago';
+}
+
 function etiquetaContacto(operacion: string): string {
   if (operacion === 'VENTA' || operacion === 'COBRO') return 'cliente';
   if (operacion === 'COMPRA' || operacion === 'PAGO') return 'proveedor';
@@ -259,7 +270,14 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const nuevosDatos: Datos = { ...datos, operacion, opciones: categorias, stockPorCategoria };
     await guardarConversacion(empresaId, 'CATEGORIA', nuevosDatos);
 
-    return `Categoría para ${operacion}:\n\n${numerarLista(categorias)}`;
+    // En Transferencia no hay "categoría" en el sentido habitual —
+    // esto es la cuenta DESTINO (a dónde va la plata), no un rubro de
+    // gasto/ingreso. Usa el mismo lenguaje "Hacia/Desde" que ya usa
+    // el formulario web, para no confundir con la operación
+    // "Transferencia" en sí.
+    const titulo = operacion === 'TRANSFERENCIA' ? '¿Hacia qué cuenta transferís?' : `Categoría para ${operacion}:`;
+
+    return `${titulo}\n\n${numerarLista(categorias)}`;
   }
 
   // ---------------------------------------------------
@@ -295,9 +313,11 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     // En Transferencia, "categoría" es la cuenta destino — mostrar su
     // saldo acá (si tiene una cuenta real detrás; Plazo Fijo/
     // Inversiones no la tienen y simplemente no agrega nada).
-    const saldoDestino = datos.operacion === 'TRANSFERENCIA' ? await lineaSaldo(empresaId, categoria, datos.simbolo ?? 'R$') : '';
+    const esTransferenciaCategoria = datos.operacion === 'TRANSFERENCIA';
+    const saldoDestino = esTransferenciaCategoria ? await lineaSaldo(empresaId, categoria, datos.simbolo ?? 'R$') : '';
+    const tituloFormaPago = esTransferenciaCategoria ? '¿Desde qué cuenta sale la plata?' : 'Forma de pago:';
 
-    return `Forma de pago:\n\n${numerarLista(formasPago)}${saldoDestino}`;
+    return `${tituloFormaPago}\n\n${numerarLista(formasPago)}${saldoDestino}`;
   }
 
   // ---------------------------------------------------
@@ -426,8 +446,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     return (
       `Confirmá los datos:\n\n` +
       `Operación: ${datos.operacion}\n` +
-      `Categoría: ${datos.categoria}\n` +
-      `Forma de pago: ${datos.formaPago}${contactoLinea}\n` +
+      `${etiquetaCategoria(datos.operacion)}: ${datos.categoria}\n` +
+      `${etiquetaFormaPago(datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
       `Producto: ${datos.productoNombre} x${datos.cantidad}\n` +
       `Precio unitario: ${simbolo} ${formatearNumeroEntero(monto)}\n` +
       `Total: ${simbolo} ${formatearNumeroEntero(total)}\n\n` +
@@ -462,8 +482,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     return (
       `Confirmá los datos:\n\n` +
       `Operación: ${datos.operacion}\n` +
-      `Categoría: ${datos.categoria}\n` +
-      `Forma de pago: ${datos.formaPago}${contactoLinea}\n` +
+      `${etiquetaCategoria(datos.operacion)}: ${datos.categoria}\n` +
+      `${etiquetaFormaPago(datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
       `Detalle: ${detalle}\n` +
       `Monto: ${simbolo} ${formatearNumeroEntero(monto)}\n\n` +
       `1) Confirmar\n2) Cancelar`
