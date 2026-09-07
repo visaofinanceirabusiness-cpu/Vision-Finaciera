@@ -29,6 +29,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
+import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -324,6 +325,8 @@ function CentralDeLanzamientosTab({
 
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
+  const [saldoOrigen, setSaldoOrigen] = useState<{ cuenta: string; saldo: number } | null>(null);
+  const [saldoDestino, setSaldoDestino] = useState<{ cuenta: string; saldo: number } | null>(null);
 
   const [historico, setHistorico] = useState(valoresIniciales?.historico ?? '');
   const [clienteProveedor, setClienteProveedor] = useState(valoresIniciales?.clienteProveedor ?? '');
@@ -712,6 +715,48 @@ function CentralDeLanzamientosTab({
 
     cargarFormasPago();
   }, [empresaId, operacion, categoria]);
+
+  // Saldo en vivo de la cuenta detrás de "Hacia Cuenta" (solo
+  // Transferencia — para Plazo Fijo/Inversiones no hay saldo porque
+  // no son una forma de pago, así que simplemente no se muestra nada).
+  useEffect(() => {
+    if (!empresaId || !esTransferencia || !categoria) {
+      setSaldoDestino(null);
+      return;
+    }
+
+    let cancelado = false;
+
+    saldoDeFormaDePago(empresaId, categoria, fecha).then((resultado) => {
+      if (!cancelado) setSaldoDestino(resultado);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, esTransferencia, categoria, fecha]);
+
+  // Saldo en vivo de la cuenta detrás de la forma de pago — Pago,
+  // Compra y (el origen de) Transferencia son las operaciones donde
+  // esa cuenta se debita/acredita de verdad.
+  useEffect(() => {
+    const aplica = operacion === 'PAGO' || operacion === 'COMPRA' || esTransferencia;
+
+    if (!empresaId || !aplica || !formaPago) {
+      setSaldoOrigen(null);
+      return;
+    }
+
+    let cancelado = false;
+
+    saldoDeFormaDePago(empresaId, formaPago, fecha).then((resultado) => {
+      if (!cancelado) setSaldoOrigen(resultado);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, operacion, esTransferencia, formaPago, fecha]);
 
   useEffect(() => {
     if (!empresaId || !operacion) {
@@ -1307,6 +1352,10 @@ function CentralDeLanzamientosTab({
               </option>
             ))}
           </select>
+
+          {esTransferencia && saldoDestino && (
+            <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />
+          )}
         </Campo>
 
         <Campo label={esTransferencia ? t('labelDesdeCuenta') : t('labelFormaPago')}>
@@ -1324,6 +1373,10 @@ function CentralDeLanzamientosTab({
               </option>
             ))}
           </select>
+
+          {(esTransferencia || operacion === 'PAGO' || operacion === 'COMPRA') && saldoOrigen && (
+            <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoOrigen} />
+          )}
         </Campo>
       </div>
 
@@ -1662,6 +1715,38 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 
       {children}
     </div>
+  );
+}
+
+// Saldo en vivo de una cuenta a la fecha elegida — mismo cálculo
+// exacto que ya usa registrarOperacion para bloquear una operación
+// que la dejaría en negativo (ver lib/saldoCuenta.ts), mostrado acá
+// como referencia mientras se completa el formulario. Un saldo
+// negativo se resalta en rojo: no bloquea nada por sí solo (eso lo
+// decide el motor al guardar), es solo una alerta visual temprana.
+function TextoSaldo({
+  idioma,
+  simbolo,
+  fecha,
+  saldo,
+}: {
+  idioma: string | null;
+  simbolo: string;
+  fecha: string;
+  saldo: { cuenta: string; saldo: number };
+}) {
+  const fechaDisplay = new Date(`${fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR');
+
+  return (
+    <p
+      style={{
+        fontSize: 11.5,
+        color: saldo.saldo < 0 ? '#dc2626' : '#6b7280',
+        margin: '5px 0 0',
+      }}
+    >
+      {idioma === 'PT' ? 'Saldo' : 'Saldo'} {saldo.cuenta} {idioma === 'PT' ? 'em' : 'al'} {fechaDisplay}: {simbolo} {formatearNumeroEntero(saldo.saldo)}
+    </p>
   );
 }
 
