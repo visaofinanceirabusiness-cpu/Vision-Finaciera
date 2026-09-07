@@ -961,6 +961,13 @@ function CentralDeLanzamientosTab({
     setGuardando(true);
 
     try {
+      // Cuando la categoría maneja stock, el <select> de producto
+      // guarda el id (uuid) en linea.producto, no el nombre — hay que
+      // resolverlo contra `productos` para armar una descripción
+      // legible (ej. para el detalle del comprobante de WhatsApp).
+      const nombreDeLinea = (valor: string) =>
+        (operacionesConProducto ? productos.find((p) => p.id === valor)?.nombre : null) ?? valor;
+
       const formulario = {
         fecha: fecha.trim(),
         operacion: operacion.trim(),
@@ -972,9 +979,9 @@ function CentralDeLanzamientosTab({
         // se usa como "detalle" del comprobante de WhatsApp.
         historico:
           operacion === 'VENTA'
-            ? lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
+            ? lineas.map((l) => nombreDeLinea(l.producto.trim())).filter(Boolean).join(' / ') || categoria.trim()
             : formularioSimple
-              ? historico.trim() || lineas.map((l) => l.producto.trim()).filter(Boolean).join(' / ') || categoria.trim()
+              ? historico.trim() || lineas.map((l) => nombreDeLinea(l.producto.trim())).filter(Boolean).join(' / ') || categoria.trim()
               : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
         socio: requiereSocio ? socio.trim() : '',
