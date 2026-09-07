@@ -4,23 +4,26 @@
 // del lobby. Cualquier usuario de la empresa puede crear, editar o
 // borrar eventos, prioridades del mes y la nota libre.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   CATEGORIAS_EVENTO,
+  type AnotacionCalendario,
   type CategoriaEvento,
   type EventoCalendario,
   type PrioridadCalendario,
   actualizarEvento,
+  alternarAnotacion,
   alternarPrioridad,
+  crearAnotacion,
   crearEvento,
   crearPrioridad,
+  eliminarAnotacion,
   eliminarEvento,
   eliminarPrioridad,
-  guardarNotaDelMes,
+  listarAnotacionesDelMes,
   listarEventosDelMes,
   listarPrioridadesDelMes,
   nombreCategoria,
-  obtenerNotaDelMes,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
 
@@ -38,6 +41,10 @@ const MESES_PT = [
 ];
 
 const CLAVE_COLAPSO = 'vf_calendario_referencias_colapsadas';
+
+// Paleta pastel tipo "papelitos adhesivos" — rota por índice, sin
+// relación con las categorías de eventos (son cosas distintas).
+const COLORES_PAPELETA = ['#fef3c7', '#fce7f3', '#dbeafe', '#dcfce7', '#ede9fe', '#ffe4e6', '#fff7d6'];
 
 function aFechaLocal(fecha: Date): string {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
@@ -86,8 +93,7 @@ export function CalendarioOrganizador({
   const [mesReferencia, setMesReferencia] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   const [eventos, setEventos] = useState<EventoCalendario[]>([]);
   const [prioridades, setPrioridades] = useState<PrioridadCalendario[]>([]);
-  const [nota, setNota] = useState('');
-  const [notaGuardando, setNotaGuardando] = useState(false);
+  const [anotaciones, setAnotaciones] = useState<AnotacionCalendario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -98,6 +104,7 @@ export function CalendarioOrganizador({
   const [modal, setModal] = useState<{ evento: EventoCalendario | null; fecha: string } | null>(null);
   const [diaExpandido, setDiaExpandido] = useState<string | null>(null);
   const [nuevaPrioridad, setNuevaPrioridad] = useState('');
+  const [nuevaAnotacion, setNuevaAnotacion] = useState('');
 
   useEffect(() => {
     try {
@@ -126,15 +133,15 @@ export function CalendarioOrganizador({
       setError('');
 
       try {
-        const [eventosData, prioridadesData, notaData] = await Promise.all([
+        const [eventosData, prioridadesData, anotacionesData] = await Promise.all([
           listarEventosDelMes(empresaId, mesReferencia),
           listarPrioridadesDelMes(empresaId, mesReferencia),
-          obtenerNotaDelMes(empresaId, mesReferencia),
+          listarAnotacionesDelMes(empresaId, mesReferencia),
         ]);
 
         setEventos(eventosData);
         setPrioridades(prioridadesData);
-        setNota(notaData);
+        setAnotaciones(anotacionesData);
       } catch (erroCarga) {
         setError((erroCarga as Error).message);
       } finally {
@@ -214,20 +221,25 @@ export function CalendarioOrganizador({
     await eliminarPrioridad(id);
   }
 
-  const temporizadorNotaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  async function agregarAnotacion() {
+    const texto = nuevaAnotacion.trim();
+    if (!texto) return;
 
-  function actualizarNota(texto: string) {
-    setNota(texto);
-    setNotaGuardando(true);
+    setNuevaAnotacion('');
+    await crearAnotacion(empresaId, mesReferencia, texto, anotaciones.length);
+    setAnotaciones(await listarAnotacionesDelMes(empresaId, mesReferencia));
+  }
 
-    if (temporizadorNotaRef.current) clearTimeout(temporizadorNotaRef.current);
-    temporizadorNotaRef.current = setTimeout(async () => {
-      try {
-        await guardarNotaDelMes(empresaId, mesReferencia, texto);
-      } finally {
-        setNotaGuardando(false);
-      }
-    }, 800);
+  async function tildarAnotacion(anotacion: AnotacionCalendario) {
+    setAnotaciones((prev) =>
+      prev.map((a) => (a.id === anotacion.id ? { ...a, completada: !a.completada } : a))
+    );
+    await alternarAnotacion(anotacion.id, !anotacion.completada);
+  }
+
+  async function borrarAnotacion(id: string) {
+    setAnotaciones((prev) => prev.filter((a) => a.id !== id));
+    await eliminarAnotacion(id);
   }
 
   const celdas = generarGrilla(mesReferencia);
@@ -474,25 +486,76 @@ export function CalendarioOrganizador({
             </div>
           </BloqueColapsable>
 
-          {/* ANOTAÇÕES */}
+          {/* ANOTAÇÕES — papeletas de colores, cada una se agrega,
+              se tacha como realizada o se elimina. */}
           <BloqueColapsable
             titulo={esPT ? 'Anotações' : 'Anotaciones'}
             abierto={notasAbiertas}
             onToggle={() => setNotasAbiertas((p) => !p)}
             colores={colores}
           >
-            <textarea
-              value={nota}
-              onChange={(e) => actualizarNota(e.target.value)}
-              rows={4}
-              placeholder={esPT ? 'Foco do mês...' : 'Foco del mes...'}
-              style={{ width: '100%', resize: 'vertical', border: '1px solid #d1d5db', borderRadius: 10, padding: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }}
-            />
-            {notaGuardando && (
-              <div style={{ fontSize: 11, color: colores.acento, marginTop: 4 }}>
-                {esPT ? 'salvando...' : 'guardando...'}
-              </div>
-            )}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              <input
+                value={nuevaAnotacion}
+                onChange={(e) => setNuevaAnotacion(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && agregarAnotacion()}
+                placeholder={esPT ? 'Nova anotação...' : 'Nueva anotación...'}
+                style={{ flex: 1, padding: '7px 9px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12.5 }}
+              />
+              <button
+                onClick={agregarAnotacion}
+                style={{ border: 'none', background: colores.verde, color: '#fff', borderRadius: 8, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                +
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {anotaciones.map((a, i) => (
+                <div
+                  key={a.id}
+                  style={{
+                    background: COLORES_PAPELETA[i % COLORES_PAPELETA.length],
+                    borderRadius: 10,
+                    padding: '8px 10px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={a.completada}
+                    onChange={() => tildarAnotacion(a)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: '#3f3f28',
+                      textDecoration: a.completada ? 'line-through' : 'none',
+                      opacity: a.completada ? 0.55 : 1,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {a.texto}
+                  </span>
+                  <button
+                    onClick={() => borrarAnotacion(a.id)}
+                    style={{ border: 'none', background: 'transparent', color: '#7a5c00', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              {anotaciones.length === 0 && (
+                <div style={{ fontSize: 12, color: colores.acento }}>
+                  {esPT ? 'Nenhuma anotação ainda.' : 'Todavía no hay anotaciones.'}
+                </div>
+              )}
+            </div>
           </BloqueColapsable>
         </div>
       </div>
