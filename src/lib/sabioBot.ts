@@ -12,17 +12,32 @@
 // registrarOperacion (motor.ts) para grabar, así el bot nunca puede
 // calcular distinto a la app.
 //
-// ALCANCE V1 (a propósito, para poder mandarlo ya): no maneja
-// productos con stock (categorías con control de inventario) — para
-// esas, el bot avisa que por ahora hay que cargarlas desde la app.
-// Tampoco arma carritos de varias líneas: una operación = un monto.
+// Las categorías con control de stock (productos) piden además qué
+// producto y cuánta cantidad — igual que hace el <select> de producto
+// en Contabilidad. La validación de que no se venda/pierda más
+// cantidad de la que hay disponible, y de que ninguna cuenta quede
+// con saldo negativo, NO está acá: vive en registrarOperacion
+// (motor.ts) y corre igual sin importar quién la llame — así que el
+// bot la hereda automáticamente, sin duplicar nada.
+//
+// Todavía no arma carritos de varias líneas: una operación = un solo
+// producto (o un solo monto, si la categoría no maneja stock).
 
 import { supabase } from './supabase';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
 
-type Paso = 'OPERACION' | 'CATEGORIA' | 'FORMA_PAGO' | 'CONTACTO' | 'DETALLE' | 'CONFIRMAR';
+type Paso =
+  | 'OPERACION'
+  | 'CATEGORIA'
+  | 'FORMA_PAGO'
+  | 'CONTACTO'
+  | 'PRODUCTO'
+  | 'CANTIDAD'
+  | 'PRECIO'
+  | 'DETALLE'
+  | 'CONFIRMAR';
 
 type Datos = {
   esFamiliar?: boolean;
@@ -36,6 +51,11 @@ type Datos = {
   opciones?: string[];
   stockPorCategoria?: Record<string, string>;
   pidiendoContactoLibre?: boolean;
+  esStock?: boolean;
+  productoId?: string;
+  productoNombre?: string;
+  cantidad?: number;
+  idsOpciones?: string[];
 };
 
 type Conversacion = {
@@ -126,6 +146,51 @@ async function pedirContactos(empresaId: string, operacion: string): Promise<str
   return [];
 }
 
+// Punto de bifurcación común: después de resolver forma de pago y
+// contacto, si la categoría maneja stock hay que elegir producto; si
+// no, se pide directamente el detalle + monto en un solo mensaje.
+async function avanzarAProductoODetalle(empresaId: string, datos: Datos): Promise<string> {
+  if (!datos.esStock) {
+    await guardarConversacion(empresaId, 'DETALLE', { ...datos, opciones: [] });
+    return 'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"';
+  }
+
+  const { data: productos } = await supabase
+    .from('productos')
+    .select('id, nombre, categoria')
+    .eq('empresa_id', empresaId);
+
+  const delaCategoria = (productos ?? []).filter(
+    (p) => (p.categoria ?? '').toUpperCase() === (datos.categoria ?? '').toUpperCase()
+  );
+
+  if (delaCategoria.length === 0) {
+    await guardarConversacion(empresaId, 'DETALLE', { ...datos, esStock: false, opciones: [] });
+    return `No hay productos cargados en "${datos.categoria}" todavía. Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"`;
+  }
+
+  const { data: saldos } = await supabase
+    .from('saldo_stock')
+    .select('producto_id, saldo')
+    .eq('empresa_id', empresaId)
+    .in('producto_id', delaCategoria.map((p) => p.id));
+
+  const saldoPorProducto = Object.fromEntries((saldos ?? []).map((s) => [s.producto_id, Number(s.saldo ?? 0)]));
+  const esSalida = datos.operacion === 'VENTA' || datos.operacion === 'PERDIDA';
+
+  const opcionesTexto = delaCategoria.map(
+    (p) => `${p.nombre}${esSalida ? ` (stock: ${saldoPorProducto[p.id] ?? 0})` : ''}`
+  );
+
+  await guardarConversacion(empresaId, 'PRODUCTO', {
+    ...datos,
+    opciones: opcionesTexto,
+    idsOpciones: delaCategoria.map((p) => p.id),
+  });
+
+  return `¿Qué producto?\n\n${numerarLista(opcionesTexto)}`;
+}
+
 function etiquetaContacto(operacion: string): string {
   if (operacion === 'VENTA' || operacion === 'COBRO') return 'cliente';
   if (operacion === 'COMPRA' || operacion === 'PAGO') return 'proveedor';
@@ -197,10 +262,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     const categoria = opciones[n - 1];
-
-    if (datos.stockPorCategoria?.[categoria] === 'SI') {
-      return `📦 "${categoria}" maneja stock — por ahora esas ventas/compras hay que cargarlas desde la app (Contabilidad). Elegí otra categoría de la lista, o escribí "cancelar":\n\n${numerarLista(opciones)}`;
-    }
+    const esStock = datos.stockPorCategoria?.[categoria] === 'SI';
 
     const { data: filasFormaPago } = await supabase
       .from('matriz_operaciones')
@@ -215,7 +277,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       return `No encontré formas de pago para esa categoría. Escribí "cancelar" y probá de nuevo.`;
     }
 
-    const nuevosDatos: Datos = { ...datos, categoria, opciones: formasPago };
+    const nuevosDatos: Datos = { ...datos, categoria, esStock, opciones: formasPago };
     await guardarConversacion(empresaId, 'FORMA_PAGO', nuevosDatos);
 
     return `Forma de pago:\n\n${numerarLista(formasPago)}`;
@@ -237,9 +299,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const esTransferencia = operacion === 'TRANSFERENCIA';
 
     if (esTransferencia || datos.esFamiliar) {
-      const nuevosDatos: Datos = { ...datos, formaPago, opciones: [] };
-      await guardarConversacion(empresaId, 'DETALLE', nuevosDatos);
-      return 'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"';
+      return avanzarAProductoODetalle(empresaId, { ...datos, formaPago });
     }
 
     const contactos = await pedirContactos(empresaId, operacion);
@@ -262,9 +322,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   if (paso === 'CONTACTO') {
     if (datos.pidiendoContactoLibre) {
-      const nuevosDatos: Datos = { ...datos, contacto: texto, pidiendoContactoLibre: false };
-      await guardarConversacion(empresaId, 'DETALLE', nuevosDatos);
-      return 'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"';
+      return avanzarAProductoODetalle(empresaId, { ...datos, contacto: texto, pidiendoContactoLibre: false });
     }
 
     const opciones = datos.opciones ?? [];
@@ -281,10 +339,77 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       return `No entendí. Elegí un número de la lista, o "0" para escribir otro nombre:\n\n${numerarLista(opciones)}`;
     }
 
-    const nuevosDatos: Datos = { ...datos, contacto: opciones[n - 1] };
-    await guardarConversacion(empresaId, 'DETALLE', nuevosDatos);
+    return avanzarAProductoODetalle(empresaId, { ...datos, contacto: opciones[n - 1] });
+  }
 
-    return 'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"';
+  // ---------------------------------------------------
+  // 4.b PRODUCTO (solo categorías con stock)
+  // ---------------------------------------------------
+  if (paso === 'PRODUCTO') {
+    const opciones = datos.opciones ?? [];
+    const ids = datos.idsOpciones ?? [];
+    const n = parseNumero(texto, opciones.length);
+
+    if (n === null) {
+      return `No entendí. Elegí un número:\n\n${numerarLista(opciones)}`;
+    }
+
+    const nuevosDatos: Datos = {
+      ...datos,
+      productoId: ids[n - 1],
+      productoNombre: opciones[n - 1].replace(/\s*\(stock:.*\)$/, ''),
+      opciones: [],
+    };
+    await guardarConversacion(empresaId, 'CANTIDAD', nuevosDatos);
+
+    return '¿Cuántas unidades?';
+  }
+
+  // ---------------------------------------------------
+  // 4.c CANTIDAD (solo categorías con stock)
+  // ---------------------------------------------------
+  if (paso === 'CANTIDAD') {
+    const cantidad = Number(texto.replace(',', '.'));
+
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      return 'No entendí. Escribí solo el número de unidades (ej: 2).';
+    }
+
+    const nuevosDatos: Datos = { ...datos, cantidad };
+    await guardarConversacion(empresaId, 'PRECIO', nuevosDatos);
+
+    return `¿A qué precio unitario (por unidad)?`;
+  }
+
+  // ---------------------------------------------------
+  // 4.d PRECIO UNITARIO (solo categorías con stock)
+  // ---------------------------------------------------
+  if (paso === 'PRECIO') {
+    const monto = Number(texto.replace(',', '.'));
+
+    if (!Number.isFinite(monto) || monto <= 0) {
+      return 'No entendí el precio. Escribí solo el número (ej: 5.50).';
+    }
+
+    const nuevosDatos: Datos = { ...datos, monto, historico: datos.productoNombre };
+    await guardarConversacion(empresaId, 'CONFIRMAR', nuevosDatos);
+
+    const simbolo = datos.simbolo ?? 'R$';
+    const total = (datos.cantidad ?? 1) * monto;
+    const contactoLinea = datos.contacto
+      ? `\n${etiquetaContacto(datos.operacion ?? '')[0].toUpperCase()}${etiquetaContacto(datos.operacion ?? '').slice(1)}: ${datos.contacto}`
+      : '';
+
+    return (
+      `Confirmá los datos:\n\n` +
+      `Operación: ${datos.operacion}\n` +
+      `Categoría: ${datos.categoria}\n` +
+      `Forma de pago: ${datos.formaPago}${contactoLinea}\n` +
+      `Producto: ${datos.productoNombre} x${datos.cantidad}\n` +
+      `Precio unitario: ${simbolo} ${formatearNumeroEntero(monto)}\n` +
+      `Total: ${simbolo} ${formatearNumeroEntero(total)}\n\n` +
+      `1) Confirmar\n2) Cancelar`
+    );
   }
 
   // ---------------------------------------------------
@@ -336,6 +461,10 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     try {
+      const lineas = datos.esStock
+        ? [{ producto: datos.productoId ?? '', cantidad: datos.cantidad ?? 1, monto: datos.monto ?? 0 }]
+        : [{ producto: datos.historico ?? '', cantidad: 1, monto: datos.monto ?? 0 }];
+
       const resultado = await registrarOperacion(empresaId, {
         fecha: fechaLocalHoy(),
         operacion: datos.operacion ?? '',
@@ -344,7 +473,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         historico: datos.historico ?? '',
         clienteProveedor: datos.contacto ?? '',
         socio: '',
-        lineas: [{ producto: datos.historico ?? '', cantidad: 1, monto: datos.monto ?? 0 }],
+        lineas,
       });
 
       await borrarConversacion(empresaId);
