@@ -312,6 +312,7 @@ export function CalendarioOrganizador({
                 {fila.map((celda) => {
                   const eventosDelDia = eventosPorFecha.get(celda.fecha) ?? [];
                   const esHoy = celda.fecha === hoyStr;
+                  const esPasado = celda.fecha < hoyStr;
                   const expandido = diaExpandido === celda.fecha;
                   const visibles = expandido ? eventosDelDia : eventosDelDia.slice(0, 2);
                   const restantes = eventosDelDia.length - visibles.length;
@@ -320,10 +321,18 @@ export function CalendarioOrganizador({
                     <div
                       key={celda.fecha}
                       style={{
+                        position: 'relative',
                         minHeight: 84,
                         borderRadius: 12,
                         border: esHoy ? `2px solid ${colores.verde}` : '1px solid #eef0f2',
-                        background: celda.delMes ? colores.blanco : '#fafbfc',
+                        // Estilo "fibrón": una franja diagonal verde
+                        // translúcida sobre el día ya pasado, como si
+                        // se hubiera resaltado a mano.
+                        background: esPasado
+                          ? `linear-gradient(105deg, transparent 0%, transparent 18%, ${colores.verde}30 22%, ${colores.verde}30 78%, transparent 82%, transparent 100%), ${celda.delMes ? colores.blanco : '#fafbfc'}`
+                          : celda.delMes
+                            ? colores.blanco
+                            : '#fafbfc',
                         padding: 6,
                         opacity: celda.delMes ? 1 : 0.5,
                         display: 'flex',
@@ -333,6 +342,22 @@ export function CalendarioOrganizador({
                       }}
                       onClick={() => setModal({ evento: null, fecha: celda.fecha })}
                     >
+                      {esPasado && (
+                        <span
+                          aria-hidden
+                          style={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 5,
+                            fontSize: 12,
+                            color: colores.verde,
+                            fontWeight: 800,
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
+
                       <div style={{ fontSize: 12, fontWeight: 700, color: esHoy ? colores.verde : colores.azul }}>
                         {Number(celda.fecha.slice(8, 10))}
                       </div>
