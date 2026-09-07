@@ -867,23 +867,6 @@ export default function InicioPage() {
         </Link>
 
         {/* =================================================
-            CALENDÁRIO ORGANIZADOR
-            Vive directo acá en el lobby (no es una tarjeta más de
-            herramientas) — cualquier usuario de la empresa puede
-            crear, editar o borrar eventos, prioridades del mes y la
-            nota libre.
-        ================================================== */}
-
-        {perfil && usuarioId && empresa && (
-          <CalendarioOrganizador
-            empresaId={perfil.empresa_id}
-            usuarioId={usuarioId}
-            idioma={idioma}
-            colores={colores}
-          />
-        )}
-
-        {/* =================================================
             HERRAMIENTAS
         ================================================== */}
 
