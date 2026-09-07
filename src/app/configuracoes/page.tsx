@@ -970,6 +970,12 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
               'id' in cuenta ? cuenta.id : await crearCuentaParaMedioPago(empresaId, cuenta.nombre, cuenta.tipoSaldo);
 
             await crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas);
+
+            // Sin esto, la forma de pago queda creada y habilitada
+            // pero invisible en la Central de Lançamentos hasta que
+            // alguien regenere la matriz a mano — mismo motivo que ya
+            // se resolvió para categorías y socios más abajo.
+            await generarMatrizOperaciones(empresaId);
           }, msgFormaPagoCreada(idioma, nombre))
         }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
