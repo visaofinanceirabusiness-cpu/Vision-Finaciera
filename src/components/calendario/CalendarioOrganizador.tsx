@@ -361,7 +361,7 @@ export function CalendarioOrganizador({
           como en la pc. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* GRILLA MENSUAL */}
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, maxWidth: 860, margin: '0 auto', width: '100%' }}>
           {/* MARCA DE AGUA — el logo de la empresa, con su color
               original (nada de blanco y negro). Ancla acá adentro (no
               en el <section> completo) para que siempre quede fijo
