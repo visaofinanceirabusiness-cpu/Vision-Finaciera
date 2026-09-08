@@ -390,11 +390,26 @@ export function CalendarioOrganizador({
           )}
 
           <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
-            {diasSemana.map((dia) => (
-              <div key={dia} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: colores.acento, letterSpacing: 0.5 }}>
-                {dia}
-              </div>
-            ))}
+            {diasSemana.map((dia, indiceColumna) => {
+              const esFinDeSemana = indiceColumna === 5 || indiceColumna === 6;
+              return (
+                <div
+                  key={dia}
+                  style={{
+                    textAlign: 'center',
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    padding: '5px 2px',
+                    borderRadius: 8,
+                    color: esFinDeSemana ? colores.verde : colores.azul,
+                    background: esFinDeSemana ? `${colores.verde}1c` : `${colores.azul}0f`,
+                  }}
+                >
+                  {dia}
+                </div>
+              );
+            })}
           </div>
 
           {cargando ? (
@@ -404,14 +419,26 @@ export function CalendarioOrganizador({
           ) : (
             filas.map((fila, i) => (
               <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
-                {fila.map((celda) => {
+                {fila.map((celda, indiceColumna) => {
                   const eventosDelDia = eventosPorFecha.get(celda.fecha) ?? [];
                   const esHoy = celda.fecha === hoyStr;
                   const esPasado = celda.fecha < hoyStr;
+                  const esFinDeSemana = indiceColumna === 5 || indiceColumna === 6;
                   const expandido = diaExpandido === celda.fecha;
                   const visibles = expandido ? eventosDelDia : eventosDelDia.slice(0, 2);
                   const restantes = eventosDelDia.length - visibles.length;
                   const especialesDelDia = fechasEspecialesVisibles ? fechasEspeciales.get(celda.fecha.slice(5, 10)) ?? [] : [];
+
+                  // El fondo de cada día va con transparencia (no un
+                  // blanco sólido) a propósito: es lo que deja asomar
+                  // la marca de agua del logo detrás de la grilla, no
+                  // solo en los huecos entre celdas. Sábado/domingo
+                  // llevan un tinte verde apenas más marcado para que
+                  // se note la columna del fin de semana.
+                  const fondoBase = celda.delMes ? `${colores.blanco}d9` : 'rgba(250,251,252,0.7)';
+                  const fondo = esFinDeSemana
+                    ? `linear-gradient(0deg, ${colores.verde}14, ${colores.verde}14), ${fondoBase}`
+                    : fondoBase;
 
                   return (
                     <div
@@ -421,20 +448,7 @@ export function CalendarioOrganizador({
                         minHeight: 84,
                         borderRadius: 12,
                         border: esHoy ? `2px solid ${colores.verde}` : '1px solid #eef0f2',
-                        // Estilo "fibrón": una franja diagonal verde
-                        // translúcida sobre el día ya pasado, como si
-                        // se hubiera resaltado a mano.
-                        //
-                        // El fondo de cada día va con transparencia
-                        // (no un blanco sólido) a propósito: es lo que
-                        // deja asomar la marca de agua del logo detrás
-                        // de la grilla, no solo en los huecos entre
-                        // celdas.
-                        background: esPasado
-                          ? `linear-gradient(105deg, transparent 0%, transparent 18%, ${colores.verde}30 22%, ${colores.verde}30 78%, transparent 82%, transparent 100%), ${celda.delMes ? `${colores.blanco}d9` : 'rgba(250,251,252,0.7)'}`
-                          : celda.delMes
-                            ? `${colores.blanco}d9`
-                            : 'rgba(250,251,252,0.7)',
+                        background: fondo,
                         padding: 6,
                         opacity: celda.delMes ? 1 : 0.5,
                         display: 'flex',
@@ -445,6 +459,9 @@ export function CalendarioOrganizador({
                       onClick={() => setModal({ evento: null, fecha: celda.fecha })}
                     >
                       {esPasado && (
+                        // Tilde bien sutil de "día ya pasado" — antes
+                        // era una franja diagonal que tapaba buena
+                        // parte del cuadrado; ahora es solo esto.
                         <span
                           aria-hidden
                           style={{
@@ -452,7 +469,7 @@ export function CalendarioOrganizador({
                             top: 4,
                             right: 5,
                             fontSize: 12,
-                            color: colores.verde,
+                            color: `${colores.verde}99`,
                             fontWeight: 800,
                           }}
                         >
