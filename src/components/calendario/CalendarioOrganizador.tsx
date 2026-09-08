@@ -355,10 +355,13 @@ export function CalendarioOrganizador({
         </div>
       )}
 
-      {/* LAYOUT: grilla a ancho completo + barra lateral */}
-      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      {/* LAYOUT: grilla mensual arriba, a todo el ancho — "Categorias"/
+          "Anotações" van siempre debajo (no al costado), para que la
+          grilla tenga todo el espacio disponible tanto en celular
+          como en la pc. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* GRILLA MENSUAL */}
-        <div style={{ flex: '1 1 640px', minWidth: 0, position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
           {/* MARCA DE AGUA — el logo de la empresa, con su color
               original (nada de blanco y negro). Ancla acá adentro (no
               en el <section> completo) para que siempre quede fijo
@@ -516,9 +519,12 @@ export function CalendarioOrganizador({
           )}
         </div>
 
-        {/* BARRA LATERAL */}
-        <div style={{ flex: '1 1 260px', minWidth: 240, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* CATEGORIAS + ANOTAÇÕES — debajo de la grilla, lado a lado
+            cuando hay ancho (pc); se apilan solas en celular por el
+            flexWrap. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
           {/* CATEGORIAS — colapsable */}
+          <div style={{ flex: '1 1 280px', minWidth: 240 }}>
           <BloqueColapsable
             titulo={esPT ? 'Categorias' : 'Categorías'}
             abierto={referenciasAbiertas}
@@ -553,9 +559,11 @@ export function CalendarioOrganizador({
               )}
             </div>
           </BloqueColapsable>
+          </div>
 
           {/* ANOTAÇÕES — papeletas de colores, cada una se agrega,
               se tacha como realizada o se elimina. */}
+          <div style={{ flex: '1 1 280px', minWidth: 240 }}>
           <BloqueColapsable
             titulo={esPT ? 'Anotações' : 'Anotaciones'}
             abierto={notasAbiertas}
@@ -625,6 +633,7 @@ export function CalendarioOrganizador({
               )}
             </div>
           </BloqueColapsable>
+          </div>
         </div>
       </div>
 

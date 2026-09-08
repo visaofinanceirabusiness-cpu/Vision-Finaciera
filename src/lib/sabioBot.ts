@@ -38,12 +38,14 @@ import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
 import { saldoDeFormaDePago } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
+import { crearOUsarClientePorTelefono } from './clientes';
 
 type Paso =
   | 'OPERACION'
   | 'CATEGORIA'
   | 'FORMA_PAGO'
   | 'CONTACTO'
+  | 'CONTACTO_TELEFONO'
   | 'PRODUCTO'
   | 'CANTIDAD'
   | 'PRECIO'
@@ -63,6 +65,10 @@ type Datos = {
   opciones?: string[];
   stockPorCategoria?: Record<string, string>;
   pidiendoContactoLibre?: boolean;
+  // Nombre del cliente nuevo, mientras se espera el teléfono (paso
+  // CONTACTO_TELEFONO) — solo se usa para Venta/Cobro, igual que el
+  // modal "Nuevo cliente" de Contabilidad (ver avanzarAContactoNuevo).
+  contactoNombreNuevo?: string;
   esStock?: boolean;
   productoId?: string;
   productoNombre?: string;
@@ -85,6 +91,15 @@ const REINICIAR = new Set(['reiniciar', 'empezar', 'inicio', 'começar', 'iníci
 // diccionario de pantalla.
 function t(idioma: string | undefined, es: string, pt: string): string {
   return idioma === 'PT' ? pt : es;
+}
+
+// Solo Venta/Cobro dan de alta un cliente nuevo pidiendo también el
+// teléfono (igual que el modal "Nuevo cliente" de Contabilidad, para
+// poder mandarle el comprobante por WhatsApp después) — Compra/Pago
+// (proveedor) y el resto (socio) siguen con nombre libre nomás, sin
+// pedir teléfono, igual que antes.
+function esContactoCliente(operacion: string): boolean {
+  return operacion === 'VENTA' || operacion === 'COBRO';
 }
 
 function etiquetaContacto(idioma: string | undefined, operacion: string): string {
@@ -420,6 +435,15 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   if (paso === 'CONTACTO') {
     if (datos.pidiendoContactoLibre) {
+      // Venta/Cobro: dar de alta el cliente de verdad (nombre +
+      // teléfono), igual que "Nuevo cliente" en Contabilidad — no
+      // alcanza con guardar el nombre suelto como texto libre.
+      if (esContactoCliente(datos.operacion ?? '')) {
+        const nuevosDatos: Datos = { ...datos, pidiendoContactoLibre: false, contactoNombreNuevo: texto };
+        await guardarConversacion(empresaId, 'CONTACTO_TELEFONO', nuevosDatos);
+        return t(idioma, '¿Cuál es el teléfono (con código de país)? Ej: +54 9 11 2233-4455', 'Qual é o telefone (com código do país)? Ex: +55 48 99999-9999');
+      }
+
       return avanzarAProductoODetalle(empresaId, { ...datos, contacto: texto, pidiendoContactoLibre: false });
     }
 
@@ -438,6 +462,22 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     return avanzarAProductoODetalle(empresaId, { ...datos, contacto: opciones[n - 1] });
+  }
+
+  // ---------------------------------------------------
+  // 4.a CONTACTO_TELEFONO (solo Venta/Cobro, cliente nuevo)
+  // ---------------------------------------------------
+  if (paso === 'CONTACTO_TELEFONO') {
+    try {
+      const cliente = await crearOUsarClientePorTelefono(empresaId, datos.contactoNombreNuevo ?? '', texto);
+      return avanzarAProductoODetalle(empresaId, { ...datos, contacto: cliente.nombre, contactoNombreNuevo: undefined });
+    } catch (errorTelefono) {
+      return t(
+        idioma,
+        `No pude registrar el teléfono: ${(errorTelefono as Error).message}\n\nProbá de nuevo.`,
+        `Não consegui registrar o telefone: ${(errorTelefono as Error).message}\n\nTente de novo.`
+      );
+    }
   }
 
   // ---------------------------------------------------
