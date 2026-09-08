@@ -2,7 +2,6 @@
 
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioPanel } from './i18n';
-import { SabioWidget } from './SabioWidget';
 
 type NivelHero = {
   nivel: number;
@@ -31,7 +30,6 @@ export function SabioHero({
   gamificacion,
   antiguedad,
   objetivos,
-  mostrarColumnaSabio = true,
   mensajesSinLeer,
   onClickMensajes,
 }: {
@@ -48,11 +46,6 @@ export function SabioHero({
   gamificacion?: NivelHero | null;
   antiguedad?: string | null;
   objetivos?: ObjetivoHero[];
-  // Preview nueva del lobby (por ahora solo Equilibra, ver page.tsx):
-  // el Sabio chiquito se saca de acá — se muda a su propia sección
-  // grande (SabioBotLobby) — y en su lugar va un acceso compacto a
-  // Mensajes, que en el lobby "de siempre" es una tarjeta aparte.
-  mostrarColumnaSabio?: boolean;
   mensajesSinLeer?: number;
   onClickMensajes?: () => void;
 }) {
@@ -343,47 +336,44 @@ export function SabioHero({
         )}
 
         {/* =========================================
-            COLUMNA 3 — Sabio (o, en la preview nueva,
-            un acceso compacto a Mensajes)
+            COLUMNA 3 — acceso compacto a Mensajes. El Sabio "de
+            siempre" se mudó de acá a su propia sección grande del
+            lobby (ver SabioBotLobby en page.tsx).
         ========================================== */}
-        {mostrarColumnaSabio ? (
-          <SabioWidget colores={colores} idioma={idioma} />
-        ) : (
-          <button
-            onClick={onClickMensajes}
-            style={{
-              position: 'relative',
-              flex: '0 0 auto',
-              width: 64,
-              height: 64,
-              borderRadius: 18,
-              background: 'rgba(255,255,255,0.14)',
-              border: '1px solid rgba(255,255,255,0.22)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 28,
-            }}
-            title={idioma === 'PT' ? 'Mensagens' : 'Mensajes'}
-          >
-            ✉️
-            {Boolean(mensajesSinLeer) && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -4,
-                  right: -4,
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  background: '#dc2626',
-                  border: `2px solid ${colores.azul}`,
-                }}
-              />
-            )}
-          </button>
-        )}
+        <button
+          onClick={onClickMensajes}
+          style={{
+            position: 'relative',
+            flex: '0 0 auto',
+            width: 64,
+            height: 64,
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.14)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 28,
+          }}
+          title={idioma === 'PT' ? 'Mensagens' : 'Mensajes'}
+        >
+          ✉️
+          {Boolean(mensajesSinLeer) && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: '#dc2626',
+                border: `2px solid ${colores.azul}`,
+              }}
+            />
+          )}
+        </button>
       </div>
     </section>
   );

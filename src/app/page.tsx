@@ -22,7 +22,6 @@ import {
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
-import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
@@ -373,11 +372,6 @@ export default function InicioPage() {
   const idioma = empresa?.idioma ?? 'ES';
   const t = crearTraductor(diccionarioInicio, idioma);
 
-  // Preview del lobby nuevo (Sabio Bot grande, Mensajes unificado en
-  // el encabezado) — a propósito solo para Equilibra por ahora, para
-  // probarlo antes de generalizarlo al resto de las empresas.
-  const esPreviewNuevoLobby = empresa?.nombre === 'Equilibra';
-
   if (cargando) {
     return (
       <div
@@ -702,192 +696,19 @@ export default function InicioPage() {
               : null
           }
           objetivos={objetivos}
-          mostrarColumnaSabio={!esPreviewNuevoLobby}
           mensajesSinLeer={mensajesSinLeer}
           onClickMensajes={() => router.push('/mensajes')}
         />
 
-        {!esPreviewNuevoLobby && (
-          <SabioFlotante colores={colores} idioma={idioma} />
-        )}
-
         {/* =================================================
-            MENSAJES
-            Acceso fijo al centro de mensajes financieros — la
-            entrada siempre está, entre otras cosas porque ahora
-            también es el canal de tutoriales de la plataforma.
-
-            El punto rojo, el rótulo "NUEVO" y el texto "Tenés un
-            mensaje nuevo" solo se muestran si esta empresa tiene
-            al menos un mensaje sin leer (mensajesSinLeer, contra
-            mensajes_financieros filtrado por su propio empresa_id).
-            Sin mensajes sin leer, la tarjeta se ve igual pero con
-            texto genérico ("Mensajes") — nunca desaparece.
-        ================================================== */}
-
-        {!esPreviewNuevoLobby && (
-        <Link
-          href="/mensajes"
-          style={{
-            textDecoration: 'none',
-            display: 'block',
-            marginBottom: 20,
-          }}
-        >
-          <section
-            style={{
-              position: 'relative',
-              background: colores.blanco,
-              borderRadius: 22,
-              border: `1px solid ${colores.acento}33`,
-              padding: '18px 22px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              boxShadow:
-                '0 10px 26px rgba(31,58,95,0.07)',
-              transition:
-                'transform 0.2s ease, box-shadow 0.2s ease',
-              cursor: 'pointer',
-            }}
-          >
-            {/* SOBRE */}
-
-            <div
-              style={{
-                position: 'relative',
-                width: 58,
-                height: 58,
-                borderRadius: 17,
-                background: `${colores.verde}14`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 30,
-                  lineHeight: 1,
-                }}
-              >
-                ✉️
-              </span>
-
-              {/* PUNTO ROJO DE NOTIFICACIÓN — solo con mensajes sin leer */}
-
-              {mensajesSinLeer > 0 && (
-                <span
-                  aria-label="Nuevo mensaje"
-                  style={{
-                    position: 'absolute',
-                    top: -5,
-                    right: -5,
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    background: '#dc2626',
-                    border: `3px solid ${colores.blanco}`,
-                    boxShadow:
-                      '0 3px 8px rgba(220,38,38,0.35)',
-                  }}
-                />
-              )}
-            </div>
-
-            {/* TEXTO */}
-
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  flexWrap: 'wrap',
-                  marginBottom: 4,
-                }}
-              >
-                {mensajesSinLeer > 0 && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: 1.2,
-                      color: '#dc2626',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    NUEVO
-                  </span>
-                )}
-
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: colores.acento,
-                    fontWeight: 600,
-                  }}
-                >
-                  Visão Financeira
-                </span>
-              </div>
-
-              <div
-                style={{
-                  color: colores.azul,
-                  fontSize: 17,
-                  fontWeight: 800,
-                  lineHeight: 1.25,
-                }}
-              >
-                {mensajesSinLeer > 0 ? 'Tenés un mensaje nuevo' : 'Mensajes'}
-              </div>
-
-              <div
-                style={{
-                  color: colores.acento,
-                  fontSize: 13,
-                  marginTop: 4,
-                  lineHeight: 1.4,
-                }}
-              >
-                {mensajesSinLeer > 0
-                  ? 'Sabio tiene algo para contarte sobre tu negocio.'
-                  : 'Análisis y tutoriales de Sabio sobre tu negocio.'}
-              </div>
-            </div>
-
-            {/* FLECHA */}
-
-            <div
-              style={{
-                color: colores.azul,
-                fontSize: 25,
-                fontWeight: 700,
-                flexShrink: 0,
-                paddingLeft: 4,
-              }}
-            >
-              →
-            </div>
-          </section>
-        </Link>
-        )}
-
-        {/* =================================================
-            SABIO BOT — preview nueva (solo Equilibra por ahora)
+            SABIO BOT — protagonista del lobby.
             Reemplaza al Sabio chiquito de siempre + al flotante en
-            esta pantalla: es LA invitación a cargar las operaciones
-            del día, con el chat desplegándose en el momento.
+            esta pantalla, y a la tarjeta aparte de Mensajes: es LA
+            invitación a cargar las operaciones del día, con el chat
+            desplegándose en el momento.
         ================================================== */}
 
-        {esPreviewNuevoLobby && perfil && (
+        {perfil && (
           <SabioBotLobby
             empresaId={perfil.empresa_id}
             idioma={idioma}
