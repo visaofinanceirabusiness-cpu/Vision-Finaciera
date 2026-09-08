@@ -948,4 +948,55 @@ export async function renombrarCuentaPlan(empresaId: string, cuentaId: string, n
       .eq('empresa_id', empresaId)
       .eq('cuenta_credito', nombreViejo),
   ]);
+
+  // Las categorías de Venta/Cobro/Gasto se crean con el MISMO nombre
+  // que su cuenta (ver crearCategoriaIngreso/crearCategoriaGasto más
+  // arriba) — para el usuario son "la misma cosa" con un solo
+  // nombre. Si esta cuenta es la que está detrás de alguna de esas
+  // categorías y todavía comparte el nombre viejo, hay que renombrar
+  // también la categoría (categorias_operacion.nombre) y todo lo que
+  // ya se cargó con ella — si no, la Central de Lançamentos sigue
+  // mostrando el nombre viejo en el selector aunque la cuenta ya se
+  // haya renombrado.
+  const { data: vinculos } = await supabase
+    .from('categorias_operacion_cuentas')
+    .select('categoria_operacion_id')
+    .eq('empresa_id', empresaId)
+    .eq('cuenta_id', cuentaId);
+
+  const idsCategoria = (vinculos ?? []).map((v) => v.categoria_operacion_id);
+
+  if (idsCategoria.length === 0) {
+    return;
+  }
+
+  const { data: categorias } = await supabase
+    .from('categorias_operacion')
+    .select('id, operacion, codigo')
+    .in('id', idsCategoria)
+    .eq('nombre', nombreViejo);
+
+  for (const categoria of categorias ?? []) {
+    await Promise.all([
+      supabase.from('categorias_operacion').update({ nombre: nombreLimpio }).eq('id', categoria.id),
+      supabase
+        .from('matriz_operaciones')
+        .update({ categoria: nombreLimpio })
+        .eq('empresa_id', empresaId)
+        .eq('operacion', categoria.operacion)
+        .eq('categoria', nombreViejo),
+      supabase
+        .from('reglas_contables')
+        .update({ categoria_nombre: nombreLimpio })
+        .eq('empresa_id', empresaId)
+        .eq('operacion', categoria.operacion)
+        .eq('categoria_codigo', categoria.codigo),
+      supabase
+        .from('registro_operaciones')
+        .update({ categoria: nombreLimpio })
+        .eq('empresa_id', empresaId)
+        .eq('operacion', categoria.operacion)
+        .eq('categoria', nombreViejo),
+    ]);
+  }
 }
