@@ -279,32 +279,6 @@ export function CalendarioOrganizador({
         overflow: 'hidden',
       }}
     >
-      {/* MARCA DE AGUA — el logo de la empresa, con su color original
-          (nada de blanco y negro), para que el calendario se sienta
-          "propio". Las celdas de los días van con fondo semi-
-          transparente (ver más abajo) para que se note detrás. */}
-      {logoUrl?.trim() && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoUrl}
-          alt=""
-          aria-hidden
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '60%',
-            maxWidth: 420,
-            height: 'auto',
-            opacity: 0.16,
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        />
-      )}
-
-      {/* Todo el contenido va arriba de la marca de agua. */}
       <div style={{ position: 'relative' }}>
 
       {/* CABECERA */}
@@ -384,8 +358,35 @@ export function CalendarioOrganizador({
       {/* LAYOUT: grilla a ancho completo + barra lateral */}
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {/* GRILLA MENSUAL */}
-        <div style={{ flex: '1 1 640px', minWidth: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+        <div style={{ flex: '1 1 640px', minWidth: 0, position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+          {/* MARCA DE AGUA — el logo de la empresa, con su color
+              original (nada de blanco y negro). Ancla acá adentro (no
+              en el <section> completo) para que siempre quede fijo
+              detrás de los días — a todo el ancho de la grilla — y no
+              se corra cuando se abre/cierra "Categorías" o
+              "Anotações" en la barra lateral. */}
+          {logoUrl?.trim() && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                height: 'auto',
+                opacity: 0.24,
+                pointerEvents: 'none',
+                userSelect: 'none',
+                zIndex: 0,
+              }}
+            />
+          )}
+
+          <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
             {diasSemana.map((dia) => (
               <div key={dia} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: colores.acento, letterSpacing: 0.5 }}>
                 {dia}
@@ -394,12 +395,12 @@ export function CalendarioOrganizador({
           </div>
 
           {cargando ? (
-            <div style={{ padding: 30, textAlign: 'center', color: colores.acento, fontSize: 13 }}>
+            <div style={{ position: 'relative', zIndex: 1, padding: 30, textAlign: 'center', color: colores.acento, fontSize: 13 }}>
               {esPT ? 'Carregando...' : 'Cargando...'}
             </div>
           ) : (
             filas.map((fila, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+              <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
                 {fila.map((celda) => {
                   const eventosDelDia = eventosPorFecha.get(celda.fecha) ?? [];
                   const esHoy = celda.fecha === hoyStr;
