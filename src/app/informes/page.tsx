@@ -349,7 +349,14 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
       .toLowerCase()
       .includes(busqueda.toLowerCase());
 
-    const tieneMovimiento = fila.inicial !== 0 || fila.debe !== 0 || fila.haber !== 0 || fila.saldoFinal !== 0;
+    // Redondeado, no exacto: un saldo de centavos se muestra como "0"
+    // en pantalla (formatearNumeroEntero redondea), así que si son
+    // todos cero al redondear tiene que contar como "sin movimiento".
+    const tieneMovimiento =
+      Math.round(fila.inicial) !== 0 ||
+      Math.round(fila.debe) !== 0 ||
+      Math.round(fila.haber) !== 0 ||
+      Math.round(fila.saldoFinal) !== 0;
 
     return coincideBusqueda && (mostrarCeros || tieneMovimiento);
   });
@@ -475,7 +482,7 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
   const opciones = useMemo(() => {
     const lista = mostrarCeros
       ? hojas
-      : hojas.filter((c) => calcularMovimiento(c, asientos, true).saldoFinal !== 0);
+      : hojas.filter((c) => Math.round(calcularMovimiento(c, asientos, true).saldoFinal) !== 0);
 
     return lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
   }, [hojas, asientos, mostrarCeros]);
@@ -638,7 +645,7 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
   const filasPorTipo = (tipo: string) =>
     hojas
       .map((cuenta) => ({ cuenta, ...calcularMovimiento(cuenta, asientosDelPeriodo, esTodos) }))
-      .filter((fila) => fila.cuenta.tipo_saldo === tipo && fila.saldoFinal !== 0)
+      .filter((fila) => fila.cuenta.tipo_saldo === tipo && Math.round(fila.saldoFinal) !== 0)
       .sort((a, b) => b.saldoFinal - a.saldoFinal);
 
   const ingresos = filasPorTipo('INGRESO');
@@ -1199,7 +1206,12 @@ function BalancePatrimonialTab({
     // interruptor de "mostrar cuentas en cero".
     const total = filas.reduce((s, f) => s + f.saldoFinal, 0);
 
-    const filasVisibles = mostrarCeros ? filas : filas.filter((f) => f.saldoFinal !== 0);
+    // Comparar contra el valor redondeado (no el exacto): un saldo de
+    // centavos como R$ 0,30 se muestra como "R$ 0" (formatearNumeroEntero
+    // redondea), así que si se ocultan los ceros tiene que desaparecer
+    // también — si no, queda una fila que dice "0" a la vista pero el
+    // interruptor no la contó como cero.
+    const filasVisibles = mostrarCeros ? filas : filas.filter((f) => Math.round(f.saldoFinal) !== 0);
 
     const grupos = new Map<string, typeof filas>();
 
