@@ -28,7 +28,7 @@ export function SabioBotChat({
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const finRef = useRef<HTMLDivElement>(null);
+  const contenedorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -47,7 +47,10 @@ export function SabioBotChat({
   }, [empresaId]);
 
   useEffect(() => {
-    finRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const contenedor = contenedorRef.current;
+    if (contenedor) {
+      contenedor.scrollTop = contenedor.scrollHeight;
+    }
   }, [mensajes]);
 
   async function enviar() {
@@ -97,6 +100,7 @@ export function SabioBotChat({
       </div>
 
       <div
+        ref={contenedorRef}
         style={{
           background: colores.blanco,
           borderRadius: 20,
@@ -131,7 +135,6 @@ export function SabioBotChat({
             </div>
           ))
         )}
-        <div ref={finRef} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
