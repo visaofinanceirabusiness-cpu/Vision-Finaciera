@@ -23,6 +23,7 @@ import {
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
+import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
@@ -371,6 +372,11 @@ export default function InicioPage() {
   const idioma = empresa?.idioma ?? 'ES';
   const t = crearTraductor(diccionarioInicio, idioma);
 
+  // Preview del lobby nuevo (Sabio Bot grande, Mensajes unificado en
+  // el encabezado) — a propósito solo para Equilibra por ahora, para
+  // probarlo antes de generalizarlo al resto de las empresas.
+  const esPreviewNuevoLobby = empresa?.nombre === 'Equilibra';
+
   if (cargando) {
     return (
       <div
@@ -695,9 +701,14 @@ export default function InicioPage() {
               : null
           }
           objetivos={objetivos}
+          mostrarColumnaSabio={!esPreviewNuevoLobby}
+          mensajesSinLeer={mensajesSinLeer}
+          onClickMensajes={() => router.push('/mensajes')}
         />
 
-        <SabioFlotante colores={colores} idioma={idioma} />
+        {!esPreviewNuevoLobby && (
+          <SabioFlotante colores={colores} idioma={idioma} />
+        )}
 
         {/* =================================================
             MENSAJES
@@ -713,6 +724,7 @@ export default function InicioPage() {
             texto genérico ("Mensajes") — nunca desaparece.
         ================================================== */}
 
+        {!esPreviewNuevoLobby && (
         <Link
           href="/mensajes"
           style={{
@@ -865,6 +877,22 @@ export default function InicioPage() {
             </div>
           </section>
         </Link>
+        )}
+
+        {/* =================================================
+            SABIO BOT — preview nueva (solo Equilibra por ahora)
+            Reemplaza al Sabio chiquito de siempre + al flotante en
+            esta pantalla: es LA invitación a cargar las operaciones
+            del día, con el chat desplegándose en el momento.
+        ================================================== */}
+
+        {esPreviewNuevoLobby && perfil && (
+          <SabioBotLobby
+            empresaId={perfil.empresa_id}
+            idioma={idioma}
+            colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
+          />
+        )}
 
         {/* =================================================
             HERRAMIENTAS
