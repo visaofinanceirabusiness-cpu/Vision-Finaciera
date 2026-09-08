@@ -41,6 +41,7 @@ import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarClientePorTelefono } from './clientes';
 
 type Paso =
+  | 'FECHA'
   | 'OPERACION'
   | 'CATEGORIA'
   | 'FORMA_PAGO'
@@ -56,6 +57,11 @@ type Datos = {
   idioma?: string;
   esFamiliar?: boolean;
   simbolo?: string;
+  // Fecha elegida por el usuario en el paso FECHA (YYYY-MM-DD) — antes
+  // el bot siempre grababa con la fecha de hoy, sin forma de cargar
+  // algo atrasado (a diferencia del formulario web, que sí tiene
+  // selector de fecha).
+  fecha?: string;
   operacion?: string;
   categoria?: string;
   formaPago?: string;
@@ -91,6 +97,49 @@ const REINICIAR = new Set(['reiniciar', 'empezar', 'inicio', 'começar', 'iníci
 // diccionario de pantalla.
 function t(idioma: string | undefined, es: string, pt: string): string {
   return idioma === 'PT' ? pt : es;
+}
+
+// 'YYYY-MM-DD' → 'DD/MM/AAAA', solo para mostrar en el resumen final.
+function fechaParaMostrar(fecha: string | undefined): string {
+  if (!fecha) return '';
+  const [anio, mes, dia] = fecha.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+// Interpreta la fecha que escribe el usuario en el paso FECHA:
+// "hoy"/"ayer" (y sus equivalentes en portugués), o DD/MM o DD/MM/AAAA
+// (con "/" o "-"). Devuelve YYYY-MM-DD para registrarOperacion, o null
+// si no se pudo entender (para volver a preguntar).
+function parsearFechaBot(texto: string): string | null {
+  const limpio = texto.trim().toLowerCase();
+
+  if (['hoy', 'today', 'hoje', 'hj'].includes(limpio)) {
+    return fechaLocalHoy();
+  }
+
+  if (['ayer', 'ontem'].includes(limpio)) {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    return `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, '0')}-${String(ayer.getDate()).padStart(2, '0')}`;
+  }
+
+  const match = /^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/.exec(limpio);
+  if (!match) return null;
+
+  const dia = parseInt(match[1], 10);
+  const mes = parseInt(match[2], 10);
+  const hoy = new Date();
+  let anio = match[3] ? parseInt(match[3], 10) : hoy.getFullYear();
+  if (anio < 100) anio += 2000;
+
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+
+  const fecha = new Date(anio, mes - 1, dia);
+  if (fecha.getFullYear() !== anio || fecha.getMonth() !== mes - 1 || fecha.getDate() !== dia) {
+    return null;
+  }
+
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
 // Solo Venta/Cobro dan de alta un cliente nuevo pidiendo también el
@@ -157,7 +206,6 @@ async function iniciar(empresaId: string): Promise<string> {
 
   const idioma = empresa?.idioma ?? 'ES';
   const opciones = (ops ?? []).map((o) => o.nombre);
-  const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o));
 
   const datos: Datos = {
     idioma,
@@ -166,9 +214,14 @@ async function iniciar(empresaId: string): Promise<string> {
     opciones,
   };
 
-  await guardarConversacion(empresaId, 'OPERACION', datos);
+  await guardarConversacion(empresaId, 'FECHA', datos);
 
-  return `🦉 ${t(idioma, '¡Hola! Soy el Sabio Bot. ¿Qué operación querés registrar?', 'Olá! Eu sou o Sabio Bot. Qual operação você quer registrar?')}\n\n${numerarLista(opcionesDisplay)}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
+  return `🦉 ${t(idioma, '¡Hola! Soy el Sabio Bot. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio Bot. Qual é a data da operação?')}\n\n${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
+}
+
+function mensajeElegirOperacion(idioma: string | undefined, opciones: string[]): string {
+  const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o));
+  return `${t(idioma, '¿Qué operación querés registrar?', 'Qual operação você quer registrar?')}\n\n${numerarLista(opcionesDisplay)}`;
 }
 
 async function pedirContactos(empresaId: string, operacion: string): Promise<string[]> {
@@ -291,6 +344,26 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       '❌ Operación cancelada. Escribí cualquier cosa para empezar de nuevo.',
       '❌ Operação cancelada. Digite qualquer coisa para começar de novo.'
     );
+  }
+
+  // ---------------------------------------------------
+  // 0. FECHA
+  // ---------------------------------------------------
+  if (paso === 'FECHA') {
+    const fecha = parsearFechaBot(texto);
+
+    if (!fecha) {
+      return t(
+        idioma,
+        'No entendí esa fecha. Escribí "hoy", "ayer", o una fecha como 8/9 o 08/09/2026.',
+        'Não entendi essa data. Digite "hoje", "ontem", ou uma data como 8/9 ou 08/09/2026.'
+      );
+    }
+
+    const nuevosDatos: Datos = { ...datos, fecha };
+    await guardarConversacion(empresaId, 'OPERACION', nuevosDatos);
+
+    return mensajeElegirOperacion(idioma, datos.opciones ?? []);
   }
 
   // ---------------------------------------------------
@@ -540,6 +613,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
 
     return (
       `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
+      `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
       `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '')}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
@@ -586,6 +660,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
 
     return (
       `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
+      `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
       `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '')}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
@@ -618,7 +693,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         : [{ producto: datos.historico ?? '', cantidad: 1, monto: datos.monto ?? 0 }];
 
       const resultado = await registrarOperacion(empresaId, {
-        fecha: fechaLocalHoy(),
+        fecha: datos.fecha ?? fechaLocalHoy(),
         operacion: datos.operacion ?? '',
         categoria: datos.categoria ?? '',
         formaPago: datos.formaPago ?? '',
