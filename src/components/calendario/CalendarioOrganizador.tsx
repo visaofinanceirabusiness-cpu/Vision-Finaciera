@@ -378,7 +378,7 @@ export function CalendarioOrganizador({
                 transform: 'translate(-50%, -50%)',
                 width: '100%',
                 height: 'auto',
-                opacity: 0.24,
+                opacity: 0.34,
                 pointerEvents: 'none',
                 userSelect: 'none',
                 zIndex: 0,
