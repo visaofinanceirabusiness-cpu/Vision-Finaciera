@@ -75,6 +75,9 @@ export function SabioBotLobby({
             .sabio-lobby-banner {
               text-align: left;
             }
+            .sabio-lobby-banner-flecha {
+              transform: rotate(0deg);
+            }
             @media (max-width: 480px) {
               .sabio-lobby-banner {
                 flex-direction: column;
@@ -82,7 +85,7 @@ export function SabioBotLobby({
                 text-align: center;
               }
               .sabio-lobby-banner-flecha {
-                display: none;
+                transform: rotate(90deg);
               }
             }
           `}</style>
