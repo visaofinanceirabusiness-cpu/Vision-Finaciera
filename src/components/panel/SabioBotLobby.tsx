@@ -37,6 +37,7 @@ export function SabioBotLobby({
       {!abierto ? (
         <button
           onClick={() => setAbierto(true)}
+          className="sabio-lobby-banner"
           style={{
             width: '100%',
             display: 'flex',
@@ -47,7 +48,6 @@ export function SabioBotLobby({
             borderRadius: 20,
             padding: '22px 26px',
             cursor: 'pointer',
-            textAlign: 'left',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -69,7 +69,23 @@ export function SabioBotLobby({
             </span>
           </span>
 
-          <span style={{ color: '#fff', fontSize: 26, fontWeight: 700, flexShrink: 0 }}>→</span>
+          <span className="sabio-lobby-banner-flecha" style={{ color: '#fff', fontSize: 26, fontWeight: 700, flexShrink: 0 }}>→</span>
+
+          <style>{`
+            .sabio-lobby-banner {
+              text-align: left;
+            }
+            @media (max-width: 480px) {
+              .sabio-lobby-banner {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+              }
+              .sabio-lobby-banner-flecha {
+                display: none;
+              }
+            }
+          `}</style>
         </button>
       ) : (
         <div>
