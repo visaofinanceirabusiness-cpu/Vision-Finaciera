@@ -21,7 +21,7 @@ import {
   nombreCategoria,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
-import { iconoFechaEspecial, mapaFechasEspeciales, paisPorMoneda } from '@/lib/fechasEspeciales';
+import { fechasEspecialesDelPais, iconoFechaEspecial, mapaFechasEspeciales, paisPorMoneda } from '@/lib/fechasEspeciales';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -256,6 +256,16 @@ export function CalendarioOrganizador({
   }
 
   const hoyStr = aFechaLocal(hoy);
+
+  // Fechas especiales del mes que se está viendo, ordenadas por día —
+  // para listarlas con nombre y fecha en la barra lateral (el ícono
+  // en la celda no alcanza para que se entienda qué se festeja, sobre
+  // todo en el celular donde no hay "hover" para el tooltip).
+  const fechasEspecialesDelMes = fechasEspecialesVisibles
+    ? fechasEspecialesDelPais(paisPorMoneda(moneda))
+        .filter((f) => f.mes === mesReferencia.getMonth() + 1)
+        .sort((a, b) => a.dia - b.dia)
+    : [];
 
   return (
     <section
@@ -522,22 +532,22 @@ export function CalendarioOrganizador({
                 </div>
               ))}
 
-              {fechasEspecialesVisibles && (
+              {fechasEspecialesVisibles && fechasEspecialesDelMes.length > 0 && (
                 <>
                   <div style={{ height: 1, background: '#eef0f2', margin: '4px 0' }} />
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>🏛️</span>
-                    <span style={{ color: colores.azul }}>{esPT ? 'Data cívica / feriado' : 'Fecha patria / feriado'}</span>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: colores.acento, letterSpacing: 0.3, marginBottom: 2 }}>
+                    {esPT ? 'Datas especiais do mês' : 'Fechas especiales del mes'}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>🎉</span>
-                    <span style={{ color: colores.azul }}>{esPT ? 'Festa / comemoração' : 'Festejo / fiesta'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>🍃</span>
-                    <span style={{ color: colores.azul }}>{esPT ? 'Mudança de estação' : 'Cambio de estación'}</span>
-                  </div>
+
+                  {fechasEspecialesDelMes.map((f, i) => (
+                    <div key={`${f.mes}-${f.dia}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                      <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>{iconoFechaEspecial(f.tipo)}</span>
+                      <span style={{ color: colores.azul }}>
+                        <strong>{f.dia}</strong> — {esPT ? f.nombrePt : f.nombreEs}
+                      </span>
+                    </div>
+                  ))}
                 </>
               )}
             </div>
