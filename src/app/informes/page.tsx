@@ -74,7 +74,7 @@ type Asiento = {
 export default function InformesPage() {
   const router = useRouter();
 
-  const [pestana, setPestana] = useState<Pestana>('sumas');
+  const [pestana, setPestana] = useState<Pestana>('balance');
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [idioma, setIdioma] = useState<string | null>(null);
