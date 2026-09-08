@@ -148,6 +148,7 @@ export async function obtenerIndicadores(
     { data: operacionesData, error: errorOperaciones },
     { data: automaticosData, error: errorAutomaticos },
     { data: movimientosData, error: errorMovimientos },
+    { data: formaPagoCuentasData, error: errorFormaPagoCuentas },
   ] = await Promise.all([
     supabase
       .from('plan_cuentas')
@@ -168,17 +169,38 @@ export async function obtenerIndicadores(
       .from('movimientos_stock')
       .select('fecha, tipo, categoria, producto_id, cantidad')
       .eq('empresa_id', empresaId),
+
+    // Qué cuentas son "medios financieros" reales (plata disponible) —
+    // no se puede adivinar por el código del Plan de Cuentas (un banco
+    // agregado a mano puede quedar con un código fuera de "1.1.1.");
+    // la única fuente confiable es forma_pago_cuentas, la misma que ya
+    // usa motor.ts para resolver el rol MEDIO_FINANCIERO.
+    supabase
+      .from('forma_pago_cuentas')
+      .select('cuenta_id')
+      .eq('empresa_id', empresaId)
+      .eq('activo', true),
   ]);
 
   if (errorCuentas) throw errorCuentas;
   if (errorOperaciones) throw errorOperaciones;
   if (errorAutomaticos) throw errorAutomaticos;
   if (errorMovimientos) throw errorMovimientos;
+  if (errorFormaPagoCuentas) throw errorFormaPagoCuentas;
 
   const cuentas = (cuentasData ?? []) as CuentaPlan[];
   const operaciones = operacionesData ?? [];
   const automaticos = automaticosData ?? [];
   const movimientos = movimientosData ?? [];
+
+  const idsCuentaMedioFinanciero = new Set((formaPagoCuentasData ?? []).map((f) => f.cuenta_id));
+
+  // Solo ACTIVO: una forma de pago puede estar vinculada a un PASIVO
+  // (ej. "Tarjeta" → "Tarjeta de Crédito a Pagar"), que no es plata
+  // disponible — usarla no mueve caja, cambia deuda.
+  const nombresMedioFinanciero = new Set(
+    cuentas.filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO').map((c) => c.nombre)
+  );
 
   // ---------------------------------------------------------------
   // 1. Cuentas hoja (las que no son encabezado de otras)
@@ -304,9 +326,12 @@ export async function obtenerIndicadores(
   const pasivos = totalPorTipo('PASIVO');
   const patrimonio = totalPorTipo('PATRIMONIO');
 
-  // Caja disponible: solo el grupo 1.1.1.x (Caja, PIX, Aplicaciones
-  // Financieras, Tarjeta). NO incluye "a Recibir" ni Clientes.
-  const cajaDisponible = totalPorPrefijo('1.1.1.');
+  // Caja disponible: solo las cuentas que son medios financieros de
+  // verdad (Caja, Bancos, Billetera Virtual...). NO incluye "a
+  // Recibir" ni Clientes.
+  const cajaDisponible = hojas
+    .filter((cuenta) => nombresMedioFinanciero.has(cuenta.nombre))
+    .reduce((suma, cuenta) => suma + saldoConSigno(cuenta, acumuladoTotal, true), 0);
 
   // Ahorro e inversiones: grupo 1.2.x del plan de Familia (Plazo
   // Fijo, Inversiones). Es lo que alimenta metas libres tipo "Viaje
@@ -505,15 +530,14 @@ export async function obtenerIndicadores(
     .sort((a, b) => b.valor - a.valor);
 
   // Distribución de la liquidez: cómo se reparte HOY el dinero
-  // disponible (grupo 1.1.1.x — Caja, Banco, Billetera Virtual, etc.)
-  // junto con todo lo que está por cobrar (grupo 1.1.2.x — Clientes a
-  // Cobrar, Tarjeta de Crédito a Cobrar, etc.). No incluye Stock
-  // (1.1.3.x) ni Anticipos a Proveedores (1.1.4.x).
+  // disponible (medios financieros reales — Caja, Banco, Billetera
+  // Virtual, etc.) junto con todo lo que está por cobrar (grupo
+  // 1.1.2.x — Clientes a Cobrar, Tarjeta de Crédito a Cobrar, etc.,
+  // que no tienen forma de pago propia, así que ahí sí alcanza con el
+  // código). No incluye Stock (1.1.3.x) ni Anticipos a Proveedores
+  // (1.1.4.x).
   const liquidezPorCuenta: PuntoGrafico[] = hojas
-    .filter((cuenta) => {
-      const codigo = cuenta.codigo ?? '';
-      return codigo.startsWith('1.1.1.') || codigo.startsWith('1.1.2.');
-    })
+    .filter((cuenta) => nombresMedioFinanciero.has(cuenta.nombre) || (cuenta.codigo ?? '').startsWith('1.1.2.'))
     .map((cuenta) => ({ nombre: cuenta.nombre, valor: redondear(saldoDe(cuenta, acumuladoTotal, true)) }))
     .filter((punto) => punto.valor > 0)
     .sort((a, b) => b.valor - a.valor);

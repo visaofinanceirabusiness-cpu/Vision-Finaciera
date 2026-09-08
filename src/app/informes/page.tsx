@@ -80,6 +80,7 @@ export default function InformesPage() {
   const [idioma, setIdioma] = useState<string | null>(null);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
+  const [nombresMedioFinanciero, setNombresMedioFinanciero] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -126,6 +127,7 @@ export default function InformesPage() {
         { data: cuentasData, error: errorCuentas },
         { data: operacionesData, error: errorOperaciones },
         { data: automaticosData, error: errorAutomaticos },
+        { data: formaPagoCuentasData, error: errorFormaPagoCuentas },
       ] = await Promise.all([
         supabase
           .from('plan_cuentas')
@@ -143,13 +145,38 @@ export default function InformesPage() {
           .select('id_operacion, fecha, tipo_registro, historico, cuenta_debito, cuenta_credito, importe')
           .eq('empresa_id', perfil.empresa_id)
           .eq('estado', 'VALIDADO'),
+
+        // Qué cuentas son "medios financieros" reales (plata que se
+        // puede gastar) — no se puede adivinar por el código del Plan
+        // de Cuentas (ver comentario en cuentasDeCaja más abajo): la
+        // única fuente confiable es forma_pago_cuentas, la misma tabla
+        // que ya usa motor.ts para resolver el rol MEDIO_FINANCIERO.
+        supabase
+          .from('forma_pago_cuentas')
+          .select('cuenta_id')
+          .eq('empresa_id', perfil.empresa_id)
+          .eq('activo', true),
       ]);
 
       if (errorCuentas) console.warn('No se pudo cargar el plan de cuentas:', errorCuentas);
       if (errorOperaciones) console.warn('No se pudieron cargar las operaciones:', errorOperaciones);
       if (errorAutomaticos) console.warn('No se pudieron cargar los registros automáticos:', errorAutomaticos);
+      if (errorFormaPagoCuentas) console.warn('No se pudieron cargar las cuentas de medios de pago:', errorFormaPagoCuentas);
 
       setCuentas((cuentasData ?? []) as CuentaPlan[]);
+
+      const idsCuentaMedioFinanciero = new Set((formaPagoCuentasData ?? []).map((f) => f.cuenta_id));
+
+      // Solo cuentas de ACTIVO: una forma de pago puede estar vinculada
+      // a un PASIVO (ej. "Tarjeta" → "Tarjeta de Crédito a Pagar"), que
+      // no es plata disponible — usarla ahí no mueve caja, cambia deuda.
+      setNombresMedioFinanciero(
+        new Set(
+          (cuentasData ?? [])
+            .filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO')
+            .map((c) => c.nombre)
+        )
+      );
 
       const idiomaEmpresa = empresaData?.idioma ?? null;
 
@@ -280,7 +307,9 @@ export default function InformesPage() {
             <>
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
-              {pestana === 'flujo' && <FlujoDeCajaTab hojas={hojas} asientos={asientos} />}
+              {pestana === 'flujo' && (
+                <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} />
+              )}
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
             </>
@@ -917,13 +946,29 @@ function SeccionResultado({
    PESTAÑA · FLUJO DE CAJA
 ========================================================== */
 
-function FlujoDeCajaTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+function FlujoDeCajaTab({
+  hojas,
+  asientos,
+  nombresMedioFinanciero,
+}: {
+  hojas: CuentaPlan[];
+  asientos: Asiento[];
+  nombresMedioFinanciero: Set<string>;
+}) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
+  // "Cuenta de caja" = cualquier cuenta que sea de verdad un medio
+  // financiero (está vinculada a una forma de pago activa), no una
+  // adivinanza por el código del Plan de Cuentas — bancos agregados a
+  // mano (ej. "Banco Bradesco") pueden quedar con un código fuera de
+  // "1.1.1." según cómo se hayan creado, y con el prefijo viejo el
+  // sistema no los reconocía como caja: una transferencia hacia/desde
+  // esas cuentas se contaba como entrada Y salida real de plata en vez
+  // de excluirse como movimiento interno.
   const cuentasCaja = useMemo(
-    () => hojas.filter((c) => (c.codigo ?? '').startsWith('1.1.1.')),
-    [hojas]
+    () => hojas.filter((c) => nombresMedioFinanciero.has(c.nombre)),
+    [hojas, nombresMedioFinanciero]
   );
 
   const nombresCaja = useMemo(() => new Set(cuentasCaja.map((c) => c.nombre)), [cuentasCaja]);
