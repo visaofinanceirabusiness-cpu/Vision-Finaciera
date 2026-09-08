@@ -49,6 +49,7 @@ type Empresa = {
   logo_url: string | null;
   perfil_empresa_id: string | null;
   idioma: string;
+  moneda: string | null;
 };
 
 type ConfiguracionDashboard = {
@@ -187,7 +188,7 @@ export default function InicioPage() {
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
         .select(
-          'nombre, rubro, logo_url, perfil_empresa_id, idioma'
+          'nombre, rubro, logo_url, perfil_empresa_id, idioma, moneda'
         )
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
@@ -1008,6 +1009,8 @@ export default function InicioPage() {
             usuarioId={usuarioId}
             idioma={idioma}
             colores={colores}
+            logoUrl={empresa.logo_url}
+            moneda={empresa.moneda}
           />
         )}
 

@@ -21,8 +21,11 @@ import {
   nombreCategoria,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
+import { iconoFechaEspecial, mapaFechasEspeciales, paisPorMoneda } from '@/lib/fechasEspeciales';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
+
+const CLAVE_FECHAS_ESPECIALES = 'vf_calendario_fechas_especiales';
 
 const DIAS_SEMANA_ES = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'];
 const DIAS_SEMANA_PT = ['SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO', 'DOMINGO'];
@@ -74,16 +77,46 @@ export function CalendarioOrganizador({
   usuarioId,
   idioma,
   colores,
+  logoUrl,
+  moneda,
 }: {
   empresaId: string;
   usuarioId: string;
   idioma: string;
   colores: Colores;
+  // Marca de agua del calendario y país para las fechas especiales —
+  // ambos opcionales para no romper si algún caller viejo no los pasa.
+  logoUrl?: string | null;
+  moneda?: string | null;
 }) {
   const esPT = idioma === 'PT';
   const meses = esPT ? MESES_PT : MESES_ES;
   const diasSemana = esPT ? DIAS_SEMANA_PT : DIAS_SEMANA_ES;
   const hoy = new Date();
+  const fechasEspeciales = mapaFechasEspeciales(paisPorMoneda(moneda));
+
+  const [fechasEspecialesVisibles, setFechasEspecialesVisibles] = useState(true);
+
+  useEffect(() => {
+    try {
+      const guardado = window.localStorage.getItem(CLAVE_FECHAS_ESPECIALES);
+      if (guardado !== null) setFechasEspecialesVisibles(guardado === '1');
+    } catch {
+      // localStorage puede fallar en algunos navegadores/modo privado — no es crítico.
+    }
+  }, []);
+
+  function alternarFechasEspeciales() {
+    setFechasEspecialesVisibles((prev) => {
+      const nuevo = !prev;
+      try {
+        window.localStorage.setItem(CLAVE_FECHAS_ESPECIALES, nuevo ? '1' : '0');
+      } catch {
+        // Ignorado a propósito.
+      }
+      return nuevo;
+    });
+  }
 
   const [mesReferencia, setMesReferencia] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   const [eventos, setEventos] = useState<EventoCalendario[]>([]);
@@ -227,13 +260,43 @@ export function CalendarioOrganizador({
   return (
     <section
       style={{
+        position: 'relative',
         background: colores.blanco,
         borderRadius: 24,
         padding: 20,
         marginBottom: 20,
         border: '1px solid #e5e7eb',
+        overflow: 'hidden',
       }}
     >
+      {/* MARCA DE AGUA — el logo de la empresa, bien sutil, para que
+          el calendario se sienta "propio" sin competir con la
+          lectura de los días/eventos. */}
+      {logoUrl?.trim() && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt=""
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '60%',
+            maxWidth: 420,
+            height: 'auto',
+            opacity: 0.06,
+            filter: 'grayscale(1)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        />
+      )}
+
+      {/* Todo el contenido va arriba de la marca de agua. */}
+      <div style={{ position: 'relative' }}>
+
       {/* CABECERA */}
       <div
         style={{
@@ -263,6 +326,24 @@ export function CalendarioOrganizador({
           </div>
           <button onClick={() => cambiarMes(1)} style={estiloBotonNav(colores)}>
             ›
+          </button>
+
+          <button
+            onClick={alternarFechasEspeciales}
+            title={esPT ? 'Datas comemorativas, feriados e mudanças de estação' : 'Fechas patrias, festejos y cambios de estación'}
+            style={{
+              marginLeft: 6,
+              background: fechasEspecialesVisibles ? `${colores.verde}1c` : colores.blanco,
+              color: fechasEspecialesVisibles ? colores.verde : colores.acento,
+              border: `1px solid ${fechasEspecialesVisibles ? colores.verde : '#d1d5db'}`,
+              borderRadius: 12,
+              padding: '9px 12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: 12.5,
+            }}
+          >
+            🎉 {esPT ? 'Datas especiais' : 'Fechas especiales'}
           </button>
 
           <button
@@ -316,6 +397,7 @@ export function CalendarioOrganizador({
                   const expandido = diaExpandido === celda.fecha;
                   const visibles = expandido ? eventosDelDia : eventosDelDia.slice(0, 2);
                   const restantes = eventosDelDia.length - visibles.length;
+                  const especialesDelDia = fechasEspecialesVisibles ? fechasEspeciales.get(celda.fecha.slice(5, 10)) ?? [] : [];
 
                   return (
                     <div
@@ -355,6 +437,20 @@ export function CalendarioOrganizador({
                           }}
                         >
                           ✓
+                        </span>
+                      )}
+
+                      {especialesDelDia.length > 0 && (
+                        <span
+                          title={especialesDelDia.map((f) => (esPT ? f.nombrePt : f.nombreEs)).join(' · ')}
+                          style={{
+                            position: 'absolute',
+                            top: 4,
+                            left: 5,
+                            fontSize: 11,
+                          }}
+                        >
+                          {iconoFechaEspecial(especialesDelDia[0].tipo)}
                         </span>
                       )}
 
@@ -510,6 +606,7 @@ export function CalendarioOrganizador({
           onCancelar={() => setModal(null)}
         />
       )}
+      </div>
     </section>
   );
 }
