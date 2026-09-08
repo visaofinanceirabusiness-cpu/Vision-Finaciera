@@ -54,7 +54,7 @@ export function SabioBotLobby({
           <img
             src={SABIO_URL}
             alt="Sabio"
-            style={{ width: 72, height: 72, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.22))' }}
+            style={{ width: 130, height: 130, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.25))' }}
           />
 
           <span style={{ flex: 1, minWidth: 0 }}>
@@ -76,7 +76,7 @@ export function SabioBotLobby({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={SABIO_URL} alt="Sabio" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+              <img src={SABIO_URL} alt="Sabio" style={{ width: 52, height: 52, objectFit: 'contain' }} />
               <span style={{ fontWeight: 800, color: colores.azul, fontSize: 18 }}>
                 {esPT ? 'Sábio, seu assistente financeiro' : 'Sabio, tu asistente financiero'}
               </span>
