@@ -102,7 +102,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset' | 'matriz';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'personal' | 'reset' | 'matriz';
 
 type PerfilEmpresa = {
   id: string;
@@ -260,6 +260,10 @@ export default function ConfiguracoesPage() {
               {t('tabFacturacion')}
             </button>
 
+            <button type="button" onClick={() => setPestana('personal')} style={tabStyle(pestana === 'personal')}>
+              {t('tabPersonal')}
+            </button>
+
             <button type="button" onClick={() => setPestana('reset')} style={tabStyle(pestana === 'reset')}>
               {t('tabReset')}
             </button>
@@ -295,6 +299,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
+          {pestana === 'personal' && <MisDatosTab empresaId={empresaId} idioma={idioma} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
         </main>
@@ -720,6 +725,212 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
         <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
           {guardando ? t('guardando') : t('guardarCambios')}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA — MIS DATOS (Bloque C del Día 1 de seguridad)
+   Centraliza los datos PERSONALES (no los de la empresa, que viven
+   en la pestaña "Dados da Empresa"): nombre, teléfono, sexo, email
+   (de solo lectura, viene de Supabase Auth). Suma acá mismo la
+   exportación de datos propios y la solicitud de eliminación de
+   cuenta — ver tabla solicitudes_eliminacion_cuenta, revisada por un
+   admin en Panel Maestro → Notificações.
+========================================================== */
+
+type DatosPersonales = { nombre: string; telefono: string | null; sexo: string | null };
+
+function MisDatosTab({ empresaId, idioma }: { empresaId: string; idioma: string }) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+
+  const [cargando, setCargando] = useState(true);
+  const [perfilId, setPerfilId] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [datos, setDatos] = useState<DatosPersonales>({ nombre: '', telefono: '', sexo: '' });
+  const [empresaExport, setEmpresaExport] = useState<{ nombre: string; rubro: string | null; moneda: string } | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [solicitudEliminacion, setSolicitudEliminacion] = useState<{ estado: string; creado_en: string } | null>(null);
+  const [enviandoSolicitud, setEnviandoSolicitud] = useState(false);
+
+  useEffect(() => {
+    async function cargar() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const [{ data: perfilData }, { data: empresaData }, { data: solicitudData }] = await Promise.all([
+        supabase.from('perfiles').select('nombre, telefono, sexo').eq('id', userData.user.id).maybeSingle(),
+        supabase.from('empresas').select('nombre, rubro, moneda').eq('id', empresaId).maybeSingle(),
+        supabase
+          .from('solicitudes_eliminacion_cuenta')
+          .select('estado, creado_en')
+          .eq('perfil_id', userData.user.id)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      setPerfilId(userData.user.id);
+      setEmail(userData.user.email ?? '');
+      setDatos({
+        nombre: perfilData?.nombre ?? '',
+        telefono: perfilData?.telefono ?? '',
+        sexo: perfilData?.sexo ?? '',
+      });
+      setEmpresaExport(empresaData ?? null);
+      setSolicitudEliminacion(solicitudData ?? null);
+      setCargando(false);
+    }
+
+    cargar();
+  }, [empresaId]);
+
+  async function guardar() {
+    if (!perfilId) return;
+
+    setGuardando(true);
+    setError('');
+    setMensaje('');
+
+    const { error: errorGuardar } = await supabase
+      .from('perfiles')
+      .update({ nombre: datos.nombre.trim(), telefono: datos.telefono, sexo: datos.sexo })
+      .eq('id', perfilId);
+
+    setGuardando(false);
+
+    if (errorGuardar) {
+      setError(t('errorGuardarDatosPersonales'));
+      return;
+    }
+
+    setMensaje(t('mensajeDatosPersonalesGuardados'));
+  }
+
+  function descargarMisDatos() {
+    const contenido = {
+      generado_en: new Date().toISOString(),
+      datos_personales: { nombre: datos.nombre, telefono: datos.telefono, sexo: datos.sexo, email },
+      empresa: empresaExport,
+    };
+
+    const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = 'mis-datos-visao-financeira.json';
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    URL.revokeObjectURL(url);
+  }
+
+  async function solicitarEliminacion() {
+    if (!perfilId) return;
+    if (!window.confirm(t('confirmarSolicitarEliminacion'))) return;
+
+    setEnviandoSolicitud(true);
+    setError('');
+
+    const { error: errorSolicitar } = await supabase
+      .from('solicitudes_eliminacion_cuenta')
+      .insert({ perfil_id: perfilId, empresa_id: empresaId });
+
+    setEnviandoSolicitud(false);
+
+    if (errorSolicitar) {
+      setError(errorSolicitar.message);
+      return;
+    }
+
+    setSolicitudEliminacion({ estado: 'PENDIENTE', creado_en: new Date().toISOString() });
+    setMensaje(t('solicitudEliminacionEnviada'));
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>{t('cargandoDatosPersonales')}</div>;
+  }
+
+  return (
+    <div>
+      {error && <div style={errorStyle}>{error}</div>}
+      {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, marginBottom: 26 }}>
+        <div style={campo}>
+          <label style={label}>{t('campoTuNombre')}</label>
+          <input
+            style={inputFormulario}
+            value={datos.nombre}
+            onChange={(e) => setDatos((actual) => ({ ...actual, nombre: e.target.value }))}
+          />
+        </div>
+
+        <div style={campo}>
+          <label style={label}>{t('campoTuTelefono')}</label>
+          <input
+            style={inputFormulario}
+            value={datos.telefono ?? ''}
+            onChange={(e) => setDatos((actual) => ({ ...actual, telefono: e.target.value }))}
+          />
+        </div>
+
+        <div style={campo}>
+          <label style={label}>{t('campoTuSexo')}</label>
+          <select
+            style={inputFormulario}
+            value={datos.sexo ?? ''}
+            onChange={(e) => setDatos((actual) => ({ ...actual, sexo: e.target.value }))}
+          >
+            <option value="">{t('sinDefinir')}</option>
+            <option value="F">{idioma === 'PT' ? 'Feminino' : 'Femenino'}</option>
+            <option value="M">Masculino</option>
+          </select>
+        </div>
+
+        <div style={campo}>
+          <label style={label}>{t('campoTuEmail')}</label>
+          <div style={{ ...inputFormulario, background: '#f3f4f6', color: COLORES.gris }}>{email}</div>
+          <p style={{ margin: '6px 0 0', fontSize: 11.5, color: COLORES.gris }}>{t('notaEmailNoEditable')}</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 30 }}>
+        <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
+          {guardando ? t('guardando') : t('guardarDatosPersonales')}
+        </button>
+      </div>
+
+      <div style={{ padding: 18, borderRadius: 14, background: '#f8fafc', border: '1px solid #e5e7eb', marginBottom: 18 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: COLORES.azul, marginBottom: 4 }}>{t('tituloMisDatos')}</div>
+        <p style={{ margin: '0 0 12px', fontSize: 12.5, color: COLORES.gris }}>{t('subtituloMisDatos')}</p>
+        <button type="button" style={botonSecundario} onClick={descargarMisDatos}>
+          {t('botonDescargarMisDatos')}
+        </button>
+      </div>
+
+      <div style={{ padding: 18, borderRadius: 14, background: '#fef2f2', border: '1px solid #fecaca' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#b91c1c', marginBottom: 4 }}>{t('tituloEliminarCuenta')}</div>
+        <p style={{ margin: '0 0 12px', fontSize: 12.5, color: COLORES.gris }}>{t('subtituloEliminarCuenta')}</p>
+
+        {solicitudEliminacion ? (
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#b91c1c' }}>
+            {t('solicitudEliminacionPendienteDesde')}{' '}
+            {new Date(solicitudEliminacion.creado_en).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={solicitarEliminacion}
+            disabled={enviandoSolicitud}
+            style={{ background: '#b91c1c', color: COLORES.blanco, border: 'none', borderRadius: 10, padding: '10px 16px', cursor: 'pointer', fontWeight: 700 }}
+          >
+            {enviandoSolicitud ? t('enviandoSolicitud') : t('botonSolicitarEliminacion')}
+          </button>
+        )}
       </div>
     </div>
   );
