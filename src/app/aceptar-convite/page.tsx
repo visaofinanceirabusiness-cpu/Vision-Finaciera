@@ -20,10 +20,11 @@ import { supabase } from '@/lib/supabase';
 type EstadoInvitacion =
   | { cargando: true }
   | { cargando: false; valida: false; motivo: string }
-  | { cargando: false; valida: true; email: string; nombre: string; tipoUsuario: 'SOPORTE' | 'ASISTENTE' };
+  | { cargando: false; valida: true; email: string; nombre: string; tipoUsuario: 'SOPORTE' | 'ASISTENTE'; esFamiliar: boolean };
 
-function ETIQUETA_TIPO(tipo: string) {
-  return tipo === 'SOPORTE' ? 'Soporte' : 'Asistente';
+function ETIQUETA_TIPO(tipo: string, esFamiliar: boolean) {
+  if (tipo === 'SOPORTE') return 'Soporte';
+  return esFamiliar ? 'Colaborador' : 'Asistente';
 }
 
 function AceptarConviteContenido() {
@@ -56,7 +57,14 @@ function AceptarConviteContenido() {
         return;
       }
 
-      setEstado({ cargando: false, valida: true, email: data.email, nombre: data.nombre, tipoUsuario: data.tipo_usuario });
+      setEstado({
+        cargando: false,
+        valida: true,
+        email: data.email,
+        nombre: data.nombre,
+        tipoUsuario: data.tipo_usuario,
+        esFamiliar: Boolean(data.es_familiar),
+      });
     }
 
     cargar();
@@ -138,7 +146,7 @@ function AceptarConviteContenido() {
     return (
       <Base>
         <p style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 14px', fontSize: 13, lineHeight: 1.5 }}>
-          Tu cuenta se creó y tu acceso como {ETIQUETA_TIPO(estado.tipoUsuario)} ya está listo. Si tu email pide confirmación, revisá tu casilla antes de entrar.
+          Tu cuenta se creó y tu acceso como {ETIQUETA_TIPO(estado.tipoUsuario, estado.esFamiliar)} ya está listo. Si tu email pide confirmación, revisá tu casilla antes de entrar.
         </p>
         <a href="/login" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: '#1E8C3C', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
           Ir a iniciar sesión →
@@ -150,7 +158,7 @@ function AceptarConviteContenido() {
   return (
     <Base>
       <p style={{ color: '#374151', fontSize: 13, textAlign: 'center', marginBottom: 18 }}>
-        Te invitaron como <strong>{ETIQUETA_TIPO(estado.tipoUsuario)}</strong> — {estado.nombre} ({estado.email}). Elegí una contraseña para crear tu cuenta.
+        Te invitaron como <strong>{ETIQUETA_TIPO(estado.tipoUsuario, estado.esFamiliar)}</strong> — {estado.nombre} ({estado.email}). Elegí una contraseña para crear tu cuenta.
       </p>
 
       <form onSubmit={crearCuentaYAceptar}>
