@@ -21,6 +21,26 @@ export type ClaveConfiguracoes =
   | 'tabInicializacion'
   | 'tabObjetivos'
   | 'tabFacturacion'
+  | 'tabPersonal'
+  | 'cargandoDatosPersonales'
+  | 'campoTuNombre'
+  | 'campoTuTelefono'
+  | 'campoTuSexo'
+  | 'campoTuEmail'
+  | 'notaEmailNoEditable'
+  | 'guardarDatosPersonales'
+  | 'mensajeDatosPersonalesGuardados'
+  | 'errorGuardarDatosPersonales'
+  | 'tituloMisDatos'
+  | 'subtituloMisDatos'
+  | 'botonDescargarMisDatos'
+  | 'tituloEliminarCuenta'
+  | 'subtituloEliminarCuenta'
+  | 'botonSolicitarEliminacion'
+  | 'confirmarSolicitarEliminacion'
+  | 'solicitudEliminacionEnviada'
+  | 'solicitudEliminacionPendienteDesde'
+  | 'enviandoSolicitud'
   | 'cargandoDatosEmpresa'
   | 'noSeEncontroEmpresa'
   | 'clienteNumero'
@@ -212,6 +232,28 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tabInicializacion: '🚀 Inicialización del Sistema',
     tabObjetivos: '🎯 Objetivos',
     tabFacturacion: '💳 Facturación',
+    tabPersonal: '👤 Mis Datos',
+    cargandoDatosPersonales: 'Cargando tus datos...',
+    campoTuNombre: 'Tu nombre *',
+    campoTuTelefono: 'Tu teléfono',
+    campoTuSexo: 'Tu sexo',
+    campoTuEmail: 'Tu email',
+    notaEmailNoEditable: 'Para cambiar tu email, escribinos a visaofinanceirabusiness@gmail.com.',
+    guardarDatosPersonales: 'Guardar mis datos',
+    mensajeDatosPersonalesGuardados: 'Tus datos se actualizaron.',
+    errorGuardarDatosPersonales: 'No se pudieron guardar tus datos.',
+    tituloMisDatos: '📥 Mis datos',
+    subtituloMisDatos:
+      'Podés descargar una copia de tus datos personales y de tu empresa en cualquier momento, en formato JSON.',
+    botonDescargarMisDatos: 'Descargar mis datos',
+    tituloEliminarCuenta: '🗑️ Eliminar mi cuenta',
+    subtituloEliminarCuenta:
+      'Si ya no querés usar Visão Financeira, pedí acá la eliminación de tu cuenta y tus datos. Un administrador va a revisar tu solicitud y hacer el borrado real (no queda nada a medias).',
+    botonSolicitarEliminacion: 'Solicitar eliminación de mi cuenta',
+    confirmarSolicitarEliminacion: '¿Confirmás que querés pedir la eliminación de tu cuenta? Un administrador la va a revisar.',
+    solicitudEliminacionEnviada: 'Tu solicitud se envió. Un administrador la va a revisar pronto.',
+    solicitudEliminacionPendienteDesde: 'Ya pediste la eliminación de tu cuenta el',
+    enviandoSolicitud: 'Enviando...',
     cargandoDatosEmpresa: 'Cargando datos de la empresa...',
     noSeEncontroEmpresa: 'No se encontró la empresa.',
     clienteNumero: 'Cliente Nº',
@@ -397,6 +439,28 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tabInicializacion: '🚀 Inicialização do Sistema',
     tabObjetivos: '🎯 Objetivos',
     tabFacturacion: '💳 Faturamento',
+    tabPersonal: '👤 Meus Dados',
+    cargandoDatosPersonales: 'Carregando seus dados...',
+    campoTuNombre: 'Seu nome *',
+    campoTuTelefono: 'Seu telefone',
+    campoTuSexo: 'Seu sexo',
+    campoTuEmail: 'Seu email',
+    notaEmailNoEditable: 'Para mudar seu email, escreva para visaofinanceirabusiness@gmail.com.',
+    guardarDatosPersonales: 'Salvar meus dados',
+    mensajeDatosPersonalesGuardados: 'Seus dados foram atualizados.',
+    errorGuardarDatosPersonales: 'Não foi possível salvar seus dados.',
+    tituloMisDatos: '📥 Meus dados',
+    subtituloMisDatos:
+      'Você pode baixar uma cópia dos seus dados pessoais e da sua empresa a qualquer momento, em formato JSON.',
+    botonDescargarMisDatos: 'Baixar meus dados',
+    tituloEliminarCuenta: '🗑️ Excluir minha conta',
+    subtituloEliminarCuenta:
+      'Se você não quer mais usar a Visão Financeira, peça aqui a exclusão da sua conta e dos seus dados. Um administrador vai revisar sua solicitação e fazer a exclusão real (nada fica pela metade).',
+    botonSolicitarEliminacion: 'Solicitar exclusão da minha conta',
+    confirmarSolicitarEliminacion: 'Confirma que quer pedir a exclusão da sua conta? Um administrador vai revisar.',
+    solicitudEliminacionEnviada: 'Sua solicitação foi enviada. Um administrador vai revisá-la em breve.',
+    solicitudEliminacionPendienteDesde: 'Você já pediu a exclusão da sua conta em',
+    enviandoSolicitud: 'Enviando...',
     cargandoDatosEmpresa: 'Carregando dados da empresa...',
     noSeEncontroEmpresa: 'Empresa não encontrada.',
     clienteNumero: 'Cliente Nº',

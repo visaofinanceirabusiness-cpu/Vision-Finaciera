@@ -154,6 +154,19 @@ export async function POST(request: NextRequest) {
       throw new Error(errorVincular.message);
     }
 
+    // vincular_usuario_a_empresa crea la fila de perfiles pero solo
+    // con nombre — el teléfono y el sexo que la persona cargó en
+    // Criar Conta se guardan acá, para que después pueda verlos y
+    // editarlos en Mi Perfil (src/app/mi-perfil).
+    const { error: errorDatosPersonales } = await admin
+      .from('perfiles')
+      .update({ telefono: solicitud.telefono, sexo: solicitud.sexo })
+      .eq('id', solicitud.user_id);
+
+    if (errorDatosPersonales) {
+      console.warn('No se pudieron guardar teléfono/sexo en el perfil:', errorDatosPersonales);
+    }
+
     const { error: errorCerrarSolicitud } = await admin
       .from('solicitudes_alta')
       .update({ estado: 'APROBADA', empresa_id: nuevaEmpresa.id, resuelto_en: new Date().toISOString() })

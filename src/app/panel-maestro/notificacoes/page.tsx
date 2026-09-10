@@ -32,6 +32,15 @@ const COLORES_BASE = {
   blanco: '#ffffff',
 };
 
+type SolicitudEliminacion = {
+  id: string;
+  perfil_id: string;
+  empresa_id: string | null;
+  creado_en: string;
+  perfil_nombre: string;
+  empresa_nombre: string;
+};
+
 type OperacionValidada = {
   tipo: 'registro' | 'movimiento';
   empresaId: string;
@@ -60,6 +69,9 @@ export default function NotificacoesPage() {
   const [resolviendoSolicitud, setResolviendoSolicitud] = useState<string | null>(null);
   const [validando, setValidando] = useState<string | null>(null);
   const [rechazando, setRechazando] = useState<string | null>(null);
+
+  const [solicitudesEliminacion, setSolicitudesEliminacion] = useState<SolicitudEliminacion[]>([]);
+  const [resolviendoEliminacion, setResolviendoEliminacion] = useState<string | null>(null);
 
   // Default con el que arranca marcado el selector Automático/Manual
   // (validación de operaciones) de cada solicitud nueva — configurable
@@ -238,6 +250,58 @@ export default function NotificacoesPage() {
     );
   }
 
+  async function cargarSolicitudesEliminacion() {
+    const { data, error: errorEliminacion } = await supabase
+      .from('solicitudes_eliminacion_cuenta')
+      .select('id, perfil_id, empresa_id, creado_en, perfiles(nombre), empresas(nombre)')
+      .eq('estado', 'PENDIENTE')
+      .order('creado_en', { ascending: true });
+
+    if (errorEliminacion) {
+      console.warn('No se pudieron cargar las solicitudes de eliminación:', errorEliminacion);
+      return;
+    }
+
+    setSolicitudesEliminacion(
+      (data ?? []).map((s) => {
+        const perfil = s.perfiles as unknown as { nombre: string } | null;
+        const empresa = s.empresas as unknown as { nombre: string } | null;
+        return {
+          id: s.id,
+          perfil_id: s.perfil_id,
+          empresa_id: s.empresa_id,
+          creado_en: s.creado_en,
+          perfil_nombre: perfil?.nombre ?? '—',
+          empresa_nombre: empresa?.nombre ?? '—',
+        };
+      })
+    );
+  }
+
+  async function marcarEliminacionResuelta(solicitud: SolicitudEliminacion) {
+    setError('');
+    setMensaje('');
+    setResolviendoEliminacion(solicitud.id);
+
+    const { data: userData } = await supabase.auth.getUser();
+
+    const { error: errorResolver } = await supabase
+      .from('solicitudes_eliminacion_cuenta')
+      .update({ estado: 'RESUELTA', resuelto_en: new Date().toISOString(), resuelto_por: userData.user?.id })
+      .eq('id', solicitud.id);
+
+    if (errorResolver) {
+      setError(`No se pudo marcar la solicitud como resuelta: ${errorResolver.message}`);
+    } else {
+      setMensaje(
+        `Solicitud de ${solicitud.perfil_nombre} (${solicitud.empresa_nombre}) marcada como resuelta. Recordá ejecutar el borrado real (🗑️ Eliminar empresa, o quitar solo a esa persona si la empresa tiene más usuarios) si corresponde.`
+      );
+      await cargarSolicitudesEliminacion();
+    }
+
+    setResolviendoEliminacion(null);
+  }
+
   async function cargarConfiguracion() {
     const { data, error: errorConfig } = await supabase
       .from('configuracion_plataforma')
@@ -306,6 +370,7 @@ export default function NotificacoesPage() {
       cargarSolicitudesHistorial(),
       cargarPendientesOperaciones(),
       cargarOperacionesHistorial(),
+      cargarSolicitudesEliminacion(),
     ]);
   }
 
@@ -408,6 +473,19 @@ export default function NotificacoesPage() {
 
       if (errorVincular) {
         throw new Error(errorVincular.message);
+      }
+
+      // vincular_usuario_a_empresa crea la fila de perfiles pero solo
+      // con nombre — el teléfono y el sexo que la persona cargó en
+      // Criar Conta se guardan acá, para que después pueda verlos y
+      // editarlos en Mi Perfil (src/app/mi-perfil).
+      const { error: errorDatosPersonales } = await supabase
+        .from('perfiles')
+        .update({ telefono: solicitud.telefono, sexo: solicitud.sexo })
+        .eq('id', solicitud.user_id);
+
+      if (errorDatosPersonales) {
+        console.warn('No se pudieron guardar teléfono/sexo en el perfil:', errorDatosPersonales);
       }
 
       const { error: errorCerrarSolicitud } = await supabase
@@ -611,7 +689,10 @@ export default function NotificacoesPage() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           {(
             [
-              { valor: 'pendientes' as const, etiqueta: `Pendientes (${solicitudes.length + pendientes.length})` },
+              {
+                valor: 'pendientes' as const,
+                etiqueta: `Pendientes (${solicitudes.length + pendientes.length + solicitudesEliminacion.length})`,
+              },
               { valor: 'historial' as const, etiqueta: 'Historial' },
             ]
           ).map((opcion) => (
@@ -759,6 +840,71 @@ export default function NotificacoesPage() {
               onRechazarRegistro={rechazarRegistro}
               onRechazarMovimiento={rechazarMovimiento}
             />
+
+            {solicitudesEliminacion.length > 0 && (
+              <div
+                style={{
+                  background: COLORES_BASE.blanco,
+                  border: '1px solid #fecaca',
+                  borderRadius: 20,
+                  padding: 22,
+                  marginTop: 20,
+                }}
+              >
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#b91c1c', marginBottom: 4 }}>
+                  🗑️ Solicitudes de eliminación de cuenta ({solicitudesEliminacion.length})
+                </div>
+                <p style={{ margin: '0 0 14px', color: COLORES_BASE.gris, fontSize: 12.5 }}>
+                  Pedidas por el propio usuario desde Configurações → Mis Datos. Marcar como resuelta NO borra nada
+                  solo — el borrado real se hace a mano (🗑️ Eliminar empresa en la tarjeta de la empresa, o quitando
+                  solo a esa persona si la empresa tiene más gente vinculada).
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {solicitudesEliminacion.map((s) => (
+                    <div
+                      key={s.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 14px',
+                        borderRadius: 12,
+                        background: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: COLORES_BASE.azul }}>
+                        <strong>{s.perfil_nombre}</strong>{' '}
+                        <span style={{ color: COLORES_BASE.gris }}>
+                          · {s.empresa_nombre} · {new Date(s.creado_en).toLocaleDateString('es-AR')}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={resolviendoEliminacion === s.id}
+                        onClick={() => marcarEliminacionResuelta(s)}
+                        style={{
+                          background: '#b91c1c',
+                          color: COLORES_BASE.blanco,
+                          border: 'none',
+                          borderRadius: 10,
+                          padding: '7px 14px',
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: resolviendoEliminacion === s.id ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {resolviendoEliminacion === s.id ? 'Marcando...' : 'Marcar como resuelta'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>
