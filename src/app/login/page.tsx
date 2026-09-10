@@ -112,6 +112,12 @@ export default function LoginPage() {
         {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{error}</p>}
         <button type="submit" disabled={cargando} style={buttonStyle}>{cargando ? t('entrando') : t('entrar')}</button>
 
+        <p style={{ textAlign: 'center', marginTop: 12, fontSize: 12.5 }}>
+          <a href="/recuperar-senha" style={{ color: '#6b7280', textDecoration: 'none' }}>
+            {t('olvidasteContrasena')}
+          </a>
+        </p>
+
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#6b7280' }}>
           {t('noTenesCuenta')}{' '}
           <a href="/crear-cuenta" style={{ color: '#1E8C3C', fontWeight: 600, textDecoration: 'none' }}>
