@@ -15,6 +15,7 @@ type Clave =
   | 'contrasena'
   | 'contrasenaPlaceholder'
   | 'telefono'
+  | 'telefonoAyuda'
   | 'numero'
   | 'nombreEmpresa'
   | 'nombreEmpresaPlaceholder'
@@ -37,6 +38,12 @@ type Clave =
   | 'errorConfirmacionPendiente'
   | 'errorSolicitud'
   | 'errorNombreEmpresaDuplicado'
+  | 'errorTerminosNoAceptados'
+  | 'terminosAceptoPre'
+  | 'terminosLinkPrivacidad'
+  | 'terminosAceptoMedio'
+  | 'terminosLinkTerminos'
+  | 'terminosAceptoPost'
   | 'comercial'
   | 'servicios'
   | 'produccion';
@@ -57,6 +64,7 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     contrasena: 'Contraseña *',
     contrasenaPlaceholder: 'Al menos 6 caracteres',
     telefono: 'Teléfono *',
+    telefonoAyuda: 'Lo usamos para los comprobantes por WhatsApp y el Sabio Bot, y para contactarte si hace falta.',
     numero: 'Número',
     nombreEmpresa: 'Nombre de tu empresa/negocio *',
     nombreEmpresaPlaceholder: 'Ej: Mi Negocio',
@@ -81,6 +89,12 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
       'Ya existe una cuenta con ese email — probá iniciar sesión, o pedí que te reenvíen la confirmación.',
     errorSolicitud: 'La cuenta se creó pero no se pudo enviar la solicitud',
     errorNombreEmpresaDuplicado: 'Ya existe una empresa registrada con ese nombre. Cambiá el nombre para poder continuar.',
+    errorTerminosNoAceptados: 'Para continuar, tenés que aceptar la Política de Privacidad y los Términos de Uso.',
+    terminosAceptoPre: 'Acepto la ',
+    terminosLinkPrivacidad: 'Política de Privacidad',
+    terminosAceptoMedio: ' y los ',
+    terminosLinkTerminos: 'Términos de Uso',
+    terminosAceptoPost: ' de Visão Financeira, incluyendo el tratamiento de mis datos conforme a la LGPD.',
     comercial: 'Comercial (compra y venta de mercadería)',
     servicios: 'Servicios',
     produccion: 'Producción',
@@ -100,6 +114,7 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     contrasena: 'Senha *',
     contrasenaPlaceholder: 'Pelo menos 6 caracteres',
     telefono: 'Telefone *',
+    telefonoAyuda: 'Usamos para os comprovantes por WhatsApp e o Sabio Bot, e para entrar em contato se precisar.',
     numero: 'Número',
     nombreEmpresa: 'Nome da sua empresa/negócio *',
     nombreEmpresaPlaceholder: 'Ex: Meu Negócio',
@@ -124,6 +139,12 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
       'Já existe uma conta com esse email — tente entrar, ou peça o reenvio da confirmação.',
     errorSolicitud: 'A conta foi criada mas não foi possível enviar a solicitação',
     errorNombreEmpresaDuplicado: 'Já existe uma empresa cadastrada com esse nome. Altere o nome para continuar.',
+    errorTerminosNoAceptados: 'Para continuar, você precisa aceitar a Política de Privacidade e os Termos de Uso.',
+    terminosAceptoPre: 'Aceito a ',
+    terminosLinkPrivacidad: 'Política de Privacidade',
+    terminosAceptoMedio: ' e os ',
+    terminosLinkTerminos: 'Termos de Uso',
+    terminosAceptoPost: ' da Visão Financeira, incluindo o tratamento dos meus dados conforme a LGPD.',
     comercial: 'Comercial (compra e venda de mercadoria)',
     servicios: 'Serviços',
     produccion: 'Produção',
