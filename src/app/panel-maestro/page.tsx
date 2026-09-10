@@ -506,6 +506,34 @@ export default function PanelMaestroPage() {
         </Link>
 
         {/* =================================================
+            SEGURANÇA E PROTEÇÃO DE DADOS — auditoría V3.0
+        ================================================== */}
+
+        <Link
+          href="/panel-maestro/seguranca-dados"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+            background: COLORES_BASE.blanco,
+            border: '1px solid #fde68a',
+            borderRadius: 20,
+            padding: '18px 22px',
+            marginBottom: 24,
+            boxShadow: '0 10px 24px rgba(217,119,6,0.08)',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+            🛡️ Segurança e Proteção de Dados
+          </span>
+
+          <span style={{ color: '#d97706', fontSize: 13, fontWeight: 700 }}>Ver informe →</span>
+        </Link>
+
+        {/* =================================================
             ALTA DE CLIENTES — vincular un usuario ya creado
             en Supabase Auth a una empresa (existente o nueva)
         ================================================== */}
