@@ -479,29 +479,37 @@ Antes de empezar a operar, tenemos que completar juntos la configuración inicia
 // CONSENTIMIENTO DE PRIVACIDAD / TÉRMINOS DE USO (V3.0 — Día 1)
 // ==========================================================
 //
-// Mensaje que se manda una vez a TODAS las empresas ya existentes
-// (las nuevas ya lo aceptan en el propio formulario de Criar Conta,
-// ver src/app/crear-cuenta/page.tsx) pidiendo que cada persona
-// confirme haber leído la Política de Privacidad y los Términos de
-// Uso. A diferencia del resto de los mensajes, este lleva
+// Mensaje que se manda a TODAS las empresas activas cada vez que la
+// Política de Privacidad o los Términos de Uso cambian de forma
+// relevante (las cuentas nuevas ya aceptan la versión vigente en el
+// propio formulario de Criar Conta, ver src/app/crear-cuenta/
+// page.tsx). A diferencia del resto de los mensajes, este lleva
 // requiere_consentimiento = true: eso hace que src/app/mensajes/
 // page.tsx muestre, en vez de solo el texto, un checkbox + botón
 // para aceptar. La aceptación queda registrada en
-// consentimientos_legales POR PERSONA (perfil_id), no por empresa,
-// porque cada usuario/a tiene que dar su propio consentimiento.
-function textoConsentimientoLegal(idioma: 'ES' | 'PT'): TextoTutorial {
+// consentimientos_legales POR PERSONA (perfil_id) Y por mensaje
+// (mensaje_id) — como cada actualización crea un mensaje nuevo, con
+// un id distinto, el consentimiento de la versión anterior no cuenta
+// para la nueva: todos vuelven a ver el checkbox sin pedirles nada
+// aparte. Nota: esto también le vuelve a pedir el consentimiento a
+// alguien que se acaba de registrar y ya aceptó al crear su cuenta —
+// se acepta esa redundancia a cambio de simplicidad (no hace falta
+// llevar un registro de "qué versión aceptó cada quién al alta").
+function textoConsentimientoLegal(idioma: 'ES' | 'PT', resumenCambios?: string): TextoTutorial {
   if (idioma === 'PT') {
+    const parrafoCambios = resumenCambios
+      ? `O que mudou desta vez: ${resumenCambios}\n\n`
+      : '';
     return {
       titulo: 'Atualizamos nossa Política de Privacidade e Termos de Uso',
       texto: `Olá! 👋
 
-Como parte de um trabalho que estamos fazendo para deixar tudo mais transparente, publicamos pela primeira vez uma Política de Privacidade e Termos de Uso completos, além de uma Política de Cookies para o nosso site.
+Atualizamos nossa Política de Privacidade e/ou nossos Termos de Uso.
 
-Neles explicamos, em linguagem simples: quais dados pedimos e por quê, onde ficam guardados, quem pode acessá-los, e como você pode pedir uma cópia dos seus dados ou a exclusão da sua conta a qualquer momento.
-
-Você pode ler os documentos completos aqui:
+${parrafoCambios}Você pode ler os documentos completos aqui:
 🔗 Política de Privacidade: https://visao-financeira-web.vercel.app/privacidad.html
 🔗 Termos de Uso: https://visao-financeira-web.vercel.app/terminos.html
+🔗 Política de Cookies: https://visao-financeira-web.vercel.app/cookies.html
 
 Para continuar, marque a caixinha abaixo confirmando que está de acordo.
 
@@ -510,17 +518,18 @@ Sabio 🦉`,
     };
   }
 
+  const parrafoCambios = resumenCambios ? `Qué cambió esta vez: ${resumenCambios}\n\n` : '';
+
   return {
     titulo: 'Actualizamos nuestra Política de Privacidad y Términos de Uso',
     texto: `¡Hola! 👋
 
-Como parte de un trabajo que estamos haciendo para que todo sea más transparente, publicamos por primera vez una Política de Privacidad y Términos de Uso completos, además de una Política de Cookies para nuestro sitio web.
+Actualizamos nuestra Política de Privacidad y/o nuestros Términos de Uso.
 
-Ahí explicamos, en lenguaje simple: qué datos pedimos y para qué, dónde se guardan, quién puede acceder a ellos, y cómo podés pedir una copia de tus datos o la eliminación de tu cuenta en cualquier momento.
-
-Podés leer los documentos completos acá:
+${parrafoCambios}Podés leer los documentos completos acá:
 🔗 Política de Privacidad: https://visao-financeira-web.vercel.app/privacidad.html
 🔗 Términos de Uso: https://visao-financeira-web.vercel.app/terminos.html
+🔗 Política de Cookies: https://visao-financeira-web.vercel.app/cookies.html
 
 Para continuar, marcá el casillero de abajo confirmando que estás de acuerdo.
 
@@ -529,12 +538,18 @@ Sabio 🦉`,
   };
 }
 
-// Se llama una sola vez desde un script/consulta manual del admin
-// (no forma parte del alta de una empresa nueva) para avisarle a
-// TODAS las empresas activas que hay que aceptar los nuevos
-// documentos legales. Inserta un mensaje por empresa (el idioma de
-// cada una sigue empresas.idioma, igual que el resto de Mensagens).
-export async function crearMensajeConsentimientoLegalParaTodas(cliente: SupabaseClient = supabase) {
+// Se llama cada vez que hace falta pedir consentimiento de nuevo —
+// hoy desde un script/consulta manual del admin (no forma parte del
+// alta de una empresa nueva) — para avisarle a TODAS las empresas
+// activas que hay que aceptar los documentos legales vigentes.
+// Inserta un mensaje por empresa (el idioma de cada una sigue
+// empresas.idioma, igual que el resto de Mensagens). Pasar
+// resumenCambios (opcional) para contarle a la gente, en una frase,
+// qué cambió esta vez — si no se pasa, el mensaje queda genérico.
+export async function crearMensajeConsentimientoLegalParaTodas(
+  cliente: SupabaseClient = supabase,
+  resumenCambios?: string
+) {
   const { data: empresas, error: errorEmpresas } = await cliente
     .from('empresas')
     .select('id, idioma')
@@ -548,7 +563,7 @@ export async function crearMensajeConsentimientoLegalParaTodas(cliente: Supabase
 
   const filas = (empresas ?? []).map((empresa) => {
     const idiomaFinal: 'ES' | 'PT' = empresa.idioma === 'PT' ? 'PT' : 'ES';
-    const contenido = textoConsentimientoLegal(idiomaFinal);
+    const contenido = textoConsentimientoLegal(idiomaFinal, resumenCambios);
 
     return {
       empresa_id: empresa.id,
