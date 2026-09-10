@@ -288,6 +288,14 @@ export default function PanelMaestroPage() {
       return;
     }
 
+    // Auditoría (Bloque F): el Desarrollador entrando a la empresa de
+    // un cliente es el acceso más sensible que existe en la app —
+    // queda registrado siempre, sin excepción.
+    await supabase.rpc('registrar_evento_auditoria', {
+      p_tipo_evento: 'panel_maestro_acceso_empresa',
+      p_empresa_id: empresaId,
+    });
+
     router.push('/?vista=empresa');
   }
 
@@ -541,6 +549,34 @@ export default function PanelMaestroPage() {
           </span>
 
           <span style={{ color: '#d97706', fontSize: 13, fontWeight: 700 }}>Ver informe →</span>
+        </Link>
+
+        {/* =================================================
+            AUDITORÍA DE ACTIVIDAD — Bloque F del Día 1 de seguridad
+        ================================================== */}
+
+        <Link
+          href="/panel-maestro/auditoria"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+            background: COLORES_BASE.blanco,
+            border: '1px solid #ddd6fe',
+            borderRadius: 20,
+            padding: '18px 22px',
+            marginBottom: 24,
+            boxShadow: '0 10px 24px rgba(124,58,237,0.08)',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+            🕵️ Auditoría de Actividad
+          </span>
+
+          <span style={{ color: '#7c3aed', fontSize: 13, fontWeight: 700 }}>Ver registro →</span>
         </Link>
 
         {/* =================================================
