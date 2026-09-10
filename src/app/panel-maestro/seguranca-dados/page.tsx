@@ -57,44 +57,138 @@ type Seccion = {
   items: Item[];
 };
 
-const RADAR: { area: string; estado: Estado }[] = [
-  { area: '🌐 Web / marketing público', estado: 'gris' },
+const RADAR_SISTEMA: { area: string; estado: Estado }[] = [
   { area: '📱 App / Cadastro', estado: 'amarillo' },
   { area: '🔐 Login y autenticación', estado: 'amarillo' },
   { area: '🗄️ Datos y privacidad (LGPD)', estado: 'rojo' },
   { area: '🛡️ Seguridad técnica (base de datos)', estado: 'verde' },
 ];
 
-const SECCIONES: Seccion[] = [
+const RADAR_WEB: { area: string; estado: Estado }[] = [
+  { area: '📇 Contacto e identidad', estado: 'amarillo' },
+  { area: '📜 Privacidad, términos y cookies', estado: 'rojo' },
+  { area: '🔍 Rastreadores de terceros', estado: 'amarillo' },
+  { area: '⚠️ Veracidad de las afirmaciones', estado: 'rojo' },
+  { area: '📝 Formularios propios del sitio', estado: 'verde' },
+];
+
+const SECCIONES_WEB: Seccion[] = [
   {
     numero: '1',
-    emoji: '🌐',
-    titulo: 'Auditoría de la web',
+    emoji: '📇',
+    titulo: 'Contacto e identidad',
     intro:
-      'Visão Financeira hoy no tiene un sitio de marketing separado de la aplicación: la "puerta de entrada" pública son directamente las pantallas de Login y Criar Conta dentro de la misma app. Si en algún momento se crea un sitio público aparte (landing page, blog, etc.), esta sección hay que rehacerla auditando ese sitio.',
+      'Auditoría del sitio público de marketing (https://visao-financeira-web.vercel.app/), separado de la aplicación. Se revisó directamente su código fuente completo (repositorio visao-financeira-web).',
     items: [
       {
-        estado: 'gris',
-        titulo: 'No existe un sitio web de marketing separado de la app',
+        estado: 'verde',
+        titulo: 'Contacto real y accesible, sin formulario que junte datos de más',
         detalle:
-          'Todo lo público vive en el mismo dominio de la aplicación. No hay nada que auditar acá todavía — queda como pendiente "a futuro" si se crea uno.',
+          'Todo el contacto se resuelve con enlaces directos a WhatsApp (wa.me/5548996094127) y a mailto:visaofinanceirabusiness@gmail.com, además de Instagram. No hay ningún formulario propio en el sitio.',
       },
       {
         estado: 'rojo',
-        titulo: 'No hay página de "Quiénes somos" / información de contacto de la empresa',
+        titulo: 'No hay identidad legal visible en ningún lado del sitio',
         detalle:
-          'Un usuario nuevo no tiene forma de saber, dentro de la app, quién está detrás de Visão Financeira ni cómo contactarlos (fuera de lo que ya sepa por WhatsApp/redes).',
+          'No aparece razón social ni CNPJ en el footer ni en ninguna otra sección. El pie de página solo tiene "© 2026 Visão Financeira Business. Todos los derechos reservados." sin datos formales de la empresa.',
       },
       {
-        estado: 'gris',
-        titulo: 'Herramientas externas de analytics/publicidad',
+        estado: 'amarillo',
+        titulo: 'El correo de contacto es una cuenta de Gmail genérica',
         detalle:
-          'Se revisó package.json y todo el código en busca de Google Analytics, Meta Pixel, Hotjar, etc. No se encontró ninguna. Ningún dato de navegación sale hacia un tercero de marketing.',
+          'visaofinanceirabusiness@gmail.com, no un correo con dominio propio (ej. @visaofinanceira.com.br). No es grave, pero resta un poco de profesionalismo frente a un visitante desconfiado.',
       },
     ],
   },
   {
     numero: '2',
+    emoji: '📜',
+    titulo: 'Política de privacidad, términos y cookies',
+    items: [
+      {
+        estado: 'rojo',
+        titulo: 'No hay ningún enlace a Política de Privacidad, Términos de Uso ni Aviso de Cookies',
+        detalle:
+          'Se revisó el footer completo y todo el HTML del sitio: no existe ninguna de las tres páginas, ni un enlace a ellas. El visitante no tiene dónde leer qué se hace con sus datos.',
+      },
+      {
+        estado: 'rojo',
+        titulo: 'El sitio usa herramientas de terceros sin avisar que lo hace',
+        detalle:
+          'Ver la sección siguiente: al no existir ni siquiera un aviso de cookies, esos terceros corren sin que el visitante lo sepa.',
+      },
+    ],
+  },
+  {
+    numero: '3',
+    emoji: '🔍',
+    titulo: 'Rastreadores de terceros no declarados',
+    intro: 'Se revisó línea por línea el código fuente del sitio (index.html) en busca de todo lo que se conecta a un servidor externo.',
+    items: [
+      {
+        estado: 'amarillo',
+        titulo: 'Vercel Web Analytics',
+        detalle:
+          'Script /_vercel/insights/script.js cargado al final de la página. Recolecta datos de navegación (anónimos, de Vercel) — pero nunca se le avisa al visitante que esto ocurre.',
+      },
+      {
+        estado: 'gris',
+        titulo: 'Google Fonts',
+        detalle:
+          'Las tipografías (Montserrat, Inter) se cargan en vivo desde fonts.googleapis.com / fonts.gstatic.com. Técnicamente eso comparte la IP del visitante con Google. Riesgo bajo, pero es un dato real a declarar en una futura política de cookies.',
+      },
+      {
+        estado: 'gris',
+        titulo: 'Video de YouTube embebido',
+        detalle:
+          'La sección "App" incrusta un video de YouTube. Igual que con Google Fonts, esto comparte datos con Google cuando el visitante lo reproduce.',
+      },
+    ],
+  },
+  {
+    numero: '4',
+    emoji: '⚠️',
+    titulo: 'Afirmaciones del sitio vs. la realidad de la app',
+    intro: 'El punto más delicado de esta auditoría: comparar lo que el sitio le promete por escrito a un visitante contra lo que la app realmente permite hoy.',
+    items: [
+      {
+        estado: 'rojo',
+        titulo: 'Promesa falsa: "puedes exportarla cuando quieras"',
+        detalle:
+          'La pregunta frecuente "¿Mi información está segura?" responde textualmente: "...La información es tuya y puedes exportarla cuando quieras." Esto es falso hoy: la app no tiene ninguna función para exportar o descargar los propios datos (confirmado en la sección de Cadastro del informe del sistema). Es una promesa por escrito que la app todavía no cumple.',
+      },
+      {
+        estado: 'amarillo',
+        titulo: 'Descripción más prolija de la seguridad de la que existe hoy',
+        detalle:
+          'La misma respuesta dice "con acceso restringido únicamente a las personas que tú autorices". No es falso — el aislamiento por empresa (RLS) es real — pero da a entender un control fino por persona que hoy no existe: dentro de una misma empresa, todos los usuarios ven todo por igual (sin niveles de permiso).',
+      },
+      {
+        estado: 'rojo',
+        titulo: 'El contador de "familias ya usando Visão Família" es artificial',
+        detalle:
+          'El propio código lo confirma con un comentario textual: "Ilustrativo, no es una lectura em vivo de la base de datos: crece sola con el paso de los días... para transmitir tracción sin depender de un backend." El número no refleja usuarios reales — es prueba social fabricada mostrada a cualquier visitante.',
+      },
+    ],
+  },
+  {
+    numero: '5',
+    emoji: '📝',
+    titulo: 'Formularios y datos que pide el sitio',
+    items: [
+      {
+        estado: 'verde',
+        titulo: 'El sitio no tiene ningún formulario propio que junte datos',
+        detalle:
+          'Todo el contacto se resuelve con enlaces que abren WhatsApp o el correo del propio visitante (wa.me / mailto:). El sitio en sí no almacena ni transmite ningún dato personal a un servidor propio.',
+      },
+    ],
+  },
+];
+
+const SECCIONES_SISTEMA: Seccion[] = [
+  {
+    numero: '1',
     emoji: '📱',
     titulo: 'Auditoría de la app — Cadastro (alta de cuenta)',
     intro: 'Se revisó el formulario real de "Criar Conta" (src/app/crear-cuenta) campo por campo.',
@@ -447,9 +541,9 @@ const SECCIONES: Seccion[] = [
 // Lista final priorizada — se arma sola a partir de las secciones de
 // arriba, para no mantener dos listas separadas que puedan
 // desincronizarse. El orden importa: primero los críticos.
-function accionesPriorizadas(): { estado: Estado; titulo: string }[] {
+function accionesPriorizadas(secciones: Seccion[]): { estado: Estado; titulo: string }[] {
   const acciones: { estado: Estado; titulo: string }[] = [];
-  for (const seccion of SECCIONES) {
+  for (const seccion of secciones) {
     for (const item of seccion.items) {
       if (item.estado === 'rojo' || item.estado === 'amarillo') {
         acciones.push({ estado: item.estado, titulo: item.titulo });
@@ -459,10 +553,46 @@ function accionesPriorizadas(): { estado: Estado; titulo: string }[] {
   return acciones.sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'rojo' ? -1 : 1));
 }
 
+type ClaveInforme = 'sistema' | 'web';
+
+const INFORMES: Record<
+  ClaveInforme,
+  {
+    etiquetaMenu: string;
+    titulo: string;
+    subtitulo: string;
+    radar: { area: string; estado: Estado }[];
+    secciones: Seccion[];
+    cierre: string;
+  }
+> = {
+  sistema: {
+    etiquetaMenu: '🛡️ Informe del sistema (app)',
+    titulo: '🛡️ Mapa Maestro de Segurança e Confiança — Sistema',
+    subtitulo:
+      'Auditoría de Seguridad, Privacidad y Confianza de la aplicación — hecha leyendo directo el código y la base de datos de producción, no por inspección manual pantalla por pantalla.',
+    radar: RADAR_SISTEMA,
+    secciones: SECCIONES_SISTEMA,
+    cierre:
+      'Regla del Día 1: no se corrigió nada todavía, aunque se haya encontrado algo grave — primero descubrir, documentar y priorizar. Este documento es el punto de partida para el Día 2 (Arquitectura de Datos y Minimización) y para escribir la Política de Privacidad y los Termos de Uso.',
+  },
+  web: {
+    etiquetaMenu: '🌐 Informe de la web (marketing)',
+    titulo: '🌐 Auditoría de la Web Pública',
+    subtitulo:
+      'Auditoría del sitio de marketing público (visao-financeira-web.vercel.app), separado de la aplicación — hecha leyendo directo su código fuente completo.',
+    radar: RADAR_WEB,
+    secciones: SECCIONES_WEB,
+    cierre:
+      'El hallazgo más urgente de este informe es la promesa falsa de exportación de datos y el contador de "familias" fabricado: ambos deben corregirse en el sitio cuanto antes, ya sea haciendo cierta la promesa (agregando exportación real a la app) o retirando el texto, y quitando o aclarando el contador. Mientras tanto, conviene no seguir mostrando ese texto tal cual está.',
+  },
+};
+
 export default function SegurancaDadosPage() {
   const router = useRouter();
   const [cargando, setCargando] = useState(true);
   const [autorizado, setAutorizado] = useState(false);
+  const [informeActivo, setInformeActivo] = useState<ClaveInforme>('sistema');
 
   useEffect(() => {
     async function verificar() {
@@ -499,6 +629,8 @@ export default function SegurancaDadosPage() {
     );
   }
 
+  const informe = INFORMES[informeActivo];
+
   return (
     <main style={{ minHeight: '100vh', background: '#f5f7f9', padding: 24 }}>
       <style>{`
@@ -519,22 +651,45 @@ export default function SegurancaDadosPage() {
             ← Volver al Panel Maestro
           </Link>
 
-          <button
-            onClick={() => window.print()}
-            style={{
-              background: COLORES.verde,
-              color: COLORES.blanco,
-              border: 'none',
-              borderRadius: 12,
-              padding: '10px 18px',
-              fontWeight: 800,
-              fontSize: 13.5,
-              cursor: 'pointer',
-              boxShadow: '0 6px 16px rgba(46,139,87,0.25)',
-            }}
-          >
-            🖨️ Imprimir / Descargar como PDF
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <select
+              value={informeActivo}
+              onChange={(e) => setInformeActivo(e.target.value as ClaveInforme)}
+              style={{
+                border: `1.5px solid ${COLORES.azul}`,
+                borderRadius: 10,
+                padding: '9px 14px',
+                fontWeight: 700,
+                fontSize: 13.5,
+                color: COLORES.azul,
+                background: COLORES.blanco,
+                cursor: 'pointer',
+              }}
+            >
+              {(Object.keys(INFORMES) as ClaveInforme[]).map((clave) => (
+                <option key={clave} value={clave}>
+                  {INFORMES[clave].etiquetaMenu}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => window.print()}
+              style={{
+                background: COLORES.verde,
+                color: COLORES.blanco,
+                border: 'none',
+                borderRadius: 12,
+                padding: '10px 18px',
+                fontWeight: 800,
+                fontSize: 13.5,
+                cursor: 'pointer',
+                boxShadow: '0 6px 16px rgba(46,139,87,0.25)',
+              }}
+            >
+              🖨️ Imprimir / Descargar como PDF
+            </button>
+          </div>
         </div>
 
         {/* REPORTE */}
@@ -551,16 +706,15 @@ export default function SegurancaDadosPage() {
         >
           {/* PORTADA */}
           <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `3px solid ${COLORES.azul}` }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: COLORES.verde, textTransform: 'uppercase', marginBottom: 8 }}>
-              Visão Financeira · V3.0 · Día 1
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.jpeg" alt="Visão Financeira" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: COLORES.verde, textTransform: 'uppercase' }}>
+                Visão Financeira · V3.0 · Día 1
+              </div>
             </div>
-            <h1 style={{ margin: 0, fontSize: 28, color: COLORES.azul }}>
-              🛡️ Mapa Maestro de Segurança e Confiança
-            </h1>
-            <p style={{ margin: '10px 0 0', fontSize: 14.5, color: COLORES.gris }}>
-              Auditoría de Seguridad, Privacidad y Confianza — hecha leyendo directo el código y la base de
-              datos de producción, no por inspección manual pantalla por pantalla.
-            </p>
+            <h1 style={{ margin: 0, fontSize: 28, color: COLORES.azul }}>{informe.titulo}</h1>
+            <p style={{ margin: '10px 0 0', fontSize: 14.5, color: COLORES.gris }}>{informe.subtitulo}</p>
             <p style={{ margin: '10px 0 0', fontSize: 12.5, color: COLORES.gris }}>
               Fecha de esta auditoría: <strong>{FECHA_AUDITORIA}</strong> · Es una fotografía de un momento —
               repetirla después de cambios grandes.
@@ -580,7 +734,7 @@ export default function SegurancaDadosPage() {
           <section style={{ marginBottom: 36 }}>
             <h2 style={{ fontSize: 18, color: COLORES.azul, marginBottom: 14 }}>📊 Radar general</h2>
             <div style={{ display: 'grid', gap: 8 }}>
-              {RADAR.map((fila) => {
+              {informe.radar.map((fila) => {
                 const estilo = ESTILO_ESTADO[fila.estado];
                 return (
                   <div
@@ -611,7 +765,7 @@ export default function SegurancaDadosPage() {
               Todos los puntos 🔴 y 🟡 encontrados en la auditoría, juntos en un solo lugar. Los 🔴 primero.
             </p>
             <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {accionesPriorizadas().map((accion, i) => {
+              {accionesPriorizadas(informe.secciones).map((accion, i) => {
                 const estilo = ESTILO_ESTADO[accion.estado];
                 return (
                   <li key={i} style={{ fontSize: 13.5 }}>
@@ -624,10 +778,10 @@ export default function SegurancaDadosPage() {
           </section>
 
           {/* SECCIONES DETALLADAS */}
-          {SECCIONES.map((seccion) => (
+          {informe.secciones.map((seccion, idx) => (
             <section key={seccion.numero} className="seccion" style={{ marginBottom: 34 }}>
               <h2 style={{ fontSize: 17, color: COLORES.azul, marginBottom: 6, paddingBottom: 8, borderBottom: '1px solid #e5e7eb' }}>
-                {seccion.emoji} {seccion.numero}. {seccion.titulo}
+                {seccion.emoji} {idx + 1}. {seccion.titulo}
               </h2>
 
               {seccion.intro && (
@@ -664,12 +818,7 @@ export default function SegurancaDadosPage() {
 
           {/* CIERRE */}
           <div style={{ marginTop: 36, paddingTop: 20, borderTop: '1px solid #e5e7eb', fontSize: 12, color: COLORES.gris }}>
-            <p style={{ margin: 0 }}>
-              <strong>Regla del Día 1:</strong> no se corrigió nada todavía, aunque se haya encontrado algo
-              grave — primero descubrir, documentar y priorizar. Este documento es el punto de partida para el
-              Día 2 (Arquitectura de Datos y Minimización) y para escribir la Política de Privacidad y los
-              Termos de Uso.
-            </p>
+            <p style={{ margin: 0 }}>{informe.cierre}</p>
           </div>
         </article>
       </div>
