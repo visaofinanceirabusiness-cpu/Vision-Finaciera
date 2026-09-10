@@ -46,6 +46,15 @@ export default function LoginPage() {
     setCargando(false);
 
       if (errorAuth) {
+      // Auditoría (Bloque F): un login fallido no tiene sesión, así
+      // que solo se guarda el email que la propia persona tipeó —
+      // sirve para detectar intentos repetidos sobre una cuenta.
+      await supabase.rpc('registrar_evento_auditoria', {
+        p_tipo_evento: 'login_fallido',
+        p_empresa_id: null,
+        p_detalle: { email },
+      });
+
       setError(
         errorAuth.message.toLowerCase().includes('email not confirmed')
           ? t('errorEmailNoConfirmado')
@@ -57,14 +66,25 @@ export default function LoginPage() {
     const { data: userData } = await supabase.auth.getUser();
     const { data: perfil } = await supabase
       .from('perfiles')
-      .select('es_admin_plataforma, activo')
+      .select('es_admin_plataforma, activo, empresa_id')
       .eq('id', userData.user?.id)
       .maybeSingle();
 
     if (perfil && !perfil.activo) {
+      await supabase.rpc('registrar_evento_auditoria', {
+        p_tipo_evento: 'cuenta_desactivada_intento',
+        p_empresa_id: perfil.empresa_id,
+      });
       await supabase.auth.signOut();
       setError(t('errorCuentaDesactivada'));
       return;
+    }
+
+    if (perfil) {
+      await supabase.rpc('registrar_evento_auditoria', {
+        p_tipo_evento: 'login_exitoso',
+        p_empresa_id: perfil.empresa_id,
+      });
     }
 
     // Sin fila en `perfiles` puede ser: (a) el usuario recién se

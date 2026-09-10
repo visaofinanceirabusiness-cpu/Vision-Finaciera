@@ -975,6 +975,14 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
       return;
     }
 
+    // Auditoría (Bloque F): que alguien exportó sus propios datos
+    // también queda registrado — no cambia lo que puede hacer, pero
+    // completa el rastro de qué pasó con la información de esa cuenta.
+    await supabase.rpc('registrar_evento_auditoria', {
+      p_tipo_evento: 'exportacion_datos_personales',
+      p_empresa_id: empresaId,
+    });
+
     ventana.document.write(html);
     ventana.document.close();
   }
