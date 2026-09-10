@@ -13,7 +13,8 @@ type Clave =
   | 'errorCredenciales'
   | 'errorSinPerfil'
   | 'errorSolicitudPendiente'
-  | 'errorSolicitudRechazada';
+  | 'errorSolicitudRechazada'
+  | 'olvidasteContrasena';
 
 export const diccionarioLogin: Diccionario<Clave> = {
   ES: {
@@ -32,6 +33,7 @@ export const diccionarioLogin: Diccionario<Clave> = {
     errorSolicitudPendiente:
       'Tu solicitud de alta todavía está pendiente de aprobación — te avisaremos en cuanto un administrador la revise.',
     errorSolicitudRechazada: 'Tu solicitud de alta fue rechazada. Contactá al administrador para más información.',
+    olvidasteContrasena: '¿Olvidaste tu contraseña?',
   },
   PT: {
     eslogan: 'Clareza para decidir. Segurança para crescer.',
@@ -49,5 +51,6 @@ export const diccionarioLogin: Diccionario<Clave> = {
     errorSolicitudPendiente:
       'Sua solicitação de cadastro ainda está pendente de aprovação — avisaremos assim que um administrador revisá-la.',
     errorSolicitudRechazada: 'Sua solicitação de cadastro foi rejeitada. Entre em contato com o administrador para mais informações.',
+    olvidasteContrasena: 'Esqueceu sua senha?',
   },
 };
