@@ -40,6 +40,7 @@ type Perfil = {
   empresa_id: string;
   rol: string;
   es_admin_plataforma: boolean;
+  tipo_usuario: string;
 };
 
 type Empresa = {
@@ -133,7 +134,7 @@ export default function InicioPage() {
 
       const { data: perfilData, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select('nombre, empresa_id, rol, es_admin_plataforma')
+        .select('nombre, empresa_id, rol, es_admin_plataforma, tipo_usuario')
         .eq('id', userData.user.id)
         .maybeSingle();
 
@@ -784,12 +785,14 @@ export default function InicioPage() {
               />
             )}
 
-            <BotonAcceso
-              href="/informes"
-              titulo={t('herramientaInformes')}
-              colorPrincipal="#0891b2"
-              destacado
-            />
+            {perfil?.tipo_usuario !== 'ASISTENTE' && (
+              <BotonAcceso
+                href="/informes"
+                titulo={t('herramientaInformes')}
+                colorPrincipal="#0891b2"
+                destacado
+              />
+            )}
 
             {tieneModulo('PRODUCCION') && (
               <BotonAcceso

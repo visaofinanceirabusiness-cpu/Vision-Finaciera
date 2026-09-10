@@ -14,7 +14,8 @@ type Clave =
   | 'errorSinPerfil'
   | 'errorSolicitudPendiente'
   | 'errorSolicitudRechazada'
-  | 'olvidasteContrasena';
+  | 'olvidasteContrasena'
+  | 'errorCuentaDesactivada';
 
 export const diccionarioLogin: Diccionario<Clave> = {
   ES: {
@@ -34,6 +35,7 @@ export const diccionarioLogin: Diccionario<Clave> = {
       'Tu solicitud de alta todavía está pendiente de aprobación — te avisaremos en cuanto un administrador la revise.',
     errorSolicitudRechazada: 'Tu solicitud de alta fue rechazada. Contactá al administrador para más información.',
     olvidasteContrasena: '¿Olvidaste tu contraseña?',
+    errorCuentaDesactivada: 'Tu acceso fue desactivado. Contactá a quien te administra si creés que es un error.',
   },
   PT: {
     eslogan: 'Clareza para decidir. Segurança para crescer.',
@@ -52,5 +54,6 @@ export const diccionarioLogin: Diccionario<Clave> = {
       'Sua solicitação de cadastro ainda está pendente de aprovação — avisaremos assim que um administrador revisá-la.',
     errorSolicitudRechazada: 'Sua solicitação de cadastro foi rejeitada. Entre em contato com o administrador para mais informações.',
     olvidasteContrasena: 'Esqueceu sua senha?',
+    errorCuentaDesactivada: 'Seu acesso foi desativado. Entre em contato com quem administra sua conta se achar que é um erro.',
   },
 };

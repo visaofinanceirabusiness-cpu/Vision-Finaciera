@@ -97,13 +97,22 @@ export default function InformesPage() {
 
       const { data: perfil, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select('empresa_id')
+        .select('empresa_id, tipo_usuario')
         .eq('id', userData.user.id)
         .maybeSingle();
 
       if (errorPerfil || !perfil?.empresa_id) {
         setError(t('errorEmpresa'));
         setCargando(false);
+        return;
+      }
+
+      // El perfil Asistente (Bloque E1 del Día 1 de seguridad) es de
+      // solo carga de datos — no ve Informes. Esto es una capa de
+      // frontend, no de base de datos: el bloqueo real por RLS es
+      // parte de la pasada de mínimo privilegio (E3) que sigue.
+      if (perfil.tipo_usuario === 'ASISTENTE') {
+        router.push('/');
         return;
       }
 

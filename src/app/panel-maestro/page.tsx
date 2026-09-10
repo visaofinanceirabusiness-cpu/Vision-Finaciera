@@ -12,6 +12,16 @@ import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { resumirSuscripcion, marcarPagoRecibido, restarDiasDeTest } from '@/lib/suscripcion';
 import { BadgeEstadoSuscripcion } from '@/components/EstadoSuscripcion';
 import type { Empresa, Pendiente, PendienteMovimiento, SolicitudAlta } from '@/lib/panelMaestroTipos';
+import {
+  crearInvitacionSoporte,
+  listarInvitacionesPendientes,
+  listarPerfilesPorTipo,
+  revocarInvitacion,
+  cambiarActivoPerfil,
+  urlInvitacion,
+  type Invitacion,
+  type PerfilConRol,
+} from '@/lib/invitaciones';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -552,6 +562,15 @@ export default function PanelMaestroPage() {
         />
 
         {/* =================================================
+            EQUIPE DE SOPORTE — Bloque E1 del Día 1 de seguridad.
+            Solo el Desarrollador invita Soporte (lectura en todo,
+            sin poder editar nada — eso se termina de blindar en la
+            pasada de RLS de E3).
+        ================================================== */}
+
+        <GestionSoporte />
+
+        {/* =================================================
             PROBAR FORMULARIO DE BIENVENIDA — acceso directo para
             testear /bienvenida con cualquier perfil, sin tener que
             crear una cuenta real y aprobarla cada vez.
@@ -1030,6 +1049,154 @@ const labelStyle: CSSProperties = {
   marginBottom: 4,
   display: 'block',
 };
+
+function GestionSoporte() {
+  const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [ultimoLink, setUltimoLink] = useState('');
+
+  const [invitaciones, setInvitaciones] = useState<Invitacion[]>([]);
+  const [soportes, setSoportes] = useState<PerfilConRol[]>([]);
+  const [cambiandoId, setCambiandoId] = useState<string | null>(null);
+
+  async function cargar() {
+    const [{ data: inv }, { data: sop }] = await Promise.all([
+      listarInvitacionesPendientes('SOPORTE'),
+      listarPerfilesPorTipo('SOPORTE'),
+    ]);
+    setInvitaciones((inv ?? []) as Invitacion[]);
+    setSoportes((sop ?? []) as PerfilConRol[]);
+  }
+
+  useEffect(() => {
+    cargar();
+  }, []);
+
+  async function invitar() {
+    if (!email.trim() || !nombre.trim()) {
+      setError('Completá el email y el nombre de la persona.');
+      return;
+    }
+
+    setError('');
+    setMensaje('');
+    setEnviando(true);
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    const { data, error: errorCrear } = await crearInvitacionSoporte(email, nombre, userData.user.id);
+
+    setEnviando(false);
+
+    if (errorCrear || !data) {
+      setError(`No se pudo crear la invitación: ${errorCrear?.message ?? 'error desconocido'}.`);
+      return;
+    }
+
+    const link = urlInvitacion(data.token);
+    setUltimoLink(link);
+    setMensaje(`Invitación creada para ${nombre.trim()}. Copiá el link de abajo y mandaselo por WhatsApp o email.`);
+    setEmail('');
+    setNombre('');
+    await cargar();
+  }
+
+  async function revocar(id: string) {
+    setCambiandoId(id);
+    await revocarInvitacion(id);
+    await cargar();
+    setCambiandoId(null);
+  }
+
+  async function cambiarActivo(perfilId: string, activo: boolean) {
+    setCambiandoId(perfilId);
+    await cambiarActivoPerfil(perfilId, activo);
+    await cargar();
+    setCambiandoId(null);
+  }
+
+  return (
+    <div
+      style={{
+        background: COLORES_BASE.blanco,
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        padding: 22,
+        marginBottom: 24,
+      }}
+    >
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, color: COLORES_BASE.azul }}>👥 Equipe de Soporte</h2>
+      <p style={{ margin: '0 0 16px', fontSize: 12.5, color: COLORES_BASE.gris }}>
+        Solo lectura en todos los sistemas de clientes, sin poder editar nada. Se invita una vez, desde acá.
+      </p>
+
+      {error && <div style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 13px', marginBottom: 12, fontSize: 13 }}>{error}</div>}
+      {mensaje && <div style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 10, padding: '9px 13px', marginBottom: 12, fontSize: 13 }}>{mensaje}</div>}
+      {ultimoLink && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '9px 13px', marginBottom: 12, fontSize: 12, wordBreak: 'break-all', color: COLORES_BASE.azul }}>
+          {ultimoLink}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label style={labelStyle}>Email</label>
+          <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@email.com" />
+        </div>
+        <div>
+          <label style={labelStyle}>Nombre</label>
+          <input style={inputStyle} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Marina" />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        disabled={enviando}
+        onClick={invitar}
+        style={{ background: COLORES_BASE.azul, color: COLORES_BASE.blanco, border: 'none', borderRadius: 10, padding: '9px 16px', fontWeight: 700, fontSize: 13, cursor: enviando ? 'wait' : 'pointer' }}
+      >
+        {enviando ? 'Invitando...' : 'Invitar como Soporte'}
+      </button>
+
+      {invitaciones.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: COLORES_BASE.gris, textTransform: 'uppercase', marginBottom: 8 }}>Invitaciones pendientes</div>
+          {invitaciones.map((inv) => (
+            <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e5e7eb', marginBottom: 6, fontSize: 12.5 }}>
+              <span>{inv.nombre} · {inv.email}</span>
+              <button type="button" disabled={cambiandoId === inv.id} onClick={() => revocar(inv.id)} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 8, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer', color: COLORES_BASE.gris }}>
+                Revocar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {soportes.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: COLORES_BASE.gris, textTransform: 'uppercase', marginBottom: 8 }}>Soporte activo</div>
+          {soportes.map((s) => (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: s.activo ? '#f0fdf4' : '#fef2f2', border: `1px solid ${s.activo ? '#bbf7d0' : '#fecaca'}`, marginBottom: 6, fontSize: 12.5 }}>
+              <span>{s.nombre} — {s.activo ? 'activo' : 'dado de baja'}</span>
+              <button
+                type="button"
+                disabled={cambiandoId === s.id}
+                onClick={() => cambiarActivo(s.id, !s.activo)}
+                style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 8, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer', color: s.activo ? '#b91c1c' : '#166534' }}
+              >
+                {s.activo ? 'Dar de baja' : 'Reactivar'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function VincularUsuario({
   empresas,

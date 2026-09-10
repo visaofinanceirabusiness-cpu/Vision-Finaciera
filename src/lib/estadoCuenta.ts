@@ -8,6 +8,7 @@ import { supabase } from './supabase';
 // casos para no mostrarle "tu empresa fue borrada" a alguien que
 // simplemente está esperando que lo aprueben.
 export type MotivoSinPerfil = 'pendiente' | 'rechazada' | 'sin_empresa';
+export type MotivoSesionInvalida = MotivoSinPerfil | 'cuenta_desactivada';
 
 export async function motivoSinPerfil(userId: string): Promise<MotivoSinPerfil> {
   const { data: solicitud } = await supabase
