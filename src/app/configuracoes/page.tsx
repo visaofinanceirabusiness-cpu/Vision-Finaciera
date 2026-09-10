@@ -831,18 +831,123 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
     setMensaje(t('mensajeDatosPersonalesGuardados'));
   }
 
-  function descargarMisDatos() {
-    const contenido = {
-      generado_en: new Date().toISOString(),
-      datos_personales: { nombre: datos.nombre, telefono: datos.telefono, sexo: datos.sexo, email },
-      empresa: empresaExport,
+  async function descargarMisDatos() {
+    const esPt = idioma === 'PT';
+
+    // El logo se embebe como data URI (no como <img src="/logo.jpeg">)
+    // para que el archivo se vea bien incluso abierto sin conexión,
+    // fuera del dominio de la app.
+    let logoDataUri = '';
+    try {
+      const respuestaLogo = await fetch('/logo.jpeg');
+      const blobLogo = await respuestaLogo.blob();
+      logoDataUri = await new Promise<string>((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(lector.result as string);
+        lector.onerror = reject;
+        lector.readAsDataURL(blobLogo);
+      });
+    } catch {
+      logoDataUri = '';
+    }
+
+    const fecha = new Date().toLocaleString(esPt ? 'pt-BR' : 'es-AR', { dateStyle: 'long', timeStyle: 'short' });
+    const sexoTexto = datos.sexo === 'F' ? (esPt ? 'Feminino' : 'Femenino') : datos.sexo === 'M' ? 'Masculino' : '—';
+
+    const t2 = {
+      titulo: esPt ? 'Meus Dados' : 'Mis Datos',
+      subtitulo: esPt ? 'Exportação pessoal gerada pela própria pessoa usuária' : 'Exportación personal generada por la propia persona usuaria',
+      generadoEl: esPt ? 'Gerado em' : 'Generado el',
+      seccionPersonal: esPt ? '👤 Dados pessoais' : '👤 Datos personales',
+      seccionEmpresa: esPt ? '🏢 Dados da empresa' : '🏢 Datos de la empresa',
+      nombre: esPt ? 'Nome' : 'Nombre',
+      telefono: esPt ? 'Telefone' : 'Teléfono',
+      sexo: 'Sexo',
+      correo: 'Email',
+      nombreEmpresa: esPt ? 'Nome' : 'Nombre',
+      rubro: esPt ? 'Ramo' : 'Rubro',
+      moneda: esPt ? 'Moeda' : 'Moneda',
+      notaAlcance: esPt
+        ? 'Hoje este documento inclui apenas os dados de contato. No futuro vai incluir também a informação do seu Painel de Controle e Relatórios.'
+        : 'Hoy este documento incluye solo los datos de contacto. En el futuro va a incluir también la información de tu Panel de Control e Informes.',
+      disclaimerTitulo: esPt ? '⚠️ Aviso importante' : '⚠️ Aviso importante',
+      disclaimer: esPt
+        ? 'Este documento reflete exatamente a informação que você mesmo(a) carregou no sistema. A Visão Financeira não pode garantir que esses dados sejam verdadeiros ou estejam atualizados — só você sabe se essa informação é correta.'
+        : 'Este documento refleja exactamente la información que vos mismo/a cargaste en el sistema. Visão Financeira no puede garantizar que esos datos sean verdaderos ni que estén actualizados — solo vos sabés si esa información es correcta.',
+      pie: esPt
+        ? 'Visão Financeira · Documento gerado a pedido da própria pessoa usuária'
+        : 'Visão Financeira · Documento generado a pedido de la propia persona usuaria',
     };
 
-    const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: 'application/json' });
+    const html = `<!DOCTYPE html>
+<html lang="${esPt ? 'pt-BR' : 'es'}">
+<head>
+<meta charset="UTF-8">
+<title>${t2.titulo} — Visão Financeira</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: #f5f7f9; margin: 0; padding: 32px 16px; color: #1f2937; }
+  .hoja { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(31,58,95,0.08); }
+  .encabezado { display: flex; align-items: center; gap: 16px; border-bottom: 3px solid #1f3a5f; padding-bottom: 20px; margin-bottom: 24px; }
+  .encabezado img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; }
+  .encabezado h1 { margin: 0; font-size: 22px; color: #1f3a5f; }
+  .encabezado p { margin: 4px 0 0; font-size: 13px; color: #6e7781; }
+  .meta { font-size: 12.5px; color: #6e7781; margin-bottom: 28px; }
+  h2 { font-size: 15px; color: #1f3a5f; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin: 28px 0 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 0; font-size: 14px; }
+  td.campo { color: #6e7781; width: 40%; font-weight: 600; }
+  td.valor { color: #1f2937; }
+  .aviso { margin-top: 32px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 16px 20px; }
+  .aviso strong { color: #92400e; font-size: 13.5px; display: block; margin-bottom: 6px; }
+  .aviso p { margin: 0; font-size: 12.5px; color: #78350f; line-height: 1.6; }
+  .alcance { margin-top: 14px; font-size: 12px; color: #6e7781; font-style: italic; }
+  .pie { margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af; }
+</style>
+</head>
+<body>
+  <div class="hoja">
+    <div class="encabezado">
+      ${logoDataUri ? `<img src="${logoDataUri}" alt="Visão Financeira">` : ''}
+      <div>
+        <h1>${t2.titulo}</h1>
+        <p>${t2.subtitulo}</p>
+      </div>
+    </div>
+
+    <div class="meta">${t2.generadoEl}: ${fecha}</div>
+
+    <h2>${t2.seccionPersonal}</h2>
+    <table>
+      <tr><td class="campo">${t2.nombre}</td><td class="valor">${datos.nombre || '—'}</td></tr>
+      <tr><td class="campo">${t2.telefono}</td><td class="valor">${datos.telefono || '—'}</td></tr>
+      <tr><td class="campo">${t2.sexo}</td><td class="valor">${sexoTexto}</td></tr>
+      <tr><td class="campo">${t2.correo}</td><td class="valor">${email || '—'}</td></tr>
+    </table>
+
+    <h2>${t2.seccionEmpresa}</h2>
+    <table>
+      <tr><td class="campo">${t2.nombreEmpresa}</td><td class="valor">${empresaExport?.nombre || '—'}</td></tr>
+      <tr><td class="campo">${t2.rubro}</td><td class="valor">${empresaExport?.rubro || '—'}</td></tr>
+      <tr><td class="campo">${t2.moneda}</td><td class="valor">${empresaExport?.moneda || '—'}</td></tr>
+    </table>
+
+    <p class="alcance">${t2.notaAlcance}</p>
+
+    <div class="aviso">
+      <strong>${t2.disclaimerTitulo}</strong>
+      <p>${t2.disclaimer}</p>
+    </div>
+
+    <div class="pie">${t2.pie}</div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const enlace = document.createElement('a');
     enlace.href = url;
-    enlace.download = 'mis-datos-visao-financeira.json';
+    enlace.download = esPt ? 'meus-dados-visao-financeira.html' : 'mis-datos-visao-financeira.html';
     document.body.appendChild(enlace);
     enlace.click();
     document.body.removeChild(enlace);
