@@ -475,6 +475,105 @@ Antes de empezar a operar, tenemos que completar juntos la configuración inicia
   };
 }
 
+// ==========================================================
+// CONSENTIMIENTO DE PRIVACIDAD / TÉRMINOS DE USO (V3.0 — Día 1)
+// ==========================================================
+//
+// Mensaje que se manda una vez a TODAS las empresas ya existentes
+// (las nuevas ya lo aceptan en el propio formulario de Criar Conta,
+// ver src/app/crear-cuenta/page.tsx) pidiendo que cada persona
+// confirme haber leído la Política de Privacidad y los Términos de
+// Uso. A diferencia del resto de los mensajes, este lleva
+// requiere_consentimiento = true: eso hace que src/app/mensajes/
+// page.tsx muestre, en vez de solo el texto, un checkbox + botón
+// para aceptar. La aceptación queda registrada en
+// consentimientos_legales POR PERSONA (perfil_id), no por empresa,
+// porque cada usuario/a tiene que dar su propio consentimiento.
+function textoConsentimientoLegal(idioma: 'ES' | 'PT'): TextoTutorial {
+  if (idioma === 'PT') {
+    return {
+      titulo: 'Atualizamos nossa Política de Privacidade e Termos de Uso',
+      texto: `Olá! 👋
+
+Como parte de um trabalho que estamos fazendo para deixar tudo mais transparente, publicamos pela primeira vez uma Política de Privacidade e Termos de Uso completos, além de uma Política de Cookies para o nosso site.
+
+Neles explicamos, em linguagem simples: quais dados pedimos e por quê, onde ficam guardados, quem pode acessá-los, e como você pode pedir uma cópia dos seus dados ou a exclusão da sua conta a qualquer momento.
+
+Você pode ler os documentos completos aqui:
+🔗 Política de Privacidade: https://visao-financeira-web.vercel.app/privacidad.html
+🔗 Termos de Uso: https://visao-financeira-web.vercel.app/terminos.html
+
+Para continuar, marque a caixinha abaixo confirmando que está de acordo.
+
+Um abraço,
+Sabio 🦉`,
+    };
+  }
+
+  return {
+    titulo: 'Actualizamos nuestra Política de Privacidad y Términos de Uso',
+    texto: `¡Hola! 👋
+
+Como parte de un trabajo que estamos haciendo para que todo sea más transparente, publicamos por primera vez una Política de Privacidad y Términos de Uso completos, además de una Política de Cookies para nuestro sitio web.
+
+Ahí explicamos, en lenguaje simple: qué datos pedimos y para qué, dónde se guardan, quién puede acceder a ellos, y cómo podés pedir una copia de tus datos o la eliminación de tu cuenta en cualquier momento.
+
+Podés leer los documentos completos acá:
+🔗 Política de Privacidad: https://visao-financeira-web.vercel.app/privacidad.html
+🔗 Términos de Uso: https://visao-financeira-web.vercel.app/terminos.html
+
+Para continuar, marcá el casillero de abajo confirmando que estás de acuerdo.
+
+Un abrazo,
+Sabio 🦉`,
+  };
+}
+
+// Se llama una sola vez desde un script/consulta manual del admin
+// (no forma parte del alta de una empresa nueva) para avisarle a
+// TODAS las empresas activas que hay que aceptar los nuevos
+// documentos legales. Inserta un mensaje por empresa (el idioma de
+// cada una sigue empresas.idioma, igual que el resto de Mensagens).
+export async function crearMensajeConsentimientoLegalParaTodas(cliente: SupabaseClient = supabase) {
+  const { data: empresas, error: errorEmpresas } = await cliente
+    .from('empresas')
+    .select('id, idioma')
+    .eq('activo', true);
+
+  if (errorEmpresas) {
+    throw errorEmpresas;
+  }
+
+  const ahora = new Date().toISOString();
+
+  const filas = (empresas ?? []).map((empresa) => {
+    const idiomaFinal: 'ES' | 'PT' = empresa.idioma === 'PT' ? 'PT' : 'ES';
+    const contenido = textoConsentimientoLegal(idiomaFinal);
+
+    return {
+      empresa_id: empresa.id,
+      periodo: primerDiaDelMes(),
+      titulo: contenido.titulo,
+      texto: contenido.texto,
+      leido: false,
+      requiere_consentimiento: true,
+      creado_en: ahora,
+    };
+  });
+
+  if (filas.length === 0) {
+    return { enviados: 0 };
+  }
+
+  const { error } = await cliente.from('mensajes_financieros').insert(filas);
+
+  if (error) {
+    throw error;
+  }
+
+  return { enviados: filas.length };
+}
+
 // Se llama una sola vez, al dar de alta una empresa nueva — ver
 // inicializarEmpresaDesdePerfil en lib/perfiles.ts, justo después de
 // crearMensajesTutorialModelo.
