@@ -22,7 +22,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motivoSinPerfil } from '@/lib/estadoCuenta';
 
-const RUTAS_PUBLICAS = ['/login', '/crear-cuenta'];
+const RUTAS_PUBLICAS = ['/login', '/crear-cuenta', '/recuperar-senha', '/restablecer-senha', '/aceptar-convite'];
 const INTERVALO_MS = 60_000;
 
 export function GuardiaSesion() {
@@ -40,11 +40,19 @@ export function GuardiaSesion() {
 
       const { data: perfil } = await supabase
         .from('perfiles')
-        .select('id')
+        .select('id, activo')
         .eq('id', userData.user.id)
         .maybeSingle();
 
-      if (cancelado || perfil) return;
+      if (cancelado) return;
+
+      if (perfil && !perfil.activo) {
+        await supabase.auth.signOut();
+        router.replace('/login?motivo=cuenta_desactivada');
+        return;
+      }
+
+      if (perfil) return;
 
       const motivo = await motivoSinPerfil(userData.user.id);
       const parametro =

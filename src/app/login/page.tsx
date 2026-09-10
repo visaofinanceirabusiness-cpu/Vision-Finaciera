@@ -31,6 +31,8 @@ export default function LoginPage() {
       setError(t('errorSolicitudRechazada'));
     } else if (motivo === 'empresa_borrada') {
       setError(t('errorSinPerfil'));
+    } else if (motivo === 'cuenta_desactivada') {
+      setError(t('errorCuentaDesactivada'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -55,9 +57,15 @@ export default function LoginPage() {
     const { data: userData } = await supabase.auth.getUser();
     const { data: perfil } = await supabase
       .from('perfiles')
-      .select('es_admin_plataforma')
+      .select('es_admin_plataforma, activo')
       .eq('id', userData.user?.id)
       .maybeSingle();
+
+    if (perfil && !perfil.activo) {
+      await supabase.auth.signOut();
+      setError(t('errorCuentaDesactivada'));
+      return;
+    }
 
     // Sin fila en `perfiles` puede ser: (a) el usuario recién se
     // registró y su solicitud todavía no la aprobó un admin — estado
