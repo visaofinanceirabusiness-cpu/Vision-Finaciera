@@ -57,6 +57,7 @@ export default function MensajesPage() {
   const [consentimientosDados, setConsentimientosDados] = useState<Record<string, string>>({});
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
   const [checksConsentimiento, setChecksConsentimiento] = useState<Record<string, boolean>>({});
+  const [errorConsentimiento, setErrorConsentimiento] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function cargarDatos() {
@@ -161,19 +162,28 @@ export default function MensajesPage() {
     if (!usuarioId || aceptandoId) return;
 
     setAceptandoId(mensajeId);
+    setErrorConsentimiento((actual) => ({ ...actual, [mensajeId]: '' }));
 
-    const { error: errorConsentimiento } = await supabase
+    const { error: errorInsertar } = await supabase
       .from('consentimientos_legales')
       .insert({ perfil_id: usuarioId, mensaje_id: mensajeId });
 
-    if (errorConsentimiento) {
-      console.warn('No se pudo registrar el consentimiento:', errorConsentimiento);
-      setAceptandoId(null);
+    setAceptandoId(null);
+
+    if (errorInsertar) {
+      // Antes esto solo quedaba en la consola — la persona tildaba,
+      // tocaba "Confirmar" y, si algo fallaba (sesión vencida, sin
+      // conexión, etc.), no pasaba nada visible: ni error, ni
+      // confirmación. Ahora se muestra el motivo real para poder
+      // reintentar o avisar si se repite.
+      setErrorConsentimiento((actual) => ({
+        ...actual,
+        [mensajeId]: `No se pudo guardar tu confirmación (${errorInsertar.message}). Probá de nuevo.`,
+      }));
       return;
     }
 
     setConsentimientosDados((actual) => ({ ...actual, [mensajeId]: new Date().toISOString() }));
-    setAceptandoId(null);
   }
 
   if (cargando) {
@@ -590,6 +600,12 @@ export default function MensajesPage() {
                               >
                                 {aceptandoId === mensaje.id ? t('enviandoConsentimiento') : t('confirmarConsentimiento')}
                               </button>
+
+                              {errorConsentimiento[mensaje.id] && (
+                                <p style={{ margin: '8px 0 0', fontSize: 12.5, color: '#b91c1c' }}>
+                                  {errorConsentimiento[mensaje.id]}
+                                </p>
+                              )}
                             </>
                           )}
                         </div>
