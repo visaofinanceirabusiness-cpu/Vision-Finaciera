@@ -102,7 +102,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'personal' | 'reset' | 'matriz';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset' | 'matriz';
 
 type PerfilEmpresa = {
   id: string;
@@ -260,10 +260,6 @@ export default function ConfiguracoesPage() {
               {t('tabFacturacion')}
             </button>
 
-            <button type="button" onClick={() => setPestana('personal')} style={tabStyle(pestana === 'personal')}>
-              {t('tabPersonal')}
-            </button>
-
             <button type="button" onClick={() => setPestana('reset')} style={tabStyle(pestana === 'reset')}>
               {t('tabReset')}
             </button>
@@ -299,7 +295,6 @@ export default function ConfiguracoesPage() {
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'personal' && <MisDatosTab empresaId={empresaId} idioma={idioma} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
         </main>
@@ -726,23 +721,23 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
           {guardando ? t('guardando') : t('guardarCambios')}
         </button>
       </div>
+
+      {/* MIS DATOS (Bloque C del Día 1 de seguridad) — datos
+          PERSONALES, no los de la empresa de arriba. Vive en la misma
+          pestaña (a pedido: unificar en vez de crear una pestaña
+          aparte) y es editable por cualquier usuario, sea admin de la
+          empresa o no — es su propio dato, no algo que dependa de
+          esAdmin. */}
+      <div style={{ marginTop: 40, paddingTop: 26, borderTop: '2px solid #e5e7eb' }}>
+        <MisDatosSeccion empresaId={empresaId} idioma={idioma} />
+      </div>
     </div>
   );
 }
 
-/* ==========================================================
-   PESTAÑA — MIS DATOS (Bloque C del Día 1 de seguridad)
-   Centraliza los datos PERSONALES (no los de la empresa, que viven
-   en la pestaña "Dados da Empresa"): nombre, teléfono, sexo, email
-   (de solo lectura, viene de Supabase Auth). Suma acá mismo la
-   exportación de datos propios y la solicitud de eliminación de
-   cuenta — ver tabla solicitudes_eliminacion_cuenta, revisada por un
-   admin en Panel Maestro → Notificações.
-========================================================== */
-
 type DatosPersonales = { nombre: string; telefono: string | null; sexo: string | null };
 
-function MisDatosTab({ empresaId, idioma }: { empresaId: string; idioma: string }) {
+function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: string }) {
   const t = crearTraductor(diccionarioConfiguracoes, idioma);
 
   const [cargando, setCargando] = useState(true);
@@ -856,6 +851,8 @@ function MisDatosTab({ empresaId, idioma }: { empresaId: string; idioma: string 
 
   return (
     <div>
+      <h2 style={{ margin: '0 0 16px', fontSize: 17, color: COLORES.azul }}>{t('tabPersonal')}</h2>
+
       {error && <div style={errorStyle}>{error}</div>}
       {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
 
