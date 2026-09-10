@@ -879,11 +879,14 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
         : 'Visão Financeira · Documento generado a pedido de la propia persona usuaria',
     };
 
+    const nombreEmpresaDoc = empresaExport?.nombre?.trim() || (esPt ? 'minha empresa' : 'mi empresa');
+    const tituloDocumento = `${t2.titulo} — ${nombreEmpresaDoc}`;
+
     const html = `<!DOCTYPE html>
 <html lang="${esPt ? 'pt-BR' : 'es'}">
 <head>
 <meta charset="UTF-8">
-<title>${t2.titulo} — Visão Financeira</title>
+<title>${tituloDocumento}</title>
 <style>
   body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: #f5f7f9; margin: 0; padding: 32px 16px; color: #1f2937; }
   .hoja { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(31,58,95,0.08); }
@@ -902,14 +905,28 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
   .aviso p { margin: 0; font-size: 12.5px; color: #78350f; line-height: 1.6; }
   .alcance { margin-top: 14px; font-size: 12px; color: #6e7781; font-style: italic; }
   .pie { margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af; }
+  .no-imprimir { text-align: center; margin-bottom: 20px; }
+  .no-imprimir button {
+    background: #2e8b57; color: #fff; border: none; border-radius: 12px; padding: 10px 20px;
+    font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+  @media print {
+    .no-imprimir { display: none !important; }
+    body { background: #fff; padding: 0; }
+    .hoja { box-shadow: none; border-radius: 0; max-width: 100%; }
+  }
 </style>
 </head>
 <body>
+  <div class="no-imprimir">
+    <button onclick="window.print()">🖨️ ${esPt ? 'Salvar como PDF' : 'Guardar como PDF'}</button>
+  </div>
+
   <div class="hoja">
     <div class="encabezado">
-      ${logoDataUri ? `<img src="${logoDataUri}" alt="Visão Financeira">` : ''}
+      ${logoDataUri ? `<img src="${logoDataUri}" alt="${nombreEmpresaDoc}">` : ''}
       <div>
-        <h1>${t2.titulo}</h1>
+        <h1>${t2.titulo} — ${nombreEmpresaDoc}</h1>
         <p>${t2.subtitulo}</p>
       </div>
     </div>
@@ -943,15 +960,23 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
 </body>
 </html>`;
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = esPt ? 'meus-dados-visao-financeira.html' : 'mis-datos-visao-financeira.html';
-    document.body.appendChild(enlace);
-    enlace.click();
-    document.body.removeChild(enlace);
-    URL.revokeObjectURL(url);
+    // Se abre en una pestaña nueva y se imprime desde ahí (mismo
+    // mecanismo que el informe de Segurança e Proteção de Dados) en
+    // vez de descargar un archivo: así la persona elige "Guardar como
+    // PDF" desde el propio diálogo de impresión del navegador, con el
+    // nombre de la empresa ya puesto como título del documento.
+    const ventana = window.open('', '_blank');
+    if (!ventana) {
+      setError(
+        esPt
+          ? 'O navegador bloqueou a nova janela. Permita pop-ups para este site e tente de novo.'
+          : 'El navegador bloqueó la ventana nueva. Permití ventanas emergentes para este sitio e intentá de nuevo.'
+      );
+      return;
+    }
+
+    ventana.document.write(html);
+    ventana.document.close();
   }
 
   async function solicitarEliminacion() {
