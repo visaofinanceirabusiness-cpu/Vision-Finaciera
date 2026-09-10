@@ -63,6 +63,7 @@ export default function CrearCuentaPage() {
   const [moneda, setMoneda] = useState('BRL');
   const [perfilElegido, setPerfilElegido] = useState('');
   const [componentesMixto, setComponentesMixto] = useState<string[]>([]);
+  const [terminosAceptados, setTerminosAceptados] = useState(false);
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -119,6 +120,11 @@ export default function CrearCuentaPage() {
 
     if (esMixto && componentesMixto.length === 0) {
       setError(t('errorPerfilMixto'));
+      return;
+    }
+
+    if (!terminosAceptados) {
+      setError(t('errorTerminosNoAceptados'));
       return;
     }
 
@@ -195,6 +201,7 @@ export default function CrearCuentaPage() {
       componentes_mixto: esMixto ? componentesMixto : [],
       moneda,
       idioma,
+      terminos_aceptados_en: new Date().toISOString(),
     });
 
     if (errorSolicitud) {
@@ -342,6 +349,7 @@ export default function CrearCuentaPage() {
                 placeholder={t('numero')}
               />
             </div>
+            <p style={{ fontSize: 11.5, color: COLORES.gris, margin: '5px 0 0' }}>{t('telefonoAyuda')}</p>
           </div>
 
           <div>
@@ -437,6 +445,26 @@ export default function CrearCuentaPage() {
               </div>
             </div>
           )}
+
+          <label style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 12.5, color: COLORES.gris, lineHeight: 1.5, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={terminosAceptados}
+              onChange={(e) => setTerminosAceptados(e.target.checked)}
+              style={{ marginTop: 2, flexShrink: 0 }}
+            />
+            <span>
+              {t('terminosAceptoPre')}
+              <a href="https://visao-financeira-web.vercel.app/privacidad.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORES.verde, fontWeight: 700 }}>
+                {t('terminosLinkPrivacidad')}
+              </a>
+              {t('terminosAceptoMedio')}
+              <a href="https://visao-financeira-web.vercel.app/terminos.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORES.verde, fontWeight: 700 }}>
+                {t('terminosLinkTerminos')}
+              </a>
+              {t('terminosAceptoPost')}
+            </span>
+          </label>
         </div>
 
         <button
