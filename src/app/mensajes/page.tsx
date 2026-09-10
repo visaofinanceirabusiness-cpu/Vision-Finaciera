@@ -42,6 +42,7 @@ type MensajeFinanciero = {
   texto: string;
   leido: boolean;
   creado_en: string;
+  requiere_consentimiento: boolean;
 };
 
 export default function MensajesPage() {
@@ -52,6 +53,10 @@ export default function MensajesPage() {
   const [mensajeAbierto, setMensajeAbierto] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [consentimientosDados, setConsentimientosDados] = useState<Record<string, string>>({});
+  const [aceptandoId, setAceptandoId] = useState<string | null>(null);
+  const [checksConsentimiento, setChecksConsentimiento] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function cargarDatos() {
@@ -82,7 +87,7 @@ export default function MensajesPage() {
 
           supabase
             .from('mensajes_financieros')
-            .select('id, titulo, texto, leido, creado_en')
+            .select('id, titulo, texto, leido, creado_en, requiere_consentimiento')
             .eq('empresa_id', perfilData.empresa_id)
             .order('creado_en', { ascending: false }),
         ]);
@@ -101,6 +106,30 @@ export default function MensajesPage() {
 
       setEmpresa(empresaData);
       setMensajes((mensajesData ?? []) as MensajeFinanciero[]);
+      setUsuarioId(usuarioData.user.id);
+
+      // Los mensajes que piden consentimiento se aceptan POR PERSONA
+      // (tabla consentimientos_legales, ver mensajesTutorial.ts), a
+      // diferencia de "leido" que es por empresa — por eso esto se
+      // consulta aparte, filtrado por el usuario actual.
+      const idsConConsentimiento = (mensajesData ?? [])
+        .filter((m) => m.requiere_consentimiento)
+        .map((m) => m.id);
+
+      if (idsConConsentimiento.length > 0) {
+        const { data: consentimientosData } = await supabase
+          .from('consentimientos_legales')
+          .select('mensaje_id, aceptado_en')
+          .eq('perfil_id', usuarioData.user.id)
+          .in('mensaje_id', idsConConsentimiento);
+
+        const mapa: Record<string, string> = {};
+        (consentimientosData ?? []).forEach((c) => {
+          mapa[c.mensaje_id] = c.aceptado_en;
+        });
+        setConsentimientosDados(mapa);
+      }
+
       setCargando(false);
     }
 
@@ -126,6 +155,25 @@ export default function MensajesPage() {
         console.warn('No se pudo marcar el mensaje como leído:', errorLeido);
       }
     }
+  }
+
+  async function aceptarConsentimiento(mensajeId: string) {
+    if (!usuarioId || aceptandoId) return;
+
+    setAceptandoId(mensajeId);
+
+    const { error: errorConsentimiento } = await supabase
+      .from('consentimientos_legales')
+      .insert({ perfil_id: usuarioId, mensaje_id: mensajeId });
+
+    if (errorConsentimiento) {
+      console.warn('No se pudo registrar el consentimiento:', errorConsentimiento);
+      setAceptandoId(null);
+      return;
+    }
+
+    setConsentimientosDados((actual) => ({ ...actual, [mensajeId]: new Date().toISOString() }));
+    setAceptandoId(null);
   }
 
   if (cargando) {
@@ -480,10 +528,72 @@ export default function MensajesPage() {
                         color: '#374151',
                         fontSize: 15,
                         lineHeight: 1.75,
-                        whiteSpace: 'pre-line',
                       }}
                     >
-                      {mensaje.texto}
+                      <div style={{ whiteSpace: 'pre-line' }}>{mensaje.texto}</div>
+
+                      {mensaje.requiere_consentimiento && (
+                        <div
+                          style={{
+                            marginTop: 20,
+                            paddingTop: 18,
+                            borderTop: '1px dashed #d6dee5',
+                          }}
+                        >
+                          {consentimientosDados[mensaje.id] ? (
+                            <p style={{ margin: 0, fontSize: 13.5, color: COLORES.verde, fontWeight: 700 }}>
+                              ✅ {t('yaAceptado')}{' '}
+                              {new Date(consentimientosDados[mensaje.id]).toLocaleDateString(
+                                idioma === 'PT' ? 'pt-BR' : 'es-AR'
+                              )}
+                            </p>
+                          ) : (
+                            <>
+                              <label
+                                style={{
+                                  display: 'flex',
+                                  gap: 10,
+                                  alignItems: 'flex-start',
+                                  fontSize: 13.5,
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                  marginBottom: 14,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!checksConsentimiento[mensaje.id]}
+                                  onChange={(e) =>
+                                    setChecksConsentimiento((actual) => ({
+                                      ...actual,
+                                      [mensaje.id]: e.target.checked,
+                                    }))
+                                  }
+                                  style={{ marginTop: 2, flexShrink: 0 }}
+                                />
+                                <span>{t('consentimientoTexto')}</span>
+                              </label>
+
+                              <button
+                                onClick={() => aceptarConsentimiento(mensaje.id)}
+                                disabled={!checksConsentimiento[mensaje.id] || aceptandoId === mensaje.id}
+                                style={{
+                                  background: checksConsentimiento[mensaje.id] ? COLORES.verde : '#cbd5e1',
+                                  color: COLORES.blanco,
+                                  border: 'none',
+                                  borderRadius: 10,
+                                  padding: '10px 18px',
+                                  fontWeight: 700,
+                                  fontSize: 13.5,
+                                  cursor: checksConsentimiento[mensaje.id] ? 'pointer' : 'not-allowed',
+                                }}
+                              >
+                                {aceptandoId === mensaje.id ? t('enviandoConsentimiento') : t('confirmarConsentimiento')}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </section>

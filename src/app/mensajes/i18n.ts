@@ -22,7 +22,11 @@ export type ClaveMensajes =
   | 'mensajeNumero'
   | 'pieMensajes'
   | 'sinMensajesTitulo'
-  | 'sinMensajesTexto';
+  | 'sinMensajesTexto'
+  | 'consentimientoTexto'
+  | 'confirmarConsentimiento'
+  | 'enviandoConsentimiento'
+  | 'yaAceptado';
 
 export const diccionarioMensajes: Diccionario<ClaveMensajes> = {
   ES: {
@@ -39,6 +43,10 @@ export const diccionarioMensajes: Diccionario<ClaveMensajes> = {
     pieMensajes: '🦉 Sabio estará aquí cuando quieras entender mejor tus números.',
     sinMensajesTitulo: 'Todavía no hay mensajes para vos',
     sinMensajesTexto: 'En cuanto tengas más movimientos registrados, Sabio va a empezar a dejarte análisis acá.',
+    consentimientoTexto: 'Leí la Política de Privacidad y los Términos de Uso, y estoy de acuerdo.',
+    confirmarConsentimiento: 'Confirmar',
+    enviandoConsentimiento: 'Enviando...',
+    yaAceptado: 'Ya confirmaste tu aceptación el',
   },
   PT: {
     cargandoMensajes: 'Carregando suas mensagens...',
@@ -54,5 +62,9 @@ export const diccionarioMensajes: Diccionario<ClaveMensajes> = {
     pieMensajes: '🦉 Sabio estará aqui quando você quiser entender melhor os seus números.',
     sinMensajesTitulo: 'Ainda não há mensagens para você',
     sinMensajesTexto: 'Assim que você tiver mais movimentos registrados, Sabio vai começar a deixar análises aqui.',
+    consentimientoTexto: 'Li a Política de Privacidade e os Termos de Uso, e estou de acordo.',
+    confirmarConsentimiento: 'Confirmar',
+    enviandoConsentimiento: 'Enviando...',
+    yaAceptado: 'Você já confirmou sua aceitação em',
   },
 };
