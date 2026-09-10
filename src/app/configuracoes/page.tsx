@@ -745,9 +745,16 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
       {/* EQUIPE — invitar Asistentes (Bloque E1 del Día 1 de
           seguridad). Cualquier usuario de la empresa puede invitar,
           mismo criterio que el resto de la app (todos con el mismo
-          acceso dentro de una empresa). */}
+          acceso dentro de una empresa). Misma lógica y el mismo
+          tipo_usuario='ASISTENTE' en la base para Família — solo
+          cambia cómo se lo llama en pantalla ("Colaborador" en vez
+          de "Asistente"), pedido explícito del usuario porque encaja
+          mejor con el contexto familiar. */}
       <div style={{ marginTop: 40, paddingTop: 26, borderTop: '2px solid #e5e7eb' }}>
-        <GestionAsistentes empresaId={empresaId} />
+        <GestionAsistentes
+          empresaId={empresaId}
+          esFamiliar={perfiles.find((p) => p.id === empresa.perfil_empresa_id)?.codigo === 'FAMILIAR'}
+        />
       </div>
     </div>
   );
@@ -959,7 +966,9 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
    a nivel de base de datos (RLS) es la pasada de E3 que sigue.
 ========================================================== */
 
-function GestionAsistentes({ empresaId }: { empresaId: string }) {
+function GestionAsistentes({ empresaId, esFamiliar }: { empresaId: string; esFamiliar: boolean }) {
+  const etiqueta = esFamiliar ? 'Colaborador' : 'Asistente';
+  const etiquetaPlural = esFamiliar ? 'Colaboradores' : 'Asistentes';
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -1033,7 +1042,7 @@ function GestionAsistentes({ empresaId }: { empresaId: string }) {
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 17, color: COLORES.azul }}>👥 Equipe</h2>
       <p style={{ margin: '0 0 16px', fontSize: 12.5, color: COLORES.gris }}>
-        Invitá a alguien de tu equipo como Asistente: puede cargar datos, pero no edita, no elimina y no ve Informes.
+        Invitá a alguien como {etiqueta}: puede cargar datos, pero no edita, no elimina y no ve Informes.
       </p>
 
       {error && <div style={errorStyle}>{error}</div>}
@@ -1056,7 +1065,7 @@ function GestionAsistentes({ empresaId }: { empresaId: string }) {
       </div>
 
       <button type="button" disabled={enviando} onClick={invitar} style={botonSecundario}>
-        {enviando ? 'Invitando...' : 'Invitar como Asistente'}
+        {enviando ? 'Invitando...' : `Invitar como ${etiqueta}`}
       </button>
 
       {invitaciones.length > 0 && (
@@ -1075,7 +1084,7 @@ function GestionAsistentes({ empresaId }: { empresaId: string }) {
 
       {asistentes.length > 0 && (
         <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: COLORES.gris, textTransform: 'uppercase', marginBottom: 8 }}>Asistentes</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: COLORES.gris, textTransform: 'uppercase', marginBottom: 8 }}>{etiquetaPlural}</div>
           {asistentes.map((a) => (
             <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: a.activo ? '#f0fdf4' : '#fef2f2', border: `1px solid ${a.activo ? '#bbf7d0' : '#fecaca'}`, marginBottom: 6, fontSize: 12.5 }}>
               <span>{a.nombre} — {a.activo ? 'activo' : 'dado de baja'}</span>
