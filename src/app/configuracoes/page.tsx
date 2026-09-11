@@ -742,6 +742,16 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
         <MisDatosSeccion empresaId={empresaId} idioma={idioma} />
       </div>
 
+      {/* PERSONALIZAÇÃO DE CORES (Bloque G del Día 1 de seguridad) —
+          antes esto era una fila cargada a mano por SQL sin ninguna
+          pantalla para editarla, y encima RLS la bloqueaba entera.
+          Solo colores por ahora: mensaje/subtítulo/checkboxes de
+          gamificación-objetivos-gráficos quedan afuera a pedido
+          (no se van a usar). */}
+      <div style={{ marginTop: 40, paddingTop: 26, borderTop: '2px solid #e5e7eb' }}>
+        <PersonalizacionColoresSeccion empresaId={empresaId} idioma={idioma} />
+      </div>
+
       {/* EQUIPE — invitar Asistentes (Bloque E1 del Día 1 de
           seguridad). Cualquier usuario de la empresa puede invitar,
           mismo criterio que el resto de la app (todos con el mismo
@@ -1093,6 +1103,149 @@ function MisDatosSeccion({ empresaId, idioma }: { empresaId: string; idioma: str
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ==========================================================
+   PERSONALIZAÇÃO DE CORES (Bloque G del Día 1 de seguridad)
+   configuracion_dashboard existía en la base desde antes, con RLS
+   activado pero sin ninguna política — nadie podía leerla ni
+   escribirla, y no había pantalla para editarla. Se agrega acá el
+   mínimo: los 3 colores del panel. El mensaje de bienvenida, el
+   subtítulo y los checkboxes de mostrar gamificación/objetivos/
+   gráficos quedan afuera a pedido explícito (no se van a usar).
+========================================================== */
+
+type ColoresDashboard = { color_primario: string; color_secundario: string; color_acento: string };
+
+const COLORES_DASHBOARD_POR_DEFECTO: ColoresDashboard = {
+  color_primario: '#1f3a5f',
+  color_secundario: '#2e8b57',
+  color_acento: '#6e7781',
+};
+
+function PersonalizacionColoresSeccion({ empresaId, idioma }: { empresaId: string; idioma: string }) {
+  const esPt = idioma === 'PT';
+
+  const [cargando, setCargando] = useState(true);
+  const [puedeEditar, setPuedeEditar] = useState(true);
+  const [colores, setColores] = useState<ColoresDashboard>(COLORES_DASHBOARD_POR_DEFECTO);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  useEffect(() => {
+    async function cargar() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const [{ data: perfilData }, { data: configData }] = await Promise.all([
+        supabase.from('perfiles').select('tipo_usuario').eq('id', userData.user.id).maybeSingle(),
+        supabase
+          .from('configuracion_dashboard')
+          .select('color_primario, color_secundario, color_acento')
+          .eq('empresa_id', empresaId)
+          .maybeSingle(),
+      ]);
+
+      setPuedeEditar(perfilData?.tipo_usuario !== 'ASISTENTE');
+      if (configData) {
+        setColores({
+          color_primario: configData.color_primario ?? COLORES_DASHBOARD_POR_DEFECTO.color_primario,
+          color_secundario: configData.color_secundario ?? COLORES_DASHBOARD_POR_DEFECTO.color_secundario,
+          color_acento: configData.color_acento ?? COLORES_DASHBOARD_POR_DEFECTO.color_acento,
+        });
+      }
+      setCargando(false);
+    }
+
+    cargar();
+  }, [empresaId]);
+
+  async function guardar() {
+    setGuardando(true);
+    setError('');
+    setMensaje('');
+
+    const { error: errorGuardar } = await supabase
+      .from('configuracion_dashboard')
+      .upsert({ empresa_id: empresaId, ...colores }, { onConflict: 'empresa_id' });
+
+    setGuardando(false);
+
+    if (errorGuardar) {
+      setError(
+        esPt
+          ? `Não foi possível salvar as cores: ${errorGuardar.message}`
+          : `No se pudieron guardar los colores: ${errorGuardar.message}`
+      );
+      return;
+    }
+
+    setMensaje(esPt ? 'Cores salvas — já se aplicam no seu painel.' : 'Colores guardados — ya se aplican en tu panel.');
+  }
+
+  if (cargando) {
+    return <div style={cargandoStyle}>{esPt ? 'Carregando cores...' : 'Cargando colores...'}</div>;
+  }
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 4px', fontSize: 17, color: COLORES.azul }}>
+        {esPt ? '🎨 Personalização do Painel' : '🎨 Personalización del Panel'}
+      </h2>
+      <p style={{ margin: '0 0 16px', fontSize: 12.5, color: COLORES.gris }}>
+        {esPt
+          ? 'Elija as cores que se usam no seu Painel de Controle.'
+          : 'Elegí los colores que se usan en tu Panel de Control.'}
+      </p>
+
+      {error && <div style={errorStyle}>{error}</div>}
+      {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
+
+      {!puedeEditar && (
+        <p style={{ fontSize: 12.5, color: COLORES.gris, marginBottom: 12 }}>
+          {esPt ? 'Somente quem administra a empresa pode alterar estas cores.' : 'Solo quien administra la empresa puede cambiar estos colores.'}
+        </p>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 18, marginBottom: 26 }}>
+        {(
+          [
+            ['color_primario', esPt ? 'Cor primária' : 'Color primario'],
+            ['color_secundario', esPt ? 'Cor secundária' : 'Color secundario'],
+            ['color_acento', esPt ? 'Cor de destaque' : 'Color de acento'],
+          ] as const
+        ).map(([campoColor, etiqueta]) => (
+          <div key={campoColor} style={campo}>
+            <label style={label}>{etiqueta}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="color"
+                value={colores[campoColor]}
+                disabled={!puedeEditar}
+                onChange={(e) => setColores((actual) => ({ ...actual, [campoColor]: e.target.value }))}
+                style={{ width: 44, height: 36, padding: 0, border: '1px solid #d1d5db', borderRadius: 8, cursor: puedeEditar ? 'pointer' : 'default' }}
+              />
+              <input
+                style={{ ...inputFormulario, textTransform: 'uppercase' }}
+                value={colores[campoColor]}
+                disabled={!puedeEditar}
+                onChange={(e) => setColores((actual) => ({ ...actual, [campoColor]: e.target.value }))}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {puedeEditar && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
+            {guardando ? (esPt ? 'Salvando...' : 'Guardando...') : (esPt ? 'Salvar cores' : 'Guardar colores')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
