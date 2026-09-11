@@ -346,18 +346,48 @@ export default function MercaderiaPage() {
   // "Con saldo" agrupado por categoría — cada categoría es su propio
   // desplegable, en vez de una sola tabla larga con todos los
   // productos mezclados.
-  const gruposConSaldoPorCategoria = useMemo(() => {
+  function agruparPorCategoria(lista: ProductoFila[]) {
     const grupos = new Map<string, ProductoFila[]>();
 
-    for (const producto of conSaldoVisibles) {
+    for (const producto of lista) {
       const categoria = producto.categoria || t('sinCategoria');
-      const lista = grupos.get(categoria) ?? [];
-      lista.push(producto);
-      grupos.set(categoria, lista);
+      const grupo = grupos.get(categoria) ?? [];
+      grupo.push(producto);
+      grupos.set(categoria, grupo);
     }
 
     return Array.from(grupos.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es', { sensitivity: 'base' }));
-  }, [conSaldoVisibles, t]);
+  }
+
+  // Insumos y productos terminados se muestran en bandas separadas —
+  // son dos tipos de stock con lógicas distintas (uno se compra y se
+  // consume en producción, el otro se fabrica y se vende), y dentro de
+  // cada banda se sigue agrupando por categoría como antes.
+  const conSaldoInsumos = useMemo(
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    [conSaldoVisibles]
+  );
+
+  const conSaldoTerminados = useMemo(
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    [conSaldoVisibles]
+  );
+
+  const gruposConSaldoInsumos = useMemo(() => agruparPorCategoria(conSaldoInsumos), [conSaldoInsumos, t]);
+  const gruposConSaldoTerminados = useMemo(
+    () => agruparPorCategoria(conSaldoTerminados),
+    [conSaldoTerminados, t]
+  );
+
+  const sinSaldoInsumos = useMemo(
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    [sinSaldoVisibles]
+  );
+
+  const sinSaldoTerminados = useMemo(
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    [sinSaldoVisibles]
+  );
 
   const totalUnidadesConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventarioConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.valorInventario, 0);
@@ -927,41 +957,102 @@ export default function MercaderiaPage() {
             <>
               {mostrarConSaldo && (
                 <>
-                  {gruposConSaldoPorCategoria.length === 0 && (
+                  {gruposConSaldoInsumos.length === 0 && gruposConSaldoTerminados.length === 0 && (
                     <div style={{ ...vacioStyle, marginBottom: 14 }}>{t('sinProductosConSaldo')}</div>
                   )}
 
-                  {gruposConSaldoPorCategoria.map(([categoria, productosDeCategoria]) => (
-                    <div key={categoria} style={{ marginBottom: 10 }}>
-                      <SeccionProductos
-                        titulo={categoria}
-                        esConSaldo
-                        emoji="📦"
-                        productos={productosDeCategoria}
-                        abierta={!categoriasCerradas[categoria]}
-                        onToggle={() =>
-                          setCategoriasCerradas((actual) => ({ ...actual, [categoria]: !actual[categoria] }))
-                        }
-                        mensajeVacio={t('sinProductosConSaldo')}
-                        esAdmin={esAdmin}
-                        simbolo={simboloMoneda(moneda)}
-                        onEditar={abrirEditarProducto}
-                        onEliminar={eliminarProducto}
-                        eliminandoId={eliminandoProductoId}
-                        idioma={idioma}
-                        t={t}
-                      />
-                    </div>
-                  ))}
+                  {gruposConSaldoTerminados.length > 0 && (
+                    <>
+                      <div style={bandaTituloStyle}>{t('bandaTerminados')}</div>
+
+                      {gruposConSaldoTerminados.map(([categoria, productosDeCategoria]) => {
+                        const clave = `TERMINADO:${categoria}`;
+                        return (
+                          <div key={clave} style={{ marginBottom: 10 }}>
+                            <SeccionProductos
+                              titulo={categoria}
+                              esConSaldo
+                              emoji="📦"
+                              productos={productosDeCategoria}
+                              abierta={!categoriasCerradas[clave]}
+                              onToggle={() =>
+                                setCategoriasCerradas((actual) => ({ ...actual, [clave]: !actual[clave] }))
+                              }
+                              mensajeVacio={t('sinProductosConSaldo')}
+                              esAdmin={esAdmin}
+                              simbolo={simboloMoneda(moneda)}
+                              onEditar={abrirEditarProducto}
+                              onEliminar={eliminarProducto}
+                              eliminandoId={eliminandoProductoId}
+                              idioma={idioma}
+                              t={t}
+                            />
+                          </div>
+                        );
+                      })}
+
+                      <div style={{ height: 14 }} />
+                    </>
+                  )}
+
+                  {gruposConSaldoInsumos.length > 0 && (
+                    <>
+                      <div style={bandaTituloStyle}>{t('bandaInsumos')}</div>
+
+                      {gruposConSaldoInsumos.map(([categoria, productosDeCategoria]) => {
+                        const clave = `INSUMO:${categoria}`;
+                        return (
+                          <div key={clave} style={{ marginBottom: 10 }}>
+                            <SeccionProductos
+                              titulo={categoria}
+                              esConSaldo
+                              emoji="📦"
+                              productos={productosDeCategoria}
+                              abierta={!categoriasCerradas[clave]}
+                              onToggle={() =>
+                                setCategoriasCerradas((actual) => ({ ...actual, [clave]: !actual[clave] }))
+                              }
+                              mensajeVacio={t('sinProductosConSaldo')}
+                              esAdmin={esAdmin}
+                              simbolo={simboloMoneda(moneda)}
+                              onEditar={abrirEditarProducto}
+                              onEliminar={eliminarProducto}
+                              eliminandoId={eliminandoProductoId}
+                              idioma={idioma}
+                              t={t}
+                            />
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </>
               )}
 
               <div style={{ height: 14 }} />
 
               <SeccionProductos
-                titulo={t('sinSaldo')}
+                titulo={`${t('sinSaldo')} — ${t('bandaTerminados')}`}
                 emoji="⚪"
-                productos={sinSaldoVisibles}
+                productos={sinSaldoTerminados}
+                abierta={mostrarSinSaldo}
+                onToggle={() => setMostrarSinSaldo((actual) => !actual)}
+                mensajeVacio={t('sinProductosSinSaldo')}
+                esAdmin={esAdmin}
+                simbolo={simboloMoneda(moneda)}
+                onEditar={abrirEditarProducto}
+                onEliminar={eliminarProducto}
+                eliminandoId={eliminandoProductoId}
+                idioma={idioma}
+                t={t}
+              />
+
+              <div style={{ height: 10 }} />
+
+              <SeccionProductos
+                titulo={`${t('sinSaldo')} — ${t('bandaInsumos')}`}
+                emoji="⚪"
+                productos={sinSaldoInsumos}
                 abierta={mostrarSinSaldo}
                 onToggle={() => setMostrarSinSaldo((actual) => !actual)}
                 mensajeVacio={t('sinProductosSinSaldo')}
@@ -1773,6 +1864,15 @@ const tablaContenedorSolo: React.CSSProperties = {
 const cabeceraFila: React.CSSProperties = {
   background: '#f8fafc',
   textAlign: 'left',
+};
+
+const bandaTituloStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  color: COLORES.azul,
+  margin: '4px 0 10px',
+  paddingBottom: 6,
+  borderBottom: '2px solid #e5e7eb',
 };
 
 const filaStyle: React.CSSProperties = {

@@ -36,7 +36,46 @@ type Clave =
   | 'errorSinEmpresaCalcular'
   | 'errorSeleccionarProducto'
   | 'errorCantidadInvalida'
-  | 'errorCalcular';
+  | 'errorCalcular'
+  | 'pestanaProduccion'
+  | 'pestanaRecetas'
+  | 'confirmarProduccion'
+  | 'confirmando'
+  | 'produccionConfirmadaTitulo'
+  | 'produccionConfirmadaTexto'
+  | 'errorConfirmarProduccion'
+  | 'faltaComprarTitulo'
+  | 'recetasTitulo'
+  | 'recetasSubtitulo'
+  | 'nuevaReceta'
+  | 'accionEditar'
+  | 'accionEliminar'
+  | 'accionReactivar'
+  | 'recetaInactiva'
+  | 'sinRecetas'
+  | 'nombreReceta'
+  | 'nombreRecetaPlaceholder'
+  | 'rendimientoLabel'
+  | 'rendimientoPlaceholder'
+  | 'insumosDeLaReceta'
+  | 'agregarInsumo'
+  | 'insumoPlaceholder'
+  | 'cantidadInsumo'
+  | 'unidadInsumo'
+  | 'quitarInsumo'
+  | 'guardarReceta'
+  | 'guardandoReceta'
+  | 'cancelar'
+  | 'confirmarEliminarReceta'
+  | 'errorGuardarReceta'
+  | 'mensajeRecetaGuardada'
+  | 'columnaProducto'
+  | 'columnaRendimiento'
+  | 'columnaEstado'
+  | 'columnaAcciones'
+  | 'elegirProductoPrimero'
+  | 'sinInsumosDisponibles'
+  | 'fechaProduccion';
 
 export const diccionarioProduccion: Diccionario<Clave> = {
   ES: {
@@ -77,6 +116,45 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     errorSeleccionarProducto: 'Seleccioná un producto terminado.',
     errorCantidadInvalida: 'La cantidad a producir debe ser mayor que cero.',
     errorCalcular: 'No se pudo calcular la producción.',
+    pestanaProduccion: 'Producción',
+    pestanaRecetas: 'Recetas',
+    confirmarProduccion: 'Confirmar producción',
+    confirmando: 'Confirmando...',
+    produccionConfirmadaTitulo: '✓ Producción confirmada',
+    produccionConfirmadaTexto: 'Se descontaron los insumos, se generó el producto terminado en stock y se registró el costo. Ya podés venderlo desde Lançamentos.',
+    errorConfirmarProduccion: 'No se pudo confirmar la producción.',
+    faltaComprarTitulo: 'Falta comprar',
+    recetasTitulo: 'Recetas',
+    recetasSubtitulo: 'Cada producto terminado tiene como máximo una receta. Definí qué insumos y en qué cantidad se necesitan para fabricarlo.',
+    nuevaReceta: '+ Nueva receta',
+    accionEditar: 'Editar',
+    accionEliminar: 'Eliminar',
+    accionReactivar: 'Reactivar',
+    recetaInactiva: 'Inactiva',
+    sinRecetas: 'Todavía no cargaste ninguna receta.',
+    nombreReceta: 'Nombre de la receta',
+    nombreRecetaPlaceholder: 'Ej.: Alfajores de maicena x16',
+    rendimientoLabel: 'Rinde (cantidad de producto terminado)',
+    rendimientoPlaceholder: 'Ej.: 16',
+    insumosDeLaReceta: 'Insumos de la receta',
+    agregarInsumo: '+ Agregar insumo',
+    insumoPlaceholder: 'Seleccionar insumo...',
+    cantidadInsumo: 'Cantidad',
+    unidadInsumo: 'Unidad',
+    quitarInsumo: 'Quitar',
+    guardarReceta: 'Guardar receta',
+    guardandoReceta: 'Guardando...',
+    cancelar: 'Cancelar',
+    confirmarEliminarReceta: '¿Eliminar esta receta? Vas a poder reactivarla después si hace falta.',
+    errorGuardarReceta: 'No se pudo guardar la receta.',
+    mensajeRecetaGuardada: 'Receta guardada.',
+    columnaProducto: 'Producto',
+    columnaRendimiento: 'Rinde',
+    columnaEstado: 'Estado',
+    columnaAcciones: 'Acciones',
+    elegirProductoPrimero: 'Elegí primero un producto terminado.',
+    sinInsumosDisponibles: 'No hay insumos cargados en Mercadería todavía.',
+    fechaProduccion: 'Fecha de la producción',
   },
   PT: {
     volver: 'Voltar para Meu Negócio',
@@ -116,6 +194,45 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     errorSeleccionarProducto: 'Selecione um produto terminado.',
     errorCantidadInvalida: 'A quantidade a produzir deve ser maior que zero.',
     errorCalcular: 'Não foi possível calcular a produção.',
+    pestanaProduccion: 'Produção',
+    pestanaRecetas: 'Receitas',
+    confirmarProduccion: 'Confirmar produção',
+    confirmando: 'Confirmando...',
+    produccionConfirmadaTitulo: '✓ Produção confirmada',
+    produccionConfirmadaTexto: 'Os insumos foram descontados, o produto terminado foi gerado no estoque e o custo foi registrado. Já pode vendê-lo em Lançamentos.',
+    errorConfirmarProduccion: 'Não foi possível confirmar a produção.',
+    faltaComprarTitulo: 'Falta comprar',
+    recetasTitulo: 'Receitas',
+    recetasSubtitulo: 'Cada produto terminado tem no máximo uma receita. Defina quais insumos e em que quantidade são necessários para fabricá-lo.',
+    nuevaReceta: '+ Nova receita',
+    accionEditar: 'Editar',
+    accionEliminar: 'Excluir',
+    accionReactivar: 'Reativar',
+    recetaInactiva: 'Inativa',
+    sinRecetas: 'Você ainda não cadastrou nenhuma receita.',
+    nombreReceta: 'Nome da receita',
+    nombreRecetaPlaceholder: 'Ex.: Alfajores de maisena x16',
+    rendimientoLabel: 'Rende (quantidade de produto terminado)',
+    rendimientoPlaceholder: 'Ex.: 16',
+    insumosDeLaReceta: 'Insumos da receita',
+    agregarInsumo: '+ Adicionar insumo',
+    insumoPlaceholder: 'Selecionar insumo...',
+    cantidadInsumo: 'Quantidade',
+    unidadInsumo: 'Unidade',
+    quitarInsumo: 'Remover',
+    guardarReceta: 'Salvar receita',
+    guardandoReceta: 'Salvando...',
+    cancelar: 'Cancelar',
+    confirmarEliminarReceta: 'Excluir esta receita? Você vai poder reativá-la depois se precisar.',
+    errorGuardarReceta: 'Não foi possível salvar a receita.',
+    mensajeRecetaGuardada: 'Receita salva.',
+    columnaProducto: 'Produto',
+    columnaRendimiento: 'Rende',
+    columnaEstado: 'Situação',
+    columnaAcciones: 'Ações',
+    elegirProductoPrimero: 'Selecione primeiro um produto terminado.',
+    sinInsumosDisponibles: 'Ainda não há insumos cadastrados em Mercadoria.',
+    fechaProduccion: 'Data da produção',
   },
 };
 
@@ -145,6 +262,19 @@ export function msgHayStockSuficiente(
   return esPT(idioma)
     ? `✓ Há estoque suficiente para produzir ${cantidad} ${nombreProducto}.`
     : `✓ Hay stock suficiente para producir ${cantidad} ${nombreProducto}.`;
+}
+
+export function msgFaltaComprar(
+  idioma: string | null | undefined,
+  nombre: string,
+  faltante: string,
+  unidad: string,
+  disponible: string,
+  necesario: string
+): string {
+  return esPT(idioma)
+    ? `${nombre}: faltam ${faltante} ${unidad} (você tem ${disponible}, precisa de ${necesario})`
+    : `${nombre}: faltan ${faltante} ${unidad} (tenés ${disponible}, necesitás ${necesario})`;
 }
 
 export function msgNoHayStockSuficiente(idioma: string | null | undefined): string {
