@@ -389,7 +389,16 @@ export function CalendarioOrganizador({
             />
           )}
 
-          <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+          {/* En celular en vertical, "MIÉRCOLES"/"SÁBADO" y las
+              anotaciones de cada día empujan cada columna más allá de
+              lo que entra en pantalla — antes esa parte sobrante
+              quedaba directamente cortada (el sábado y el domingo ni
+              se veían). Envolver la grilla completa (cabecera +
+              semanas) en un contenedor con scroll horizontal propio y
+              un ancho mínimo deja que se deslice el dedo para ver los
+              días que no entran, en vez de perderlos. */}
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6, minWidth: 560 }}>
             {diasSemana.map((dia, indiceColumna) => {
               const esFinDeSemana = indiceColumna === 5 || indiceColumna === 6;
               return (
@@ -418,7 +427,7 @@ export function CalendarioOrganizador({
             </div>
           ) : (
             filas.map((fila, i) => (
-              <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+              <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6, minWidth: 560 }}>
                 {fila.map((celda, indiceColumna) => {
                   const eventosDelDia = eventosPorFecha.get(celda.fecha) ?? [];
                   const esHoy = celda.fecha === hoyStr;
@@ -534,6 +543,7 @@ export function CalendarioOrganizador({
               </div>
             ))
           )}
+          </div>
         </div>
 
         {/* CATEGORIAS + ANOTAÇÕES — debajo de la grilla, lado a lado
