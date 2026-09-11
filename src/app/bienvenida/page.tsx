@@ -344,6 +344,27 @@ export default function BienvenidaPage() {
           <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>{t('subtitulo')}</p>
         </header>
 
+        <div
+          style={{
+            background: '#eef4f1',
+            border: '1px solid #bfdbfe',
+            borderRadius: 14,
+            padding: '16px 20px',
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 14, color: COLORES.azul, marginBottom: 4 }}>{t('privacidadTitulo')}</div>
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{t('privacidadTexto')}</p>
+          <a
+            href="https://visao-financeira-web.vercel.app/privacidad.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12.5, fontWeight: 700, color: COLORES.verde }}
+          >
+            {t('privacidadLink')} →
+          </a>
+        </div>
+
         <main style={panel}>
           <Seccion titulo={etiquetaCategoria} ayuda={ayudaCategoria}>
             <FilaAgregar

@@ -9,6 +9,7 @@ type Clave =
   | 'tuSexo'
   | 'sexoFemenino'
   | 'sexoMasculino'
+  | 'sexoAyuda'
   | 'seleccionar'
   | 'email'
   | 'emailPlaceholder'
@@ -58,13 +59,14 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     tuSexo: 'Sexo *',
     sexoFemenino: 'Femenino',
     sexoMasculino: 'Masculino',
+    sexoAyuda: 'Solo lo usamos para elegir el avatar que ves en pantalla — no se usa para nada más.',
     seleccionar: 'Seleccionar...',
     email: 'Email *',
     emailPlaceholder: 'tuemail@ejemplo.com',
     contrasena: 'Contraseña *',
     contrasenaPlaceholder: 'Al menos 6 caracteres',
     telefono: 'Teléfono *',
-    telefonoAyuda: 'Lo usamos para los comprobantes por WhatsApp y el Sabio Bot, y para contactarte si hace falta.',
+    telefonoAyuda: 'Lo usamos para los comprobantes por WhatsApp y para que Sabio te ayude a cargar información, y para contactarte si hace falta.',
     numero: 'Número',
     nombreEmpresa: 'Nombre de tu empresa/negocio *',
     nombreEmpresaPlaceholder: 'Ej: Mi Negocio',
@@ -108,13 +110,14 @@ export const diccionarioCrearCuenta: Diccionario<Clave> = {
     tuSexo: 'Sexo *',
     sexoFemenino: 'Feminino',
     sexoMasculino: 'Masculino',
+    sexoAyuda: 'Usamos apenas para escolher o avatar que você vê na tela — não é usado para mais nada.',
     seleccionar: 'Selecionar...',
     email: 'Email *',
     emailPlaceholder: 'seuemail@exemplo.com',
     contrasena: 'Senha *',
     contrasenaPlaceholder: 'Pelo menos 6 caracteres',
     telefono: 'Telefone *',
-    telefonoAyuda: 'Usamos para os comprovantes por WhatsApp e o Sabio Bot, e para entrar em contato se precisar.',
+    telefonoAyuda: 'Usamos para os comprovantes por WhatsApp e para que o Sabio te ajude a registrar informação, e para entrar em contato se precisar.',
     numero: 'Número',
     nombreEmpresa: 'Nome da sua empresa/negócio *',
     nombreEmpresaPlaceholder: 'Ex: Meu Negócio',

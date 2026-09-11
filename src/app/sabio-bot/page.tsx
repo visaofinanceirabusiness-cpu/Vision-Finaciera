@@ -61,10 +61,10 @@ export default function SabioBotPage() {
           ← Volver
         </Link>
 
-        <h1 style={{ margin: '0 0 4px', fontSize: 22, color: COLORES.azul }}>🦉 Sabio Bot</h1>
+        <h1 style={{ margin: '0 0 4px', fontSize: 22, color: COLORES.azul }}>🦉 Sabio</h1>
 
         <p style={{ fontSize: 12.5, color: COLORES.gris, marginTop: 0, marginBottom: 16 }}>
-          Simulador interno — probá cómo respondería el bot antes de conectarlo a un WhatsApp real.
+          Simulador interno — probá cómo respondería Sabio antes de conectarlo a un WhatsApp real.
         </p>
 
         {cargando ? (

@@ -295,7 +295,7 @@ export default function ConfiguracoesPage() {
               }}
               title={idioma === 'PT' ? 'Testar o assistente por chat (beta)' : 'Probar el asistente por chat (beta)'}
             >
-              🦉 {idioma === 'PT' ? 'Sabio Bot (beta)' : 'Sabio Bot (beta)'}
+              🦉 {idioma === 'PT' ? 'Sabio (beta)' : 'Sabio (beta)'}
             </Link>
           </div>
 
