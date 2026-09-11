@@ -552,6 +552,35 @@ export default function PanelMaestroPage() {
         </Link>
 
         {/* =================================================
+            INFORME V3.0 — DÍA 1 — VERSIÓN 2 (cierre formal:
+            ANTES → ACCIÓN → DESPUÉS → ESTADO)
+        ================================================== */}
+
+        <Link
+          href="/panel-maestro/informe-v2"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+            background: COLORES_BASE.blanco,
+            border: '1px solid #bbf7d0',
+            borderRadius: 20,
+            padding: '18px 22px',
+            marginBottom: 24,
+            boxShadow: '0 10px 24px rgba(22,101,52,0.08)',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
+            📊 Informe V3.0 — Día 1 — Versión 2 (cierre)
+          </span>
+
+          <span style={{ color: '#166534', fontSize: 13, fontWeight: 700 }}>Ver informe →</span>
+        </Link>
+
+        {/* =================================================
             AUDITORÍA DE ACTIVIDAD — Bloque F del Día 1 de seguridad
         ================================================== */}
 
