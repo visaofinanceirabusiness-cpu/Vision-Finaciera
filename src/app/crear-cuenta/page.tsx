@@ -303,6 +303,7 @@ export default function CrearCuentaPage() {
               <option value="F">{t('sexoFemenino')}</option>
               <option value="M">{t('sexoMasculino')}</option>
             </select>
+            <p style={{ fontSize: 11.5, color: COLORES.gris, margin: '5px 0 0' }}>{t('sexoAyuda')}</p>
           </div>
 
           <div>

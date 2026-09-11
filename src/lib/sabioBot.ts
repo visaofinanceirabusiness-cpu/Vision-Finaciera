@@ -216,7 +216,7 @@ async function iniciar(empresaId: string): Promise<string> {
 
   await guardarConversacion(empresaId, 'FECHA', datos);
 
-  return `🦉 ${t(idioma, '¡Hola! Soy el Sabio Bot. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio Bot. Qual é a data da operação?')}\n\n${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
+  return `🦉 ${t(idioma, '¡Hola! Soy Sabio. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio. Qual é a data da operação?')}\n\n${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
 }
 
 function mensajeElegirOperacion(idioma: string | undefined, opciones: string[]): string {

@@ -28,7 +28,10 @@ type Clave =
   | 'errorMinimoClientes'
   | 'errorMinimoProducto'
   | 'errorSeleccionarCategoria'
-  | 'errorMatriz';
+  | 'errorMatriz'
+  | 'privacidadTitulo'
+  | 'privacidadTexto'
+  | 'privacidadLink';
 
 export const diccionarioBienvenida: Diccionario<Clave> = {
   ES: {
@@ -61,6 +64,10 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     errorMinimoProducto: 'Cargá al menos un producto.',
     errorSeleccionarCategoria: 'Elegí a qué categoría pertenece.',
     errorMatriz: 'Los datos se guardaron, pero no se pudo generar la matriz de operaciones.',
+    privacidadTitulo: '🔒 Antes de arrancar, dos cosas sobre tus datos',
+    privacidadTexto:
+      'Todo lo que cargues acá es tuyo: podés descargarlo o pedir que lo eliminemos cuando quieras, desde Configurações. Nunca te vamos a pedir tu contraseña bancaria, tarjeta ni CPF/DNI.',
+    privacidadLink: 'Ver la Política de Privacidad completa',
   },
   PT: {
     eyebrow: 'CONFIGURAÇÃO INICIAL',
@@ -92,5 +99,9 @@ export const diccionarioBienvenida: Diccionario<Clave> = {
     errorMinimoProducto: 'Cadastre pelo menos um produto.',
     errorSeleccionarCategoria: 'Escolha a qual categoria pertence.',
     errorMatriz: 'Os dados foram salvos, mas não foi possível gerar a matriz de operações.',
+    privacidadTitulo: '🔒 Antes de começar, duas coisas sobre seus dados',
+    privacidadTexto:
+      'Tudo o que você cadastrar aqui é seu: você pode baixar ou pedir para excluirmos quando quiser, direto em Configurações. Nunca vamos pedir sua senha do banco, cartão ou CPF/DNI.',
+    privacidadLink: 'Ver a Política de Privacidade completa',
   },
 };
