@@ -401,7 +401,7 @@ export async function buscarRegla(
 // GENERAR ID DE OPERACIÓN
 // =====================================================
 
-async function generarIdOperacion(
+export async function generarIdOperacion(
   empresaId: string
 ) {
   const { data, error } = await supabase

@@ -36,6 +36,8 @@ type Clave =
   | 'sinSaldo'
   | 'sinProductosConSaldo'
   | 'sinProductosSinSaldo'
+  | 'bandaInsumos'
+  | 'bandaTerminados'
   | 'unidades'
   | 'valorInventarioEtiqueta'
   | 'saldoTotalEtiqueta'
@@ -123,6 +125,8 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     sinSaldo: 'Sin saldo',
     sinProductosConSaldo: 'No hay productos con saldo disponible.',
     sinProductosSinSaldo: 'No hay productos sin saldo.',
+    bandaInsumos: '🧪 Insumos',
+    bandaTerminados: '📦 Productos terminados',
     unidades: 'unidades',
     valorInventarioEtiqueta: 'Valor inventario:',
     saldoTotalEtiqueta: 'Saldo total:',
@@ -209,6 +213,8 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     sinSaldo: 'Sem saldo',
     sinProductosConSaldo: 'Não há produtos com saldo disponível.',
     sinProductosSinSaldo: 'Não há produtos sem saldo.',
+    bandaInsumos: '🧪 Insumos',
+    bandaTerminados: '📦 Produtos terminados',
     unidades: 'unidades',
     valorInventarioEtiqueta: 'Valor do estoque:',
     saldoTotalEtiqueta: 'Saldo total:',

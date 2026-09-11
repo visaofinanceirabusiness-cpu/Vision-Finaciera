@@ -6,19 +6,24 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
   calcularConsumo,
+  confirmarProduccion,
   CalculoProduccion,
   ProductoProduccion,
+  ResultadoProduccion,
 } from '@/lib/produccion';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { RecetasTab } from './RecetasTab';
+import { fechaLocalHoy } from '@/lib/fecha';
 import {
   diccionarioProduccion,
   msgStockSuficiente,
   msgStockFaltante,
   msgFaltan,
+  msgFaltaComprar,
   msgHayStockSuficiente,
   msgNoHayStockSuficiente,
   frasesSabioProduccion,
@@ -39,15 +44,20 @@ const COLORES = {
 export default function ProduccionPage() {
   const router = useRouter();
 
+  const [pestana, setPestana] = useState<'produccion' | 'recetas'>('produccion');
+
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [idioma, setIdioma] = useState<string | null>(null);
   const [productos, setProductos] = useState<ProductoProduccion[]>([]);
   const [productoId, setProductoId] = useState('');
   const [cantidad, setCantidad] = useState('');
+  const [fecha, setFecha] = useState(fechaLocalHoy());
   const [calculo, setCalculo] = useState<CalculoProduccion | null>(null);
 
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [calculando, setCalculando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [resultado, setResultado] = useState<ResultadoProduccion | null>(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -124,6 +134,7 @@ export default function ProduccionPage() {
 
   function limpiarCalculo() {
     setCalculo(null);
+    setResultado(null);
     setError('');
     setMensaje('');
   }
@@ -173,6 +184,32 @@ export default function ProduccionPage() {
       );
     } finally {
       setCalculando(false);
+    }
+  }
+
+  async function handleConfirmar() {
+    if (!empresaId || !productoId || !calculo) return;
+
+    const cantidadNumerica = Number(cantidad);
+    setConfirmando(true);
+    setError('');
+    setResultado(null);
+
+    try {
+      const resultadoConfirmacion = await confirmarProduccion(empresaId, productoId, cantidadNumerica, fecha);
+      setResultado(resultadoConfirmacion);
+
+      if (resultadoConfirmacion.ok) {
+        // Se recalcula para que la tabla de insumos/stock quede al
+        // día (los que se acaban de consumir) en vez de mostrar el
+        // cálculo viejo, ya desactualizado.
+        const recalculo = await calcularConsumo(empresaId, productoId, cantidadNumerica);
+        setCalculo(recalculo);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('errorConfirmarProduccion'));
+    } finally {
+      setConfirmando(false);
     }
   }
 
@@ -281,6 +318,27 @@ export default function ProduccionPage() {
 
         {/* PANEL PRINCIPAL */}
         <main style={panel}>
+          <div style={selectorPestanas}>
+            <button
+              type="button"
+              onClick={() => setPestana('produccion')}
+              style={botonPestana(pestana === 'produccion')}
+            >
+              {t('pestanaProduccion')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPestana('recetas')}
+              style={botonPestana(pestana === 'recetas')}
+            >
+              {t('pestanaRecetas')}
+            </button>
+          </div>
+
+          {pestana === 'recetas' ? (
+            empresaId && <RecetasTab empresaId={empresaId} idioma={idioma} />
+          ) : (
+          <>
           <div style={panelTitulo}>
             <div>
               <p style={eyebrow}>{t('eyebrowNueva')}</p>
@@ -527,31 +585,55 @@ export default function ProduccionPage() {
                   : msgNoHayStockSuficiente(idioma)}
               </div>
 
-              {/* TODAVÍA NO PRODUCE */}
+              {/* CONFIRMAR PRODUCCIÓN — descuenta insumos, genera el
+                  producto terminado en stock con su costo calculado,
+                  y deja el asiento de transferencia de inventario. */}
               <div style={bloqueProximaEtapa}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: COLORES.azul,
-                  }}
-                >
-                  {t('proximoPaso')}
-                </p>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
+                  <Campo label={t('fechaProduccion')}>
+                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
+                  </Campo>
 
-                <p
-                  style={{
-                    margin: '5px 0 0',
-                    fontSize: 13,
-                    color: COLORES.gris,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {t('proximoPasoTexto')}
-                </p>
+                  <button
+                    type="button"
+                    onClick={handleConfirmar}
+                    disabled={confirmando || !calculo.stockSuficiente}
+                    style={{ ...botonPrincipal, opacity: confirmando || !calculo.stockSuficiente ? 0.55 : 1 }}
+                  >
+                    {confirmando ? t('confirmando') : t('confirmarProduccion')}
+                  </button>
+                </div>
+
+                {resultado && resultado.ok && (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: COLORES.verdeClaro, color: '#247347' }}>
+                    <strong>{t('produccionConfirmadaTitulo')}</strong>
+                    <p style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.5 }}>{t('produccionConfirmadaTexto')}</p>
+                  </div>
+                )}
+
+                {resultado && !resultado.ok && (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fef2f2', color: '#991b1b' }}>
+                    <strong>{t('faltaComprarTitulo')}</strong>
+                    <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                      {resultado.faltantes.map((f) => (
+                        <li key={f.insumoId} style={{ fontSize: 13, marginBottom: 3 }}>
+                          {msgFaltaComprar(
+                            idioma,
+                            f.nombre,
+                            formatearNumero(f.faltante, idioma),
+                            f.unidadMedida,
+                            formatearNumero(f.disponible, idioma),
+                            formatearNumero(f.necesario, idioma)
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </section>
+          )}
+          </>
           )}
         </main>
       </div>
@@ -658,6 +740,27 @@ const panel: React.CSSProperties = {
   boxShadow: '0 14px 36px rgba(31,58,95,0.10)',
   border: '1px solid rgba(31,58,95,0.07)',
 };
+
+const selectorPestanas: React.CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  marginBottom: 24,
+  borderBottom: '1px solid #e7edf1',
+  paddingBottom: 4,
+};
+
+function botonPestana(activa: boolean): React.CSSProperties {
+  return {
+    padding: '9px 16px',
+    borderRadius: '10px 10px 0 0',
+    border: 'none',
+    background: activa ? COLORES.azul : 'transparent',
+    color: activa ? COLORES.blanco : COLORES.gris,
+    fontWeight: 700,
+    fontSize: 13.5,
+    cursor: 'pointer',
+  };
+}
 
 const panelTitulo: React.CSSProperties = {
   display: 'flex',
