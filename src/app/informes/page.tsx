@@ -913,13 +913,16 @@ function SeccionResultado({
           borderRadius: '10px 10px 0 0',
           border: '1px solid #e5e7eb',
           borderBottom: 'none',
+          gap: 12,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
-        <strong style={{ color: COLORES.azul, fontSize: 13 }}>
+        <strong style={{ color: COLORES.azul, fontSize: 13, whiteSpace: 'nowrap' }}>
           {emoji} {titulo}
         </strong>
 
-        <strong style={{ color, fontSize: 13 }}>
+        <strong style={{ color, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
         </strong>
       </div>
@@ -930,21 +933,24 @@ function SeccionResultado({
             {t('sinMovimientoPeriodo')}
           </div>
         ) : (
-          filas.map((fila, indice) => (
-            <div
-              key={fila.cuenta.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '9px 14px',
-                fontSize: 13,
-                borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
-              }}
-            >
-              <span>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
-              <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
-            </div>
-          ))
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {filas.map((fila, indice) => (
+              <div
+                key={fila.cuenta.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '9px 14px',
+                  fontSize: 13,
+                  gap: 16,
+                  borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
+                }}
+              >
+                <span style={{ whiteSpace: 'nowrap' }}>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
+                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -1165,13 +1171,16 @@ function SeccionMontos({
           borderRadius: '10px 10px 0 0',
           border: '1px solid #e5e7eb',
           borderBottom: 'none',
+          gap: 12,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
-        <strong style={{ color: COLORES.azul, fontSize: 13 }}>
+        <strong style={{ color: COLORES.azul, fontSize: 13, whiteSpace: 'nowrap' }}>
           {emoji} {titulo}
         </strong>
 
-        <strong style={{ color, fontSize: 13 }}>
+        <strong style={{ color, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
         </strong>
       </div>
@@ -1182,21 +1191,24 @@ function SeccionMontos({
             {t('sinMovimientoPeriodo')}
           </div>
         ) : (
-          filas.map((fila, indice) => (
-            <div
-              key={fila.nombre}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '9px 14px',
-                fontSize: 13,
-                borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
-              }}
-            >
-              <span>{nombreCuentaDisplay(idioma, fila.nombre)}</span>
-              <span>{simbolo} {formatearNumeroEntero(fila.valor)}</span>
-            </div>
-          ))
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {filas.map((fila, indice) => (
+              <div
+                key={fila.nombre}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '9px 14px',
+                  fontSize: 13,
+                  gap: 16,
+                  borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
+                }}
+              >
+                <span style={{ whiteSpace: 'nowrap' }}>{nombreCuentaDisplay(idioma, fila.nombre)}</span>
+                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(fila.valor)}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -1412,6 +1424,13 @@ function BloqueBalance({
   const t = crearTraductor(diccionarioInformes, idioma);
   const entradas = Array.from(grupos.entries());
 
+  // En vertical (columna angosta) el nombre de la cuenta + el monto
+  // pueden ser más anchos que la pantalla — antes se cortaban porque
+  // el contenedor tenía overflow:hidden y las filas no tenían scroll
+  // propio. Ahora cada zona con filas se desplaza horizontalmente
+  // (overflowX:auto) y los montos no se comprimen (whiteSpace:nowrap
+  // + flexShrink:0), así nunca se pierde un dato, solo hay que
+  // deslizar el dedo para verlo completo.
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
       <div
@@ -1421,29 +1440,32 @@ function BloqueBalance({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 12,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
-        <strong style={{ color: COLORES.azul, fontSize: 14 }}>
+        <strong style={{ color: COLORES.azul, fontSize: 14, whiteSpace: 'nowrap' }}>
           {emoji} {titulo}
         </strong>
 
-        <strong style={{ color, fontSize: 14 }}>{simbolo} {formatearNumeroEntero((total + (filaExtra?.valor ?? 0)))}</strong>
+        <strong style={{ color, fontSize: 14, whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero((total + (filaExtra?.valor ?? 0)))}</strong>
       </div>
 
-      <div style={{ padding: '4px 0' }}>
+      <div style={{ padding: '4px 0', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {entradas.map(([grupo, filas]) => (
           <div key={grupo} style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: COLORES.gris, marginBottom: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: COLORES.gris, marginBottom: 4, whiteSpace: 'nowrap' }}>
               {nombreCuentaDisplay(idioma, grupo).toUpperCase()}
             </div>
 
             {filas.map((fila) => (
               <div
                 key={fila.cuenta.id}
-                style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0' }}
+                style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0', gap: 16 }}
               >
-                <span>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
-                <span>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
+                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
               </div>
             ))}
           </div>
@@ -1460,11 +1482,12 @@ function BloqueBalance({
               justifyContent: 'space-between',
               fontSize: 13,
               fontWeight: 800,
+              gap: 16,
               color: filaExtra.valor >= 0 ? '#247347' : '#dc2626',
             }}
           >
-            <span>{filaExtra.nombre}</span>
-            <span>{simbolo} {formatearNumeroEntero(filaExtra.valor)}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{filaExtra.nombre}</span>
+            <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(filaExtra.valor)}</span>
           </div>
         )}
 
