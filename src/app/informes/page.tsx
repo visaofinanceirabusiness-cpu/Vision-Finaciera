@@ -1354,7 +1354,13 @@ function BalancePatrimonialTab({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          // min(340px, 100%) en vez de 340px a secas: si el ancho
+          // disponible es menor a 340px (celular en vertical), la
+          // columna se achica a ese 100% en vez de forzar que toda la
+          // grilla se salga de la pantalla sin ninguna forma de
+          // deslizarla -- eso era lo que dejaba "clavado" el bloque
+          // aunque las filas de adentro ya tuvieran su propio scroll.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
           gap: 18,
         }}
       >
