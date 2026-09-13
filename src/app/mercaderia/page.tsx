@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
+import { simboloMoneda, formatearNumeroEntero, formatearCostoUnitario } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -1144,7 +1144,7 @@ export default function MercaderiaPage() {
 
                         <Td align="right">{fila.cantidad}</Td>
                         <Td align="right">{fila.saldoAcumulado}</Td>
-                        <Td align="right">{simbolo} {formatearNumeroEntero(Number(fila.costo_unitario))}</Td>
+                        <Td align="right">{simbolo} {formatearCostoUnitario(Number(fila.costo_unitario))}</Td>
                         <Td align="right">
                           {simbolo} {formatearNumeroEntero(Number(fila.total ?? fila.cantidad * fila.costo_unitario))}
                         </Td>
@@ -1436,7 +1436,7 @@ function SeccionProductos({
                     </span>
                   </Td>
                   <Td>{etiquetaUnidad(producto.unidad_medida, t)}</Td>
-                  <Td align="right">{simbolo} {formatearNumeroEntero(producto.costoPromedio)}</Td>
+                  <Td align="right">{simbolo} {formatearCostoUnitario(producto.costoPromedio)}</Td>
                   <Td align="right">{simbolo} {formatearNumeroEntero(producto.valorInventario)}</Td>
                   <Td>
                     {producto.saldo <= 0 ? t('sinStock') : producto.saldo <= 1 ? t('bajoStock') : t('activo')}

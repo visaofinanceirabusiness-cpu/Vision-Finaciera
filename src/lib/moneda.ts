@@ -30,3 +30,16 @@ export function formatearNumeroEntero(valor: number): string {
     maximumFractionDigits: 0,
   });
 }
+
+// Costo por unidad de stock (ej. precio por gramo, por mililitro o
+// por centímetro de un insumo) — a diferencia de un total, acá
+// redondear a entero puede esconder el valor entero: comprar a
+// R$ 0,05 el gramo se mostraba como "0" con formatearNumeroEntero.
+// Se muestran hasta 4 decimales para valores menores a 1, y hasta 2
+// para el resto (toLocaleString recorta los decimales que sobran).
+export function formatearCostoUnitario(valor: number): string {
+  return valor.toLocaleString('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.abs(valor) < 1 ? 4 : 2,
+  });
+}
