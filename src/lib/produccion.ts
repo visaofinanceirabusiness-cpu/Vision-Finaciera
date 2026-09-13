@@ -66,29 +66,53 @@ export type CalculoProduccion = {
 // CONVERSIÓN DE UNIDADES
 // ============================================================
 //
-// Las únicas 5 unidades que existen hoy en Mercadería/Producción
+// Las 4 unidades "generales" que existen hoy en Mercadería/Producción
 // (ver opcionesUnidad en mercaderia/page.tsx y el CHECK de
-// produccion_detalle.unidad_medida). Se agrupan en 3 familias: no
-// tiene sentido convertir litros a kilos, por ejemplo.
+// productos/receta_detalle/produccion_detalle.unidad_medida). Se
+// agrupan en 3 familias: no tiene sentido convertir litros a metros,
+// por ejemplo.
 
-export const UNIDADES_PRODUCCION = ['UNIDAD', 'KG', 'G', 'L', 'ML'] as const;
+export const UNIDADES_PRODUCCION = ['UNIDAD', 'GRAMO', 'LITRO', 'METRO'] as const;
+
+// Unidades "de compra" más prácticas para cargar cantidades grandes o
+// chicas en la Central de Lanzamientos (kilos en vez de miles de
+// gramos, centímetros en vez de fracciones de metro) — nunca se
+// guardan en la base, se convierten a la unidad general antes de
+// registrar la operación. Por eso no forman parte de
+// UNIDADES_PRODUCCION ni de ningún CHECK: son transitorias.
+export const UNIDAD_FINA_ALTERNATIVA: Record<string, string> = {
+  GRAMO: 'KILOGRAMO',
+  LITRO: 'MILILITRO',
+  METRO: 'CENTIMETRO',
+};
+
+export function opcionesUnidadCarga(unidadGeneral: string | null | undefined): string[] {
+  if (!unidadGeneral) return [];
+  const alternativa = UNIDAD_FINA_ALTERNATIVA[unidadGeneral];
+  return alternativa ? [unidadGeneral, alternativa] : [unidadGeneral];
+}
 
 const FAMILIA_UNIDAD: Record<string, string> = {
   UNIDAD: 'CONTEO',
-  KG: 'MASA',
-  G: 'MASA',
-  L: 'VOLUMEN',
-  ML: 'VOLUMEN',
+  GRAMO: 'MASA',
+  KILOGRAMO: 'MASA',
+  LITRO: 'VOLUMEN',
+  MILILITRO: 'VOLUMEN',
+  METRO: 'LONGITUD',
+  CENTIMETRO: 'LONGITUD',
 };
 
-// Factor para llevar la cantidad a la unidad base de su familia
-// (gramos para masa, mililitros para volumen, unidades para conteo).
+// Factor para llevar la cantidad a la unidad base de su familia (la
+// unidad general misma vale 1; la alternativa fina/gruesa de compra
+// se expresa en relación a esa unidad general).
 const A_UNIDAD_BASE: Record<string, number> = {
   UNIDAD: 1,
-  KG: 1000,
-  G: 1,
-  L: 1000,
-  ML: 1,
+  GRAMO: 1,
+  KILOGRAMO: 1000,
+  LITRO: 1,
+  MILILITRO: 0.001,
+  METRO: 1,
+  CENTIMETRO: 0.01,
 };
 
 export function convertirCantidad(

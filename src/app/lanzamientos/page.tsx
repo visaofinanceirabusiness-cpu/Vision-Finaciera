@@ -5,24 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { registrarOperacion, LineaOperacion } from '@/lib/motor';
-import { convertirCantidad } from '@/lib/produccion';
-
-// Insumos se compran normalmente en su unidad "grande" (KG, L) pero
-// muchas compras chicas vienen mejor expresadas en la unidad fina
-// (gramos, mililitros). Este par define qué alternativa fina se
-// ofrece junto a la unidad de stock del producto — el stock y la
-// receta siempre quedan en la unidad de stock, la conversión se hace
-// acá antes de registrar la operación.
-const UNIDAD_FINA_ALTERNATIVA: Record<string, string> = {
-  KG: 'G',
-  L: 'ML',
-};
-
-function opcionesUnidadCarga(unidadStock: string | null | undefined): string[] {
-  if (!unidadStock) return [];
-  const alternativa = UNIDAD_FINA_ALTERNATIVA[unidadStock];
-  return alternativa ? [unidadStock, alternativa] : [unidadStock];
-}
+import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 
 const COLORES = {
   azul: '#1f3a5f',

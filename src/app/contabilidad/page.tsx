@@ -21,6 +21,7 @@ import {
   eliminarOperacion,
   LineaOperacion,
 } from '@/lib/motor';
+import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
@@ -258,7 +259,17 @@ type Producto = {
   nombre: string;
   categoria: string | null;
   proveedor_id: string | null;
+  tipo_producto: string | null;
+  unidad_medida: string | null;
 };
+
+// Unidad en la que el operador está tipeando la cantidad de una línea
+// — puede ser la unidad general del producto (Mercadería) o su
+// alternativa de compra (Kilogramo en vez de Gramo, Mililitro en vez
+// de Litro, Centímetro en vez de Metro). Solo aplica a compras de
+// Insumos; se convierte a la unidad general antes de registrar la
+// operación (ver handleRegistrar), nunca se guarda en la base.
+type LineaFormulario = LineaOperacion & { unidadCarga: string };
 
 type ValoresIniciales = {
   fecha: string;
@@ -268,7 +279,7 @@ type ValoresIniciales = {
   historico: string;
   clienteProveedor: string;
   socio?: string;
-  lineas: LineaOperacion[];
+  lineas: LineaFormulario[];
 };
 
 function CentralDeLanzamientosTab({
@@ -356,8 +367,8 @@ function CentralDeLanzamientosTab({
   const [cuentaPorFormaPago, setCuentaPorFormaPago] = useState<Record<string, string>>({});
   const [naturalezaPorCuentaFinanciera, setNaturalezaPorCuentaFinanciera] = useState<Record<string, string>>({});
 
-  const [lineas, setLineas] = useState<LineaOperacion[]>(
-    valoresIniciales?.lineas ?? [{ producto: '', cantidad: 0, monto: 0 }]
+  const [lineas, setLineas] = useState<LineaFormulario[]>(
+    valoresIniciales?.lineas ?? [{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]
   );
 
   // Al editar, las 3 combos encadenados (categoría → forma de pago →
@@ -426,7 +437,7 @@ function CentralDeLanzamientosTab({
     // de arriba se vuelva a ejecutar — si no arrancara ya en 1 acá,
     // "cantidad > 0" nunca se cumple en el formulario simplificado y
     // el total queda pegado en 0 pase lo que pase con el monto.
-    setLineas([{ producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0 }]);
+    setLineas([{ producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0, unidadCarga: '' }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoria]);
 
@@ -464,7 +475,7 @@ function CentralDeLanzamientosTab({
   async function cargarDatosOperativos(empresaIdActual: string) {
     const { data: prods } = await supabase
       .from('productos')
-      .select('id, nombre, categoria, proveedor_id')
+      .select('id, nombre, categoria, proveedor_id, tipo_producto, unidad_medida')
       .eq('empresa_id', empresaIdActual);
 
     const { data: movimientos } = await supabase
@@ -831,7 +842,17 @@ function CentralDeLanzamientosTab({
     setLineas((prev) =>
       prev.map((linea, i) =>
         i === indice
-          ? { ...linea, [campo]: campo === 'producto' ? valor : Number(valor) }
+          ? {
+              ...linea,
+              [campo]: campo === 'producto' ? valor : Number(valor),
+              // La unidad de carga arranca siempre en la unidad
+              // general del producto — el operador puede después
+              // pasarla a la alternativa de compra (Kilogramo,
+              // Mililitro, Centímetro) si le resulta más cómodo.
+              ...(campo === 'producto'
+                ? { unidadCarga: productos.find((p) => p.id === valor)?.unidad_medida ?? '' }
+                : {}),
+            }
           : linea
       )
     );
@@ -852,8 +873,15 @@ function CentralDeLanzamientosTab({
     }
   }
 
+  function actualizarUnidadCarga(indice: number, unidad: string) {
+    setLineas((prev) => prev.map((linea, i) => (i === indice ? { ...linea, unidadCarga: unidad } : linea)));
+  }
+
   function agregarLinea() {
-    setLineas((prev) => [...prev, { producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0 }]);
+    setLineas((prev) => [
+      ...prev,
+      { producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0, unidadCarga: '' },
+    ]);
   }
 
   function eliminarLinea(indice: number) {
@@ -1030,11 +1058,35 @@ function CentralDeLanzamientosTab({
               : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
         socio: requiereSocio ? socio.trim() : '',
-        lineas: lineas.map((linea) => ({
-          producto: linea.producto.trim(),
-          cantidad: Number(linea.cantidad),
-          monto: Number(linea.monto),
-        })),
+        lineas: lineas.map((linea) => {
+          const productoElegido = productos.find((p) => p.id === linea.producto.trim());
+          const unidadGeneral = productoElegido?.unidad_medida ?? '';
+          const cantidad = Number(linea.cantidad);
+          const monto = Number(linea.monto);
+
+          const seConvierte =
+            linea.unidadCarga && unidadGeneral && linea.unidadCarga !== unidadGeneral;
+
+          // Si el operador tipeó la cantidad en la unidad de compra
+          // (ej. Kilogramo) en vez de la unidad general del producto
+          // (ej. Gramo), se convierte acá antes de registrar — el
+          // stock y la receta siempre quedan en la unidad general. El
+          // costo unitario se reescala en el sentido inverso para que
+          // cantidad × monto (el total de la línea) no cambie.
+          const cantidadEnUnidadGeneral = seConvierte
+            ? convertirCantidad(cantidad, linea.unidadCarga, unidadGeneral)
+            : cantidad;
+
+          const montoEnUnidadGeneral = seConvierte
+            ? monto / convertirCantidad(1, linea.unidadCarga, unidadGeneral)
+            : monto;
+
+          return {
+            producto: linea.producto.trim(),
+            cantidad: cantidadEnUnidadGeneral,
+            monto: montoEnUnidadGeneral,
+          };
+        }),
       };
 
       if (modoEdicion && idOperacionEditar) {
@@ -1118,7 +1170,7 @@ function CentralDeLanzamientosTab({
       setClienteProveedor('');
       setSocio('');
 
-      setLineas([{ producto: '', cantidad: 0, monto: 0 }]);
+      setLineas([{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]);
 
       // El progreso del tutorial avanza SOLO si la operación recién
       // registrada es la que tocaba en el paso actual — así una
@@ -1540,6 +1592,52 @@ function CentralDeLanzamientosTab({
                   style={{ ...campoInput, flex: 1 }}
                 />
               )}
+
+              {!formularioSimple &&
+                (() => {
+                  const productoElegido = productos.find((p) => p.id === linea.producto);
+
+                  if (operacion !== 'COMPRA' || productoElegido?.tipo_producto !== 'INSUMO') {
+                    return null;
+                  }
+
+                  const opciones = opcionesUnidadCarga(productoElegido.unidad_medida);
+
+                  if (opciones.length === 0) {
+                    return null;
+                  }
+
+                  if (opciones.length === 1) {
+                    return (
+                      <span
+                        style={{
+                          ...campoInput,
+                          flex: '0 0 auto',
+                          display: 'flex',
+                          alignItems: 'center',
+                          color: COLORES.gris,
+                          background: '#f1f5f9',
+                        }}
+                      >
+                        {opciones[0]}
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <select
+                      value={linea.unidadCarga || opciones[0]}
+                      onChange={(e) => actualizarUnidadCarga(i, e.target.value)}
+                      style={{ ...campoInput, flex: '0 0 auto', width: 110 }}
+                    >
+                      {opciones.map((unidad) => (
+                        <option key={unidad} value={unidad}>
+                          {unidad}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
 
               <input
                 type="number"
@@ -2000,19 +2098,22 @@ function RegistroOperacionesTab() {
       return;
     }
 
-    let lineas: LineaOperacion[];
+    let lineas: LineaFormulario[];
 
     if (movimientos && movimientos.length > 0) {
       // "Editar" solo está habilitado para Compra (Pago/Inversión/
       // Extracción no tocan stock) — ahí el monto original se guarda
-      // tal cual en costo_unitario, así que se recupera exacto.
+      // tal cual en costo_unitario, así que se recupera exacto. Ya
+      // está en la unidad general del producto (así se guardó), no
+      // hace falta elegir una unidad de carga distinta.
       lineas = movimientos.map((m) => ({
         producto: m.producto_id,
         cantidad: Number(m.cantidad),
         monto: Number(m.costo_unitario),
+        unidadCarga: '',
       }));
     } else {
-      lineas = [{ producto: '', cantidad: 1, monto: Number(fila.total) }];
+      lineas = [{ producto: '', cantidad: 1, monto: Number(fila.total), unidadCarga: '' }];
     }
 
     setEditando({
