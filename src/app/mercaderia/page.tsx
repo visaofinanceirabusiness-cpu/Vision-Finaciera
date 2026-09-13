@@ -146,8 +146,12 @@ export default function MercaderiaPage() {
   const [busqueda, setBusqueda] = useState('');
 
   const [mostrarConSaldo, setMostrarConSaldo] = useState(true);
-  const [mostrarSinSaldo, setMostrarSinSaldo] = useState(false);
-  const [categoriasCerradas, setCategoriasCerradas] = useState<Record<string, boolean>>({});
+  const [mostrarSinSaldoTerminados, setMostrarSinSaldoTerminados] = useState(false);
+  const [mostrarSinSaldoInsumos, setMostrarSinSaldoInsumos] = useState(false);
+  // Por defecto cada categoría sale colapsada (solo el título con el
+  // conteo) para no abrumar con una lista larga de entrada — se
+  // registran acá las que el usuario decidió abrir, no las cerradas.
+  const [categoriasAbiertas, setCategoriasAbiertas] = useState<Record<string, boolean>>({});
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -400,13 +404,15 @@ export default function MercaderiaPage() {
   const totalUnidadesConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventarioConSaldo = conSaldoVisibles.reduce((total, producto) => total + producto.valorInventario, 0);
 
-  // Distribución por categoría para el gráfico de torta — sobre TODO
-  // lo que tiene saldo (no lo que quedó filtrado por el buscador), en
-  // cantidad de unidades y en valor de inventario.
-  const distribucionPorCategoria = useMemo(() => {
+  // Distribución por categoría para los gráficos de torta — sobre
+  // TODO lo que tiene saldo (no lo que quedó filtrado por el
+  // buscador), en cantidad de unidades y en valor de inventario. Cada
+  // banda (Terminados/Insumos) tiene su propio gráfico, así que la
+  // distribución también se calcula por separado.
+  function distribuirPorCategoria(lista: ProductoFila[]) {
     const acumulador = new Map<string, { cantidad: number; valor: number }>();
 
-    for (const producto of productosConSaldo) {
+    for (const producto of lista) {
       const categoria = producto.categoria || t('sinCategoria');
       const actual = acumulador.get(categoria) ?? { cantidad: 0, valor: 0 };
       actual.cantidad += producto.saldo;
@@ -415,7 +421,27 @@ export default function MercaderiaPage() {
     }
 
     return Array.from(acumulador.entries()).map(([nombre, datos]) => ({ nombre, ...datos }));
-  }, [productosConSaldo, t]);
+  }
+
+  const productosConSaldoTerminados = useMemo(
+    () => productosConSaldo.filter((producto) => producto.tipo_producto !== 'INSUMO'),
+    [productosConSaldo]
+  );
+
+  const productosConSaldoInsumos = useMemo(
+    () => productosConSaldo.filter((producto) => producto.tipo_producto === 'INSUMO'),
+    [productosConSaldo]
+  );
+
+  const distribucionTerminados = useMemo(
+    () => distribuirPorCategoria(productosConSaldoTerminados),
+    [productosConSaldoTerminados, t]
+  );
+
+  const distribucionInsumos = useMemo(
+    () => distribuirPorCategoria(productosConSaldoInsumos),
+    [productosConSaldoInsumos, t]
+  );
 
   const movimientosVisibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -968,106 +994,53 @@ export default function MercaderiaPage() {
             <div style={cargandoStyle}>{t('cargandoDatos')}</div>
           ) : pestana === 'saldo' ? (
             <>
+              {/* =================================================
+                  PRODUCTOS TERMINADOS
+              ================================================== */}
+              <div style={bandaSeccionEstilo(COLORES.verde, '#eafaf1')}>📦 {t('bandaTerminados')}</div>
+
               {mostrarConSaldo && (
                 <>
-                  {gruposConSaldoInsumos.length === 0 && gruposConSaldoTerminados.length === 0 && (
+                  {gruposConSaldoTerminados.length === 0 && (
                     <div style={{ ...vacioStyle, marginBottom: 14 }}>{t('sinProductosConSaldo')}</div>
                   )}
 
-                  {gruposConSaldoTerminados.length > 0 && (
-                    <>
-                      <div style={bandaTituloStyle}>{t('bandaTerminados')}</div>
-
-                      {gruposConSaldoTerminados.map(([categoria, productosDeCategoria]) => {
-                        const clave = `TERMINADO:${categoria}`;
-                        return (
-                          <div key={clave} style={{ marginBottom: 10 }}>
-                            <SeccionProductos
-                              titulo={categoria}
-                              esConSaldo
-                              emoji="📦"
-                              productos={productosDeCategoria}
-                              abierta={!categoriasCerradas[clave]}
-                              onToggle={() =>
-                                setCategoriasCerradas((actual) => ({ ...actual, [clave]: !actual[clave] }))
-                              }
-                              mensajeVacio={t('sinProductosConSaldo')}
-                              esAdmin={esAdmin}
-                              simbolo={simboloMoneda(moneda)}
-                              onEditar={abrirEditarProducto}
-                              onEliminar={eliminarProducto}
-                              eliminandoId={eliminandoProductoId}
-                              idioma={idioma}
-                              t={t}
-                            />
-                          </div>
-                        );
-                      })}
-
-                      <div style={{ height: 14 }} />
-                    </>
-                  )}
-
-                  {gruposConSaldoInsumos.length > 0 && (
-                    <>
-                      <div style={bandaTituloStyle}>{t('bandaInsumos')}</div>
-
-                      {gruposConSaldoInsumos.map(([categoria, productosDeCategoria]) => {
-                        const clave = `INSUMO:${categoria}`;
-                        return (
-                          <div key={clave} style={{ marginBottom: 10 }}>
-                            <SeccionProductos
-                              titulo={categoria}
-                              esConSaldo
-                              emoji="📦"
-                              productos={productosDeCategoria}
-                              abierta={!categoriasCerradas[clave]}
-                              onToggle={() =>
-                                setCategoriasCerradas((actual) => ({ ...actual, [clave]: !actual[clave] }))
-                              }
-                              mensajeVacio={t('sinProductosConSaldo')}
-                              esAdmin={esAdmin}
-                              simbolo={simboloMoneda(moneda)}
-                              onEditar={abrirEditarProducto}
-                              onEliminar={eliminarProducto}
-                              eliminandoId={eliminandoProductoId}
-                              idioma={idioma}
-                              t={t}
-                            />
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
+                  {gruposConSaldoTerminados.map(([categoria, productosDeCategoria]) => {
+                    const clave = `TERMINADO:${categoria}`;
+                    return (
+                      <div key={clave} style={{ marginBottom: 10 }}>
+                        <SeccionProductos
+                          titulo={categoria}
+                          esConSaldo
+                          emoji="📦"
+                          productos={productosDeCategoria}
+                          abierta={Boolean(categoriasAbiertas[clave])}
+                          onToggle={() =>
+                            setCategoriasAbiertas((actual) => ({ ...actual, [clave]: !actual[clave] }))
+                          }
+                          mensajeVacio={t('sinProductosConSaldo')}
+                          esAdmin={esAdmin}
+                          simbolo={simboloMoneda(moneda)}
+                          onEditar={abrirEditarProducto}
+                          onEliminar={eliminarProducto}
+                          eliminandoId={eliminandoProductoId}
+                          idioma={idioma}
+                          t={t}
+                        />
+                      </div>
+                    );
+                  })}
                 </>
               )}
-
-              <div style={{ height: 14 }} />
-
-              <SeccionProductos
-                titulo={`${t('sinSaldo')} — ${t('bandaTerminados')}`}
-                emoji="⚪"
-                productos={sinSaldoTerminados}
-                abierta={mostrarSinSaldo}
-                onToggle={() => setMostrarSinSaldo((actual) => !actual)}
-                mensajeVacio={t('sinProductosSinSaldo')}
-                esAdmin={esAdmin}
-                simbolo={simboloMoneda(moneda)}
-                onEditar={abrirEditarProducto}
-                onEliminar={eliminarProducto}
-                eliminandoId={eliminandoProductoId}
-                idioma={idioma}
-                t={t}
-              />
 
               <div style={{ height: 10 }} />
 
               <SeccionProductos
-                titulo={`${t('sinSaldo')} — ${t('bandaInsumos')}`}
+                titulo={t('sinSaldo')}
                 emoji="⚪"
-                productos={sinSaldoInsumos}
-                abierta={mostrarSinSaldo}
-                onToggle={() => setMostrarSinSaldo((actual) => !actual)}
+                productos={sinSaldoTerminados}
+                abierta={mostrarSinSaldoTerminados}
+                onToggle={() => setMostrarSinSaldoTerminados((actual) => !actual)}
                 mensajeVacio={t('sinProductosSinSaldo')}
                 esAdmin={esAdmin}
                 simbolo={simboloMoneda(moneda)}
@@ -1078,10 +1051,78 @@ export default function MercaderiaPage() {
                 t={t}
               />
 
-              <div style={{ height: 24 }} />
+              <div style={{ height: 20 }} />
 
               <GraficoTortaCategorias
-                datos={distribucionPorCategoria}
+                datos={distribucionTerminados}
+                simbolo={simboloMoneda(moneda)}
+                idioma={idioma}
+                t={t}
+              />
+
+              <hr style={separadorBandas} />
+
+              {/* =================================================
+                  INSUMOS
+              ================================================== */}
+              <div style={bandaSeccionEstilo('#92400e', '#fef3c7')}>🧪 {t('bandaInsumos')}</div>
+
+              {mostrarConSaldo && (
+                <>
+                  {gruposConSaldoInsumos.length === 0 && (
+                    <div style={{ ...vacioStyle, marginBottom: 14 }}>{t('sinProductosConSaldo')}</div>
+                  )}
+
+                  {gruposConSaldoInsumos.map(([categoria, productosDeCategoria]) => {
+                    const clave = `INSUMO:${categoria}`;
+                    return (
+                      <div key={clave} style={{ marginBottom: 10 }}>
+                        <SeccionProductos
+                          titulo={categoria}
+                          esConSaldo
+                          emoji="📦"
+                          productos={productosDeCategoria}
+                          abierta={Boolean(categoriasAbiertas[clave])}
+                          onToggle={() =>
+                            setCategoriasAbiertas((actual) => ({ ...actual, [clave]: !actual[clave] }))
+                          }
+                          mensajeVacio={t('sinProductosConSaldo')}
+                          esAdmin={esAdmin}
+                          simbolo={simboloMoneda(moneda)}
+                          onEditar={abrirEditarProducto}
+                          onEliminar={eliminarProducto}
+                          eliminandoId={eliminandoProductoId}
+                          idioma={idioma}
+                          t={t}
+                        />
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              <div style={{ height: 10 }} />
+
+              <SeccionProductos
+                titulo={t('sinSaldo')}
+                emoji="⚪"
+                productos={sinSaldoInsumos}
+                abierta={mostrarSinSaldoInsumos}
+                onToggle={() => setMostrarSinSaldoInsumos((actual) => !actual)}
+                mensajeVacio={t('sinProductosSinSaldo')}
+                esAdmin={esAdmin}
+                simbolo={simboloMoneda(moneda)}
+                onEditar={abrirEditarProducto}
+                onEliminar={eliminarProducto}
+                eliminandoId={eliminandoProductoId}
+                idioma={idioma}
+                t={t}
+              />
+
+              <div style={{ height: 20 }} />
+
+              <GraficoTortaCategorias
+                datos={distribucionInsumos}
                 simbolo={simboloMoneda(moneda)}
                 idioma={idioma}
                 t={t}
@@ -1881,13 +1922,22 @@ const cabeceraFila: React.CSSProperties = {
   textAlign: 'left',
 };
 
-const bandaTituloStyle: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 700,
-  color: COLORES.azul,
-  margin: '4px 0 10px',
-  paddingBottom: 6,
-  borderBottom: '2px solid #e5e7eb',
+function bandaSeccionEstilo(color: string, fondo: string): React.CSSProperties {
+  return {
+    fontSize: 15,
+    fontWeight: 800,
+    color,
+    background: fondo,
+    padding: '10px 16px',
+    borderRadius: 10,
+    marginBottom: 14,
+  };
+}
+
+const separadorBandas: React.CSSProperties = {
+  border: 'none',
+  borderTop: '2px dashed #cbd5e1',
+  margin: '32px 0',
 };
 
 const filaStyle: React.CSSProperties = {
