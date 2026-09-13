@@ -79,10 +79,9 @@ type Clave =
   | 'opcionInsumo'
   | 'opcionTerminado'
   | 'opcionUnidad'
-  | 'opcionKg'
-  | 'opcionG'
-  | 'opcionL'
-  | 'opcionMl'
+  | 'opcionGramo'
+  | 'opcionLitro'
+  | 'opcionMetro'
   | 'tortaTitulo'
   | 'tortaSubtitulo'
   | 'porCantidad'
@@ -169,10 +168,9 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     opcionInsumo: 'Insumo',
     opcionTerminado: 'Terminado',
     opcionUnidad: 'Unidad',
-    opcionKg: 'Kg',
-    opcionG: 'G',
-    opcionL: 'L',
-    opcionMl: 'Ml',
+    opcionGramo: 'Gramo',
+    opcionLitro: 'Litro',
+    opcionMetro: 'Metro',
     tortaTitulo: '🥧 Distribuição por categoria',
     tortaSubtitulo: 'Cómo se reparte el stock disponible entre categorías',
     porCantidad: 'Por cantidad',
@@ -258,10 +256,9 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     opcionInsumo: 'Insumo',
     opcionTerminado: 'Terminado',
     opcionUnidad: 'Unidade',
-    opcionKg: 'Kg',
-    opcionG: 'G',
-    opcionL: 'L',
-    opcionMl: 'Ml',
+    opcionGramo: 'Grama',
+    opcionLitro: 'Litro',
+    opcionMetro: 'Metro',
     tortaTitulo: '🥧 Distribuição por categoria',
     tortaSubtitulo: 'Como o estoque disponível se reparte entre categorias',
     porCantidad: 'Por quantidade',

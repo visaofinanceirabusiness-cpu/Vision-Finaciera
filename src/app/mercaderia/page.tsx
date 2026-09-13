@@ -115,10 +115,9 @@ function opcionesUnidad(t: (clave: any) => string) {
   return [
     { value: '', label: t('opcionSinEspecificar') },
     { value: 'UNIDAD', label: t('opcionUnidad') },
-    { value: 'KG', label: t('opcionKg') },
-    { value: 'G', label: t('opcionG') },
-    { value: 'L', label: t('opcionL') },
-    { value: 'ML', label: t('opcionMl') },
+    { value: 'GRAMO', label: t('opcionGramo') },
+    { value: 'LITRO', label: t('opcionLitro') },
+    { value: 'METRO', label: t('opcionMetro') },
   ];
 }
 
