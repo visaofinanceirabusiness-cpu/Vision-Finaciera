@@ -92,6 +92,15 @@ export function opcionesUnidadCarga(unidadGeneral: string | null | undefined): s
   return alternativa ? [unidadGeneral, alternativa] : [unidadGeneral];
 }
 
+// UNIDAD se compra/vende "por pieza" (precio por unidad × cantidad
+// tiene sentido). Gramo/Litro/Metro se compran a peso/volumen/
+// longitud — ahí lo natural es tipear lo que se pagó en total, no un
+// precio por gramo, así que ese monto no se multiplica por la
+// cantidad.
+export function esUnidadMedible(unidad: string | null | undefined): boolean {
+  return Boolean(unidad) && unidad !== 'UNIDAD';
+}
+
 const FAMILIA_UNIDAD: Record<string, string> = {
   UNIDAD: 'CONTEO',
   GRAMO: 'MASA',

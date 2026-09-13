@@ -21,7 +21,7 @@ import {
   eliminarOperacion,
   LineaOperacion,
 } from '@/lib/motor';
-import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
+import { convertirCantidad, esUnidadMedible, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
@@ -888,7 +888,21 @@ function CentralDeLanzamientosTab({
     setLineas((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== indice) : prev));
   }
 
-  const total = lineas.reduce((s, l) => s + l.cantidad * l.monto, 0);
+  // Comprar un Insumo por peso/volumen/longitud (Gramo/Litro/Metro) es
+  // distinto de comprarlo por pieza (Unidad): ahí lo natural es
+  // tipear el total pagado, no un precio por gramo — así que ese
+  // monto no se multiplica por la cantidad, ni acá ni al registrar la
+  // operación (ver handleRegistrar).
+  function esLineaMedible(linea: LineaFormulario): boolean {
+    if (operacion !== 'COMPRA') return false;
+    const productoElegido = productos.find((p) => p.id === linea.producto);
+    return productoElegido?.tipo_producto === 'INSUMO' && esUnidadMedible(productoElegido?.unidad_medida);
+  }
+
+  const total = lineas.reduce(
+    (s, linea) => s + (esLineaMedible(linea) ? Number(linea.monto) : linea.cantidad * linea.monto),
+    0
+  );
 
   const esSalidaStock = (operacion === 'VENTA' || operacion === 'PERDIDA') && categoriaEsProducto;
 
@@ -1064,27 +1078,30 @@ function CentralDeLanzamientosTab({
           const cantidad = Number(linea.cantidad);
           const monto = Number(linea.monto);
 
-          const seConvierte =
-            linea.unidadCarga && unidadGeneral && linea.unidadCarga !== unidadGeneral;
-
           // Si el operador tipeó la cantidad en la unidad de compra
           // (ej. Kilogramo) en vez de la unidad general del producto
           // (ej. Gramo), se convierte acá antes de registrar — el
-          // stock y la receta siempre quedan en la unidad general. El
-          // costo unitario se reescala en el sentido inverso para que
-          // cantidad × monto (el total de la línea) no cambie.
-          const cantidadEnUnidadGeneral = seConvierte
-            ? convertirCantidad(cantidad, linea.unidadCarga, unidadGeneral)
-            : cantidad;
+          // stock y la receta siempre quedan en la unidad general.
+          const cantidadEnUnidadGeneral =
+            linea.unidadCarga && unidadGeneral && linea.unidadCarga !== unidadGeneral
+              ? convertirCantidad(cantidad, linea.unidadCarga, unidadGeneral)
+              : cantidad;
 
-          const montoEnUnidadGeneral = seConvierte
-            ? monto / convertirCantidad(1, linea.unidadCarga, unidadGeneral)
+          // registrarOperacion siempre calcula el total de la línea
+          // como cantidad × monto, asumiendo que monto es un costo
+          // por unidad de stock. Para un Insumo medible (Gramo/Litro/
+          // Metro) lo que se tipeó en Monto es el TOTAL pagado por esa
+          // compra, no un precio por gramo — acá se despeja el costo
+          // por unidad de stock para que cantidad × monto vuelva a dar
+          // ese mismo total.
+          const montoParaMotor = esLineaMedible(linea)
+            ? (cantidadEnUnidadGeneral > 0 ? monto / cantidadEnUnidadGeneral : 0)
             : monto;
 
           return {
             producto: linea.producto.trim(),
             cantidad: cantidadEnUnidadGeneral,
-            monto: montoEnUnidadGeneral,
+            monto: montoParaMotor,
           };
         }),
       };
@@ -1641,7 +1658,7 @@ function CentralDeLanzamientosTab({
 
               <input
                 type="number"
-                placeholder={t('montoPlaceholder')}
+                placeholder={esLineaMedible(linea) ? t('montoTotalPlaceholder') : t('montoPlaceholder')}
                 value={linea.monto || ''}
                 onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                 style={{ ...campoInput, flex: 1 }}
