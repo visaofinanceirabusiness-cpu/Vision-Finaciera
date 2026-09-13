@@ -45,6 +45,7 @@ type Clave =
   | 'productoHeader'
   | 'categoriaHeader'
   | 'saldoHeader'
+  | 'unidadMedidaHeader'
   | 'costoPromedioHeader'
   | 'valorInventarioHeader'
   | 'estadoHeader'
@@ -134,6 +135,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     productoHeader: 'Producto',
     categoriaHeader: 'Categoría',
     saldoHeader: 'Saldo',
+    unidadMedidaHeader: 'Unidad',
     costoPromedioHeader: 'Costo promedio',
     valorInventarioHeader: 'Valor inventario',
     estadoHeader: 'Estado',
@@ -222,6 +224,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     productoHeader: 'Produto',
     categoriaHeader: 'Categoria',
     saldoHeader: 'Saldo',
+    unidadMedidaHeader: 'Unidade',
     costoPromedioHeader: 'Custo médio',
     valorInventarioHeader: 'Valor do estoque',
     estadoHeader: 'Situação',
