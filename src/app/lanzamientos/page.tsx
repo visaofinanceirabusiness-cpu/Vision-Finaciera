@@ -5,6 +5,24 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { registrarOperacion, LineaOperacion } from '@/lib/motor';
+import { convertirCantidad } from '@/lib/produccion';
+
+// Insumos se compran normalmente en su unidad "grande" (KG, L) pero
+// muchas compras chicas vienen mejor expresadas en la unidad fina
+// (gramos, mililitros). Este par define qué alternativa fina se
+// ofrece junto a la unidad de stock del producto — el stock y la
+// receta siempre quedan en la unidad de stock, la conversión se hace
+// acá antes de registrar la operación.
+const UNIDAD_FINA_ALTERNATIVA: Record<string, string> = {
+  KG: 'G',
+  L: 'ML',
+};
+
+function opcionesUnidadCarga(unidadStock: string | null | undefined): string[] {
+  if (!unidadStock) return [];
+  const alternativa = UNIDAD_FINA_ALTERNATIVA[unidadStock];
+  return alternativa ? [unidadStock, alternativa] : [unidadStock];
+}
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -25,6 +43,15 @@ type Producto = {
   nombre: string;
   categoria: string | null;
   proveedor_id: string | null;
+  tipo_producto: string | null;
+  unidad_medida: string | null;
+};
+
+type LineaFormulario = LineaOperacion & {
+  // Unidad en la que el operador está tipeando la cantidad — puede ser
+  // la unidad de stock del producto o su alternativa fina (G en vez de
+  // KG, ML en vez de L). Solo aplica a compras de Insumos.
+  unidadCarga: string;
 };
 
 export default function CentralDeLanzamientos() {
@@ -57,11 +84,12 @@ export default function CentralDeLanzamientos() {
   const [nombreProveedorPorId, setNombreProveedorPorId] =
     useState<Record<string, string>>({});
 
-  const [lineas, setLineas] = useState<LineaOperacion[]>([
+  const [lineas, setLineas] = useState<LineaFormulario[]>([
     {
       producto: '',
       cantidad: 0,
       monto: 0,
+      unidadCarga: '',
     },
   ]);
 
@@ -117,7 +145,7 @@ export default function CentralDeLanzamientos() {
 
       const { data: prods } = await supabase
         .from('productos')
-        .select('id, nombre, categoria, proveedor_id')
+        .select('id, nombre, categoria, proveedor_id, tipo_producto, unidad_medida')
         .eq('empresa_id', perfil.empresa_id);
 
       const { data: saldos } = await supabase
@@ -320,6 +348,17 @@ export default function CentralDeLanzamientos() {
                 campo === 'producto'
                   ? valor
                   : Number(valor),
+              // Al elegir un producto, la unidad de carga arranca
+              // siempre en la unidad de stock del producto — el
+              // operador puede después pasarla a la alternativa fina
+              // si le resulta más cómodo tipear la cantidad así.
+              ...(campo === 'producto'
+                ? {
+                    unidadCarga:
+                      productos.find((p) => p.id === valor)
+                        ?.unidad_medida ?? '',
+                  }
+                : {}),
             }
           : linea
       )
@@ -341,6 +380,14 @@ export default function CentralDeLanzamientos() {
     }
   }
 
+  function actualizarUnidadCarga(indice: number, unidad: string) {
+    setLineas((prev) =>
+      prev.map((linea, i) =>
+        i === indice ? { ...linea, unidadCarga: unidad } : linea
+      )
+    );
+  }
+
   function agregarLinea() {
     setLineas((prev) => [
       ...prev,
@@ -348,6 +395,7 @@ export default function CentralDeLanzamientos() {
         producto: '',
         cantidad: 0,
         monto: 0,
+        unidadCarga: '',
       },
     ]);
   }
@@ -404,11 +452,37 @@ export default function CentralDeLanzamientos() {
         formaPago: formaPago.trim(),
         historico: historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
-        lineas: lineas.map((linea) => ({
-          producto: linea.producto.trim(),
-          cantidad: Number(linea.cantidad),
-          monto: Number(linea.monto),
-        })),
+        lineas: lineas.map((linea) => {
+          const productoElegido = productos.find(
+            (p) => p.id === linea.producto.trim()
+          );
+          const unidadStock = productoElegido?.unidad_medida ?? '';
+          const cantidad = Number(linea.cantidad);
+          const monto = Number(linea.monto);
+
+          const seConvierte =
+            linea.unidadCarga && unidadStock && linea.unidadCarga !== unidadStock;
+
+          // Si el operador tipeó la cantidad en la unidad fina
+          // (ej. gramos) en vez de la unidad de stock del producto
+          // (ej. KG), se convierte acá antes de registrar — el stock
+          // y la receta siempre quedan en la unidad de stock. El
+          // costo unitario se reescala en el sentido inverso para que
+          // cantidad × monto (el total de la línea) no cambie.
+          const cantidadEnUnidadStock = seConvierte
+            ? convertirCantidad(cantidad, linea.unidadCarga, unidadStock)
+            : cantidad;
+
+          const montoEnUnidadStock = seConvierte
+            ? monto / convertirCantidad(1, linea.unidadCarga, unidadStock)
+            : monto;
+
+          return {
+            producto: linea.producto.trim(),
+            cantidad: cantidadEnUnidadStock,
+            monto: montoEnUnidadStock,
+          };
+        }),
       };
 
       console.log(
@@ -436,6 +510,7 @@ export default function CentralDeLanzamientos() {
           producto: '',
           cantidad: 0,
           monto: 0,
+          unidadCarga: '',
         },
       ]);
     } catch (e: unknown) {
@@ -856,6 +931,64 @@ export default function CentralDeLanzamientos() {
                       flex: 1,
                     }}
                   />
+
+                  {(() => {
+                    const productoElegido = productos.find(
+                      (p) => p.id === linea.producto
+                    );
+
+                    if (
+                      operacion !== 'COMPRA' ||
+                      productoElegido?.tipo_producto !== 'INSUMO'
+                    ) {
+                      return null;
+                    }
+
+                    const opciones = opcionesUnidadCarga(
+                      productoElegido.unidad_medida
+                    );
+
+                    if (opciones.length === 0) {
+                      return null;
+                    }
+
+                    if (opciones.length === 1) {
+                      return (
+                        <span
+                          style={{
+                            ...inputStyle,
+                            flex: '0 0 auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            color: COLORES.gris,
+                            background: '#f1f5f9',
+                          }}
+                        >
+                          {opciones[0]}
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <select
+                        value={linea.unidadCarga || opciones[0]}
+                        onChange={(e) =>
+                          actualizarUnidadCarga(i, e.target.value)
+                        }
+                        style={{
+                          ...inputStyle,
+                          flex: '0 0 auto',
+                          width: 90,
+                        }}
+                      >
+                        {opciones.map((unidad) => (
+                          <option key={unidad} value={unidad}>
+                            {unidad}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })()}
 
                   <input
                     type="number"
