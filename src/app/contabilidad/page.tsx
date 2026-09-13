@@ -21,7 +21,7 @@ import {
   eliminarOperacion,
   LineaOperacion,
 } from '@/lib/motor';
-import { convertirCantidad, esUnidadMedible, opcionesUnidadCarga } from '@/lib/produccion';
+import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
@@ -888,19 +888,19 @@ function CentralDeLanzamientosTab({
     setLineas((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== indice) : prev));
   }
 
-  // Comprar un Insumo por peso/volumen/longitud (Gramo/Litro/Metro) es
-  // distinto de comprarlo por pieza (Unidad): ahí lo natural es
-  // tipear el total pagado, no un precio por gramo — así que ese
+  // Al comprar un Insumo (sea por peso, volumen, longitud o por
+  // pieza), lo natural es tipear lo que se pagó en total por esa
+  // compra, no un precio por gramo/litro/metro/unidad — así que ese
   // monto no se multiplica por la cantidad, ni acá ni al registrar la
   // operación (ver handleRegistrar).
-  function esLineaMedible(linea: LineaFormulario): boolean {
+  function esLineaCompraDeInsumo(linea: LineaFormulario): boolean {
     if (operacion !== 'COMPRA') return false;
     const productoElegido = productos.find((p) => p.id === linea.producto);
-    return productoElegido?.tipo_producto === 'INSUMO' && esUnidadMedible(productoElegido?.unidad_medida);
+    return productoElegido?.tipo_producto === 'INSUMO';
   }
 
   const total = lineas.reduce(
-    (s, linea) => s + (esLineaMedible(linea) ? Number(linea.monto) : linea.cantidad * linea.monto),
+    (s, linea) => s + (esLineaCompraDeInsumo(linea) ? Number(linea.monto) : linea.cantidad * linea.monto),
     0
   );
 
@@ -1089,12 +1089,12 @@ function CentralDeLanzamientosTab({
 
           // registrarOperacion siempre calcula el total de la línea
           // como cantidad × monto, asumiendo que monto es un costo
-          // por unidad de stock. Para un Insumo medible (Gramo/Litro/
-          // Metro) lo que se tipeó en Monto es el TOTAL pagado por esa
-          // compra, no un precio por gramo — acá se despeja el costo
-          // por unidad de stock para que cantidad × monto vuelva a dar
-          // ese mismo total.
-          const montoParaMotor = esLineaMedible(linea)
+          // por unidad de stock. Al comprar un Insumo, lo que se tipeó
+          // en Monto es el TOTAL pagado por esa compra, no un precio
+          // por gramo/litro/metro/unidad — acá se despeja el costo por
+          // unidad de stock para que cantidad × monto vuelva a dar ese
+          // mismo total.
+          const montoParaMotor = esLineaCompraDeInsumo(linea)
             ? (cantidadEnUnidadGeneral > 0 ? monto / cantidadEnUnidadGeneral : 0)
             : monto;
 
@@ -1658,7 +1658,7 @@ function CentralDeLanzamientosTab({
 
               <input
                 type="number"
-                placeholder={esLineaMedible(linea) ? t('montoTotalPlaceholder') : t('montoPlaceholder')}
+                placeholder={esLineaCompraDeInsumo(linea) ? t('montoTotalPlaceholder') : t('montoPlaceholder')}
                 value={linea.monto || ''}
                 onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                 style={{ ...campoInput, flex: 1 }}
