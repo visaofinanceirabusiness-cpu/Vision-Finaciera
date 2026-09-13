@@ -363,13 +363,18 @@ export default function MercaderiaPage() {
   // son dos tipos de stock con lógicas distintas (uno se compra y se
   // consume en producción, el otro se fabrica y se vende), y dentro de
   // cada banda se sigue agrupando por categoría como antes.
+  // Solo se considera Insumo cuando el producto está marcado
+  // explícitamente como tal — todo lo demás (incluidos los productos
+  // cargados antes de que existiera este campo, con tipo_producto
+  // vacío) se trata como Producto Terminado, que es lo que
+  // efectivamente son.
   const conSaldoInsumos = useMemo(
-    () => conSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto === 'INSUMO'),
     [conSaldoVisibles]
   );
 
   const conSaldoTerminados = useMemo(
-    () => conSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto !== 'INSUMO'),
     [conSaldoVisibles]
   );
 
@@ -380,12 +385,12 @@ export default function MercaderiaPage() {
   );
 
   const sinSaldoInsumos = useMemo(
-    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto === 'INSUMO'),
     [sinSaldoVisibles]
   );
 
   const sinSaldoTerminados = useMemo(
-    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto !== 'INSUMO'),
     [sinSaldoVisibles]
   );
 
