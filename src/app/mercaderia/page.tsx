@@ -98,7 +98,7 @@ type Formulario = {
 const FORMULARIO_VACIO: Formulario = {
   nombre: '',
   categoria_producto_id: '',
-  tipo_producto: '',
+  tipo_producto: 'TERMINADO',
   unidad_medida: '',
   proveedor_id: '',
   fecha_alta: fechaLocalHoy(),
@@ -106,9 +106,8 @@ const FORMULARIO_VACIO: Formulario = {
 
 function opcionesTipo(t: (clave: any) => string) {
   return [
-    { value: '', label: t('opcionSinEspecificar') },
-    { value: 'INSUMO', label: t('opcionInsumo') },
     { value: 'TERMINADO', label: t('opcionTerminado') },
+    { value: 'INSUMO', label: t('opcionInsumo') },
   ];
 }
 
@@ -363,13 +362,18 @@ export default function MercaderiaPage() {
   // son dos tipos de stock con lógicas distintas (uno se compra y se
   // consume en producción, el otro se fabrica y se vende), y dentro de
   // cada banda se sigue agrupando por categoría como antes.
+  // Solo se considera Insumo cuando el producto está marcado
+  // explícitamente como tal — todo lo demás (incluidos los productos
+  // cargados antes de que existiera este campo, con tipo_producto
+  // vacío) se trata como Producto Terminado, que es lo que
+  // efectivamente son.
   const conSaldoInsumos = useMemo(
-    () => conSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto === 'INSUMO'),
     [conSaldoVisibles]
   );
 
   const conSaldoTerminados = useMemo(
-    () => conSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    () => conSaldoVisibles.filter((producto) => producto.tipo_producto !== 'INSUMO'),
     [conSaldoVisibles]
   );
 
@@ -380,12 +384,12 @@ export default function MercaderiaPage() {
   );
 
   const sinSaldoInsumos = useMemo(
-    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto !== 'TERMINADO'),
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto === 'INSUMO'),
     [sinSaldoVisibles]
   );
 
   const sinSaldoTerminados = useMemo(
-    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto === 'TERMINADO'),
+    () => sinSaldoVisibles.filter((producto) => producto.tipo_producto !== 'INSUMO'),
     [sinSaldoVisibles]
   );
 
@@ -481,7 +485,7 @@ export default function MercaderiaPage() {
     setFormulario({
       nombre: producto.nombre,
       categoria_producto_id: producto.categoria_producto_id ?? '',
-      tipo_producto: producto.tipo_producto ?? '',
+      tipo_producto: producto.tipo_producto || 'TERMINADO',
       unidad_medida: producto.unidad_medida ?? '',
       proveedor_id: producto.proveedor_id ?? '',
       fecha_alta: producto.fecha_alta ?? fechaLocalHoy(),
@@ -504,6 +508,11 @@ export default function MercaderiaPage() {
       return;
     }
 
+    if (!formulario.tipo_producto) {
+      setError(t('errorTipoObligatorio'));
+      return;
+    }
+
     setGuardando(true);
     setError('');
 
@@ -520,7 +529,7 @@ export default function MercaderiaPage() {
             categoria_producto_id: categoriaElegida?.id ?? null,
             categoria: categoriaElegida?.nombre ?? null,
             proveedor_id: formulario.proveedor_id || null,
-            tipo_producto: formulario.tipo_producto || null,
+            tipo_producto: formulario.tipo_producto,
             unidad_medida: formulario.unidad_medida || null,
             fecha_alta: formulario.fecha_alta || null,
           })
@@ -539,7 +548,7 @@ export default function MercaderiaPage() {
           categoria_producto_id: categoriaElegida?.id ?? null,
           categoria: categoriaElegida?.nombre ?? null,
           proveedor_id: formulario.proveedor_id || null,
-          tipo_producto: formulario.tipo_producto || null,
+          tipo_producto: formulario.tipo_producto,
           unidad_medida: formulario.unidad_medida || null,
           fecha_alta: formulario.fecha_alta || null,
         });
