@@ -121,6 +121,11 @@ function opcionesUnidad(t: (clave: any) => string) {
   ];
 }
 
+function etiquetaUnidad(codigo: string | null, t: (clave: any) => string): string {
+  if (!codigo) return '—';
+  return opcionesUnidad(t).find((opcion) => opcion.value === codigo)?.label ?? codigo;
+}
+
 export default function MercaderiaPage() {
   const router = useRouter();
 
@@ -1397,13 +1402,14 @@ function SeccionProductos({
 
       {abierta && (
         <div style={tablaContenedor}>
-          <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: 1000, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={cabeceraFila}>
                 <Th>{t('codigoHeader')}</Th>
                 <Th>{t('productoHeader')}</Th>
                 <Th>{t('categoriaHeader')}</Th>
                 <Th align="right">{t('saldoHeader')}</Th>
+                <Th>{t('unidadMedidaHeader')}</Th>
                 <Th align="right">{t('costoPromedioHeader')}</Th>
                 <Th align="right">{t('valorInventarioHeader')}</Th>
                 <Th>{t('estadoHeader')}</Th>
@@ -1429,6 +1435,7 @@ function SeccionProductos({
                       {producto.saldo}
                     </span>
                   </Td>
+                  <Td>{etiquetaUnidad(producto.unidad_medida, t)}</Td>
                   <Td align="right">{simbolo} {formatearNumeroEntero(producto.costoPromedio)}</Td>
                   <Td align="right">{simbolo} {formatearNumeroEntero(producto.valorInventario)}</Td>
                   <Td>
@@ -1464,7 +1471,7 @@ function SeccionProductos({
 
               {!productos.length && (
                 <tr>
-                  <td colSpan={esAdmin ? 8 : 7} style={vacioStyle}>
+                  <td colSpan={esAdmin ? 9 : 8} style={vacioStyle}>
                     {mensajeVacio}
                   </td>
                 </tr>
