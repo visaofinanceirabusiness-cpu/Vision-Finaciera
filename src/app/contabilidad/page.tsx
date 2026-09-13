@@ -673,12 +673,17 @@ function CentralDeLanzamientosTab({
       if (hidratarCategoria.current) {
         hidratarCategoria.current = false;
         setCategoria(valoresIniciales?.categoria ?? '');
+        // No se resetea Forma de Pago acá: al editar, ese trabajo lo
+        // hace (con la misma bandera) el efecto de abajo. Si se
+        // reseteara igual acá, una carrera entre los dos fetches
+        // async podía pisar la Forma de Pago ya hidratada — quedaba
+        // vacía y sin opciones para elegir, igual que el bug que ya
+        // se había resuelto para clienteProveedor con hidratarContacto.
       } else {
         setCategoria('');
+        setFormaPago('');
+        setFormasPago([]);
       }
-
-      setFormaPago('');
-      setFormasPago([]);
 
       setError('');
     }
