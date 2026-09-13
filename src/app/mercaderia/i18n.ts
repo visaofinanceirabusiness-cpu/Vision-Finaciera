@@ -71,6 +71,7 @@ type Clave =
   | 'errorEmpresa'
   | 'errorEmpresaGuardar'
   | 'errorNombreObligatorio'
+  | 'errorTipoObligatorio'
   | 'errorActualizar'
   | 'errorCrear'
   | 'errorValidar'
@@ -160,6 +161,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     errorEmpresa: 'No se pudo identificar la empresa del usuario.',
     errorEmpresaGuardar: 'No se pudo identificar la empresa.',
     errorNombreObligatorio: 'El nombre es obligatorio.',
+    errorTipoObligatorio: 'Elegí si es un Insumo o un Producto terminado.',
     errorActualizar: 'No se pudo actualizar el producto.',
     errorCrear: 'No se pudo crear el producto.',
     errorValidar: 'No se pudo validar el movimiento.',
@@ -248,6 +250,7 @@ export const diccionarioMercaderia: Diccionario<Clave> = {
     errorEmpresa: 'Não foi possível identificar a empresa do usuário.',
     errorEmpresaGuardar: 'Não foi possível identificar a empresa.',
     errorNombreObligatorio: 'O nome é obrigatório.',
+    errorTipoObligatorio: 'Escolha se é um Insumo ou um Produto terminado.',
     errorActualizar: 'Não foi possível atualizar o produto.',
     errorCrear: 'Não foi possível criar o produto.',
     errorValidar: 'Não foi possível validar a movimentação.',
