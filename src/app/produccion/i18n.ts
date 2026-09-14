@@ -73,6 +73,11 @@ type Clave =
   | 'columnaRendimiento'
   | 'columnaEstado'
   | 'columnaAcciones'
+  | 'verInsumos'
+  | 'ocultarInsumos'
+  | 'columnaInsumo'
+  | 'columnaCantidadInsumo'
+  | 'columnaUnidadInsumo'
   | 'elegirProductoPrimero'
   | 'sinInsumosDisponibles'
   | 'fechaProduccion';
@@ -152,6 +157,11 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     columnaRendimiento: 'Rinde',
     columnaEstado: 'Estado',
     columnaAcciones: 'Acciones',
+    verInsumos: 'Ver insumos',
+    ocultarInsumos: 'Ocultar insumos',
+    columnaInsumo: 'Insumo',
+    columnaCantidadInsumo: 'Cantidad',
+    columnaUnidadInsumo: 'Unidad',
     elegirProductoPrimero: 'Elegí primero un producto terminado.',
     sinInsumosDisponibles: 'No hay insumos cargados en Mercadería todavía.',
     fechaProduccion: 'Fecha de la producción',
@@ -230,6 +240,11 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     columnaRendimiento: 'Rende',
     columnaEstado: 'Situação',
     columnaAcciones: 'Ações',
+    verInsumos: 'Ver insumos',
+    ocultarInsumos: 'Ocultar insumos',
+    columnaInsumo: 'Insumo',
+    columnaCantidadInsumo: 'Quantidade',
+    columnaUnidadInsumo: 'Unidade',
     elegirProductoPrimero: 'Selecione primeiro um produto terminado.',
     sinInsumosDisponibles: 'Ainda não há insumos cadastrados em Mercadoria.',
     fechaProduccion: 'Data da produção',
@@ -281,6 +296,14 @@ export function msgNoHayStockSuficiente(idioma: string | null | undefined): stri
   return esPT(idioma)
     ? '⚠ Não há estoque suficiente para realizar esta produção.'
     : '⚠ No hay stock suficiente para realizar esta producción.';
+}
+
+export function msgCantidadInsumos(idioma: string | null | undefined, cantidad: number): string {
+  if (cantidad === 0) {
+    return esPT(idioma) ? 'sem insumos' : 'sin insumos';
+  }
+
+  return `${cantidad} insumo${cantidad === 1 ? '' : 's'}`;
 }
 
 // Tips de Sabio para esta pantalla — rotan en el widget permanente.

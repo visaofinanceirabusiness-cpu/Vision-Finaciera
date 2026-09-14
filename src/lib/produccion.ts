@@ -167,13 +167,20 @@ export async function listarInsumosDisponibles(empresaId: string) {
   return data ?? [];
 }
 
-export type RecetaConProducto = Receta & { nombreProducto: string };
+export type RecetaDetalleConNombre = RecetaDetalle & { nombreInsumo: string };
+
+export type RecetaConProducto = Receta & {
+  nombreProducto: string;
+  detalles: RecetaDetalleConNombre[];
+};
 
 export async function listarRecetas(empresaId: string): Promise<RecetaConProducto[]> {
   const { data, error } = await supabase
     .from('recetas')
     .select(
-      'id, empresa_id, producto_terminado_id, nombre, rendimiento, unidad_rendimiento, activo, productos!recetas_producto_terminado_id_fkey(nombre)'
+      'id, empresa_id, producto_terminado_id, nombre, rendimiento, unidad_rendimiento, activo, ' +
+        'productos!recetas_producto_terminado_id_fkey(nombre), ' +
+        'receta_detalle(id, receta_id, insumo_id, cantidad, unidad_medida, productos!receta_detalle_insumo_id_fkey(nombre))'
     )
     .eq('empresa_id', empresaId)
     .order('creado_en', { ascending: false });
@@ -181,10 +188,19 @@ export async function listarRecetas(empresaId: string): Promise<RecetaConProduct
   if (error) throw error;
 
   return (data ?? []).map((fila) => {
-    const { productos, ...receta } = fila as unknown as Receta & {
+    const { productos, receta_detalle, ...receta } = fila as unknown as Receta & {
       productos: { nombre: string } | null;
+      receta_detalle: (RecetaDetalle & { productos: { nombre: string } | null })[] | null;
     };
-    return { ...receta, nombreProducto: productos?.nombre ?? '—' };
+
+    return {
+      ...receta,
+      nombreProducto: productos?.nombre ?? '—',
+      detalles: (receta_detalle ?? []).map(({ productos: insumo, ...detalle }) => ({
+        ...detalle,
+        nombreInsumo: insumo?.nombre ?? '—',
+      })),
+    };
   });
 }
 
