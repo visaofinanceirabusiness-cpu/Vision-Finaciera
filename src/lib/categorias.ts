@@ -670,6 +670,24 @@ export async function renombrarFormaPago(empresaId: string, formaPagoId: string,
       .update({ forma_pago: nombreLimpio })
       .eq('empresa_id', empresaId)
       .eq('forma_pago', nombreViejo),
+    // En Transferencia "medio a medio" (ver generarMatrizOperaciones),
+    // la etiqueta de la forma de pago también puede aparecer en la
+    // columna "categoria" — es el "Hacia" cuando el destino es
+    // cualquier medio financiero (la contracara del "Desde", que usa
+    // forma_pago). Sin este update, renombrar la forma de pago dejaba
+    // el "Hacia" desactualizado aunque el "Desde" sí se renombrara.
+    supabase
+      .from('matriz_operaciones')
+      .update({ categoria: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('operacion', 'TRANSFERENCIA')
+      .eq('categoria', nombreViejo),
+    supabase
+      .from('registro_operaciones')
+      .update({ categoria: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('operacion', 'TRANSFERENCIA')
+      .eq('categoria', nombreViejo),
   ]);
 }
 

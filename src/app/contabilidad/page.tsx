@@ -565,15 +565,29 @@ function CentralDeLanzamientosTab({
     setNaturalezaPorCuentaFinanciera(Object.fromEntries(naturalezaPorNombre));
 
     // El primer dígito del código del plan de cuentas es el rubro
-    // (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Gasto) — mismo
-    // criterio que ya usa el plan de cuentas maestro.
-    setRubroPorCuenta(
-      Object.fromEntries(
-        (cuentasData ?? [])
-          .filter((c) => c.codigo)
-          .map((c) => [c.nombre, String(c.codigo).charAt(0)])
-      )
+    // (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Costo,
+    // 6=Gasto) — mismo criterio que ya usa el plan de cuentas maestro.
+    const digitoPorCuenta = new Map(
+      (cuentasData ?? []).filter((c) => c.codigo).map((c) => [c.nombre, String(c.codigo).charAt(0)])
     );
+
+    const rubroPorNombre: Record<string, string> = Object.fromEntries(digitoPorCuenta);
+
+    // En Transferencia, el selector muestra la etiqueta de la forma de
+    // pago (formas_pago.nombre) y no necesariamente el nombre de la
+    // cuenta contable detrás — si no coinciden (ej. una forma de pago
+    // vieja con un nombre distinto al de su cuenta), esa etiqueta
+    // quedaba sin rubro asignado y cae en "Otras". Se agrega también
+    // el rubro de la cuenta real detrás de cada forma de pago, indexado
+    // por la etiqueta que el usuario ve.
+    for (const [formaPagoNombre, cuentaNombre] of Object.entries(cuentaPorFormaPagoNombre)) {
+      const digito = digitoPorCuenta.get(cuentaNombre);
+      if (digito) {
+        rubroPorNombre[formaPagoNombre] = digito;
+      }
+    }
+
+    setRubroPorCuenta(rubroPorNombre);
   }
 
   useEffect(() => {
