@@ -1478,10 +1478,14 @@ function CentralDeLanzamientosTab({
           >
             <option value="">{t('seleccionar')}</option>
 
-            {formasPago.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
+            {agruparCategoriasPorRubro(formasPago, rubroPorCuenta, idioma).map((grupo) => (
+              <optgroup key={grupo.rubro} label={grupo.rubro}>
+                {grupo.categorias.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
 
