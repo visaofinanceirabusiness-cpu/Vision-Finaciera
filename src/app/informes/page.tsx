@@ -1010,10 +1010,12 @@ function FlujoDeCajaTab({
 
   // Entrada de caja: el débito es una cuenta de caja (la caja aumenta).
   // Salida de caja: el crédito es una cuenta de caja (la caja baja).
-  // Se excluyen las Transferencias — son movimiento entre cuentas
-  // propias (incluso hacia Plazo Fijo/Inversiones, que son Activo pero
-  // no plata de uso diario), nunca un ingreso o gasto real. Sin esto,
-  // una transferencia a un ahorro se mostraba junto a los gastos.
+  // Se excluyen los movimientos entre dos cuentas de caja propias (una
+  // transferencia interna no es ni entrada ni salida) y las
+  // Transferencias hacia/desde Ahorros e Inversiones (Plazo Fijo,
+  // Inversiones...) — esas no son un ingreso ni un gasto real, van
+  // separadas más abajo para no confundirlas con la plata que
+  // realmente entró o salió del negocio/familia.
   const entradas = useMemo(
     () =>
       asientosDelPeriodo.filter(
@@ -1038,11 +1040,42 @@ function FlujoDeCajaTab({
     [asientosDelPeriodo, nombresCaja]
   );
 
+  // Transferencias donde un lado es caja y el otro no (Plazo Fijo,
+  // Inversiones...) — plata que sigue siendo del cliente, solo cambió
+  // de lugar. Se muestran aparte, ni suman ni restan al Flujo Neto.
+  const aportesAhorro = useMemo(
+    () =>
+      asientosDelPeriodo.filter(
+        (a) =>
+          a.operacion === 'TRANSFERENCIA' &&
+          a.credito &&
+          nombresCaja.has(a.credito) &&
+          !(a.debito && nombresCaja.has(a.debito))
+      ),
+    [asientosDelPeriodo, nombresCaja]
+  );
+
+  const retirosAhorro = useMemo(
+    () =>
+      asientosDelPeriodo.filter(
+        (a) =>
+          a.operacion === 'TRANSFERENCIA' &&
+          a.debito &&
+          nombresCaja.has(a.debito) &&
+          !(a.credito && nombresCaja.has(a.credito))
+      ),
+    [asientosDelPeriodo, nombresCaja]
+  );
+
   const entradasAgrupadas = agruparPorContraparte(entradas, (a) => a.credito, idioma);
   const salidasAgrupadas = agruparPorContraparte(salidas, (a) => a.debito, idioma);
+  const aportesAhorroAgrupados = agruparPorContraparte(aportesAhorro, (a) => a.debito, idioma);
+  const retirosAhorroAgrupados = agruparPorContraparte(retirosAhorro, (a) => a.credito, idioma);
 
   const totalEntradas = entradasAgrupadas.reduce((s, f) => s + f.valor, 0);
   const totalSalidas = salidasAgrupadas.reduce((s, f) => s + f.valor, 0);
+  const totalAportesAhorro = aportesAhorroAgrupados.reduce((s, f) => s + f.valor, 0);
+  const totalRetirosAhorro = retirosAhorroAgrupados.reduce((s, f) => s + f.valor, 0);
   const flujoNeto = totalEntradas - totalSalidas;
 
   // Igual que en Estado de Resultado: la tendencia mira todo el
@@ -1091,6 +1124,30 @@ function FlujoDeCajaTab({
 
       <SeccionMontos titulo={t('entradasDeCaja')} emoji="⬇️" filas={entradasAgrupadas} total={totalEntradas} color={COLORES.verde} />
       <SeccionMontos titulo={t('salidasDeCaja')} emoji="⬆️" filas={salidasAgrupadas} total={totalSalidas} color="#c2410c" resta />
+
+      {(aportesAhorroAgrupados.length > 0 || retirosAhorroAgrupados.length > 0) && (
+        <div style={{ marginTop: 8, marginBottom: 8 }}>
+          <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
+            {t('subtituloAhorroInversion')}
+          </p>
+
+          <SeccionMontos
+            titulo={t('retirosAhorroInversion')}
+            emoji="🏦"
+            filas={retirosAhorroAgrupados}
+            total={totalRetirosAhorro}
+            color={COLORES.azul}
+          />
+          <SeccionMontos
+            titulo={t('aportesAhorroInversion')}
+            emoji="🏦"
+            filas={aportesAhorroAgrupados}
+            total={totalAportesAhorro}
+            color={COLORES.azul}
+            resta
+          />
+        </div>
+      )}
 
       <div
         style={{
