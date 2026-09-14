@@ -450,6 +450,13 @@ export function msgSaldoMedioInsuficiente(
 // mercadería. Ver pasosTutorial() más abajo, que arma esta secuencia.
 
 export function pasosTutorial(esFamiliar: boolean, manejaMercaderia: boolean): string[] {
+  // El perfil Familiar no tiene Inversión/Extracción habilitadas (no
+  // tiene sentido ese concepto en las finanzas de una familia) — su
+  // secuencia usa Cobro, Pago y Transferência en vez de Inversión.
+  if (esFamiliar) {
+    return ['COBRO', 'PAGO', 'TRANSFERENCIA'];
+  }
+
   // Si maneja mercadería, la Venta tiene que ir DESPUÉS de la Compra:
   // recién nacida, la empresa no tiene ningún stock — pedirle una
   // Venta antes de que exista una Compra la deja sin poder completar
@@ -458,7 +465,7 @@ export function pasosTutorial(esFamiliar: boolean, manejaMercaderia: boolean): s
     return ['INVERSION', 'COMPRA', 'VENTA'];
   }
 
-  return ['INVERSION', esFamiliar ? 'COBRO' : 'VENTA', 'PAGO'];
+  return ['INVERSION', 'VENTA', 'PAGO'];
 }
 
 export function msgTutorialCancelar(idioma: string | null | undefined): string {
