@@ -289,6 +289,52 @@ export async function generarMatrizOperaciones(
       continue;
     }
 
+    // ---------------------------------------------------
+    // TRANSFERENCIA "RETIRO DE CUENTA FIJA" — el camino de vuelta de
+    // Plazo Fijo/Inversiones.
+    //
+    // La regla de depósito (rol_debito=AHORRO_DESTINO) genera
+    // "cualquier medio → siempre la misma cuenta fija", con esa
+    // cuenta fija en categoria y el medio variando en forma_pago. Acá
+    // es al revés: la cuenta fija (Plazo Fijo, Inversiones) es el
+    // ORIGEN y cualquier medio financiero es el destino — por eso el
+    // medio va en categoria y la cuenta fija en forma_pago, y débito/
+    // crédito quedan invertidos respecto a la fila de depósito.
+    // ---------------------------------------------------
+
+    if (regla.operacion === 'TRANSFERENCIA' && regla.rol_debito === 'MEDIO_FINANCIERO' && (regla.rol_credito ?? '').startsWith('AHORRO')) {
+      const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
+      const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
+
+      const mediosValidos = formasPagoIds
+        .map((id) => formaPagoPorId.get(id))
+        .filter((forma): forma is { id: string; codigo: string; nombre: string } => Boolean(forma));
+
+      const cuentaAhorro = resolverRol(regla.rol_credito, regla, undefined);
+
+      for (const medio of mediosValidos) {
+        const cuentaMedio = cuentaPorFormaPago.get(medio.id);
+
+        if (!cuentaMedio || cuentaMedio === cuentaAhorro) continue;
+
+        filas.push({
+          empresa_id: empresaId,
+          clave: `TRANSFERENCIA.${medio.nombre}.${regla.categoria_nombre ?? ''}`,
+          operacion: 'TRANSFERENCIA',
+          categoria: medio.nombre,
+          forma_pago: regla.categoria_nombre,
+          cuenta_debito: cuentaMedio,
+          cuenta_credito: cuentaAhorro,
+          stock: regla.stock,
+          libro: regla.libro,
+          cmv: regla.cmv,
+          motor: regla.motor,
+        });
+      }
+
+      continue;
+    }
+
     const operacionId = operacionIdPorNombre.get(regla.operacion.trim().toUpperCase());
     const formasPagoIds = operacionId ? formasPagoPorOperacionId.get(operacionId) ?? [] : [];
 
