@@ -58,6 +58,8 @@ type Clave =
   | 'rendimientoLabel'
   | 'rendimientoPlaceholder'
   | 'insumosDeLaReceta'
+  | 'sinRecetaAviso'
+  | 'irARecetas'
   | 'agregarInsumo'
   | 'insumoPlaceholder'
   | 'cantidadInsumo'
@@ -142,6 +144,8 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     rendimientoLabel: 'Rinde (cantidad de producto terminado)',
     rendimientoPlaceholder: 'Ej.: 16',
     insumosDeLaReceta: 'Insumos de la receta',
+    sinRecetaAviso: 'Este producto todavía no tiene una receta cargada.',
+    irARecetas: 'Ir a Recetas',
     agregarInsumo: '+ Agregar insumo',
     insumoPlaceholder: 'Seleccionar insumo...',
     cantidadInsumo: 'Cantidad',
@@ -225,6 +229,8 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     rendimientoLabel: 'Rende (quantidade de produto terminado)',
     rendimientoPlaceholder: 'Ex.: 16',
     insumosDeLaReceta: 'Insumos da receita',
+    sinRecetaAviso: 'Este produto ainda não tem uma receita cadastrada.',
+    irARecetas: 'Ir para Receitas',
     agregarInsumo: '+ Adicionar insumo',
     insumoPlaceholder: 'Selecionar insumo...',
     cantidadInsumo: 'Quantidade',

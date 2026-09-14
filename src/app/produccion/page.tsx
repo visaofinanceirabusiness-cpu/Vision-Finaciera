@@ -7,9 +7,12 @@ import { supabase } from '@/lib/supabase';
 import {
   calcularConsumo,
   confirmarProduccion,
+  obtenerRecetaActiva,
   CalculoProduccion,
   ProductoProduccion,
   ResultadoProduccion,
+  Receta,
+  RecetaDetalleConNombre,
 } from '@/lib/produccion';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
@@ -53,6 +56,16 @@ export default function ProduccionPage() {
   const [cantidad, setCantidad] = useState('');
   const [fecha, setFecha] = useState(fechaLocalHoy());
   const [calculo, setCalculo] = useState<CalculoProduccion | null>(null);
+
+  // Vista previa de la receta del producto elegido — se busca apenas
+  // se selecciona el producto, antes de cargar ninguna cantidad, para
+  // que quede claro qué receta se va a usar y cuánto rinde.
+  const [recetaPreview, setRecetaPreview] = useState<{
+    receta: Receta;
+    detalles: RecetaDetalleConNombre[];
+  } | null>(null);
+  const [cargandoReceta, setCargandoReceta] = useState(false);
+  const [sinReceta, setSinReceta] = useState(false);
 
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [calculando, setCalculando] = useState(false);
@@ -218,10 +231,31 @@ export default function ProduccionPage() {
     limpiarCalculo();
   }
 
-  function handleProductoChange(valor: string) {
+  async function handleProductoChange(valor: string) {
     setProductoId(valor);
     setCantidad('');
     limpiarCalculo();
+
+    setRecetaPreview(null);
+    setSinReceta(false);
+
+    if (!empresaId || !valor) return;
+
+    setCargandoReceta(true);
+
+    try {
+      const datos = await obtenerRecetaActiva(empresaId, valor);
+
+      if (datos) {
+        setRecetaPreview({ receta: datos.receta, detalles: datos.detalles });
+      } else {
+        setSinReceta(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('errorCalcular'));
+    } finally {
+      setCargandoReceta(false);
+    }
   }
 
   if (cargandoInicial) {
@@ -374,7 +408,13 @@ export default function ProduccionPage() {
               </select>
             </Campo>
 
-            <Campo label={t('cantidadAProducir')}>
+            <Campo
+              label={
+                recetaPreview
+                  ? `${t('cantidadAProducir')} (${t('rinde')} ${recetaPreview.receta.rendimiento})`
+                  : t('cantidadAProducir')
+              }
+            >
               <input
                 type="number"
                 min="0"
@@ -383,7 +423,7 @@ export default function ProduccionPage() {
                 onChange={(e) => handleCantidadChange(e.target.value)}
                 placeholder={t('cantidadPlaceholder')}
                 style={inputStyle}
-                disabled={!productoId}
+                disabled={!productoId || !recetaPreview}
               />
             </Campo>
           </div>
@@ -402,6 +442,56 @@ export default function ProduccionPage() {
                   {productoSeleccionado.unidad_medida ?? 'UNIDAD'}
                 </strong>
               </div>
+            </div>
+          )}
+
+          {/* RECETA DEL PRODUCTO — se muestra apenas se elige el
+              producto, antes de cargar ninguna cantidad, para que
+              quede claro qué receta se va a usar y cuánto rinde. */}
+          {productoId && cargandoReceta && (
+            <p style={{ marginTop: 14, color: COLORES.gris, fontSize: 13 }}>{t('cargandoProduccion')}</p>
+          )}
+
+          {sinReceta && (
+            <div style={{ ...mensajeBox, marginTop: 14, background: '#fff7ed', color: '#9a3412' }}>
+              {t('sinRecetaAviso')}{' '}
+              <button
+                type="button"
+                onClick={() => setPestana('recetas')}
+                style={{ ...botonLinkInline, color: '#9a3412' }}
+              >
+                {t('irARecetas')}
+              </button>
+            </div>
+          )}
+
+          {recetaPreview && (
+            <div style={tarjetaRecetaPreview}>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div>
+                  <span style={infoLabel}>{t('receta')}</span>
+                  <strong>{recetaPreview.receta.nombre}</strong>
+                </div>
+
+                <div>
+                  <span style={infoLabel}>{t('rinde')}</span>
+                  <strong>
+                    {recetaPreview.receta.rendimiento} {recetaPreview.receta.unidad_rendimiento}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORES.azul, marginBottom: 6 }}>
+                {t('insumosDeLaReceta')}
+              </div>
+
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {recetaPreview.detalles.map((detalle) => (
+                  <li key={detalle.id} style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
+                    {detalle.nombreInsumo} — {formatearNumero(detalle.cantidad, idioma)} {detalle.unidad_medida}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -886,6 +976,24 @@ const tarjetaReceta: React.CSSProperties = {
   borderRadius: 14,
   background: '#f8fafc',
   border: '1px solid #e5e7eb',
+};
+
+const tarjetaRecetaPreview: React.CSSProperties = {
+  marginTop: 14,
+  padding: 16,
+  borderRadius: 14,
+  background: '#f8fafc',
+  border: '1px solid #e5e7eb',
+};
+
+const botonLinkInline: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  font: 'inherit',
+  fontWeight: 700,
+  textDecoration: 'underline',
+  cursor: 'pointer',
 };
 
 const tablaWrapper: React.CSSProperties = {
