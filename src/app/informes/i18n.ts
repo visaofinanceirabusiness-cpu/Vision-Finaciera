@@ -46,6 +46,9 @@ type Clave =
   | 'cajaDisponibleHoy'
   | 'entradasDeCaja'
   | 'salidasDeCaja'
+  | 'aportesAhorroInversion'
+  | 'retirosAhorroInversion'
+  | 'subtituloAhorroInversion'
   | 'tendenciaCajaTitulo'
   | 'resultadoEjercicioSinCerrar'
   | 'resultadoEjercicioDescripcion'
@@ -106,6 +109,9 @@ export const diccionarioInformes: Diccionario<Clave> = {
     cajaDisponibleHoy: 'CAJA DISPONIBLE HOY',
     entradasDeCaja: 'Entradas de caja',
     salidasDeCaja: 'Salidas de caja',
+    aportesAhorroInversion: 'Aportes a Ahorros/Inversiones',
+    retirosAhorroInversion: 'Retiros de Ahorros/Inversiones',
+    subtituloAhorroInversion: 'Transferencias hacia o desde Plazo Fijo, Inversiones u otros ahorros — no son ingresos ni gastos, es plata que sigue siendo tuya.',
     tendenciaCajaTitulo: 'Tendencia de Caja',
     resultadoEjercicioSinCerrar: 'RESULTADO DEL EJERCICIO (SIN CERRAR)',
     resultadoEjercicioDescripcion:
@@ -166,6 +172,9 @@ export const diccionarioInformes: Diccionario<Clave> = {
     cajaDisponibleHoy: 'CAIXA DISPONÍVEL HOJE',
     entradasDeCaja: 'Entradas de caixa',
     salidasDeCaja: 'Saídas de caixa',
+    aportesAhorroInversion: 'Aportes a Poupanças/Investimentos',
+    retirosAhorroInversion: 'Retiradas de Poupanças/Investimentos',
+    subtituloAhorroInversion: 'Transferências para ou de Prazo Fixo, Investimentos ou outras poupanças — não são receita nem despesa, é dinheiro que continua sendo seu.',
     tendenciaCajaTitulo: 'Tendência de Caixa',
     resultadoEjercicioSinCerrar: 'RESULTADO DO EXERCÍCIO (NÃO FECHADO)',
     resultadoEjercicioDescripcion:
