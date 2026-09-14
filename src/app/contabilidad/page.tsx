@@ -893,19 +893,19 @@ function CentralDeLanzamientosTab({
     setLineas((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== indice) : prev));
   }
 
-  // Al comprar un Insumo (sea por peso, volumen, longitud o por
-  // pieza), lo natural es tipear lo que se pagó en total por esa
-  // compra, no un precio por gramo/litro/metro/unidad — así que ese
-  // monto no se multiplica por la cantidad, ni acá ni al registrar la
-  // operación (ver handleRegistrar).
-  function esLineaCompraDeInsumo(linea: LineaFormulario): boolean {
-    if (operacion !== 'COMPRA') return false;
-    const productoElegido = productos.find((p) => p.id === linea.producto);
-    return productoElegido?.tipo_producto === 'INSUMO';
-  }
+  // En cualquier línea con producto real (Compra, Venta, Pérdida —
+  // todo lo que usa el selector de producto en vez de texto libre),
+  // lo natural es tipear lo que se pagó o cobró en TOTAL por esa
+  // línea, no un precio por unidad — así que ese monto no se
+  // multiplica por la cantidad, ni acá ni al registrar la operación
+  // (ver handleRegistrar). El precio por unidad se sigue calculando
+  // internamente (total ÷ cantidad) antes de llamar al motor, así la
+  // validación de "no vender por debajo del costo" sigue funcionando
+  // igual que siempre.
+  const montoEsTotalDeLinea = operacionesConProducto;
 
   const total = lineas.reduce(
-    (s, linea) => s + (esLineaCompraDeInsumo(linea) ? Number(linea.monto) : linea.cantidad * linea.monto),
+    (s, linea) => s + (montoEsTotalDeLinea ? Number(linea.monto) : linea.cantidad * linea.monto),
     0
   );
 
@@ -1093,13 +1093,14 @@ function CentralDeLanzamientosTab({
               : cantidad;
 
           // registrarOperacion siempre calcula el total de la línea
-          // como cantidad × monto, asumiendo que monto es un costo
-          // por unidad de stock. Al comprar un Insumo, lo que se tipeó
-          // en Monto es el TOTAL pagado por esa compra, no un precio
-          // por gramo/litro/metro/unidad — acá se despeja el costo por
-          // unidad de stock para que cantidad × monto vuelva a dar ese
-          // mismo total.
-          const montoParaMotor = esLineaCompraDeInsumo(linea)
+          // como cantidad × monto, asumiendo que monto es un costo o
+          // precio por unidad de stock. Acá lo que se tipeó en Monto
+          // es el TOTAL pagado/cobrado por esa línea — se despeja el
+          // valor por unidad de stock para que cantidad × monto vuelva
+          // a dar ese mismo total (y la validación de costo de motor.ts,
+          // que compara ese valor por unidad contra el costo, siga
+          // funcionando igual que siempre).
+          const montoParaMotor = montoEsTotalDeLinea
             ? (cantidadEnUnidadGeneral > 0 ? monto / cantidadEnUnidadGeneral : 0)
             : monto;
 
@@ -1663,7 +1664,7 @@ function CentralDeLanzamientosTab({
 
               <input
                 type="number"
-                placeholder={esLineaCompraDeInsumo(linea) ? t('montoTotalPlaceholder') : t('montoPlaceholder')}
+                placeholder={montoEsTotalDeLinea ? t('montoTotalPlaceholder') : t('montoPlaceholder')}
                 value={linea.monto || ''}
                 onChange={(e) => actualizarLinea(i, 'monto', e.target.value)}
                 style={{ ...campoInput, flex: 1 }}
