@@ -92,6 +92,7 @@ export async function inicializarEmpresaDesdePerfil(
     { data: formasPagoOperacionMaestro, error: errorFPO },
     { data: categoriasOperacionMaestro, error: errorCatOp },
     { data: reglasMaestro, error: errorReglas },
+    { data: perfilEmpresaData },
   ] = await Promise.all([
     cliente
       .from('perfil_plan_cuentas_maestro')
@@ -104,7 +105,15 @@ export async function inicializarEmpresaDesdePerfil(
     cliente.from('perfil_formas_pago_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
     cliente.from('perfil_categorias_operacion_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
     cliente.from('perfil_reglas_contables_maestro').select('*').eq('perfil_empresa_id', perfilEmpresaId).eq('idioma', IDIOMA_MAESTRO),
+    cliente.from('perfiles_empresa').select('codigo, nombre').eq('id', perfilEmpresaId).maybeSingle(),
   ]);
+
+  // El perfil Familiar no usa el concepto de Inversión/Extracción (no
+  // tiene sentido mezclar "invertir en el negocio" con las finanzas
+  // de una familia) — se crean desactivadas de fábrica, igual que se
+  // desactivaron a mano en las empresas Familiares que ya existían.
+  const esPerfilFamiliar = perfilEmpresaData?.codigo === 'FAMILIAR';
+  const OPERACIONES_SIN_SENTIDO_FAMILIAR = ['INVERSION', 'EXTRACCION'];
 
   const primerError =
     errorCuentas || errorOperaciones || errorFormasPago || errorFPO || errorCatOp || errorReglas;
@@ -180,7 +189,7 @@ export async function inicializarEmpresaDesdePerfil(
         (operacionesMaestro ?? []).map((o) => ({
           empresa_id: empresaId,
           nombre: o.nombre,
-          activo: true,
+          activo: !(esPerfilFamiliar && OPERACIONES_SIN_SENTIDO_FAMILIAR.includes(o.nombre)),
         }))
       )
       .select('id, nombre');
@@ -347,12 +356,6 @@ export async function inicializarEmpresaDesdePerfil(
   // tiene en Mensajes un tutorial de cada herramienta que le toca
   // según su perfil (ver lib/mensajesTutorial.ts).
   // ---------------------------------------------------
-
-  const { data: perfilEmpresaData } = await cliente
-    .from('perfiles_empresa')
-    .select('codigo, nombre')
-    .eq('id', perfilEmpresaId)
-    .maybeSingle();
 
   try {
     await crearMensajesTutorialModelo(empresaId, perfilEmpresaData?.codigo, idioma, cliente);
