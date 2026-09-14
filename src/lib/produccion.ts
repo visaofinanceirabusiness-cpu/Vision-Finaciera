@@ -332,7 +332,7 @@ export async function obtenerRecetaActiva(
   productoId: string
 ): Promise<{
   receta: Receta;
-  detalles: RecetaDetalle[];
+  detalles: RecetaDetalleConNombre[];
   producto: ProductoProduccion;
 } | null> {
   if (!empresaId) {
@@ -370,7 +370,9 @@ export async function obtenerRecetaActiva(
 
   const { data: detalles, error: errorDetalles } = await supabase
     .from('receta_detalle')
-    .select('id, receta_id, insumo_id, cantidad, unidad_medida')
+    .select(
+      'id, receta_id, insumo_id, cantidad, unidad_medida, productos!receta_detalle_insumo_id_fkey(nombre)'
+    )
     .eq('receta_id', receta.id)
     .order('creado_en', { ascending: true });
 
@@ -378,7 +380,12 @@ export async function obtenerRecetaActiva(
 
   return {
     receta: receta as Receta,
-    detalles: (detalles ?? []) as RecetaDetalle[],
+    detalles: (detalles ?? []).map((fila) => {
+      const { productos: insumo, ...detalle } = fila as unknown as RecetaDetalle & {
+        productos: { nombre: string } | null;
+      };
+      return { ...detalle, nombreInsumo: insumo?.nombre ?? '—' };
+    }),
     producto: producto as ProductoProduccion,
   };
 }
