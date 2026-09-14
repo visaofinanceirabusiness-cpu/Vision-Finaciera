@@ -263,7 +263,8 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
 const esPT = (idioma: string | null | undefined) => idioma === 'PT';
 
 // Rubro contable a partir del primer dígito del código del plan de
-// cuentas (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Gasto) —
+// cuentas (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Costo,
+// 6=Gasto — mismo criterio que ya usa el plan de cuentas maestro) —
 // se usa para agrupar el selector de Categoría con un separador por
 // rubro, en vez de una lista plana mezclando todo.
 const NOMBRES_RUBRO: Record<string, { es: string; pt: string }> = {
@@ -271,7 +272,8 @@ const NOMBRES_RUBRO: Record<string, { es: string; pt: string }> = {
   '2': { es: 'Pasivo', pt: 'Passivo' },
   '3': { es: 'Patrimonio', pt: 'Patrimônio' },
   '4': { es: 'Ingreso', pt: 'Receita' },
-  '5': { es: 'Gasto', pt: 'Despesa' },
+  '5': { es: 'Costo', pt: 'Custo' },
+  '6': { es: 'Gasto', pt: 'Despesa' },
 };
 
 export function nombreRubro(digito: string | undefined, idioma: string | null | undefined): string {
@@ -280,11 +282,12 @@ export function nombreRubro(digito: string | undefined, idioma: string | null | 
   return esPT(idioma) ? nombre.pt : nombre.es;
 }
 
-const ORDEN_RUBRO = ['1', '2', '3', '4', '5'];
+const ORDEN_RUBRO = ['1', '2', '3', '4', '5', '6'];
 
 // Agrupa una lista de categorías (nombres) según el rubro de la
 // cuenta que tienen detrás, en el orden Activo → Pasivo → Patrimonio
-// → Ingreso → Gasto → Otras — para armar <optgroup> en el selector.
+// → Ingreso → Costo → Gasto → Otras — para armar <optgroup> en el
+// selector.
 export function agruparCategoriasPorRubro(
   categorias: string[],
   rubroPorCuenta: Record<string, string>,
