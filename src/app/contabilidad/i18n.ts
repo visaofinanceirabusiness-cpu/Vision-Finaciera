@@ -262,6 +262,52 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
 
 const esPT = (idioma: string | null | undefined) => idioma === 'PT';
 
+// Rubro contable a partir del primer dígito del código del plan de
+// cuentas (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Gasto) —
+// se usa para agrupar el selector de Categoría con un separador por
+// rubro, en vez de una lista plana mezclando todo.
+const NOMBRES_RUBRO: Record<string, { es: string; pt: string }> = {
+  '1': { es: 'Activo', pt: 'Ativo' },
+  '2': { es: 'Pasivo', pt: 'Passivo' },
+  '3': { es: 'Patrimonio', pt: 'Patrimônio' },
+  '4': { es: 'Ingreso', pt: 'Receita' },
+  '5': { es: 'Gasto', pt: 'Despesa' },
+};
+
+export function nombreRubro(digito: string | undefined, idioma: string | null | undefined): string {
+  const nombre = digito ? NOMBRES_RUBRO[digito] : undefined;
+  if (!nombre) return esPT(idioma) ? 'Outras' : 'Otras';
+  return esPT(idioma) ? nombre.pt : nombre.es;
+}
+
+const ORDEN_RUBRO = ['1', '2', '3', '4', '5'];
+
+// Agrupa una lista de categorías (nombres) según el rubro de la
+// cuenta que tienen detrás, en el orden Activo → Pasivo → Patrimonio
+// → Ingreso → Gasto → Otras — para armar <optgroup> en el selector.
+export function agruparCategoriasPorRubro(
+  categorias: string[],
+  rubroPorCuenta: Record<string, string>,
+  idioma: string | null | undefined
+): { rubro: string; categorias: string[] }[] {
+  const grupos = new Map<string, string[]>();
+
+  for (const categoria of categorias) {
+    const digito = rubroPorCuenta[categoria];
+    const clave = digito && ORDEN_RUBRO.includes(digito) ? digito : 'otras';
+    const lista = grupos.get(clave) ?? [];
+    lista.push(categoria);
+    grupos.set(clave, lista);
+  }
+
+  const claves = [...ORDEN_RUBRO, 'otras'].filter((c) => grupos.has(c));
+
+  return claves.map((clave) => ({
+    rubro: nombreRubro(clave === 'otras' ? undefined : clave, idioma),
+    categorias: (grupos.get(clave) ?? []).sort((a, b) => a.localeCompare(b, 'es')),
+  }));
+}
+
 export function etiquetaRelacion(
   idioma: string | null | undefined,
   esFamiliar: boolean,
