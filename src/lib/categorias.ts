@@ -947,6 +947,18 @@ export async function renombrarCuentaPlan(empresaId: string, cuentaId: string, n
       .update({ cuenta_credito: nombreLimpio })
       .eq('empresa_id', empresaId)
       .eq('cuenta_credito', nombreViejo),
+    // "Hacia" (categoria) y "cuentas" no son las únicas columnas que
+    // pueden llevar un nombre de cuenta/categoría: desde que
+    // Transferencia tiene el camino de retiro de Plazo Fijo/
+    // Inversiones (ver generarMatrizOperaciones), forma_pago también
+    // puede ser el nombre de esa cuenta fija (es el "Desde" cuando el
+    // destino es cualquier medio) — sin este update quedaba
+    // desactualizado aunque "Hacia" sí se renombrara bien.
+    supabase
+      .from('matriz_operaciones')
+      .update({ forma_pago: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('forma_pago', nombreViejo),
   ]);
 
   // Las categorías de Venta/Cobro/Gasto se crean con el MISMO nombre
@@ -985,6 +997,15 @@ export async function renombrarCuentaPlan(empresaId: string, cuentaId: string, n
         .eq('empresa_id', empresaId)
         .eq('operacion', categoria.operacion)
         .eq('categoria', nombreViejo),
+      // Mismo motivo que en el bloque de arriba: en Transferencia esta
+      // categoría también puede aparecer como forma_pago (el "Desde"
+      // de un retiro de Plazo Fijo/Inversiones hacia cualquier medio).
+      supabase
+        .from('matriz_operaciones')
+        .update({ forma_pago: nombreLimpio })
+        .eq('empresa_id', empresaId)
+        .eq('operacion', categoria.operacion)
+        .eq('forma_pago', nombreViejo),
       supabase
         .from('reglas_contables')
         .update({ categoria_nombre: nombreLimpio })
