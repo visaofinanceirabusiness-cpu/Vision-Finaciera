@@ -8,7 +8,7 @@
 // "eliminar" la desactiva (no la borra) para no romper el historial
 // de producciones ya confirmadas con esa receta.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   listarProductosTerminados,
   listarInsumosDisponibles,
@@ -22,7 +22,7 @@ import {
   type RecetaDetalleInput,
 } from '@/lib/produccion';
 import { crearTraductor } from '@/lib/i18n';
-import { diccionarioProduccion } from './i18n';
+import { diccionarioProduccion, msgCantidadInsumos } from './i18n';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -47,6 +47,7 @@ export function RecetasTab({ empresaId, idioma }: { empresaId: string; idioma: s
 
   // '__nueva__' = formulario en blanco; un producto_terminado_id = editando su receta; null = lista.
   const [editando, setEditando] = useState<string | null>(null);
+  const [recetasAbiertas, setRecetasAbiertas] = useState<Record<string, boolean>>({});
   const [formNombre, setFormNombre] = useState('');
   const [formRendimiento, setFormRendimiento] = useState('');
   const [formProductoId, setFormProductoId] = useState('');
@@ -109,6 +110,10 @@ export function RecetasTab({ empresaId, idioma }: { empresaId: string; idioma: s
 
   function cancelar() {
     setEditando(null);
+  }
+
+  function alternarReceta(recetaId: string) {
+    setRecetasAbiertas((actual) => ({ ...actual, [recetaId]: !actual[recetaId] }));
   }
 
   function agregarFilaInsumo() {
@@ -328,52 +333,99 @@ export function RecetasTab({ empresaId, idioma }: { empresaId: string; idioma: s
               </thead>
 
               <tbody>
-                {recetas.map((r) => (
-                  <tr key={r.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                    <td style={td}>
-                      <strong>{r.nombreProducto}</strong>
-                      <div style={{ fontSize: 12, color: COLORES.gris }}>{r.nombre}</div>
-                    </td>
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      {r.rendimiento} {r.unidad_rendimiento}
-                    </td>
-                    <td style={td}>
-                      <span
-                        style={{
-                          padding: '3px 9px',
-                          borderRadius: 999,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: r.activo ? '#eaf7ee' : '#fef2f2',
-                          color: r.activo ? '#247347' : COLORES.rojo,
-                        }}
-                      >
-                        {r.activo ? 'OK' : t('recetaInactiva')}
-                      </span>
-                    </td>
-                    <td style={td}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => iniciarEdicion(r.producto_terminado_id, r.nombre, r.rendimiento)}
-                          style={botonLink}
-                        >
-                          {t('accionEditar')}
-                        </button>
+                {recetas.map((r) => {
+                  const abierta = Boolean(recetasAbiertas[r.id]);
 
-                        {r.activo ? (
-                          <button type="button" onClick={() => handleEliminar(r.id)} style={{ ...botonLink, color: COLORES.rojo }}>
-                            {t('accionEliminar')}
+                  return (
+                    <Fragment key={r.id}>
+                      <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                        <td style={td}>
+                          <button
+                            type="button"
+                            onClick={() => alternarReceta(r.id)}
+                            style={botonDesplegar}
+                            title={abierta ? t('ocultarInsumos') : t('verInsumos')}
+                          >
+                            <span>{abierta ? '▾' : '▸'}</span>
+                            <span>
+                              <strong>{r.nombreProducto}</strong>
+                              <div style={{ fontSize: 12, color: COLORES.gris, fontWeight: 400 }}>
+                                {r.nombre} · {msgCantidadInsumos(idioma, r.detalles.length)}
+                              </div>
+                            </span>
                           </button>
-                        ) : (
-                          <button type="button" onClick={() => handleReactivar(r.id)} style={{ ...botonLink, color: COLORES.verde }}>
-                            {t('accionReactivar')}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {r.rendimiento} {r.unidad_rendimiento}
+                        </td>
+                        <td style={td}>
+                          <span
+                            style={{
+                              padding: '3px 9px',
+                              borderRadius: 999,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: r.activo ? '#eaf7ee' : '#fef2f2',
+                              color: r.activo ? '#247347' : COLORES.rojo,
+                            }}
+                          >
+                            {r.activo ? 'OK' : t('recetaInactiva')}
+                          </span>
+                        </td>
+                        <td style={td}>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => iniciarEdicion(r.producto_terminado_id, r.nombre, r.rendimiento)}
+                              style={botonLink}
+                            >
+                              {t('accionEditar')}
+                            </button>
+
+                            {r.activo ? (
+                              <button type="button" onClick={() => handleEliminar(r.id)} style={{ ...botonLink, color: COLORES.rojo }}>
+                                {t('accionEliminar')}
+                              </button>
+                            ) : (
+                              <button type="button" onClick={() => handleReactivar(r.id)} style={{ ...botonLink, color: COLORES.verde }}>
+                                {t('accionReactivar')}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {abierta && (
+                        <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                          <td colSpan={4} style={{ ...td, background: '#f8fafc', paddingTop: 10, paddingBottom: 14 }}>
+                            {r.detalles.length === 0 ? (
+                              <span style={{ color: COLORES.gris, fontSize: 13 }}>{t('sinInsumosDisponibles')}</span>
+                            ) : (
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={thInsumo}>{t('columnaInsumo')}</th>
+                                    <th style={{ ...thInsumo, textAlign: 'right' }}>{t('columnaCantidadInsumo')}</th>
+                                    <th style={thInsumo}>{t('columnaUnidadInsumo')}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {r.detalles.map((d) => (
+                                    <tr key={d.id}>
+                                      <td style={tdInsumo}>{d.nombreInsumo}</td>
+                                      <td style={{ ...tdInsumo, textAlign: 'right' }}>{d.cantidad}</td>
+                                      <td style={tdInsumo}>{d.unidad_medida}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -413,6 +465,34 @@ const tablaWrapper: React.CSSProperties = {
 
 const th: React.CSSProperties = { padding: '12px 16px', fontSize: 13, color: '#374151', textAlign: 'left' };
 const td: React.CSSProperties = { padding: '12px 16px', fontSize: 14, textAlign: 'left', verticalAlign: 'top' };
+
+const botonDesplegar: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  margin: 0,
+  cursor: 'pointer',
+  textAlign: 'left',
+  color: 'inherit',
+  font: 'inherit',
+};
+
+const thInsumo: React.CSSProperties = {
+  padding: '6px 10px',
+  fontSize: 12,
+  color: COLORES.gris,
+  textAlign: 'left',
+  borderBottom: `1px solid ${COLORES.borde}`,
+};
+
+const tdInsumo: React.CSSProperties = {
+  padding: '6px 10px',
+  fontSize: 13,
+  textAlign: 'left',
+};
 
 const botonNueva: React.CSSProperties = {
   padding: '10px 16px',
