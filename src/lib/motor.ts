@@ -404,16 +404,30 @@ export async function buscarRegla(
 export async function generarIdOperacion(
   empresaId: string
 ) {
-  const { data, error } = await supabase
-    .from('registro_operaciones')
-    .select('id_operacion')
-    .eq('empresa_id', empresaId);
+  // Una Producción confirmada (ver confirmarProduccion en
+  // lib/produccion.ts) también consume un número de OP, pero nunca
+  // inserta en registro_operaciones (esa tabla es para operaciones
+  // con cuenta débito/crédito de la Matriz — Producción ya deja su
+  // propio asiento en registros_automaticos). Si acá solo se mirara
+  // registro_operaciones, ese número quedaría "libre" y la próxima
+  // Venta/Compra podía terminar reusando el mismo OP-XXXXX que una
+  // Producción ya confirmada, mezclando ambas bajo un mismo número en
+  // el Libro Diario.
+  const [{ data: dataOperaciones, error: errorOperaciones }, { data: dataProducciones, error: errorProducciones }] =
+    await Promise.all([
+      supabase.from('registro_operaciones').select('id_operacion').eq('empresa_id', empresaId),
+      supabase.from('producciones').select('id_operacion').eq('empresa_id', empresaId),
+    ]);
 
-  if (error) {
-    throw error;
+  if (errorOperaciones) {
+    throw errorOperaciones;
   }
 
-  const numeros = (data ?? [])
+  if (errorProducciones) {
+    throw errorProducciones;
+  }
+
+  const numeros = [...(dataOperaciones ?? []), ...(dataProducciones ?? [])]
     .map((fila) =>
       parseInt(
         String(fila.id_operacion ?? '')
