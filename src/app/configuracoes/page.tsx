@@ -396,11 +396,17 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
     setMensaje('');
 
     const extension = archivo.name.split('.').pop() || 'png';
-    const ruta = `empresas/${empresaId}.${extension}`;
+    // El nombre del archivo incluye la fecha — subir un logo nuevo NO
+    // pisa el mismo path que el anterior. Antes sí lo pisaba
+    // (`empresas/{id}.png` siempre) y le agregábamos un "?v=" a la URL
+    // para evitar el caché del navegador, pero eso no alcanza si algún
+    // proxy/CDN intermedio cachea por path ignorando la query string:
+    // seguía sirviendo los bytes viejos aunque la URL fuera "distinta".
+    // Con un path realmente nuevo en cada subida, no hay bytes viejos
+    // que ningún caché pueda devolver por error.
+    const ruta = `empresas/${empresaId}-${Date.now()}.${extension}`;
 
-    const { error: errorSubida } = await supabase.storage
-      .from('Logos')
-      .upload(ruta, archivo, { upsert: true, cacheControl: '3600' });
+    const { error: errorSubida } = await supabase.storage.from('Logos').upload(ruta, archivo);
 
     if (errorSubida) {
       // Antes acá se mostraba solo un texto genérico ("No se pudo
@@ -414,23 +420,26 @@ function DadosDaEmpresaTab({ empresaId, esAdmin, idioma }: { empresaId: string; 
     }
 
     const { data: publicUrlData } = supabase.storage.from('Logos').getPublicUrl(ruta);
-    // Le agregamos la fecha como parámetro para que el navegador no
-    // muestre el logo viejo desde caché al reemplazarlo.
-    const urlConVersion = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+    const nuevaUrl = publicUrlData.publicUrl;
 
-    const { error: errorGuardar } = await supabase
+    // .select() para poder distinguir un guardado real de uno que
+    // Supabase deja pasar sin error pero que RLS filtró en silencio
+    // (0 filas afectadas) — sin esto, ese caso se mostraba como
+    // "logo actualizado" aunque la base nunca haya cambiado.
+    const { data: filasActualizadas, error: errorGuardar } = await supabase
       .from('empresas')
-      .update({ logo_url: urlConVersion })
-      .eq('id', empresaId);
+      .update({ logo_url: nuevaUrl })
+      .eq('id', empresaId)
+      .select('id');
 
     setSubiendoLogo(false);
 
-    if (errorGuardar) {
+    if (errorGuardar || !filasActualizadas?.length) {
       setError(t('errorLogoNoGuardado'));
       return;
     }
 
-    actualizarCampo('logo_url', urlConVersion);
+    actualizarCampo('logo_url', nuevaUrl);
     setMensaje(t('mensajeLogoActualizado'));
   }
 
