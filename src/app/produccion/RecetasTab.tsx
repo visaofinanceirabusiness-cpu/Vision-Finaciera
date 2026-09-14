@@ -17,7 +17,6 @@ import {
   guardarReceta,
   eliminarReceta,
   reactivarReceta,
-  UNIDADES_PRODUCCION,
   type RecetaConProducto,
   type RecetaDetalleInput,
 } from '@/lib/produccion';
@@ -125,7 +124,21 @@ export function RecetasTab({ empresaId, idioma }: { empresaId: string; idioma: s
   }
 
   function actualizarFila(indice: number, campo: keyof RecetaDetalleInput, valor: string | number) {
-    setFormDetalle((actual) => actual.map((fila, i) => (i === indice ? { ...fila, [campo]: valor } : fila)));
+    setFormDetalle((actual) =>
+      actual.map((fila, i) => {
+        if (i !== indice) return fila;
+
+        if (campo === 'insumo_id') {
+          // La unidad de la receta siempre es la unidad con la que se
+          // cargó el insumo en Mercaderías — no se elige acá, para que
+          // nunca quede desalineada con el stock real de ese insumo.
+          const insumoElegido = insumos.find((insumo) => insumo.id === valor);
+          return { ...fila, insumo_id: valor as string, unidad_medida: insumoElegido?.unidad_medida || 'UNIDAD' };
+        }
+
+        return { ...fila, [campo]: valor };
+      })
+    );
   }
 
   function quitarFila(indice: number) {
@@ -284,17 +297,19 @@ export function RecetasTab({ empresaId, idioma }: { empresaId: string; idioma: s
                     style={{ ...inputForm, flex: '1 1 100px' }}
                   />
 
-                  <select
-                    value={fila.unidad_medida}
-                    onChange={(e) => actualizarFila(indice, 'unidad_medida', e.target.value)}
-                    style={{ ...inputForm, flex: '1 1 100px' }}
+                  <span
+                    style={{
+                      ...inputForm,
+                      flex: '1 1 100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: COLORES.gris,
+                      background: '#f1f5f9',
+                    }}
+                    title={t('unidadFijaAviso')}
                   >
-                    {UNIDADES_PRODUCCION.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
+                    {fila.unidad_medida}
+                  </span>
 
                   <button type="button" onClick={() => quitarFila(indice)} style={botonQuitar}>
                     {t('quitarInsumo')}

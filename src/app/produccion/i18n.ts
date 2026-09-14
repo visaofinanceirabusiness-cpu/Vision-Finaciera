@@ -63,6 +63,7 @@ type Clave =
   | 'agregarInsumo'
   | 'insumoPlaceholder'
   | 'cantidadInsumo'
+  | 'unidadFijaAviso'
   | 'unidadInsumo'
   | 'quitarInsumo'
   | 'guardarReceta'
@@ -149,6 +150,7 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     agregarInsumo: '+ Agregar insumo',
     insumoPlaceholder: 'Seleccionar insumo...',
     cantidadInsumo: 'Cantidad',
+    unidadFijaAviso: 'La unidad viene del alta del insumo en Mercaderías y no se puede cambiar acá.',
     unidadInsumo: 'Unidad',
     quitarInsumo: 'Quitar',
     guardarReceta: 'Guardar receta',
@@ -234,6 +236,7 @@ export const diccionarioProduccion: Diccionario<Clave> = {
     agregarInsumo: '+ Adicionar insumo',
     insumoPlaceholder: 'Selecionar insumo...',
     cantidadInsumo: 'Quantidade',
+    unidadFijaAviso: 'A unidade vem do cadastro do insumo em Mercadorias e não pode ser alterada aqui.',
     unidadInsumo: 'Unidade',
     quitarInsumo: 'Remover',
     guardarReceta: 'Salvar receita',
