@@ -69,6 +69,7 @@ type Asiento = {
   debito: string | null;
   credito: string | null;
   importe: number;
+  operacion: string | null;
 };
 
 export default function InformesPage() {
@@ -198,6 +199,7 @@ export default function InformesPage() {
         debito: fila.cuenta_debito,
         credito: fila.cuenta_credito,
         importe: Number(fila.total ?? 0),
+        operacion: fila.operacion,
       }));
 
       const asientosAutomaticos: Asiento[] = (automaticosData ?? []).map((fila) => ({
@@ -207,6 +209,7 @@ export default function InformesPage() {
         debito: fila.cuenta_debito,
         credito: fila.cuenta_credito,
         importe: Number(fila.importe ?? 0),
+        operacion: null,
       }));
 
       setAsientos([...asientosOperaciones, ...asientosAutomaticos]);
@@ -1007,12 +1010,18 @@ function FlujoDeCajaTab({
 
   // Entrada de caja: el débito es una cuenta de caja (la caja aumenta).
   // Salida de caja: el crédito es una cuenta de caja (la caja baja).
-  // Se excluyen los movimientos entre dos cuentas de caja propias, para
-  // no contar una transferencia interna como entrada y salida a la vez.
+  // Se excluyen las Transferencias — son movimiento entre cuentas
+  // propias (incluso hacia Plazo Fijo/Inversiones, que son Activo pero
+  // no plata de uso diario), nunca un ingreso o gasto real. Sin esto,
+  // una transferencia a un ahorro se mostraba junto a los gastos.
   const entradas = useMemo(
     () =>
       asientosDelPeriodo.filter(
-        (a) => a.debito && nombresCaja.has(a.debito) && !(a.credito && nombresCaja.has(a.credito))
+        (a) =>
+          a.operacion !== 'TRANSFERENCIA' &&
+          a.debito &&
+          nombresCaja.has(a.debito) &&
+          !(a.credito && nombresCaja.has(a.credito))
       ),
     [asientosDelPeriodo, nombresCaja]
   );
@@ -1020,7 +1029,11 @@ function FlujoDeCajaTab({
   const salidas = useMemo(
     () =>
       asientosDelPeriodo.filter(
-        (a) => a.credito && nombresCaja.has(a.credito) && !(a.debito && nombresCaja.has(a.debito))
+        (a) =>
+          a.operacion !== 'TRANSFERENCIA' &&
+          a.credito &&
+          nombresCaja.has(a.credito) &&
+          !(a.debito && nombresCaja.has(a.debito))
       ),
     [asientosDelPeriodo, nombresCaja]
   );
@@ -1109,11 +1122,23 @@ function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[], id
     const delMes = asientos.filter((a) => a.fecha.slice(0, 7) === clave);
 
     const entradasMes = delMes
-      .filter((a) => a.debito && nombresCaja.has(a.debito) && !(a.credito && nombresCaja.has(a.credito)))
+      .filter(
+        (a) =>
+          a.operacion !== 'TRANSFERENCIA' &&
+          a.debito &&
+          nombresCaja.has(a.debito) &&
+          !(a.credito && nombresCaja.has(a.credito))
+      )
       .reduce((s, a) => s + a.importe, 0);
 
     const salidasMes = delMes
-      .filter((a) => a.credito && nombresCaja.has(a.credito) && !(a.debito && nombresCaja.has(a.debito)))
+      .filter(
+        (a) =>
+          a.operacion !== 'TRANSFERENCIA' &&
+          a.credito &&
+          nombresCaja.has(a.credito) &&
+          !(a.debito && nombresCaja.has(a.debito))
+      )
       .reduce((s, a) => s + a.importe, 0);
 
     return { clave, etiqueta: formatearPeriodoCorto(clave, idioma), valor: entradasMes - salidasMes };
