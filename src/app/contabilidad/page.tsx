@@ -66,6 +66,7 @@ import {
   msgTutorialPaso,
   msgTutorialCompletado,
   frasesSabioContabilidad,
+  agruparCategoriasPorRubro,
 } from './i18n';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
@@ -334,6 +335,12 @@ function CentralDeLanzamientosTab({
   // carga igual que una Inversión: categoría + descripción + monto.
   const [stockPorCategoria, setStockPorCategoria] = useState<Record<string, string>>({});
 
+  // Rubro contable (Activo/Pasivo/Patrimonio/Ingreso/Gasto) de cada
+  // cuenta, según el primer dígito de su código — se usa para agrupar
+  // el selector de Categoría con un separador por rubro (ver
+  // agruparCategoriasPorRubro más abajo).
+  const [rubroPorCuenta, setRubroPorCuenta] = useState<Record<string, string>>({});
+
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
   const [saldoOrigen, setSaldoOrigen] = useState<{ cuenta: string; saldo: number } | null>(null);
@@ -516,7 +523,7 @@ function CentralDeLanzamientosTab({
     ] = await Promise.all([
       supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaIdActual),
       supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaIdActual).eq('activo', true),
-      supabase.from('plan_cuentas').select('id, nombre, naturaleza').eq('empresa_id', empresaIdActual),
+      supabase.from('plan_cuentas').select('id, nombre, naturaleza, codigo').eq('empresa_id', empresaIdActual),
       supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', empresaIdActual),
       supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', empresaIdActual),
     ]);
@@ -556,6 +563,17 @@ function CentralDeLanzamientosTab({
     setCuentaPorFormaPago(cuentaPorFormaPagoNombre);
     setSaldoPorCuentaFinanciera(saldoPorCuenta);
     setNaturalezaPorCuentaFinanciera(Object.fromEntries(naturalezaPorNombre));
+
+    // El primer dígito del código del plan de cuentas es el rubro
+    // (1=Activo, 2=Pasivo, 3=Patrimonio, 4=Ingreso, 5=Gasto) — mismo
+    // criterio que ya usa el plan de cuentas maestro.
+    setRubroPorCuenta(
+      Object.fromEntries(
+        (cuentasData ?? [])
+          .filter((c) => c.codigo)
+          .map((c) => [c.nombre, String(c.codigo).charAt(0)])
+      )
+    );
   }
 
   useEffect(() => {
@@ -1421,10 +1439,14 @@ function CentralDeLanzamientosTab({
           >
             <option value="">{t('seleccionar')}</option>
 
-            {categorias.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+            {agruparCategoriasPorRubro(categorias, rubroPorCuenta, idioma).map((grupo) => (
+              <optgroup key={grupo.rubro} label={grupo.rubro}>
+                {grupo.categorias.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
 
