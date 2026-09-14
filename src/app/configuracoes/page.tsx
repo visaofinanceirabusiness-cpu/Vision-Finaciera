@@ -44,6 +44,7 @@ import {
   eliminarFormaPago,
   eliminarCuentaPlan,
   renombrarCuentaPlan,
+  renombrarFormaPago,
 } from '@/lib/categorias';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
 import { resetearSistema } from '@/lib/reset';
@@ -73,6 +74,7 @@ import {
   msgCategoriaEliminada,
   msgFormaPagoCreada,
   msgFormaPagoActualizada,
+  msgFormaPagoRenombrada,
   msgFormaPagoEliminada,
   msgSocioAgregado,
   msgSocioActualizado,
@@ -1672,6 +1674,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
           }, msgFormaPagoCreada(idioma, nombre))
         }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
+        onRenombrar={(id, nombreNuevo) => manejarAccion(() => renombrarFormaPago(empresaId, id, nombreNuevo), msgFormaPagoRenombrada(idioma))}
         onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), msgFormaPagoEliminada(idioma, nombre))}
       />
 
@@ -1862,6 +1865,7 @@ function BloqueFormasDePago({
   idioma,
   onCrear,
   onCambiarActivo,
+  onRenombrar,
   onEliminar,
 }: {
   formasPago: FormaPago[];
@@ -1875,12 +1879,12 @@ function BloqueFormasDePago({
     operacionesElegidas: string[]
   ) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onRenombrar: (id: string, nombreNuevo: string) => void;
   onEliminar: (id: string, nombre: string) => void;
 }) {
   const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [cuentaElegida, setCuentaElegida] = useState('');
-  const [nombreCuentaNueva, setNombreCuentaNueva] = useState('');
   const [tipoCuentaNueva, setTipoCuentaNueva] = useState<'ACTIVO' | 'PASIVO'>('ACTIVO');
   const [operacionesElegidas, setOperacionesElegidas] = useState<string[]>([]);
 
@@ -1898,7 +1902,14 @@ function BloqueFormasDePago({
 
   return (
     <SeccionCategoria titulo={t('tituloFormasPago')} subtitulo={t('subtituloFormasPago')}>
-      <ListaConToggle items={formasPago} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
+      <ListaConToggle
+        items={formasPago}
+        onCambiarActivo={onCambiarActivo}
+        onRenombrar={onRenombrar}
+        onEliminar={onEliminar}
+        soloLectura={!esAdmin}
+        idioma={idioma}
+      />
 
       {/* Crear una forma de pago nueva (ej. "Banco Santander") queda
           habilitado para cualquier usuario de la empresa, no solo
@@ -1931,13 +1942,10 @@ function BloqueFormasDePago({
         </div>
 
         {esCuentaNueva && (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
-            <input
-              style={{ ...inputFormulario, flex: '1 1 220px' }}
-              placeholder={t('placeholderCuentaNueva')}
-              value={nombreCuentaNueva}
-              onChange={(e) => setNombreCuentaNueva(e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
+            <span style={{ fontSize: 12.5, color: COLORES.gris, flex: '1 1 220px' }}>
+              {t('avisoCuentaNuevaMismoNombre')}
+            </span>
 
             <select
               style={{ ...inputFormulario, flex: '0 1 180px' }}
@@ -1969,19 +1977,17 @@ function BloqueFormasDePago({
             style={botonGuardar}
             onClick={() => {
               if (!nombreNuevo.trim() || !cuentaElegida) return;
-              if (esCuentaNueva && !nombreCuentaNueva.trim()) return;
 
               onCrear(
                 nombreNuevo,
                 esCuentaNueva
-                  ? { nueva: true, nombre: nombreCuentaNueva, tipoSaldo: tipoCuentaNueva }
+                  ? { nueva: true, nombre: nombreNuevo, tipoSaldo: tipoCuentaNueva }
                   : { id: cuentaElegida },
                 operacionesElegidas
               );
 
               setNombreNuevo('');
               setCuentaElegida('');
-              setNombreCuentaNueva('');
               setOperacionesElegidas([]);
             }}
           >
@@ -2014,12 +2020,14 @@ function SeccionCategoria({
 function ListaConToggle<T extends { id: string; codigo: string; nombre: string; activo: boolean }>({
   items,
   onCambiarActivo,
+  onRenombrar,
   onEliminar,
   soloLectura = false,
   idioma,
 }: {
   items: T[];
   onCambiarActivo: (id: string, activo: boolean) => void;
+  onRenombrar?: (id: string, nombreNuevo: string) => void;
   onEliminar?: (id: string, nombre: string) => void;
   soloLectura?: boolean;
   idioma: string;
@@ -2033,65 +2041,121 @@ function ListaConToggle<T extends { id: string; codigo: string; nombre: string; 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
       {items.map((item) => (
-        <div
+        <ItemListaConToggle
           key={item.id}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '9px 12px',
-            borderRadius: 10,
-            background: item.activo ? '#f8fafc' : '#f3f4f6',
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <div>
-            <span style={{ fontSize: 11, color: COLORES.gris, marginRight: 8 }}>{item.codigo}</span>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: item.activo ? COLORES.azul : COLORES.gris }}>
-              {item.nombre}
-            </span>
-          </div>
+          item={item}
+          onCambiarActivo={onCambiarActivo}
+          onRenombrar={onRenombrar}
+          onEliminar={onEliminar}
+          soloLectura={soloLectura}
+          idioma={idioma}
+        />
+      ))}
+    </div>
+  );
+}
 
-          {soloLectura ? (
-            <span style={{ fontSize: 11.5, color: COLORES.gris, fontWeight: 700 }}>
-              {item.activo ? t('activa') : t('inactiva')}
-            </span>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
-                {item.activo ? t('activa') : t('inactiva')}
-                <input
-                  type="checkbox"
-                  checked={item.activo}
-                  onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
-                />
-              </label>
+function ItemListaConToggle<T extends { id: string; codigo: string; nombre: string; activo: boolean }>({
+  item,
+  onCambiarActivo,
+  onRenombrar,
+  onEliminar,
+  soloLectura,
+  idioma,
+}: {
+  item: T;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+  onRenombrar?: (id: string, nombreNuevo: string) => void;
+  onEliminar?: (id: string, nombre: string) => void;
+  soloLectura: boolean;
+  idioma: string;
+}) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [nombre, setNombre] = useState(item.nombre);
 
-              {onEliminar && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm(confirmEliminarItem(idioma, item.nombre))) {
-                      onEliminar(item.id, item.nombre);
-                    }
-                  }}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    color: '#b91c1c',
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    padding: 0,
-                  }}
-                  title={t('eliminarTitulo')}
-                >
-                  🗑️
-                </button>
-              )}
-            </div>
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '9px 12px',
+        borderRadius: 10,
+        background: item.activo ? '#f8fafc' : '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        gap: 10,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 11, color: COLORES.gris, marginRight: 8, whiteSpace: 'nowrap' }}>{item.codigo}</span>
+
+        {onRenombrar ? (
+          <input
+            style={{
+              ...inputFormulario,
+              padding: '5px 8px',
+              fontSize: 13.5,
+              fontWeight: 700,
+              flex: 1,
+              maxWidth: 280,
+              color: item.activo ? COLORES.azul : COLORES.gris,
+            }}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            onBlur={() => {
+              const nombreLimpio = nombre.trim();
+              if (nombreLimpio && nombreLimpio !== item.nombre) {
+                onRenombrar(item.id, nombreLimpio);
+              } else {
+                setNombre(item.nombre);
+              }
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: item.activo ? COLORES.azul : COLORES.gris }}>
+            {item.nombre}
+          </span>
+        )}
+      </div>
+
+      {soloLectura ? (
+        <span style={{ fontSize: 11.5, color: COLORES.gris, fontWeight: 700 }}>
+          {item.activo ? t('activa') : t('inactiva')}
+        </span>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLORES.gris, cursor: 'pointer' }}>
+            {item.activo ? t('activa') : t('inactiva')}
+            <input
+              type="checkbox"
+              checked={item.activo}
+              onChange={(e) => onCambiarActivo(item.id, e.target.checked)}
+            />
+          </label>
+
+          {onEliminar && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(confirmEliminarItem(idioma, item.nombre))) {
+                  onEliminar(item.id, item.nombre);
+                }
+              }}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#b91c1c',
+                cursor: 'pointer',
+                fontSize: 13,
+                padding: 0,
+              }}
+              title={t('eliminarTitulo')}
+            >
+              🗑️
+            </button>
           )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -2284,7 +2348,7 @@ function PlanDeCuentasTab({ empresaId, esAdmin, idioma }: { empresaId: string; e
 
       {!esAdmin && (
         <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
-          {t('soloAdminRenombraCuentas')}
+          {t('soloAdminActivaCuentas')}
         </p>
       )}
 
@@ -2351,7 +2415,7 @@ function NodoPlanDeCuentas({
       >
         <span style={{ fontSize: 11, color: COLORES.gris, minWidth: 78 }}>{nodo.codigo}</span>
 
-        {tieneHijos || !esAdmin ? (
+        {tieneHijos ? (
           <span style={{ fontSize: 13, fontWeight: nivel === 0 ? 800 : 700, color: COLORES.azul, flex: 1 }}>
             {nombreCuentaDisplay(idioma, nodo.nombre)}
           </span>

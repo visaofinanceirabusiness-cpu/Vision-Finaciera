@@ -617,6 +617,63 @@ export async function crearFormaPago(
 }
 
 // =====================================================
+// RENOMBRAR FORMA DE PAGO
+//
+// El nombre de la forma de pago (ej. "Mercado Pago") es independiente
+// del nombre de la cuenta contable a la que está vinculada — es lo
+// que el usuario ve y elige en Contabilidad, y queda guardado como
+// texto en matriz_operaciones.forma_pago y registro_operaciones.
+// forma_pago (igual que pasa con el nombre de una cuenta, ver
+// renombrarCuentaPlan). Por eso el rename se propaga a esas tablas.
+// =====================================================
+
+export async function renombrarFormaPago(empresaId: string, formaPagoId: string, nombreNuevo: string) {
+  const nombreLimpio = nombreNuevo.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+
+  const { data: formaPago, error: errorFormaPago } = await supabase
+    .from('formas_pago')
+    .select('nombre')
+    .eq('id', formaPagoId)
+    .single();
+
+  if (errorFormaPago) {
+    throw errorFormaPago;
+  }
+
+  const nombreViejo = formaPago.nombre;
+
+  if (nombreViejo === nombreLimpio) {
+    return;
+  }
+
+  const { error: errorUpdate } = await supabase
+    .from('formas_pago')
+    .update({ nombre: nombreLimpio })
+    .eq('id', formaPagoId);
+
+  if (errorUpdate) {
+    throw errorUpdate;
+  }
+
+  await Promise.all([
+    supabase
+      .from('matriz_operaciones')
+      .update({ forma_pago: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('forma_pago', nombreViejo),
+    supabase
+      .from('registro_operaciones')
+      .update({ forma_pago: nombreLimpio })
+      .eq('empresa_id', empresaId)
+      .eq('forma_pago', nombreViejo),
+  ]);
+}
+
+// =====================================================
 // ACTIVAR / DESACTIVAR
 // =====================================================
 

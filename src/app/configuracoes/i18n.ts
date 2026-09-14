@@ -97,7 +97,7 @@ export type ClaveConfiguracoes =
   | 'placeholderFormaPago'
   | 'opcionCuentaContable'
   | 'opcionCuentaNueva'
-  | 'placeholderCuentaNueva'
+  | 'avisoCuentaNuevaMismoNombre'
   | 'opcionActivo'
   | 'opcionPasivo'
   | 'botonAgregarFormaPago'
@@ -113,7 +113,7 @@ export type ClaveConfiguracoes =
   | 'sinPlanCuentasTitulo2'
   | 'sinPlanCuentasAyuda2'
   | 'mostrarInactivas'
-  | 'soloAdminRenombraCuentas'
+  | 'soloAdminActivaCuentas'
   | 'cuentaEspecial'
   | 'contenedorStock'
   | 'contenedorIngreso'
@@ -309,7 +309,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     placeholderFormaPago: 'Nombre (ej. Mercado Pago)',
     opcionCuentaContable: 'Cuenta contable...',
     opcionCuentaNueva: '➕ La cuenta no existe — crear una nueva',
-    placeholderCuentaNueva: 'Nombre de la cuenta nueva (ej. Billetera Mercado Pago)',
+    avisoCuentaNuevaMismoNombre: 'La cuenta nueva se va a llamar igual que la forma de pago, para evitar confusiones.',
     opcionActivo: 'Activo (tengo esa plata)',
     opcionPasivo: 'Pasivo (debo esa plata)',
     botonAgregarFormaPago: '+ Agregar forma de pago',
@@ -324,7 +324,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     sinPlanCuentasTitulo2: 'Todavía no hay Plan de Cuentas',
     sinPlanCuentasAyuda2: 'Asigná un perfil de empresa en "Datos de la Empresa" para generarlo.',
     mostrarInactivas: 'Mostrar cuentas inactivas',
-    soloAdminRenombraCuentas: 'Solo un administrador de plataforma puede renombrar o desactivar cuentas acá.',
+    soloAdminActivaCuentas: 'Solo un administrador de plataforma puede activar o desactivar cuentas acá.',
     cuentaEspecial: 'cuenta especial',
     contenedorStock: 'cuenta base de Stock',
     contenedorIngreso: 'cuenta base de Ingresos',
@@ -516,7 +516,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     placeholderFormaPago: 'Nome (ex.: Mercado Pago)',
     opcionCuentaContable: 'Conta contábil...',
     opcionCuentaNueva: '➕ A conta não existe — criar uma nova',
-    placeholderCuentaNueva: 'Nome da conta nova (ex.: Carteira Mercado Pago)',
+    avisoCuentaNuevaMismoNombre: 'A conta nova vai se chamar igual à forma de pagamento, para evitar confusões.',
     opcionActivo: 'Ativo (tenho esse dinheiro)',
     opcionPasivo: 'Passivo (devo esse dinheiro)',
     botonAgregarFormaPago: '+ Adicionar forma de pagamento',
@@ -531,7 +531,7 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     sinPlanCuentasTitulo2: 'Ainda não há Plano de Contas',
     sinPlanCuentasAyuda2: 'Atribua um perfil de empresa em "Dados da Empresa" para gerá-lo.',
     mostrarInactivas: 'Mostrar contas inativas',
-    soloAdminRenombraCuentas: 'Somente um administrador da plataforma pode renomear ou desativar contas aqui.',
+    soloAdminActivaCuentas: 'Somente um administrador da plataforma pode ativar ou desativar contas aqui.',
     cuentaEspecial: 'conta especial',
     contenedorStock: 'conta base de Estoque',
     contenedorIngreso: 'conta base de Receitas',
@@ -663,6 +663,12 @@ export function msgFormaPagoActualizada(idioma: string) {
 
 export function msgFormaPagoEliminada(idioma: string, nombre: string) {
   return esPT(idioma) ? `Forma de pagamento "${nombre}" excluída.` : `Forma de pago "${nombre}" eliminada.`;
+}
+
+export function msgFormaPagoRenombrada(idioma: string) {
+  return esPT(idioma)
+    ? 'Forma de pagamento renomeada — foi atualizada em todas as operações que já a usavam.'
+    : 'Forma de pago renombrada — se actualizó en todas las operaciones que ya la usaban.';
 }
 
 export function msgSocioAgregado(idioma: string, nombre: string) {
