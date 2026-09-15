@@ -168,15 +168,33 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
     const periodo = primerDiaDelMes(mesDestino);
     const fechaVencimiento = fechaDelMes(mesDestino, plantilla.dia_mes);
 
-    const { data: existente } = await supabase
+    // Se inserta el recordatorio ANTES de crear el evento de
+    // calendario, apoyándose en la constraint unique (gasto_recurrente_id,
+    // periodo) para que la verificación sea atómica a nivel de base de
+    // datos: un select-y-después-insert por separado deja una ventana
+    // donde dos llamadas simultáneas (p. ej. el efecto del lobby
+    // disparándose dos veces al resolver empresa/perfil) pasan el
+    // chequeo antes de que la primera termine de insertar, y las dos
+    // terminan creando su propio evento de calendario duplicado.
+    const { data: recordatorioInsertado, error: errorRecordatorio } = await supabase
       .from('gastos_recurrentes_recordatorios')
+      .insert({
+        gasto_recurrente_id: plantilla.id,
+        empresa_id: empresaId,
+        periodo,
+        fecha_vencimiento: fechaVencimiento,
+        registrado: false,
+        evento_calendario_id: null,
+      })
       .select('id')
-      .eq('gasto_recurrente_id', plantilla.id)
-      .eq('periodo', periodo)
-      .maybeSingle();
+      .single();
 
-    if (existente) {
-      continue;
+    if (errorRecordatorio) {
+      if (errorRecordatorio.code === '23505') {
+        // Ya existía (constraint unique) — otra llamada se adelantó.
+        continue;
+      }
+      throw errorRecordatorio;
     }
 
     const titulo = esPT(idioma) ? `Vence: ${plantilla.nombre}` : `Vence: ${plantilla.nombre}`;
@@ -201,17 +219,13 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
       throw errorEvento;
     }
 
-    const { error: errorRecordatorio } = await supabase.from('gastos_recurrentes_recordatorios').insert({
-      gasto_recurrente_id: plantilla.id,
-      empresa_id: empresaId,
-      periodo,
-      fecha_vencimiento: fechaVencimiento,
-      registrado: false,
-      evento_calendario_id: evento.id,
-    });
+    const { error: errorUpdate } = await supabase
+      .from('gastos_recurrentes_recordatorios')
+      .update({ evento_calendario_id: evento.id })
+      .eq('id', recordatorioInsertado.id);
 
-    if (errorRecordatorio) {
-      throw errorRecordatorio;
+    if (errorUpdate) {
+      throw errorUpdate;
     }
   }
 }
