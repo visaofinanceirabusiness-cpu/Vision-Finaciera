@@ -30,6 +30,7 @@ import {
   type RecordatorioGastoRecurrente,
 } from '@/lib/gastosRecurrentes';
 import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
+import { VincularPagoModal } from './VincularPagoModal';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -62,6 +63,7 @@ export function MisVencimientos({
   const [editando, setEditando] = useState<GastoRecurrente | null>(null);
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
 
   async function recargar() {
     try {
@@ -288,6 +290,13 @@ export function MisVencimientos({
                       </span>
                       <button
                         type="button"
+                        onClick={() => setRecordatorioAVincular(recordatorio)}
+                        style={{ border: 'none', background: 'transparent', color: '#6e7781', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}
+                      >
+                        {esPT ? 'Já paguei' : 'Ya lo pagué'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setRecordatorioAConfirmar(recordatorio)}
                         style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                       >
@@ -421,6 +430,21 @@ export function MisVencimientos({
           onClose={() => setRecordatorioAConfirmar(null)}
           onRegistrado={() => {
             setRecordatorioAConfirmar(null);
+            recargar();
+          }}
+        />
+      )}
+
+      {recordatorioAVincular && (
+        <VincularPagoModal
+          empresaId={empresaId}
+          recordatorio={recordatorioAVincular}
+          idioma={idioma}
+          simbolo={simbolo}
+          colores={colores}
+          onClose={() => setRecordatorioAVincular(null)}
+          onVinculado={() => {
+            setRecordatorioAVincular(null);
             recargar();
           }}
         />
