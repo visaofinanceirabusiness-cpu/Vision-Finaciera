@@ -106,6 +106,9 @@ export function MisVencimientos({
     gruposPasivo.set(cuota.forma_pago_nombre, lista);
   }
 
+  const totalPasivos = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalGastosRecurrentes = recordatorios.reduce((suma, r) => suma + r.monto_habitual, 0);
+
   async function pagarCuota(cuotaId: string) {
     await marcarCuotaPagada(cuotaId, true);
     await recargar();
@@ -139,8 +142,17 @@ export function MisVencimientos({
         <>
           {/* ============ PASIVOS (cuotas pendientes) ============ */}
           <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 8 }}>
-              💳 {esPT ? 'Passivos' : 'Pasivos'}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
+                💳 {esPT ? 'Passivos' : 'Pasivos'}
+              </div>
+
+              {gruposPasivo.size > 0 && (
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
+                  {esPT ? 'Total: ' : 'Total: '}
+                  {simbolo} {totalPasivos.toFixed(2)}
+                </div>
+              )}
             </div>
 
             {gruposPasivo.size === 0 ? (
@@ -148,9 +160,18 @@ export function MisVencimientos({
                 {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
               </p>
             ) : (
-              Array.from(gruposPasivo.entries()).map(([nombrePasivo, cuotasDelPasivo]) => (
+              Array.from(gruposPasivo.entries()).map(([nombrePasivo, cuotasDelPasivo]) => {
+                const subtotalPasivo = cuotasDelPasivo.reduce((suma, cuota) => suma + cuota.monto, 0);
+
+                return (
                 <div key={nombrePasivo} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: colores.azul, marginBottom: 4 }}>{nombrePasivo}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: colores.azul }}>{nombrePasivo}</div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#6e7781' }}>
+                      {esPT ? 'Subtotal: ' : 'Subtotal: '}
+                      {simbolo} {subtotalPasivo.toFixed(2)}
+                    </div>
+                  </div>
                   {cuotasDelPasivo.map((cuota) => {
                     const vencida = cuota.fecha_vencimiento < hoy;
                     return (
@@ -189,15 +210,25 @@ export function MisVencimientos({
                     );
                   })}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* ============ GASTOS RECURRENTES ============ */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
-                🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
+                  🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}
+                </div>
+
+                {recordatorios.length > 0 && (
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
+                    {esPT ? 'Total: ' : 'Total: '}
+                    {simbolo} {totalGastosRecurrentes.toFixed(2)}
+                  </div>
+                )}
               </div>
 
               <button
