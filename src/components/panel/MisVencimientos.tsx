@@ -108,6 +108,7 @@ export function MisVencimientos({
 
   const totalPasivos = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
   const totalGastosRecurrentes = recordatorios.reduce((suma, r) => suma + r.monto_habitual, 0);
+  const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
   async function pagarCuota(cuotaId: string) {
     await marcarCuotaPagada(cuotaId, true);
@@ -116,18 +117,31 @@ export function MisVencimientos({
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-          {esPT ? 'VENCIMENTOS' : 'VENCIMIENTOS'}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <div>
+          <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+            {esPT ? 'VENCIMENTOS' : 'VENCIMIENTOS'}
+          </div>
+          <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
+            {esPT ? '📅 Meus Vencimentos' : '📅 Mis Vencimientos'}
+          </h2>
+          <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6e7781' }}>
+            {esPT
+              ? 'Cuotas de Passivos e Despesas Recorrentes, todas em um só lugar.'
+              : 'Cuotas de Pasivos y Gastos Recurrentes, todo en un mismo lugar.'}
+          </p>
         </div>
-        <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-          {esPT ? '📅 Meus Vencimentos' : '📅 Mis Vencimientos'}
-        </h2>
-        <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6e7781' }}>
-          {esPT
-            ? 'Cuotas de Passivos e Despesas Recorrentes, todas em um só lugar.'
-            : 'Cuotas de Pasivos y Gastos Recurrentes, todo en un mismo lugar.'}
-        </p>
+
+        {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
+              {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#c2410c' }}>
+              {simbolo} {totalGeneral.toFixed(2)}
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (
