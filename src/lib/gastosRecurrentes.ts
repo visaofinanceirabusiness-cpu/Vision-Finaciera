@@ -367,3 +367,63 @@ export async function registrarPagoRecordatorio(
 
   return resultado.idOperacion;
 }
+
+export type PagoCandidato = {
+  idOperacion: string;
+  fecha: string;
+  total: number;
+  historico: string | null;
+};
+
+// Para el gasto que ya se pagó y se cargó "a mano" en Contabilidad
+// (típicamente los primeros meses, antes de que existiera este
+// recordatorio) — en vez de registrar el Pago de nuevo y duplicarlo,
+// se busca el asiento ya cargado en el Libro Diario con la misma
+// categoría y forma de pago, para vincularlo directamente. Se excluye
+// cualquier asiento que ya esté vinculado a otro recordatorio.
+export async function buscarPagosCandidatos(
+  empresaId: string,
+  categoria: string,
+  formaPago: string
+): Promise<PagoCandidato[]> {
+  const [{ data: pagos, error }, { data: vinculados }] = await Promise.all([
+    supabase
+      .from('registro_operaciones')
+      .select('id_operacion, fecha, total, historico')
+      .eq('empresa_id', empresaId)
+      .eq('operacion', 'PAGO')
+      .eq('categoria', categoria)
+      .eq('forma_pago', formaPago)
+      .order('fecha', { ascending: false })
+      .limit(30),
+    supabase
+      .from('gastos_recurrentes_recordatorios')
+      .select('id_operacion')
+      .eq('empresa_id', empresaId)
+      .not('id_operacion', 'is', null),
+  ]);
+
+  if (error) {
+    throw error;
+  }
+
+  const yaVinculados = new Set((vinculados ?? []).map((v) => v.id_operacion));
+
+  return (pagos ?? [])
+    .filter((p) => p.id_operacion && !yaVinculados.has(p.id_operacion))
+    .map((p) => ({
+      idOperacion: p.id_operacion as string,
+      fecha: p.fecha,
+      total: Number(p.total),
+      historico: p.historico,
+    }));
+}
+
+// Vincula un recordatorio a un asiento YA cargado (ver
+// buscarPagosCandidatos) — mismo efecto final que
+// marcarRecordatorioRegistrado (queda cumplido, se borra el evento
+// del calendario), sin pasar por el motor contable porque el asiento
+// ya existe.
+export async function vincularRecordatorioAPago(recordatorioId: string, idOperacion: string) {
+  await marcarRecordatorioRegistrado(recordatorioId, idOperacion);
+}
