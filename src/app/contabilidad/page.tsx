@@ -11,8 +11,8 @@
 //   - Libro Diario: vista contable unificada (Debe/Haber) agrupada
 //     por operación.
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { createContext, Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
@@ -98,6 +98,14 @@ const LOGO_URL =
 type Pestana = 'lanzamientos' | 'registros' | 'libro';
 
 export default function ContabilidadPage() {
+  return (
+    <Suspense fallback={null}>
+      <ContabilidadPageInterno />
+    </Suspense>
+  );
+}
+
+function ContabilidadPageInterno() {
   const router = useRouter();
   const [pestana, setPestana] = useState<Pestana>('lanzamientos');
   const [esAdmin, setEsAdmin] = useState(false);
@@ -106,18 +114,20 @@ export default function ContabilidadPage() {
   const [idioma, setIdioma] = useState<string | null>(null);
 
   // Al llegar desde el botón "Registrar" de un recordatorio de gasto
-  // recurrente (Informes → Gastos Fijos), la URL trae el id del
-  // recordatorio — se precargan Operación/Categoría/Forma de Pago/
-  // Monto y, al guardar, se marca ese recordatorio como cumplido (ver
-  // handleRegistrar en CentralDeLanzamientosTab). El inicializador
-  // lee la URL de una (no con useSearchParams, para no meterse con
-  // el requisito de <Suspense> del App Router) — así se sabe DE UNA
-  // si hay que esperar el prefetch antes de montar el formulario:
-  // CentralDeLanzamientosTab solo lee `valoresIniciales` al montarse
-  // (useState inicial), así que pasárselo tarde no sirve de nada.
-  const [recordatorioIdUrl] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('gastoRecurrenteRecordatorioId')
-  );
+  // recurrente (Mis Vencimientos, en Panel de Control), la URL trae
+  // el id del recordatorio — se precargan Operación/Categoría/Forma
+  // de Pago/Monto y, al guardar, se marca ese recordatorio como
+  // cumplido (ver handleRegistrar en CentralDeLanzamientosTab). Se
+  // lee con useSearchParams (reactivo) y NO con un useState perezoso
+  // leyendo window.location.search una sola vez: el App Router puede
+  // reusar esta misma instancia de página al navegar de nuevo a
+  // /contabilidad con un id distinto (si ya se había visitado antes
+  // en la sesión) — con una lectura de una sola vez, ese segundo
+  // click en "Registrar" quedaba con el id viejo (o ninguno) y el
+  // formulario se abría completamente vacío, sin ni siquiera pedirle
+  // el recordatorio al servidor.
+  const searchParams = useSearchParams();
+  const recordatorioIdUrl = searchParams.get('gastoRecurrenteRecordatorioId');
   const [recordatorioGastoRecurrenteId, setRecordatorioGastoRecurrenteId] = useState<string | undefined>(undefined);
   const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
   const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl);
@@ -125,7 +135,18 @@ export default function ContabilidadPage() {
   const t = crearTraductor(diccionarioContabilidad, idioma);
 
   useEffect(() => {
-    if (!recordatorioIdUrl) return;
+    if (!recordatorioIdUrl) {
+      setPrefillListo(true);
+      return;
+    }
+
+    // Se desmonta el formulario mientras se busca el recordatorio (el
+    // condicional de más abajo usa prefillListo) para que, al volver
+    // a montarse con los valoresIniciales ya resueltos, arranque de
+    // cero — necesario porque un mismo click en "Registrar" mientras
+    // ya se estaba en /contabilidad no remonta el componente por sí
+    // solo.
+    setPrefillListo(false);
 
     obtenerRecordatorio(recordatorioIdUrl)
       .then((recordatorio) => {
@@ -142,8 +163,9 @@ export default function ContabilidadPage() {
           lineas: [{ producto: '', cantidad: 1, monto: recordatorio.monto_habitual, unidadCarga: '' }],
         });
       })
+      .catch((e) => console.error('No se pudo precargar el recordatorio del gasto recurrente:', e))
       .finally(() => setPrefillListo(true));
-  }, []);
+  }, [recordatorioIdUrl]);
 
   useEffect(() => {
     async function cargarPerfil() {
