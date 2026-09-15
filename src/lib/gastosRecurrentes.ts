@@ -101,6 +101,40 @@ export async function cambiarActivoGastoRecurrente(id: string, activo: boolean) 
   if (error) throw error;
 }
 
+export async function actualizarGastoRecurrente(
+  id: string,
+  datos: { nombre: string; categoria: string; formaPago: string; montoHabitual: number; diaMes: number }
+) {
+  const nombre = datos.nombre.trim();
+
+  if (!nombre) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+
+  if (!datos.categoria || !datos.formaPago) {
+    throw new Error('Elegí la categoría y la forma de pago.');
+  }
+
+  if (!Number.isInteger(datos.diaMes) || datos.diaMes < 1 || datos.diaMes > 28) {
+    throw new Error('El día del mes tiene que ser entre 1 y 28 (para que exista en todos los meses).');
+  }
+
+  const { error } = await supabase
+    .from('gastos_recurrentes')
+    .update({
+      nombre,
+      categoria: datos.categoria,
+      forma_pago: datos.formaPago,
+      monto_habitual: datos.montoHabitual,
+      dia_mes: datos.diaMes,
+    })
+    .eq('id', id);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function eliminarGastoRecurrente(id: string) {
   const { error } = await supabase.from('gastos_recurrentes').delete().eq('id', id);
   if (error) throw error;

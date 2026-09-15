@@ -18,6 +18,7 @@ import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
+import { MisVencimientos } from '@/components/panel/MisVencimientos';
 import {
   diccionarioPanelControl,
   type ClavePanelControl,
@@ -588,6 +589,26 @@ export default function MiNegocioPage() {
             })()}
           </div>
         </section>
+
+        {perfil?.empresa_id && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+            }}
+          >
+            <MisVencimientos
+              empresaId={perfil.empresa_id}
+              idioma={idioma}
+              simbolo={simbolo}
+              colores={colores}
+            />
+          </section>
+        )}
 
         {/* =================================================
             SELECTOR GLOBAL

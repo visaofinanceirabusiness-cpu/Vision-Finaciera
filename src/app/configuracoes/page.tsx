@@ -48,13 +48,6 @@ import {
   crearPasivo,
   crearCuentaAhorro,
 } from '@/lib/categorias';
-import {
-  crearGastoRecurrente,
-  listarGastosRecurrentes,
-  cambiarActivoGastoRecurrente,
-  eliminarGastoRecurrente,
-  type GastoRecurrente,
-} from '@/lib/gastosRecurrentes';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
 import { resetearSistema } from '@/lib/reset';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
@@ -87,9 +80,6 @@ import {
   msgFormaPagoEliminada,
   msgInversionCreada,
   msgPasivoCreado,
-  msgGastoRecurrenteCreado,
-  msgGastoRecurrenteActualizado,
-  msgGastoRecurrenteEliminado,
   msgSocioAgregado,
   msgSocioActualizado,
   msgSocioEliminado,
@@ -1456,7 +1446,6 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
   const [pasivos, setPasivos] = useState<FormaPago[]>([]);
   const [inversiones, setInversiones] = useState<FormaPago[]>([]);
   const [cuentaIdPorInversion, setCuentaIdPorInversion] = useState<Record<string, string>>({});
-  const [gastosRecurrentes, setGastosRecurrentes] = useState<GastoRecurrente[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
   const [operaciones, setOperaciones] = useState<OperacionOpcion[]>([]);
@@ -1589,12 +1578,6 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
       setCategoriasServicio(cs ?? []);
     } else {
       setCategoriasServicio([]);
-    }
-
-    try {
-      setGastosRecurrentes(await listarGastosRecurrentes(empresaId));
-    } catch (errorGastos) {
-      console.warn('No se pudieron cargar los gastos recurrentes:', errorGastos);
     }
 
     setCargando(false);
@@ -1777,23 +1760,6 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
         onRenombrar={(id, nombreNuevo) => manejarAccion(() => renombrarFormaPago(empresaId, id, nombreNuevo), msgFormaPagoRenombrada(idioma))}
         onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), msgFormaPagoEliminada(idioma, nombre))}
-      />
-
-      <BloqueGastosRecurrentes
-        gastosRecurrentes={gastosRecurrentes}
-        categorias={categoriasGasto.map((c) => c.nombre)}
-        formasPago={[...formasPago, ...pasivos].map((f) => f.nombre)}
-        esAdmin={esAdmin}
-        idioma={idioma}
-        onCrear={(datos) =>
-          manejarAccion(() => crearGastoRecurrente(empresaId, datos), msgGastoRecurrenteCreado(idioma, datos.nombre))
-        }
-        onCambiarActivo={(id, activo) =>
-          manejarAccion(() => cambiarActivoGastoRecurrente(id, activo), msgGastoRecurrenteActualizado(idioma))
-        }
-        onEliminar={(id, nombre) =>
-          manejarAccion(() => eliminarGastoRecurrente(id), msgGastoRecurrenteEliminado(idioma, nombre))
-        }
       />
 
       <BloqueSocios
@@ -2193,126 +2159,6 @@ function BloquePasivos({
           setNombreNuevo('');
         }}
       />
-    </SeccionCategoria>
-  );
-}
-
-function BloqueGastosRecurrentes({
-  gastosRecurrentes,
-  categorias,
-  formasPago,
-  esAdmin,
-  idioma,
-  onCrear,
-  onCambiarActivo,
-  onEliminar,
-}: {
-  gastosRecurrentes: GastoRecurrente[];
-  categorias: string[];
-  formasPago: string[];
-  esAdmin: boolean;
-  idioma: string;
-  onCrear: (datos: { nombre: string; categoria: string; formaPago: string; montoHabitual: number; diaMes: number }) => void;
-  onCambiarActivo: (id: string, activo: boolean) => void;
-  onEliminar: (id: string, nombre: string) => void;
-}) {
-  const t = crearTraductor(diccionarioConfiguracoes, idioma);
-  const [nombreNuevo, setNombreNuevo] = useState('');
-  const [categoriaElegida, setCategoriaElegida] = useState('');
-  const [formaPagoElegida, setFormaPagoElegida] = useState('');
-  const [montoHabitual, setMontoHabitual] = useState('');
-  const [diaMes, setDiaMes] = useState('10');
-
-  const items = gastosRecurrentes.map((g) => ({
-    id: g.id,
-    codigo: `${idioma === 'PT' ? 'Dia' : 'Día'} ${g.dia_mes}`,
-    nombre: g.nombre,
-    activo: g.activo,
-  }));
-
-  function agregar() {
-    const monto = Number(montoHabitual);
-    const dia = Number(diaMes);
-
-    if (!nombreNuevo.trim() || !categoriaElegida || !formaPagoElegida || !monto || !dia) return;
-
-    onCrear({ nombre: nombreNuevo.trim(), categoria: categoriaElegida, formaPago: formaPagoElegida, montoHabitual: monto, diaMes: dia });
-
-    setNombreNuevo('');
-    setCategoriaElegida('');
-    setFormaPagoElegida('');
-    setMontoHabitual('');
-    setDiaMes('10');
-  }
-
-  return (
-    <SeccionCategoria titulo={t('tituloGastosRecurrentes')} subtitulo={t('subtituloGastosRecurrentes')} cantidad={gastosRecurrentes.length}>
-      <ListaConToggle items={items} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
-
-      <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            style={{ ...inputFormulario, flex: '1 1 200px' }}
-            placeholder={t('placeholderGastoRecurrente')}
-            value={nombreNuevo}
-            onChange={(e) => setNombreNuevo(e.target.value)}
-          />
-
-          <select
-            style={{ ...inputFormulario, flex: '1 1 180px' }}
-            value={categoriaElegida}
-            onChange={(e) => setCategoriaElegida(e.target.value)}
-          >
-            <option value="">{t('opcionCategoriaGasto')}</option>
-            {categorias.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          <select
-            style={{ ...inputFormulario, flex: '1 1 180px' }}
-            value={formaPagoElegida}
-            onChange={(e) => setFormaPagoElegida(e.target.value)}
-          >
-            <option value="">{t('opcionCuentaContable')}</option>
-            {formasPago.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            type="number"
-            style={{ ...inputFormulario, flex: '1 1 140px' }}
-            placeholder={t('placeholderMontoHabitual')}
-            value={montoHabitual}
-            onChange={(e) => setMontoHabitual(e.target.value)}
-          />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 160px' }}>
-            <label style={{ fontSize: 12.5, color: COLORES.gris, whiteSpace: 'nowrap' }}>{t('labelDiaMes')}</label>
-            <input
-              type="number"
-              min={1}
-              max={28}
-              style={{ ...inputFormulario, width: 70, marginBottom: 0 }}
-              value={diaMes}
-              onChange={(e) => setDiaMes(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <button type="button" style={botonGuardar} onClick={agregar}>
-            {t('botonAgregarGastoRecurrente')}
-          </button>
-        </div>
-      </div>
     </SeccionCategoria>
   );
 }
