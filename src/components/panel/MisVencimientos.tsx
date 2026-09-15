@@ -17,7 +17,6 @@
 // Configurações), es más parecido a un recordatorio personal.
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { listarCuotasPendientes, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
 import {
@@ -30,6 +29,7 @@ import {
   type GastoRecurrente,
   type RecordatorioGastoRecurrente,
 } from '@/lib/gastosRecurrentes';
+import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -61,6 +61,7 @@ export function MisVencimientos({
   const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
   const [editando, setEditando] = useState<GastoRecurrente | null>(null);
   const [creando, setCreando] = useState(false);
+  const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
 
   async function recargar() {
     try {
@@ -285,12 +286,13 @@ export function MisVencimientos({
                       <span style={{ fontSize: 12, color: '#6e7781' }}>
                         {esPT ? 'aprox.' : 'aprox.'} {simbolo} {recordatorio.monto_habitual.toFixed(2)}
                       </span>
-                      <Link
-                        href={`/contabilidad?gastoRecurrenteRecordatorioId=${recordatorio.id}`}
-                        style={{ color: colores.verde, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
+                      <button
+                        type="button"
+                        onClick={() => setRecordatorioAConfirmar(recordatorio)}
+                        style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                       >
                         ✓ {esPT ? 'Registrar' : 'Registrar'}
-                      </Link>
+                      </button>
                     </span>
                   </div>
                 );
@@ -407,6 +409,21 @@ export function MisVencimientos({
             )}
           </div>
         </>
+      )}
+
+      {recordatorioAConfirmar && (
+        <SabioRegistrarGastoModal
+          empresaId={empresaId}
+          recordatorio={recordatorioAConfirmar}
+          idioma={idioma}
+          simbolo={simbolo}
+          colores={colores}
+          onClose={() => setRecordatorioAConfirmar(null)}
+          onRegistrado={() => {
+            setRecordatorioAConfirmar(null);
+            recargar();
+          }}
+        />
       )}
     </div>
   );
