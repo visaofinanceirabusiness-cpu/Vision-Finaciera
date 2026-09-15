@@ -25,6 +25,7 @@ type Clave =
   | 'labelHaciaCuenta'
   | 'labelFormaPago'
   | 'labelDesdeCuenta'
+  | 'labelEnCuotas'
   | 'labelHistorico'
   | 'placeholderHistorico'
   | 'labelSocio'
@@ -110,6 +111,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelHaciaCuenta: 'Hacia (cuenta de ahorro)',
     labelFormaPago: 'Forma de Pago',
     labelDesdeCuenta: 'Desde (cuenta de origen)',
+    labelEnCuotas: '¿En cuotas? Cantidad:',
     labelHistorico: 'Nota Fiscal N°',
     placeholderHistorico: 'Ej.: NF-00123',
     labelSocio: 'Socio/a',
@@ -196,6 +198,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelHaciaCuenta: 'Para (conta de poupança)',
     labelFormaPago: 'Forma de Pagamento',
     labelDesdeCuenta: 'De (conta de origem)',
+    labelEnCuotas: 'Em parcelas? Quantidade:',
     labelHistorico: 'Nota Fiscal N°',
     placeholderHistorico: 'Ex.: NF-00123',
     labelSocio: 'Sócio/a',

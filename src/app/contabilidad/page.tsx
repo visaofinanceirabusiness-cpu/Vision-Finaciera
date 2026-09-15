@@ -31,6 +31,7 @@ import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
 import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
+import { crearCuotasPasivo } from '@/lib/cuotas';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -346,6 +347,14 @@ function CentralDeLanzamientosTab({
   const [saldoOrigen, setSaldoOrigen] = useState<{ cuenta: string; saldo: number } | null>(null);
   const [saldoDestino, setSaldoDestino] = useState<{ cuenta: string; saldo: number } | null>(null);
 
+  // Compra/Pago a crédito en cuotas — solo tiene sentido cuando la
+  // forma de pago elegida es un Pasivo (rubro '2', ver rubroPorCuenta
+  // más arriba). El asiento sigue siendo uno solo por el total; las
+  // cuotas son un cronograma aparte con recordatorio en el
+  // Calendário del lobby (ver lib/cuotas.ts).
+  const [enCuotas, setEnCuotas] = useState(false);
+  const [cantidadCuotas, setCantidadCuotas] = useState('2');
+
   const [historico, setHistorico] = useState(valoresIniciales?.historico ?? '');
   const [clienteProveedor, setClienteProveedor] = useState(valoresIniciales?.clienteProveedor ?? '');
   const [socio, setSocio] = useState(valoresIniciales?.socio ?? '');
@@ -417,6 +426,42 @@ function CentralDeLanzamientosTab({
   // Cuenta Bancaria a Plazo Fijo) — no hay un tercero involucrado,
   // así que no corresponde pedir Cliente/Proveedor/Socio acá.
   const esTransferencia = operacion === 'TRANSFERENCIA';
+
+  // "En cuotas" solo aplica a Compra/Pago con una forma de pago que
+  // sea un Pasivo (rubro '2') — pagar en efectivo o transferir no
+  // genera una deuda que tenga sentido parcelar.
+  const puedeEnCuotas =
+    (operacion === 'COMPRA' || operacion === 'PAGO') && Boolean(formaPago) && rubroPorCuenta[formaPago] === '2';
+
+  useEffect(() => {
+    if (!puedeEnCuotas) {
+      setEnCuotas(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puedeEnCuotas]);
+
+  // Al editar una operación que ya tenía un cronograma de cuotas,
+  // hay que precargarlo — si no, guardar la edición sin tildar "en
+  // cuotas" de nuevo borraría el cronograma existente sin recrearlo
+  // (ver limpiarOperacion en lib/motor, que lo limpia siempre).
+  useEffect(() => {
+    if (!empresaId || !modoEdicion || !idOperacionEditar) return;
+
+    supabase
+      .from('cuotas_pasivo')
+      .select('total_cuotas')
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', idOperacionEditar)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setEnCuotas(true);
+          setCantidadCuotas(String(data.total_cuotas));
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, modoEdicion, idOperacionEditar]);
 
   useEffect(() => {
     if (formularioSimple) {
@@ -1145,13 +1190,46 @@ function CentralDeLanzamientosTab({
       };
 
       if (modoEdicion && idOperacionEditar) {
-        await editarOperacion(empresaId, idOperacionEditar, formulario);
+        const resultadoEdicion = await editarOperacion(empresaId, idOperacionEditar, formulario);
+
+        // editarOperacion borra y vuelve a generar la operación bajo
+        // el mismo id_operacion — eso ya se llevó puesto el cronograma
+        // de cuotas viejo (ver limpiarOperacion en lib/motor), así que
+        // si seguía marcada "en cuotas" hay que rearmarlo de cero.
+        if (puedeEnCuotas && enCuotas) {
+          const cantidad = Number(cantidadCuotas);
+
+          if (Number.isInteger(cantidad) && cantidad >= 2) {
+            await crearCuotasPasivo(empresaId, idioma, {
+              idOperacion: idOperacionEditar,
+              formaPagoNombre: formulario.formaPago,
+              total: resultadoEdicion.total,
+              cantidadCuotas: cantidad,
+              fechaCompra: formulario.fecha,
+            });
+          }
+        }
+
         setMensajeSabio(msgOperacionActualizada(idioma));
         onGuardado?.();
         return;
       }
 
       const resultado = await registrarOperacion(empresaId, formulario);
+
+      if (puedeEnCuotas && enCuotas) {
+        const cantidad = Number(cantidadCuotas);
+
+        if (Number.isInteger(cantidad) && cantidad >= 2) {
+          await crearCuotasPasivo(empresaId, idioma, {
+            idOperacion: resultado.idOperacion,
+            formaPagoNombre: formulario.formaPago,
+            total: resultado.total,
+            cantidadCuotas: cantidad,
+            fechaCompra: formulario.fecha,
+          });
+        }
+      }
 
       // En Venta, el histórico pasa a ser el número de comprobante
       // (el id_operacion recién asignado) en vez del texto/producto
@@ -1224,6 +1302,8 @@ function CentralDeLanzamientosTab({
       setHistorico('');
       setClienteProveedor('');
       setSocio('');
+      setEnCuotas(false);
+      setCantidadCuotas('2');
 
       setLineas([{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]);
 
@@ -1494,6 +1574,26 @@ function CentralDeLanzamientosTab({
           )}
         </Campo>
       </div>
+
+      {puedeEnCuotas && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: COLORES.azul, fontWeight: 700, cursor: 'pointer' }}>
+            <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />
+            {t('labelEnCuotas')}
+          </label>
+
+          {enCuotas && (
+            <input
+              type="number"
+              min={2}
+              step={1}
+              value={cantidadCuotas}
+              onChange={(e) => setCantidadCuotas(e.target.value)}
+              style={{ ...campoInput, width: 90 }}
+            />
+          )}
+        </div>
+      )}
 
       {esTransferencia && (
         <p style={{ fontSize: 12.5, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
