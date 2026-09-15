@@ -1601,12 +1601,20 @@ function DeudasTab({ empresaId, idioma }: { empresaId: string; idioma: string | 
   const t = crearTraductor(diccionarioInformes, idioma);
   const [cuotas, setCuotas] = useState<CuotaPasivo[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
   const [procesando, setProcesando] = useState<string | null>(null);
 
   async function recargar() {
-    const datos = await listarCuotasPendientes(empresaId);
-    setCuotas(datos);
-    setCargando(false);
+    try {
+      const datos = await listarCuotasPendientes(empresaId);
+      setCuotas(datos);
+      setError('');
+    } catch (e) {
+      console.error('Error cargando cuotas pendientes:', e);
+      setError(e instanceof Error ? e.message : 'Error inesperado.');
+    } finally {
+      setCargando(false);
+    }
   }
 
   useEffect(() => {
@@ -1627,6 +1635,10 @@ function DeudasTab({ empresaId, idioma }: { empresaId: string; idioma: string | 
 
   if (cargando) {
     return <div style={cargandoStyle}>{t('cargandoInformes')}</div>;
+  }
+
+  if (error) {
+    return <div style={errorStyle}>{error}</div>;
   }
 
   const hoy = fechaLocalHoy();
