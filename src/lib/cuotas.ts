@@ -97,7 +97,10 @@ export async function crearCuotasPasivo(
         titulo,
         categoria: 'FINANCEIRO',
         fecha: fechaVencimiento,
-        hora: null,
+        // El cron que manda el push (/api/calendario/verificar-
+        // recordatorios) ignora los eventos sin "hora" — sin esto el
+        // aviso quedaba armado pero nunca se enviaba.
+        hora: '09:00:00',
         notas: null,
         notificar: true,
         antelacion_minutos: 1440,
