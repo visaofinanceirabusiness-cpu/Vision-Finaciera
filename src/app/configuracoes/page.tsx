@@ -45,6 +45,8 @@ import {
   eliminarCuentaPlan,
   renombrarCuentaPlan,
   renombrarFormaPago,
+  crearPasivo,
+  crearCuentaAhorro,
 } from '@/lib/categorias';
 import { crearSocio, cambiarActivoSocio, eliminarSocio } from '@/lib/socios';
 import { resetearSistema } from '@/lib/reset';
@@ -76,6 +78,8 @@ import {
   msgFormaPagoActualizada,
   msgFormaPagoRenombrada,
   msgFormaPagoEliminada,
+  msgInversionCreada,
+  msgPasivoCreado,
   msgSocioAgregado,
   msgSocioActualizado,
   msgSocioEliminado,
@@ -1439,6 +1443,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
   const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
   const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
+  const [pasivos, setPasivos] = useState<FormaPago[]>([]);
+  const [inversiones, setInversiones] = useState<FormaPago[]>([]);
+  const [cuentaIdPorInversion, setCuentaIdPorInversion] = useState<Record<string, string>>({});
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
   const [operaciones, setOperaciones] = useState<OperacionOpcion[]>([]);
@@ -1454,6 +1461,9 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
       { data: cp },
       { data: cg },
       { data: fp },
+      { data: fpc },
+      { data: inv },
+      { data: invCuentas },
       { data: soc },
       { data: pc },
       { data: op },
@@ -1473,12 +1483,49 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         .eq('tipo', 'GASTO')
         .order('nombre'),
       supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
+      // Para separar Formas de Pago (Activo) de Pasivos: qué cuenta
+      // tiene detrás cada forma de pago y de qué tipo es esa cuenta.
+      supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaId).eq('activo', true),
+      // Inversiones/Ahorros: viven en categorias_operacion (operacion
+      // TRANSFERENCIA), igual que Plazo Fijo/Inversiones ya traídas
+      // por el perfil — ver crearCuentaAhorro en lib/categorias.
+      supabase
+        .from('categorias_operacion')
+        .select('id, codigo, nombre, activo')
+        .eq('empresa_id', empresaId)
+        .eq('operacion', 'TRANSFERENCIA')
+        .order('nombre'),
+      supabase
+        .from('categorias_operacion_cuentas')
+        .select('categoria_operacion_id, cuenta_id')
+        .eq('empresa_id', empresaId)
+        .eq('rol', 'AHORRO'),
       supabase.from('socios').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
-      supabase.from('plan_cuentas').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('tipo_saldo', 'ACTIVO').eq('activo', true).order('codigo'),
+      supabase.from('plan_cuentas').select('id, codigo, nombre, tipo_saldo').eq('empresa_id', empresaId).eq('activo', true).order('codigo'),
       supabase.from('operaciones').select('id, nombre').eq('empresa_id', empresaId),
       supabase.from('reglas_contables').select('operacion, motor').eq('empresa_id', empresaId).is('categoria_codigo', null),
       supabase.from('empresas').select('perfil_empresa_id, perfiles_empresa(codigo)').eq('id', empresaId).maybeSingle(),
     ]);
+
+    // Formas de Pago solo debe mostrar las respaldadas por una cuenta
+    // de Activo — las de Pasivo (Tarjeta, Préstamo Personal, y ahora
+    // cualquier Pasivo creado desde su propia sección) se muestran
+    // aparte, para no mezclar "cómo pago" con "cuánto debo".
+    const tipoSaldoPorCuenta = new Map((pc ?? []).map((c) => [c.id, c.tipo_saldo]));
+    const cuentaIdPorFormaPago = new Map((fpc ?? []).map((f) => [f.forma_pago_id, f.cuenta_id]));
+
+    const esPasivo = (formaPagoId: string) => {
+      const cuentaId = cuentaIdPorFormaPago.get(formaPagoId);
+      return cuentaId ? tipoSaldoPorCuenta.get(cuentaId) === 'PASIVO' : false;
+    };
+
+    setFormasPago((fp ?? []).filter((f) => !esPasivo(f.id)));
+    setPasivos((fp ?? []).filter((f) => esPasivo(f.id)));
+
+    setInversiones(inv ?? []);
+    setCuentaIdPorInversion(
+      Object.fromEntries((invCuentas ?? []).map((v) => [v.categoria_operacion_id, v.cuenta_id]))
+    );
 
     // Si el perfil es Mixto, lo que se ofrece depende de qué
     // componentes tildó el admin en "Datos de la Empresa" (no todo
@@ -1505,9 +1552,11 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
 
     setCategoriasProducto(cp ?? []);
     setCategoriasGasto(cg ?? []);
-    setFormasPago(fp ?? []);
     setSocios(soc ?? []);
-    setCuentas(pc ?? []);
+    // Solo cuentas de ACTIVO: la cuenta detrás de una forma de pago
+    // (Formas de Pago, la sección de Activo) tiene que ser plata
+    // disponible — un Pasivo se carga aparte, en su propia sección.
+    setCuentas((pc ?? []).filter((c) => c.tipo_saldo === 'ACTIVO'));
     setOperaciones(op ?? []);
     setTieneEsqueleto((pc ?? []).length > 0);
     // Una empresa "vieja" (migrada a mano, sin pasar por un perfil)
@@ -1662,7 +1711,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         onCrear={(nombre, cuenta, operacionesElegidas) =>
           manejarAccion(async () => {
             const cuentaId =
-              'id' in cuenta ? cuenta.id : await crearCuentaParaMedioPago(empresaId, cuenta.nombre, cuenta.tipoSaldo);
+              'id' in cuenta ? cuenta.id : await crearCuentaParaMedioPago(empresaId, cuenta.nombre, 'ACTIVO');
 
             await crearFormaPago(empresaId, nombre, cuentaId, operacionesElegidas);
 
@@ -1672,6 +1721,41 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
             // se resolvió para categorías y socios más abajo.
             await generarMatrizOperaciones(empresaId);
           }, msgFormaPagoCreada(idioma, nombre))
+        }
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
+        onRenombrar={(id, nombreNuevo) => manejarAccion(() => renombrarFormaPago(empresaId, id, nombreNuevo), msgFormaPagoRenombrada(idioma))}
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarFormaPago(id), msgFormaPagoEliminada(idioma, nombre))}
+      />
+
+      <BloqueInversiones
+        inversiones={inversiones}
+        esAdmin={esAdmin}
+        idioma={idioma}
+        onCrear={(nombre) =>
+          manejarAccion(async () => {
+            await crearCuentaAhorro(empresaId, nombre);
+            await generarMatrizOperaciones(empresaId);
+          }, msgInversionCreada(idioma, nombre))
+        }
+        onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), msgCategoriaActualizada(idioma))}
+        onRenombrar={(id, nombreNuevo) =>
+          manejarAccion(
+            () => renombrarCuentaPlan(empresaId, cuentaIdPorInversion[id], nombreNuevo),
+            t('mensajeCuentaRenombrada')
+          )
+        }
+        onEliminar={(id, nombre) => manejarAccion(() => eliminarCategoriaOperacion(id), msgCategoriaEliminada(idioma, nombre))}
+      />
+
+      <BloquePasivos
+        pasivos={pasivos}
+        esAdmin={esAdmin}
+        idioma={idioma}
+        onCrear={(nombre) =>
+          manejarAccion(async () => {
+            await crearPasivo(empresaId, nombre);
+            await generarMatrizOperaciones(empresaId);
+          }, msgPasivoCreado(idioma, nombre))
         }
         onCambiarActivo={(id, activo) => manejarAccion(() => cambiarActivoFormaPago(id, activo), msgFormaPagoActualizada(idioma))}
         onRenombrar={(id, nombreNuevo) => manejarAccion(() => renombrarFormaPago(empresaId, id, nombreNuevo), msgFormaPagoRenombrada(idioma))}
@@ -1717,7 +1801,7 @@ function BloqueSocios({
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo={t('tituloSocios')} subtitulo={t('subtituloSocios')}>
+    <SeccionCategoria titulo={t('tituloSocios')} subtitulo={t('subtituloSocios')} cantidad={socios.length}>
       <ListaConToggle items={socios} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       <FormularioNuevo
@@ -1754,7 +1838,7 @@ function BloqueCategoriaProducto({
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo={t('tituloCategoriaProducto')} subtitulo={t('subtituloCategoriaProducto')}>
+    <SeccionCategoria titulo={t('tituloCategoriaProducto')} subtitulo={t('subtituloCategoriaProducto')} cantidad={categorias.length}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       <FormularioNuevo
@@ -1795,7 +1879,7 @@ function BloqueCategoriaServicio({
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo={titulo} subtitulo={subtitulo}>
+    <SeccionCategoria titulo={titulo} subtitulo={subtitulo} cantidad={categorias.length}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       {/* Crear categoría de ingreso queda abierto a cualquier usuario
@@ -1837,7 +1921,7 @@ function BloqueCategoriaGasto({
   const [nombreNuevo, setNombreNuevo] = useState('');
 
   return (
-    <SeccionCategoria titulo={t('tituloCategoriaGasto')} subtitulo={t('subtituloCategoriaGasto')}>
+    <SeccionCategoria titulo={t('tituloCategoriaGasto')} subtitulo={t('subtituloCategoriaGasto')} cantidad={categorias.length}>
       <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
 
       <FormularioNuevo
@@ -1875,7 +1959,7 @@ function BloqueFormasDePago({
   idioma: string;
   onCrear: (
     nombre: string,
-    cuenta: { id: string } | { nueva: true; nombre: string; tipoSaldo: 'ACTIVO' | 'PASIVO' },
+    cuenta: { id: string } | { nueva: true; nombre: string },
     operacionesElegidas: string[]
   ) => void;
   onCambiarActivo: (id: string, activo: boolean) => void;
@@ -1885,7 +1969,6 @@ function BloqueFormasDePago({
   const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [cuentaElegida, setCuentaElegida] = useState('');
-  const [tipoCuentaNueva, setTipoCuentaNueva] = useState<'ACTIVO' | 'PASIVO'>('ACTIVO');
   const [operacionesElegidas, setOperacionesElegidas] = useState<string[]>([]);
 
   const operacionesDisponibles = operaciones
@@ -1901,7 +1984,7 @@ function BloqueFormasDePago({
   }
 
   return (
-    <SeccionCategoria titulo={t('tituloFormasPago')} subtitulo={t('subtituloFormasPago')}>
+    <SeccionCategoria titulo={t('tituloFormasPago')} subtitulo={t('subtituloFormasPago')} cantidad={formasPago.length}>
       <ListaConToggle
         items={formasPago}
         onCambiarActivo={onCambiarActivo}
@@ -1942,20 +2025,9 @@ function BloqueFormasDePago({
         </div>
 
         {esCuentaNueva && (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
-            <span style={{ fontSize: 12.5, color: COLORES.gris, flex: '1 1 220px' }}>
-              {t('avisoCuentaNuevaMismoNombre')}
-            </span>
-
-            <select
-              style={{ ...inputFormulario, flex: '0 1 180px' }}
-              value={tipoCuentaNueva}
-              onChange={(e) => setTipoCuentaNueva(e.target.value as 'ACTIVO' | 'PASIVO')}
-            >
-              <option value="ACTIVO">{t('opcionActivo')}</option>
-              <option value="PASIVO">{t('opcionPasivo')}</option>
-            </select>
-          </div>
+          <p style={{ fontSize: 12.5, color: COLORES.gris, margin: 0, background: '#f8fafc', padding: 12, borderRadius: 10 }}>
+            {t('avisoCuentaNuevaMismoNombre')}
+          </p>
         )}
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -1980,9 +2052,7 @@ function BloqueFormasDePago({
 
               onCrear(
                 nombreNuevo,
-                esCuentaNueva
-                  ? { nueva: true, nombre: nombreNuevo, tipoSaldo: tipoCuentaNueva }
-                  : { id: cuentaElegida },
+                esCuentaNueva ? { nueva: true, nombre: nombreNuevo } : { id: cuentaElegida },
                 operacionesElegidas
               );
 
@@ -1999,20 +2069,151 @@ function BloqueFormasDePago({
   );
 }
 
+function BloqueInversiones({
+  inversiones,
+  esAdmin,
+  idioma,
+  onCrear,
+  onCambiarActivo,
+  onRenombrar,
+  onEliminar,
+}: {
+  inversiones: FormaPago[];
+  esAdmin: boolean;
+  idioma: string;
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+  onRenombrar: (id: string, nombreNuevo: string) => void;
+  onEliminar: (id: string, nombre: string) => void;
+}) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo={t('tituloInversiones')} subtitulo={t('subtituloInversiones')} cantidad={inversiones.length}>
+      <ListaConToggle
+        items={inversiones}
+        onCambiarActivo={onCambiarActivo}
+        onRenombrar={onRenombrar}
+        onEliminar={onEliminar}
+        soloLectura={!esAdmin}
+        idioma={idioma}
+      />
+
+      {/* Igual que Formas de Pago: cargar una inversión nueva queda
+          abierto a cualquier usuario de la empresa. */}
+      <FormularioNuevo
+        placeholder={t('placeholderInversion')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+function BloquePasivos({
+  pasivos,
+  esAdmin,
+  idioma,
+  onCrear,
+  onCambiarActivo,
+  onRenombrar,
+  onEliminar,
+}: {
+  pasivos: FormaPago[];
+  esAdmin: boolean;
+  idioma: string;
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+  onRenombrar: (id: string, nombreNuevo: string) => void;
+  onEliminar: (id: string, nombre: string) => void;
+}) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo={t('tituloPasivos')} subtitulo={t('subtituloPasivos')} cantidad={pasivos.length}>
+      <ListaConToggle
+        items={pasivos}
+        onCambiarActivo={onCambiarActivo}
+        onRenombrar={onRenombrar}
+        onEliminar={onEliminar}
+        soloLectura={!esAdmin}
+        idioma={idioma}
+      />
+
+      <FormularioNuevo
+        placeholder={t('placeholderPasivo')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+// Colapsada por default: con varias secciones (Producto, Ingresos,
+// Gastos, Formas de Pago, Inversiones, Pasivos, Socios) todas abiertas
+// a la vez, la pantalla se hacía interminable — acá solo se ve el
+// título y la cantidad hasta que el usuario la toca.
 function SeccionCategoria({
   titulo,
   subtitulo,
+  cantidad,
   children,
 }: {
   titulo: string;
   subtitulo: string;
+  cantidad?: number;
   children: React.ReactNode;
 }) {
+  const [abierta, setAbierta] = useState(false);
+
   return (
-    <div style={{ marginBottom: 30, paddingBottom: 24, borderBottom: '1px solid #eef2f6' }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: COLORES.azul }}>{titulo}</div>
-      <p style={{ margin: '4px 0 14px', fontSize: 12.5, color: COLORES.gris }}>{subtitulo}</p>
-      {children}
+    <div style={{ marginBottom: 14, paddingBottom: abierta ? 20 : 0, borderBottom: '1px solid #eef2f6' }}>
+      <button
+        type="button"
+        onClick={() => setAbierta((a) => !a)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          background: 'transparent',
+          border: 'none',
+          padding: '12px 0',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: COLORES.azul }}>
+            {titulo}
+            {typeof cantidad === 'number' && (
+              <span style={{ marginLeft: 8, fontSize: 12.5, fontWeight: 700, color: COLORES.gris }}>
+                ({cantidad})
+              </span>
+            )}
+          </div>
+          {abierta && <p style={{ margin: '4px 0 0', fontSize: 12.5, color: COLORES.gris }}>{subtitulo}</p>}
+        </div>
+
+        <span style={{ fontSize: 13, color: COLORES.gris, flexShrink: 0 }}>{abierta ? '▲' : '▼'}</span>
+      </button>
+
+      {abierta && <div style={{ marginTop: 6 }}>{children}</div>}
     </div>
   );
 }
@@ -3168,6 +3369,7 @@ function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdm
           <SeccionCategoria
             key={valor}
             titulo={`${emoji} ${titulo}`}
+            cantidad={deLaCategoria.length}
             subtitulo={
               valor === 'MARKETING'
                 ? t('subtituloMarketing')
