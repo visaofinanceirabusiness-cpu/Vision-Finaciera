@@ -13,6 +13,8 @@
 // precargados para registrar el pago con un toque.
 
 import { supabase } from './supabase';
+import { registrarOperacion } from './motor';
+import { fechaLocalHoy } from './fecha';
 
 export type GastoRecurrente = {
   id: string;
@@ -334,4 +336,34 @@ export async function marcarRecordatorioRegistrado(recordatorioId: string, idOpe
   if (recordatorio.evento_calendario_id) {
     await supabase.from('eventos_calendario').delete().eq('id', recordatorio.evento_calendario_id);
   }
+}
+
+// Registra el Pago real (vía el motor contable) con el monto que el
+// usuario confirme o ajuste, y marca el recordatorio como cumplido —
+// pensado para el mini-diálogo de Sabio en Panel de Controle, que
+// permite hacer esto sin entrar a Contabilidad. Usa la misma
+// categoría/forma de pago con la que se cargó la plantilla; el único
+// dato que puede variar mes a mes es el monto.
+export async function registrarPagoRecordatorio(
+  empresaId: string,
+  recordatorio: RecordatorioGastoRecurrente,
+  monto: number
+): Promise<string> {
+  if (!(monto > 0)) {
+    throw new Error('El monto tiene que ser mayor que cero.');
+  }
+
+  const resultado = await registrarOperacion(empresaId, {
+    fecha: fechaLocalHoy(),
+    operacion: 'PAGO',
+    categoria: recordatorio.categoria,
+    formaPago: recordatorio.forma_pago,
+    historico: recordatorio.nombre,
+    clienteProveedor: '',
+    lineas: [{ producto: '', cantidad: 1, monto }],
+  });
+
+  await marcarRecordatorioRegistrado(recordatorio.id, resultado.idOperacion);
+
+  return resultado.idOperacion;
 }
