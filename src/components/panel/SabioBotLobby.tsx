@@ -15,10 +15,15 @@ export function SabioBotLobby({
   empresaId,
   idioma,
   colores,
+  alerta,
 }: {
   empresaId: string;
   idioma: string;
   colores: { azul: string; verde: string; gris: string; blanco: string };
+  // Vencimiento más urgente (cuota, gasto recurrente) — cuando hay
+  // uno, reemplaza el saludo genérico: Sabio pasa a ser el lugar
+  // dentro del sistema donde aparece la alerta.
+  alerta?: string | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const esPT = idioma === 'PT';
@@ -61,12 +66,23 @@ export function SabioBotLobby({
             <span style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontWeight: 800, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3 }}>
               {esPT ? 'Sábio, seu assistente financeiro' : 'Sabio, tu asistente financiero'}
             </span>
-            <span style={{ display: 'block', color: '#fff', fontWeight: 800, fontSize: 20, marginBottom: 4 }}>
-              {esPT ? 'Olá, como você está hoje?' : 'Hola, ¿cómo estás hoy?'}
-            </span>
-            <span style={{ display: 'block', color: 'rgba(255,255,255,0.88)', fontSize: 14.5 }}>
-              {esPT ? 'Vamos registrar as operações do dia?' : '¿Registramos las operaciones del día?'}
-            </span>
+            {alerta ? (
+              <>
+                <span style={{ display: 'block', color: '#fff', fontWeight: 800, fontSize: 17, marginBottom: 4 }}>
+                  {esPT ? 'Antes de mais nada...' : 'Antes que nada...'}
+                </span>
+                <span style={{ display: 'block', color: '#fff', fontSize: 14.5, fontWeight: 700 }}>{alerta}</span>
+              </>
+            ) : (
+              <>
+                <span style={{ display: 'block', color: '#fff', fontWeight: 800, fontSize: 20, marginBottom: 4 }}>
+                  {esPT ? 'Olá, como você está hoje?' : 'Hola, ¿cómo estás hoy?'}
+                </span>
+                <span style={{ display: 'block', color: 'rgba(255,255,255,0.88)', fontSize: 14.5 }}>
+                  {esPT ? 'Vamos registrar as operações do dia?' : '¿Registramos las operaciones del día?'}
+                </span>
+              </>
+            )}
           </span>
 
           <span className="sabio-lobby-banner-flecha" style={{ color: '#fff', fontSize: 26, fontWeight: 700, flexShrink: 0 }}>→</span>

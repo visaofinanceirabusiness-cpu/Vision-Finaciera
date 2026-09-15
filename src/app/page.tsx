@@ -27,6 +27,9 @@ import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
+import { simboloMoneda } from '@/lib/moneda';
+import { obtenerAlertasFinancieras } from '@/lib/alertasSabio';
+import { generarRecordatoriosPendientes } from '@/lib/gastosRecurrentes';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -114,6 +117,7 @@ export default function InicioPage() {
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [manejaMercaderia, setManejaMercaderia] = useState(true);
+  const [alertaSabio, setAlertaSabio] = useState<string | null>(null);
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -369,6 +373,25 @@ export default function InicioPage() {
 
     cargarBase();
   }, [router]);
+
+  // Sabio pasa a ser el lugar DENTRO del sistema donde aparece la
+  // alerta de un vencimiento próximo (cuotas, gastos recurrentes) —
+  // complementa, no reemplaza, el aviso push del Calendário. Primero
+  // se asegura de que existan los recordatorios de este período (por
+  // si el cron diario todavía no corrió) y después arma la frase más
+  // urgente para mostrar en el banner de Sabio.
+  useEffect(() => {
+    if (!perfil?.empresa_id) return;
+
+    const idiomaEmpresa = empresa?.idioma ?? 'ES';
+    const simbolo = simboloMoneda(empresa?.moneda ?? null);
+
+    generarRecordatoriosPendientes(perfil.empresa_id, idiomaEmpresa)
+      .catch((e) => console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e))
+      .then(() => obtenerAlertasFinancieras(perfil.empresa_id, idiomaEmpresa, simbolo))
+      .then((alertas) => setAlertaSabio(alertas[0] ?? null))
+      .catch((e) => console.warn('No se pudieron cargar las alertas financieras:', e));
+  }, [perfil?.empresa_id, empresa?.idioma, empresa?.moneda]);
 
   const idioma = empresa?.idioma ?? 'ES';
   const t = crearTraductor(diccionarioInicio, idioma);
@@ -714,6 +737,7 @@ export default function InicioPage() {
             empresaId={perfil.empresa_id}
             idioma={idioma}
             colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
+            alerta={alertaSabio}
           />
         )}
 

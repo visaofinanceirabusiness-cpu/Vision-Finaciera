@@ -32,6 +32,7 @@ import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoVal
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
 import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
+import { obtenerRecordatorio, marcarRecordatorioRegistrado } from '@/lib/gastosRecurrentes';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -104,7 +105,45 @@ export default function ContabilidadPage() {
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [idioma, setIdioma] = useState<string | null>(null);
 
+  // Al llegar desde el botón "Registrar" de un recordatorio de gasto
+  // recurrente (Informes → Gastos Fijos), la URL trae el id del
+  // recordatorio — se precargan Operación/Categoría/Forma de Pago/
+  // Monto y, al guardar, se marca ese recordatorio como cumplido (ver
+  // handleRegistrar en CentralDeLanzamientosTab). El inicializador
+  // lee la URL de una (no con useSearchParams, para no meterse con
+  // el requisito de <Suspense> del App Router) — así se sabe DE UNA
+  // si hay que esperar el prefetch antes de montar el formulario:
+  // CentralDeLanzamientosTab solo lee `valoresIniciales` al montarse
+  // (useState inicial), así que pasárselo tarde no sirve de nada.
+  const [recordatorioIdUrl] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('gastoRecurrenteRecordatorioId')
+  );
+  const [recordatorioGastoRecurrenteId, setRecordatorioGastoRecurrenteId] = useState<string | undefined>(undefined);
+  const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
+  const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl);
+
   const t = crearTraductor(diccionarioContabilidad, idioma);
+
+  useEffect(() => {
+    if (!recordatorioIdUrl) return;
+
+    obtenerRecordatorio(recordatorioIdUrl)
+      .then((recordatorio) => {
+        if (!recordatorio) return;
+
+        setRecordatorioGastoRecurrenteId(recordatorio.id);
+        setValoresInicialesGasto({
+          fecha: fechaLocalHoy(),
+          operacion: 'PAGO',
+          categoria: recordatorio.categoria,
+          formaPago: recordatorio.forma_pago,
+          historico: recordatorio.nombre,
+          clienteProveedor: '',
+          lineas: [{ producto: '', cantidad: 1, monto: recordatorio.monto_habitual, unidadCarga: '' }],
+        });
+      })
+      .finally(() => setPrefillListo(true));
+  }, []);
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -240,7 +279,12 @@ export default function ContabilidadPage() {
             </button>
           </div>
 
-          {pestana === 'lanzamientos' && <CentralDeLanzamientosTab />}
+          {pestana === 'lanzamientos' && prefillListo && (
+            <CentralDeLanzamientosTab
+              valoresIniciales={valoresInicialesGasto}
+              recordatorioGastoRecurrenteId={recordatorioGastoRecurrenteId}
+            />
+          )}
           {pestana === 'registros' && <RegistroOperacionesTab />}
           {pestana === 'libro' && <LibroDiarioTab />}
         </main>
@@ -287,11 +331,16 @@ type ValoresIniciales = {
 function CentralDeLanzamientosTab({
   idOperacionEditar,
   valoresIniciales,
+  recordatorioGastoRecurrenteId,
   onGuardado,
   onCancelar,
 }: {
   idOperacionEditar?: string;
   valoresIniciales?: ValoresIniciales;
+  // Cuando se llega desde "Registrar" en Gastos Fijos — al guardar
+  // con éxito, marca ese recordatorio como cumplido (ver
+  // handleRegistrar).
+  recordatorioGastoRecurrenteId?: string;
   onGuardado?: () => void;
   onCancelar?: () => void;
 } = {}) {
@@ -1216,6 +1265,14 @@ function CentralDeLanzamientosTab({
       }
 
       const resultado = await registrarOperacion(empresaId, formulario);
+
+      if (recordatorioGastoRecurrenteId) {
+        try {
+          await marcarRecordatorioRegistrado(recordatorioGastoRecurrenteId, resultado.idOperacion);
+        } catch (errorRecordatorio) {
+          console.warn('No se pudo marcar el recordatorio de gasto recurrente como cumplido:', errorRecordatorio);
+        }
+      }
 
       if (puedeEnCuotas && enCuotas) {
         const cantidad = Number(cantidadCuotas);
