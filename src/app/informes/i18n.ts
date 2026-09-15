@@ -10,6 +10,14 @@ type Clave =
   | 'tabResultado'
   | 'tabSumas'
   | 'tabBalance'
+  | 'tabDeudas'
+  | 'deudasSubtitulo'
+  | 'deudasSinPendientes'
+  | 'deudasColCuota'
+  | 'deudasColVencimiento'
+  | 'deudasColMonto'
+  | 'deudasBotonMarcarPagada'
+  | 'deudasVencida'
   | 'cargandoInformes'
   | 'errorEmpresa'
   | 'buscarCuenta'
@@ -73,6 +81,14 @@ export const diccionarioInformes: Diccionario<Clave> = {
     tabResultado: '📈 Estado de Resultado',
     tabSumas: '🧮 Sumas y Saldos',
     tabBalance: '🏛️ Balance Patrimonial',
+    tabDeudas: '📅 Mis Deudas',
+    deudasSubtitulo: 'Cuotas pendientes de tus Pasivos, ordenadas por vencimiento. Cada una tiene su recordatorio en el Calendário del lobby.',
+    deudasSinPendientes: 'No tenés cuotas pendientes.',
+    deudasColCuota: 'Cuota',
+    deudasColVencimiento: 'Vencimiento',
+    deudasColMonto: 'Monto',
+    deudasBotonMarcarPagada: 'Marcar pagada',
+    deudasVencida: 'Vencida',
     cargandoInformes: 'Cargando informes...',
     errorEmpresa: 'No se pudo identificar la empresa del usuario.',
     buscarCuenta: 'Buscar cuenta por código o nombre...',
@@ -136,6 +152,14 @@ export const diccionarioInformes: Diccionario<Clave> = {
     tabResultado: '📈 Demonstração de Resultado',
     tabSumas: '🧮 Balancete',
     tabBalance: '🏛️ Balanço Patrimonial',
+    tabDeudas: '📅 Minhas Dívidas',
+    deudasSubtitulo: 'Parcelas pendentes dos seus Passivos, ordenadas por vencimento. Cada uma tem seu lembrete no Calendário do lobby.',
+    deudasSinPendientes: 'Você não tem parcelas pendentes.',
+    deudasColCuota: 'Parcela',
+    deudasColVencimiento: 'Vencimento',
+    deudasColMonto: 'Valor',
+    deudasBotonMarcarPagada: 'Marcar como paga',
+    deudasVencida: 'Vencida',
     cargandoInformes: 'Carregando relatórios...',
     errorEmpresa: 'Não foi possível identificar a empresa do usuário.',
     buscarCuenta: 'Buscar conta por código ou nome...',

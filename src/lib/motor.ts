@@ -546,6 +546,38 @@ async function limpiarOperacion(
     errores.push(`registro de operación (${errorRegistro.message})`);
   }
 
+  // Si la compra/pago se había cargado en cuotas, hay que borrar
+  // también el cronograma y los recordatorios que dejó en el
+  // Calendário del lobby — si no, quedaban vencimientos fantasma de
+  // una operación que ya no existe.
+  const { data: cuotas } = await supabase
+    .from('cuotas_pasivo')
+    .select('id, evento_calendario_id')
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', idOperacion);
+
+  const eventoIds = (cuotas ?? []).map((c) => c.evento_calendario_id).filter(Boolean) as string[];
+
+  if (eventoIds.length > 0) {
+    const { error: errorEventos } = await supabase.from('eventos_calendario').delete().in('id', eventoIds);
+
+    if (errorEventos) {
+      console.error('Error limpiando recordatorios de cuotas:', errorEventos);
+      errores.push(`recordatorios de cuotas (${errorEventos.message})`);
+    }
+  }
+
+  const { error: errorCuotas } = await supabase
+    .from('cuotas_pasivo')
+    .delete()
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', idOperacion);
+
+  if (errorCuotas) {
+    console.error('Error limpiando cuotas:', errorCuotas);
+    errores.push(`cuotas (${errorCuotas.message})`);
+  }
+
   return errores;
 }
 
