@@ -10,9 +10,9 @@ import { listarCuotasPendientes } from './cuotas';
 import { listarRecordatoriosPendientes } from './gastosRecurrentes';
 import { fechaLocalHoy } from './fecha';
 
-const DIAS_ANTICIPACION = 5;
+export const DIAS_ANTICIPACION = 5;
 
-function diasHasta(fechaIso: string, hoyIso: string): number {
+export function diasHasta(fechaIso: string, hoyIso: string): number {
   const hoy = new Date(`${hoyIso}T00:00:00`);
   const fecha = new Date(`${fechaIso}T00:00:00`);
   return Math.round((fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));

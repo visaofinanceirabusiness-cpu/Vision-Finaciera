@@ -19,6 +19,10 @@ import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
+import { SabioRegistrarGastoModal } from '@/components/panel/SabioRegistrarGastoModal';
+import { listarRecordatoriosPendientes, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
+import { diasHasta, DIAS_ANTICIPACION } from '@/lib/alertasSabio';
+import { fechaLocalHoy } from '@/lib/fecha';
 import {
   diccionarioPanelControl,
   type ClavePanelControl,
@@ -109,6 +113,9 @@ export default function MiNegocioPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [mostrarBienvenidaTutorial, setMostrarBienvenidaTutorial] = useState(false);
+  const [recordatorioUrgente, setRecordatorioUrgente] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [mostrarDialogoGasto, setMostrarDialogoGasto] = useState(false);
+  const [refrescarVencimientos, setRefrescarVencimientos] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -285,6 +292,33 @@ export default function MiNegocioPage() {
     cargarIndicadores();
   }, [perfil?.empresa_id, periodoSeleccionado]);
 
+  // Gasto recurrente por vencer/vencido más urgente — Sabio lo avisa
+  // en su globo de diálogo (frase controlada) y, al tocarlo, se abre
+  // el mini-diálogo para registrar el Pago sin salir de esta pantalla
+  // (ver SabioRegistrarGastoModal). Mismo criterio de "urgencia" que
+  // usa el aviso del lobby (obtenerAlertasFinancieras).
+  async function recargarRecordatorioUrgente(empresaId: string) {
+    try {
+      const lista = await listarRecordatoriosPendientes(empresaId);
+      const hoy = fechaLocalHoy();
+
+      const masUrgente = lista
+        .map((r) => ({ r, dias: diasHasta(r.fecha_vencimiento, hoy) }))
+        .filter((x) => x.dias <= DIAS_ANTICIPACION)
+        .sort((a, b) => a.dias - b.dias)[0]?.r;
+
+      setRecordatorioUrgente(masUrgente ?? null);
+    } catch (errorRecordatorios) {
+      console.warn('No se pudieron cargar los gastos recurrentes pendientes:', errorRecordatorios);
+      setRecordatorioUrgente(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!perfil?.empresa_id) return;
+    recargarRecordatorioUrgente(perfil.empresa_id);
+  }, [perfil?.empresa_id]);
+
   const idioma = empresa?.idioma ?? 'ES';
   const t = crearTraductor(diccionarioPanelControl, idioma);
 
@@ -314,6 +348,12 @@ export default function MiNegocioPage() {
   };
 
   const simbolo = simboloMoneda(empresa?.moneda);
+
+  const fraseRecordatorioUrgente = recordatorioUrgente
+    ? idioma === 'PT'
+      ? `🔁 ${recordatorioUrgente.nombre} — toque para registrar (~${simbolo} ${recordatorioUrgente.monto_habitual.toFixed(2)})`
+      : `🔁 ${recordatorioUrgente.nombre} — tocá para registrar (~${simbolo} ${recordatorioUrgente.monto_habitual.toFixed(2)})`
+    : '';
 
   const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';
 
@@ -389,6 +429,13 @@ export default function MiNegocioPage() {
                   frase={msgBienvenidaTutorialPanel(idioma)}
                   onClickFrase={() => setMostrarBienvenidaTutorial(false)}
                 />
+              ) : recordatorioUrgente ? (
+                <SabioWidget
+                  colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+                  idioma={idioma}
+                  frase={fraseRecordatorioUrgente}
+                  onClickFrase={() => setMostrarDialogoGasto(true)}
+                />
               ) : (
                 <SabioWidget
                   colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
@@ -414,11 +461,34 @@ export default function MiNegocioPage() {
             frase={msgBienvenidaTutorialPanel(idioma)}
             onClickFrase={() => setMostrarBienvenidaTutorial(false)}
           />
+        ) : recordatorioUrgente ? (
+          <SabioFlotante
+            colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+            idioma={idioma}
+            frase={fraseRecordatorioUrgente}
+            onClickFrase={() => setMostrarDialogoGasto(true)}
+          />
         ) : (
           <SabioFlotante
             colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
             idioma={idioma}
             frases={frasesSabioPanel(idioma)}
+          />
+        )}
+
+        {mostrarDialogoGasto && recordatorioUrgente && perfil?.empresa_id && (
+          <SabioRegistrarGastoModal
+            empresaId={perfil.empresa_id}
+            recordatorio={recordatorioUrgente}
+            idioma={idioma}
+            simbolo={simbolo}
+            colores={{ azul: colores.azul, verde: colores.verde, blanco: colores.blanco }}
+            onClose={() => setMostrarDialogoGasto(false)}
+            onRegistrado={() => {
+              setMostrarDialogoGasto(false);
+              recargarRecordatorioUrgente(perfil.empresa_id!);
+              setRefrescarVencimientos((n) => n + 1);
+            }}
           />
         )}
 
@@ -602,6 +672,7 @@ export default function MiNegocioPage() {
             }}
           >
             <MisVencimientos
+              key={refrescarVencimientos}
               empresaId={perfil.empresa_id}
               idioma={idioma}
               simbolo={simbolo}
