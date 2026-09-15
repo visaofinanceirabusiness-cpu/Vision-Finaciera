@@ -103,6 +103,13 @@ export type ClaveConfiguracoes =
   | 'subtituloPasivos'
   | 'placeholderPasivo'
   | 'botonAgregarPasivo'
+  | 'tituloGastosRecurrentes'
+  | 'subtituloGastosRecurrentes'
+  | 'placeholderGastoRecurrente'
+  | 'opcionCategoriaGasto'
+  | 'placeholderMontoHabitual'
+  | 'labelDiaMes'
+  | 'botonAgregarGastoRecurrente'
   | 'opcionCuentaContable'
   | 'opcionCuentaNueva'
   | 'avisoCuentaNuevaMismoNombre'
@@ -323,6 +330,13 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     subtituloPasivos: 'Deudas (tarjetas, préstamos...) — al crear una queda disponible también como forma de pago a crédito en Compra/Pago.',
     placeholderPasivo: 'Nombre (ej. Préstamo Hipotecario)',
     botonAgregarPasivo: '+ Agregar pasivo',
+    tituloGastosRecurrentes: '🔁 Gastos Recurrentes',
+    subtituloGastosRecurrentes: 'Alquiler, servicios, suscripciones... cada mes se genera un recordatorio en el Calendário del lobby con estos datos ya cargados, para registrar el pago con un toque.',
+    placeholderGastoRecurrente: 'Nombre (ej. Alquiler oficina)',
+    opcionCategoriaGasto: 'Categoría de gasto...',
+    placeholderMontoHabitual: 'Monto habitual',
+    labelDiaMes: 'Día del mes:',
+    botonAgregarGastoRecurrente: '+ Agregar gasto recurrente',
     opcionCuentaContable: 'Cuenta contable...',
     opcionCuentaNueva: '➕ La cuenta no existe — crear una nueva',
     avisoCuentaNuevaMismoNombre: 'La cuenta nueva se va a llamar igual que la forma de pago, para evitar confusiones.',
@@ -538,6 +552,13 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     subtituloPasivos: 'Dívidas (cartões, empréstimos...) — ao criar uma, fica disponível também como forma de pagamento a crédito em Compra/Pagamento.',
     placeholderPasivo: 'Nome (ex.: Empréstimo Imobiliário)',
     botonAgregarPasivo: '+ Adicionar passivo',
+    tituloGastosRecurrentes: '🔁 Despesas Recorrentes',
+    subtituloGastosRecurrentes: 'Aluguel, contas, assinaturas... a cada mês é gerado um lembrete no Calendário do lobby com esses dados já preenchidos, para registrar o pagamento com um toque.',
+    placeholderGastoRecurrente: 'Nome (ex.: Aluguel do escritório)',
+    opcionCategoriaGasto: 'Categoria de despesa...',
+    placeholderMontoHabitual: 'Valor habitual',
+    labelDiaMes: 'Dia do mês:',
+    botonAgregarGastoRecurrente: '+ Adicionar despesa recorrente',
     opcionCuentaContable: 'Conta contábil...',
     opcionCuentaNueva: '➕ A conta não existe — criar uma nova',
     avisoCuentaNuevaMismoNombre: 'A conta nova vai se chamar igual à forma de pagamento, para evitar confusões.',
@@ -705,6 +726,20 @@ export function msgPasivoCreado(idioma: string, nombre: string) {
   return esPT(idioma)
     ? `"${nombre}" criado — já disponível como forma de pagamento em Compra/Pagamento.`
     : `"${nombre}" creado — ya está disponible como forma de pago en Compra/Pago.`;
+}
+
+export function msgGastoRecurrenteCreado(idioma: string, nombre: string) {
+  return esPT(idioma)
+    ? `"${nombre}" criado — a partir do próximo vencimento vai aparecer um lembrete no Calendário.`
+    : `"${nombre}" creado — a partir del próximo vencimiento va a aparecer un recordatorio en el Calendario.`;
+}
+
+export function msgGastoRecurrenteActualizado(idioma: string) {
+  return esPT(idioma) ? 'Despesa recorrente atualizada.' : 'Gasto recurrente actualizado.';
+}
+
+export function msgGastoRecurrenteEliminado(idioma: string, nombre: string) {
+  return esPT(idioma) ? `"${nombre}" excluído/a.` : `"${nombre}" eliminado/a.`;
 }
 
 export function msgSocioAgregado(idioma: string, nombre: string) {

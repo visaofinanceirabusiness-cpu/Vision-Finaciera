@@ -25,6 +25,7 @@ import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { listarCuotasPendientes, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
+import { listarRecordatoriosPendientes, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { fechaLocalHoy } from '@/lib/fecha';
 import {
   diccionarioInformes,
@@ -52,7 +53,7 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
-type Pestana = 'mayor' | 'flujo' | 'resultado' | 'sumas' | 'balance' | 'deudas';
+type Pestana = 'mayor' | 'flujo' | 'resultado' | 'sumas' | 'balance' | 'deudas' | 'gastosfijos';
 
 type CuentaPlan = {
   id: string;
@@ -315,6 +316,10 @@ export default function InformesPage() {
             <button type="button" onClick={() => setPestana('deudas')} style={tabStyle(pestana === 'deudas')}>
               {t('tabDeudas')}
             </button>
+
+            <button type="button" onClick={() => setPestana('gastosfijos')} style={tabStyle(pestana === 'gastosfijos')}>
+              {t('tabGastosFijos')}
+            </button>
           </div>
 
           {error && <div style={errorStyle}>{error}</div>}
@@ -331,6 +336,7 @@ export default function InformesPage() {
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
               {pestana === 'deudas' && empresaId && <DeudasTab empresaId={empresaId} idioma={idioma} />}
+              {pestana === 'gastosfijos' && empresaId && <GastosFijosTab empresaId={empresaId} idioma={idioma} />}
             </>
           )}
         </main>
@@ -1737,6 +1743,87 @@ function DeudasTab({ empresaId, idioma }: { empresaId: string; idioma: string | 
             </div>
           );
         })
+      )}
+    </div>
+  );
+}
+
+function GastosFijosTab({ empresaId, idioma }: { empresaId: string; idioma: string | null }) {
+  const simbolo = useContext(SimboloContext);
+  const t = crearTraductor(diccionarioInformes, idioma);
+  const [recordatorios, setRecordatorios] = useState<RecordatorioGastoRecurrente[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    listarRecordatoriosPendientes(empresaId)
+      .then(setRecordatorios)
+      .catch((e) => {
+        console.error('Error cargando gastos fijos pendientes:', e);
+        setError(e instanceof Error ? e.message : 'Error inesperado.');
+      })
+      .finally(() => setCargando(false));
+  }, [empresaId]);
+
+  if (cargando) {
+    return <div style={cargandoStyle}>{t('cargandoInformes')}</div>;
+  }
+
+  if (error) {
+    return <div style={errorStyle}>{error}</div>;
+  }
+
+  const hoy = fechaLocalHoy();
+
+  return (
+    <div>
+      <p style={{ margin: '0 0 18px', fontSize: 13, color: COLORES.gris }}>{t('gastosFijosSubtitulo')}</p>
+
+      {recordatorios.length === 0 ? (
+        <p style={{ fontSize: 13, color: COLORES.gris }}>{t('gastosFijosSinPendientes')}</p>
+      ) : (
+        <div style={tablaContenedor}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={cabeceraFila}>
+                <Th>{t('deudasColCuota')}</Th>
+                <Th>{t('deudasColVencimiento')}</Th>
+                <Th align="right">{t('deudasColMonto')}</Th>
+                <Th align="right"> </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {recordatorios.map((recordatorio) => {
+                const vencida = recordatorio.fecha_vencimiento < hoy;
+
+                return (
+                  <tr key={recordatorio.id} style={{ borderTop: '1px solid #eef2f6' }}>
+                    <Td>{recordatorio.nombre}</Td>
+                    <Td>
+                      {recordatorio.fecha_vencimiento}
+                      {vencida && (
+                        <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#dc2626' }}>
+                          {t('deudasVencida')}
+                        </span>
+                      )}
+                    </Td>
+                    <Td align="right">
+                      {t('gastosFijosMontoAproximado')} {simbolo} {formatearNumeroEntero(recordatorio.monto_habitual)}
+                    </Td>
+                    <Td align="right">
+                      <Link
+                        href={`/contabilidad?gastoRecurrenteRecordatorioId=${recordatorio.id}`}
+                        style={{ color: COLORES.verde, fontWeight: 700, fontSize: 12.5, textDecoration: 'none' }}
+                      >
+                        ✓ {t('gastosFijosBotonRegistrar')}
+                      </Link>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

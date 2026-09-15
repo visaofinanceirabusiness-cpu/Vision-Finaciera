@@ -18,6 +18,11 @@ type Clave =
   | 'deudasColMonto'
   | 'deudasBotonMarcarPagada'
   | 'deudasVencida'
+  | 'tabGastosFijos'
+  | 'gastosFijosSubtitulo'
+  | 'gastosFijosSinPendientes'
+  | 'gastosFijosBotonRegistrar'
+  | 'gastosFijosMontoAproximado'
   | 'cargandoInformes'
   | 'errorEmpresa'
   | 'buscarCuenta'
@@ -89,6 +94,11 @@ export const diccionarioInformes: Diccionario<Clave> = {
     deudasColMonto: 'Monto',
     deudasBotonMarcarPagada: 'Marcar pagada',
     deudasVencida: 'Vencida',
+    tabGastosFijos: '🔁 Gastos Fijos',
+    gastosFijosSubtitulo: 'Alquiler, servicios, suscripciones... el monto es aproximado, ajustalo al registrar el pago real.',
+    gastosFijosSinPendientes: 'No tenés gastos fijos pendientes de este mes.',
+    gastosFijosBotonRegistrar: 'Registrar',
+    gastosFijosMontoAproximado: 'aprox.',
     cargandoInformes: 'Cargando informes...',
     errorEmpresa: 'No se pudo identificar la empresa del usuario.',
     buscarCuenta: 'Buscar cuenta por código o nombre...',
@@ -160,6 +170,11 @@ export const diccionarioInformes: Diccionario<Clave> = {
     deudasColMonto: 'Valor',
     deudasBotonMarcarPagada: 'Marcar como paga',
     deudasVencida: 'Vencida',
+    tabGastosFijos: '🔁 Despesas Fixas',
+    gastosFijosSubtitulo: 'Aluguel, contas, assinaturas... o valor é aproximado, ajuste ao registrar o pagamento real.',
+    gastosFijosSinPendientes: 'Você não tem despesas fixas pendentes neste mês.',
+    gastosFijosBotonRegistrar: 'Registrar',
+    gastosFijosMontoAproximado: 'aprox.',
     cargandoInformes: 'Carregando relatórios...',
     errorEmpresa: 'Não foi possível identificar a empresa do usuário.',
     buscarCuenta: 'Buscar conta por código ou nome...',
