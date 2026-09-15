@@ -95,6 +95,14 @@ export type ClaveConfiguracoes =
   | 'tituloFormasPago'
   | 'subtituloFormasPago'
   | 'placeholderFormaPago'
+  | 'tituloInversiones'
+  | 'subtituloInversiones'
+  | 'placeholderInversion'
+  | 'botonAgregarInversion'
+  | 'tituloPasivos'
+  | 'subtituloPasivos'
+  | 'placeholderPasivo'
+  | 'botonAgregarPasivo'
   | 'opcionCuentaContable'
   | 'opcionCuentaNueva'
   | 'avisoCuentaNuevaMismoNombre'
@@ -307,6 +315,14 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tituloFormasPago: '💳 Formas de Pago',
     subtituloFormasPago: 'Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.',
     placeholderFormaPago: 'Nombre (ej. Mercado Pago)',
+    tituloInversiones: '📈 Inversiones y Ahorros',
+    subtituloInversiones: 'Plazo Fijo, Inversiones u otros ahorros — se pueden usar como destino u origen en Transferencia.',
+    placeholderInversion: 'Nombre (ej. Plazo Fijo Banco X)',
+    botonAgregarInversion: '+ Agregar inversión',
+    tituloPasivos: '💸 Pasivos',
+    subtituloPasivos: 'Deudas (tarjetas, préstamos...) — al crear una queda disponible también como forma de pago a crédito en Compra/Pago.',
+    placeholderPasivo: 'Nombre (ej. Préstamo Hipotecario)',
+    botonAgregarPasivo: '+ Agregar pasivo',
     opcionCuentaContable: 'Cuenta contable...',
     opcionCuentaNueva: '➕ La cuenta no existe — crear una nueva',
     avisoCuentaNuevaMismoNombre: 'La cuenta nueva se va a llamar igual que la forma de pago, para evitar confusiones.',
@@ -514,6 +530,14 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tituloFormasPago: '💳 Formas de Pagamento',
     subtituloFormasPago: 'Cada uma se vincula a uma conta contábil existente (ou nova) e às operações em que pode ser usada.',
     placeholderFormaPago: 'Nome (ex.: Mercado Pago)',
+    tituloInversiones: '📈 Investimentos e Poupanças',
+    subtituloInversiones: 'Prazo Fixo, Investimentos ou outras poupanças — podem ser usados como destino ou origem em Transferência.',
+    placeholderInversion: 'Nome (ex.: Prazo Fixo Banco X)',
+    botonAgregarInversion: '+ Adicionar investimento',
+    tituloPasivos: '💸 Passivos',
+    subtituloPasivos: 'Dívidas (cartões, empréstimos...) — ao criar uma, fica disponível também como forma de pagamento a crédito em Compra/Pagamento.',
+    placeholderPasivo: 'Nome (ex.: Empréstimo Imobiliário)',
+    botonAgregarPasivo: '+ Adicionar passivo',
     opcionCuentaContable: 'Conta contábil...',
     opcionCuentaNueva: '➕ A conta não existe — criar uma nova',
     avisoCuentaNuevaMismoNombre: 'A conta nova vai se chamar igual à forma de pagamento, para evitar confusões.',
@@ -669,6 +693,18 @@ export function msgFormaPagoRenombrada(idioma: string) {
   return esPT(idioma)
     ? 'Forma de pagamento renomeada — foi atualizada em todas as operações que já a usavam.'
     : 'Forma de pago renombrada — se actualizó en todas las operaciones que ya la usaban.';
+}
+
+export function msgInversionCreada(idioma: string, nombre: string) {
+  return esPT(idioma)
+    ? `"${nombre}" criada — já disponível em Transferência para depositar ou resgatar.`
+    : `"${nombre}" creada — ya está disponible en Transferencia para depositar o retirar.`;
+}
+
+export function msgPasivoCreado(idioma: string, nombre: string) {
+  return esPT(idioma)
+    ? `"${nombre}" criado — já disponível como forma de pagamento em Compra/Pagamento.`
+    : `"${nombre}" creado — ya está disponible como forma de pago en Compra/Pago.`;
 }
 
 export function msgSocioAgregado(idioma: string, nombre: string) {

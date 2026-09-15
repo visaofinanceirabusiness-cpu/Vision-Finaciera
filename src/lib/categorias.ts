@@ -538,6 +538,72 @@ export async function crearCuentaParaMedioPago(
   return crearCuentaHija(empresaId, contenedor, nombreLimpio, naturaleza, tipoSaldo);
 }
 
+// Busca el contenedor correcto para una cuenta nueva mirando dónde
+// vive una cuenta YA existente del mismo tipo — evita depender de un
+// rol_contable (CONTENEDOR_MEDIO_PAGO) que no todos los perfiles
+// tienen configurado (ej. el perfil Familiar). Sirve tanto para
+// Pasivos (mirando un Pasivo ya vinculado a alguna forma de pago,
+// como "Tarjeta") como para Inversiones (ver más abajo).
+async function buscarContenedorPorEjemploPasivo(empresaId: string): Promise<string | undefined> {
+  const { data: vinculos, error: errorVinculos } = await supabase
+    .from('forma_pago_cuentas')
+    .select('cuenta_id')
+    .eq('empresa_id', empresaId)
+    .eq('activo', true);
+
+  if (errorVinculos) {
+    throw errorVinculos;
+  }
+
+  const cuentaIds = (vinculos ?? []).map((v) => v.cuenta_id);
+
+  if (cuentaIds.length === 0) {
+    return undefined;
+  }
+
+  const { data: cuentas, error: errorCuentas } = await supabase
+    .from('plan_cuentas')
+    .select('cuenta_padre_id')
+    .in('id', cuentaIds)
+    .eq('tipo_saldo', 'PASIVO')
+    .not('cuenta_padre_id', 'is', null)
+    .limit(1);
+
+  if (errorCuentas) {
+    throw errorCuentas;
+  }
+
+  return cuentas?.[0]?.cuenta_padre_id as string | undefined;
+}
+
+// =====================================================
+// PASIVO NUEVO (deuda que además queda disponible como forma de pago
+// a crédito — igual que "Tarjeta" o "Préstamo Personal")
+// =====================================================
+
+export async function crearPasivo(empresaId: string, nombre: string) {
+  const nombreLimpio = nombre.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre del pasivo no puede estar vacío.');
+  }
+
+  const contenedor = await buscarContenedorPorEjemploPasivo(empresaId);
+
+  if (!contenedor) {
+    throw new Error(
+      'Tu empresa todavía no tiene ninguna cuenta de Pasivo configurada como forma de pago — pedile a soporte que la habilite antes de agregar una nueva.'
+    );
+  }
+
+  const cuentaId = await crearCuentaHija(empresaId, contenedor, nombreLimpio, 'ACREEDORA', 'PASIVO');
+
+  // Un Pasivo nuevo sirve, ante todo, para pagar/comprar a crédito —
+  // se habilita directo en esas dos operaciones, igual que ya pasa
+  // con Tarjeta y Préstamo Personal.
+  return crearFormaPago(empresaId, nombreLimpio, cuentaId, ['COMPRA', 'PAGO']);
+}
+
 export async function crearFormaPago(
   empresaId: string,
   nombre: string,
@@ -689,6 +755,141 @@ export async function renombrarFormaPago(empresaId: string, formaPagoId: string,
       .eq('operacion', 'TRANSFERENCIA')
       .eq('categoria', nombreViejo),
   ]);
+}
+
+// =====================================================
+// INVERSIÓN/AHORRO NUEVA (Plazo Fijo, Inversiones, etc.)
+//
+// A diferencia de una categoría de gasto/ingreso (una sola regla), una
+// cuenta de Ahorro/Inversión necesita DOS reglas de Transferencia: una
+// para depositar (medio → ahorro) y otra para retirar (ahorro →
+// medio) — ver el caso "retiro de cuenta fija" en
+// generarMatrizOperaciones. Sin la segunda, la cuenta se podría cargar
+// pero nunca retirar.
+// =====================================================
+
+async function buscarContenedorPorEjemploAhorro(empresaId: string): Promise<string | undefined> {
+  const { data: vinculos, error: errorVinculos } = await supabase
+    .from('categorias_operacion_cuentas')
+    .select('cuenta_id')
+    .eq('empresa_id', empresaId)
+    .eq('rol', 'AHORRO')
+    .eq('activo', true);
+
+  if (errorVinculos) {
+    throw errorVinculos;
+  }
+
+  const cuentaIds = (vinculos ?? []).map((v) => v.cuenta_id);
+
+  if (cuentaIds.length === 0) {
+    return undefined;
+  }
+
+  const { data: cuentas, error: errorCuentas } = await supabase
+    .from('plan_cuentas')
+    .select('cuenta_padre_id')
+    .in('id', cuentaIds)
+    .not('cuenta_padre_id', 'is', null)
+    .limit(1);
+
+  if (errorCuentas) {
+    throw errorCuentas;
+  }
+
+  return cuentas?.[0]?.cuenta_padre_id as string | undefined;
+}
+
+export async function crearCuentaAhorro(empresaId: string, nombre: string) {
+  const nombreLimpio = nombre.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+
+  const contenedor = await buscarContenedorPorEjemploAhorro(empresaId);
+
+  if (!contenedor) {
+    throw new Error(
+      'Tu empresa todavía no tiene ninguna cuenta de Ahorros/Inversiones configurada — pedile a soporte que la habilite antes de agregar una nueva.'
+    );
+  }
+
+  const cuentaId = await crearCuentaHija(empresaId, contenedor, nombreLimpio, 'DEUDORA', 'ACTIVO');
+
+  const { data: existentes, error: errorExistentes } = await supabase
+    .from('categorias_operacion')
+    .select('codigo')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', 'TRANSFERENCIA');
+
+  if (errorExistentes) {
+    throw errorExistentes;
+  }
+
+  const codigo = generarCodigo(nombreLimpio, (existentes ?? []).map((c) => c.codigo));
+
+  const { data: categoriaCreada, error: errorCategoria } = await supabase
+    .from('categorias_operacion')
+    .insert({
+      empresa_id: empresaId,
+      operacion: 'TRANSFERENCIA',
+      codigo,
+      nombre: nombreLimpio,
+      tipo: 'ACTIVO',
+      activo: true,
+    })
+    .select('id')
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  const { error: errorVinculo } = await supabase.from('categorias_operacion_cuentas').insert({
+    empresa_id: empresaId,
+    categoria_operacion_id: categoriaCreada.id,
+    cuenta_id: cuentaId,
+    rol: 'AHORRO',
+    activo: true,
+  });
+
+  if (errorVinculo) {
+    throw errorVinculo;
+  }
+
+  const { error: errorReglas } = await supabase.from('reglas_contables').insert([
+    {
+      empresa_id: empresaId,
+      operacion: 'TRANSFERENCIA',
+      categoria_codigo: codigo,
+      categoria_nombre: nombreLimpio,
+      rol_debito: 'AHORRO_DESTINO',
+      rol_credito: 'MEDIO_FINANCIERO',
+      stock: 'NO',
+      libro: 'SI',
+      cmv: 'NO',
+      motor: 'ACTIVO',
+    },
+    {
+      empresa_id: empresaId,
+      operacion: 'TRANSFERENCIA',
+      categoria_codigo: codigo,
+      categoria_nombre: nombreLimpio,
+      rol_debito: 'MEDIO_FINANCIERO',
+      rol_credito: 'AHORRO_ORIGEN',
+      stock: 'NO',
+      libro: 'SI',
+      cmv: 'NO',
+      motor: 'ACTIVO',
+    },
+  ]);
+
+  if (errorReglas) {
+    throw errorReglas;
+  }
+
+  return { codigo, nombre: nombreLimpio, cuentaId };
 }
 
 // =====================================================
@@ -888,6 +1089,17 @@ export async function eliminarCategoriaOperacion(categoriaOperacionId: string) {
     .eq('empresa_id', categoria.empresa_id)
     .eq('operacion', categoria.operacion)
     .eq('categoria', categoria.nombre);
+
+  // Una cuenta de Ahorro/Inversión también puede aparecer en la
+  // columna forma_pago (el "Desde" de un retiro hacia cualquier medio
+  // financiero, ver generarMatrizOperaciones) — sin este delete
+  // quedaban filas fantasma apuntando a una categoría ya borrada.
+  await supabase
+    .from('matriz_operaciones')
+    .delete()
+    .eq('empresa_id', categoria.empresa_id)
+    .eq('operacion', categoria.operacion)
+    .eq('forma_pago', categoria.nombre);
 
   const { error: errorBorrar } = await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionId);
 
