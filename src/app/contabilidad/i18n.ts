@@ -26,6 +26,10 @@ type Clave =
   | 'labelFormaPago'
   | 'labelDesdeCuenta'
   | 'labelEnCuotas'
+  | 'opcionCrearCuentaCobrar'
+  | 'opcionCrearCuentaPagar'
+  | 'placeholderNombreCuentaNueva'
+  | 'botonCrearCuenta'
   | 'labelHistorico'
   | 'placeholderHistorico'
   | 'labelSocio'
@@ -112,6 +116,10 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelFormaPago: 'Forma de Pago',
     labelDesdeCuenta: 'Desde (cuenta de origen)',
     labelEnCuotas: '¿En cuotas? Cantidad:',
+    opcionCrearCuentaCobrar: '+ Crear cuenta a cobrar nueva',
+    opcionCrearCuentaPagar: '+ Crear cuenta a pagar nueva',
+    placeholderNombreCuentaNueva: 'Nombre de la cuenta',
+    botonCrearCuenta: 'Crear y usar',
     labelHistorico: 'Nota Fiscal N°',
     placeholderHistorico: 'Ej.: NF-00123',
     labelSocio: 'Socio/a',
@@ -199,6 +207,10 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelFormaPago: 'Forma de Pagamento',
     labelDesdeCuenta: 'De (conta de origem)',
     labelEnCuotas: 'Em parcelas? Quantidade:',
+    opcionCrearCuentaCobrar: '+ Criar conta a receber nova',
+    opcionCrearCuentaPagar: '+ Criar conta a pagar nova',
+    placeholderNombreCuentaNueva: 'Nome da conta',
+    botonCrearCuenta: 'Criar e usar',
     labelHistorico: 'Nota Fiscal N°',
     placeholderHistorico: 'Ex.: NF-00123',
     labelSocio: 'Sócio/a',

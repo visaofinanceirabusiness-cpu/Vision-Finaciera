@@ -19,8 +19,10 @@ import {
   registrarOperacion,
   editarOperacion,
   eliminarOperacion,
+  generarMatrizOperaciones,
   LineaOperacion,
 } from '@/lib/motor';
+import { crearCuentaParaMedioPago, crearFormaPago } from '@/lib/categorias';
 import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
@@ -89,6 +91,8 @@ const COLORES = {
   gris: '#6e7781',
   blanco: '#ffffff',
 };
+
+const OPCION_CREAR_CUENTA_NUEVA = '__crear_cuenta_nueva__';
 
 const SABIO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png';
@@ -432,6 +436,17 @@ function CentralDeLanzamientosTab({
   const [enCuotas, setEnCuotas] = useState(false);
   const [cantidadCuotas, setCantidadCuotas] = useState('2');
 
+  // "+ Crear cuenta nueva" desde el propio selector de forma de pago
+  // — evita tener que ir a Configurações para dar de alta una cuenta
+  // a cobrar (Venta/Cobro) o a pagar (Compra/Pago) que todavía no
+  // existe. Simple a propósito: solo pide el nombre, y la habilita
+  // automáticamente nada más que para el par de operaciones que
+  // corresponda (eso es lo que hace que el sistema la reconozca como
+  // "Cuenta por Cobrar"/Pasivo más adelante).
+  const [creandoCuentaNueva, setCreandoCuentaNueva] = useState(false);
+  const [nombreCuentaNueva, setNombreCuentaNueva] = useState('');
+  const [guardandoCuentaNueva, setGuardandoCuentaNueva] = useState(false);
+
   const [historico, setHistorico] = useState(valoresIniciales?.historico ?? '');
   const [clienteProveedor, setClienteProveedor] = useState(valoresIniciales?.clienteProveedor ?? '');
   const [socio, setSocio] = useState(valoresIniciales?.socio ?? '');
@@ -525,6 +540,56 @@ function CentralDeLanzamientosTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [puedeEnCuotas]);
+
+  // "+ Crear cuenta a cobrar/a pagar nueva" en el selector de forma
+  // de pago: solo tiene sentido en Venta/Cobro (cuenta a cobrar) o
+  // Compra/Pago (cuenta a pagar) — en Transferencia/Inversión/
+  // Extracción no aplica ninguna de las dos.
+  const tipoCuentaNueva: 'ACTIVO' | 'PASIVO' | null =
+    operacion === 'VENTA' || operacion === 'COBRO' ? 'ACTIVO' : operacion === 'COMPRA' || operacion === 'PAGO' ? 'PASIVO' : null;
+
+  async function handleCrearCuentaNueva() {
+    if (!empresaId || !tipoCuentaNueva || !nombreCuentaNueva.trim() || !operacion || !categoria) return;
+
+    setGuardandoCuentaNueva(true);
+    setError('');
+
+    try {
+      const nombre = nombreCuentaNueva.trim();
+      const operacionesValidas = tipoCuentaNueva === 'ACTIVO' ? ['VENTA', 'COBRO'] : ['COMPRA', 'PAGO'];
+
+      const cuentaId = await crearCuentaParaMedioPago(empresaId, nombre, tipoCuentaNueva);
+      await crearFormaPago(empresaId, nombre, cuentaId, operacionesValidas);
+      await generarMatrizOperaciones(empresaId);
+
+      // Recién generada la matriz, hay que releer tanto la lista de
+      // formas de pago del combo (filtrada por operación + categoría
+      // actual, igual que el efecto que la carga al elegir categoría)
+      // como rubroPorCuenta/formasPagoUsablesParaGasto (los que
+      // deciden si es "Cuenta por Cobrar"/Pasivo) — si no, quedaría
+      // creada pero invisible o sin habilitar "En cuotas" hasta
+      // recargar la página.
+      const { data: formasPagoData } = await supabase
+        .from('matriz_operaciones')
+        .select('forma_pago')
+        .eq('empresa_id', empresaId)
+        .eq('operacion', operacion)
+        .eq('categoria', categoria);
+
+      const unicas = Array.from(new Set((formasPagoData ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
+      setFormasPago(unicas);
+      setFormaPago(nombre);
+
+      await cargarDatosOperativos(empresaId);
+
+      setCreandoCuentaNueva(false);
+      setNombreCuentaNueva('');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('errorRegistrar'));
+    } finally {
+      setGuardandoCuentaNueva(false);
+    }
+  }
 
   // Al editar una operación que ya tenía un cronograma de cuotas,
   // hay que precargarlo — si no, guardar la edición sin tildar "en
@@ -1688,7 +1753,13 @@ function CentralDeLanzamientosTab({
         <Campo label={esTransferencia ? t('labelDesdeCuenta') : t('labelFormaPago')}>
           <select
             value={formaPago}
-            onChange={(e) => setFormaPago(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === OPCION_CREAR_CUENTA_NUEVA) {
+                setCreandoCuentaNueva(true);
+                return;
+              }
+              setFormaPago(e.target.value);
+            }}
             disabled={!categoria}
             style={campoInput}
           >
@@ -1703,7 +1774,53 @@ function CentralDeLanzamientosTab({
                 ))}
               </optgroup>
             ))}
+
+            {tipoCuentaNueva && !modoEdicion && (
+              <option value={OPCION_CREAR_CUENTA_NUEVA}>
+                {tipoCuentaNueva === 'ACTIVO' ? t('opcionCrearCuentaCobrar') : t('opcionCrearCuentaPagar')}
+              </option>
+            )}
           </select>
+
+          {creandoCuentaNueva && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                autoFocus
+                style={{ ...campoInput, flex: '1 1 180px' }}
+                placeholder={t('placeholderNombreCuentaNueva')}
+                value={nombreCuentaNueva}
+                onChange={(e) => setNombreCuentaNueva(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={!nombreCuentaNueva.trim() || guardandoCuentaNueva}
+                onClick={handleCrearCuentaNueva}
+                style={{
+                  border: 'none',
+                  background: COLORES.verde,
+                  color: '#fff',
+                  borderRadius: 8,
+                  padding: '8px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: guardandoCuentaNueva ? 'default' : 'pointer',
+                  opacity: guardandoCuentaNueva ? 0.6 : 1,
+                }}
+              >
+                {t('botonCrearCuenta')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreandoCuentaNueva(false);
+                  setNombreCuentaNueva('');
+                }}
+                style={{ border: 'none', background: 'transparent', color: '#6e7781', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                {t('cancelar')}
+              </button>
+            </div>
+          )}
 
           {(esTransferencia || operacion === 'PAGO' || operacion === 'COMPRA') && saldoOrigen && (
             <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoOrigen} />

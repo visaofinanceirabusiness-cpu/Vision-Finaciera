@@ -83,7 +83,11 @@ export async function crearCuotasPasivo(
 
   for (let i = 0; i < cantidadCuotas; i++) {
     const numeroCuota = i + 1;
-    const fechaVencimiento = sumarMeses(fechaCompra, numeroCuota);
+    // Con 1 sola cuota no es un plan de cuotas real (que recién
+    // vencería al mes siguiente) sino una deuda pendiente sin
+    // fraccionar — ya está pendiente desde la fecha de la compra, no
+    // hay que esperar un mes para que aparezca como vencida.
+    const fechaVencimiento = cantidadCuotas === 1 ? fechaCompra : sumarMeses(fechaCompra, numeroCuota);
 
     const titulo = esPT(idioma)
       ? `Parcela ${numeroCuota}/${cantidadCuotas} — ${formaPagoNombre}`
