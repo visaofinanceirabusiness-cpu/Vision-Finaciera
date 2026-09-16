@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { listarCuotasPendientes, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
+import { listarTodasLasCuotas, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
 import {
   listarGastosRecurrentes,
   listarRecordatoriosConHistorial,
@@ -68,6 +68,7 @@ export function MisVencimientos({
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
   const [mostrarPagados, setMostrarPagados] = useState(false);
+  const [mostrarPasivosPagados, setMostrarPasivosPagados] = useState(false);
 
   async function recargar() {
     try {
@@ -81,7 +82,7 @@ export function MisVencimientos({
       );
 
       const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
-        listarCuotasPendientes(empresaId),
+        listarTodasLasCuotas(empresaId),
         listarRecordatoriosConHistorial(empresaId),
         listarGastosRecurrentes(empresaId),
         supabase
@@ -115,8 +116,11 @@ export function MisVencimientos({
 
   const hoy = fechaLocalHoy();
 
+  const cuotasPendientes = cuotas.filter((c) => !c.pagada);
+  const cuotasPagadas = cuotas.filter((c) => c.pagada);
+
   const gruposPasivo = new Map<string, CuotaPasivo[]>();
-  for (const cuota of cuotas) {
+  for (const cuota of cuotasPendientes) {
     const lista = gruposPasivo.get(cuota.forma_pago_nombre) ?? [];
     lista.push(cuota);
     gruposPasivo.set(cuota.forma_pago_nombre, lista);
@@ -125,7 +129,7 @@ export function MisVencimientos({
   const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
   const recordatoriosPagados = recordatorios.filter((r) => r.registrado);
 
-  const totalPasivos = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalPasivos = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
   const totalGastosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendiente(r), 0);
   const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
@@ -183,6 +187,20 @@ export function MisVencimientos({
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalPasivos.toFixed(2)}
                 </div>
+              )
+            }
+            acciones={
+              cuotasPagadas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMostrarPasivosPagados((m) => !m);
+                  }}
+                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {mostrarPasivosPagados ? (esPT ? 'Ocultar pagas' : 'Ocultar pagadas') : (esPT ? 'Mostrar pagas' : 'Mostrar pagadas')}
+                </button>
               )
             }
           >
@@ -255,6 +273,50 @@ export function MisVencimientos({
                 </div>
                 );
               })
+            )}
+
+            {mostrarPasivosPagados && cuotasPagadas.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
+                  {esPT ? 'JÁ PAGAS' : 'YA PAGADAS'}
+                </div>
+                {cuotasPagadas.map((cuota) => (
+                  <div
+                    key={cuota.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      marginBottom: 6,
+                      gap: 10,
+                      flexWrap: 'nowrap',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                      ✓ {cuota.forma_pago_nombre} {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_pago ?? cuota.fecha_vencimiento}
+                    </span>
+                    <strong
+                      style={{
+                        fontSize: 12.5,
+                        color: '#16a34a',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        position: 'sticky',
+                        right: 0,
+                        background: '#f3f4f6',
+                        paddingLeft: 10,
+                      }}
+                    >
+                      {simbolo} {cuota.monto.toFixed(2)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
             )}
           </AcordeonSeccion>
 
