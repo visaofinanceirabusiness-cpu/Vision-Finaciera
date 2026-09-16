@@ -1307,7 +1307,7 @@ function CentralDeLanzamientosTab({
         if (puedeEnCuotas && enCuotas) {
           const cantidad = Number(cantidadCuotas);
 
-          if (Number.isInteger(cantidad) && cantidad >= 2) {
+          if (Number.isInteger(cantidad) && cantidad >= 1) {
             if (esCuentaPorCobrar) {
               await crearCuotasCobro(empresaId, idioma, {
                 idOperacion: idOperacionEditar,
@@ -1346,7 +1346,7 @@ function CentralDeLanzamientosTab({
       if (puedeEnCuotas && enCuotas) {
         const cantidad = Number(cantidadCuotas);
 
-        if (Number.isInteger(cantidad) && cantidad >= 2) {
+        if (Number.isInteger(cantidad) && cantidad >= 1) {
           if (esCuentaPorCobrar) {
             await crearCuotasCobro(empresaId, idioma, {
               idOperacion: resultado.idOperacion,
@@ -1721,7 +1721,7 @@ function CentralDeLanzamientosTab({
           {enCuotas && (
             <input
               type="number"
-              min={2}
+              min={1}
               step={1}
               value={cantidadCuotas}
               onChange={(e) => setCantidadCuotas(e.target.value)}
