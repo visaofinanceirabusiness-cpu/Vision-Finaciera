@@ -153,11 +153,19 @@ export async function eliminarGastoRecurrente(id: string) {
 }
 
 // Por cada plantilla activa, se asegura de que exista un recordatorio
-// para el período que corresponde (el mes actual si el día todavía no
-// pasó, o el que viene si ya pasó) — se puede llamar todas las veces
-// que haga falta (al abrir "Gastos Fijos", desde el cron diario del
-// calendario), la constraint unique (gasto_recurrente_id, periodo)
-// evita duplicar.
+// para el período que corresponde — se puede llamar todas las veces
+// que haga falta (al abrir Mis Vencimientos, desde el lobby), la
+// constraint unique (gasto_recurrente_id, periodo) evita duplicar.
+//
+// El período nunca se decide solo mirando la fecha de hoy: se mira el
+// ÚLTIMO recordatorio ya generado para esa plantilla. Si todavía está
+// sin resolver (no se registró ni se vinculó un pago), no se avanza
+// al mes que viene — quedaría "salteado" un período sin cerrar. Recién
+// cuando ese último queda registrado se genera el siguiente, un mes
+// después del que se cerró. La primera vez (todavía no hay ningún
+// recordatorio) se usa el mes actual, aunque el día ya haya pasado —
+// así se puede vincular un pago que ya se hizo este mes (ver "Ya lo
+// pagué").
 export async function generarRecordatoriosPendientes(empresaId: string, idioma: string | null | undefined) {
   const { data: plantillas, error: errorPlantillas } = await supabase
     .from('gastos_recurrentes')
@@ -170,13 +178,33 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
   }
 
   const hoy = new Date();
-  const diaActual = hoy.getDate();
 
   for (const plantilla of plantillas ?? []) {
-    // Si el día ya pasó este mes, el período que corresponde es el
-    // próximo mes — no tiene sentido armar un recordatorio con fecha
-    // pasada.
-    const mesDestino = diaActual > plantilla.dia_mes ? new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1) : hoy;
+    const { data: ultimo, error: errorUltimo } = await supabase
+      .from('gastos_recurrentes_recordatorios')
+      .select('periodo, registrado')
+      .eq('gasto_recurrente_id', plantilla.id)
+      .order('periodo', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errorUltimo) {
+      throw errorUltimo;
+    }
+
+    if (ultimo && !ultimo.registrado) {
+      continue;
+    }
+
+    let mesDestino: Date;
+
+    if (!ultimo) {
+      mesDestino = hoy;
+    } else {
+      const [anioUltimo, mesUltimo] = ultimo.periodo.split('-').map(Number);
+      mesDestino = new Date(anioUltimo, mesUltimo, 1);
+    }
+
     const periodo = primerDiaDelMes(mesDestino);
     const fechaVencimiento = fechaDelMes(mesDestino, plantilla.dia_mes);
 

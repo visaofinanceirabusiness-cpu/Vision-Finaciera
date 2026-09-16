@@ -151,9 +151,10 @@ export async function eliminarIngresoRecurrente(id: string) {
 
 // Por cada plantilla activa, se asegura de que exista un recordatorio
 // para el período que corresponde — mismo mecanismo que
-// generarRecordatoriosPendientes de gastos recurrentes (ver ahí los
-// comentarios sobre la inserción atómica que evita duplicar el
-// evento de calendario).
+// generarRecordatoriosPendientes de gastos recurrentes: se mira el
+// ÚLTIMO recordatorio ya generado, y solo se avanza al mes siguiente
+// una vez que ese quedó cobrado. Mientras esté pendiente, no se
+// genera ninguno nuevo (ver los comentarios completos allá).
 export async function generarRecordatoriosIngresosPendientes(empresaId: string, idioma: string | null | undefined) {
   const { data: plantillas, error: errorPlantillas } = await supabase
     .from('ingresos_recurrentes')
@@ -166,10 +167,33 @@ export async function generarRecordatoriosIngresosPendientes(empresaId: string, 
   }
 
   const hoy = new Date();
-  const diaActual = hoy.getDate();
 
   for (const plantilla of plantillas ?? []) {
-    const mesDestino = diaActual > plantilla.dia_mes ? new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1) : hoy;
+    const { data: ultimo, error: errorUltimo } = await supabase
+      .from('ingresos_recurrentes_recordatorios')
+      .select('periodo, registrado')
+      .eq('ingreso_recurrente_id', plantilla.id)
+      .order('periodo', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errorUltimo) {
+      throw errorUltimo;
+    }
+
+    if (ultimo && !ultimo.registrado) {
+      continue;
+    }
+
+    let mesDestino: Date;
+
+    if (!ultimo) {
+      mesDestino = hoy;
+    } else {
+      const [anioUltimo, mesUltimo] = ultimo.periodo.split('-').map(Number);
+      mesDestino = new Date(anioUltimo, mesUltimo, 1);
+    }
+
     const periodo = primerDiaDelMes(mesDestino);
     const fechaVencimiento = fechaDelMes(mesDestino, plantilla.dia_mes);
 
