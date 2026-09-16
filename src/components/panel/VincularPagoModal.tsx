@@ -48,7 +48,7 @@ export function VincularPagoModal({
     setVinculando(candidato.idOperacion);
 
     try {
-      await vincularRecordatorioAPago(recordatorio.id, candidato.idOperacion);
+      await vincularRecordatorioAPago(empresaId, recordatorio, candidato);
       onVinculado();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado.');

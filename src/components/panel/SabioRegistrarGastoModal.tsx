@@ -13,7 +13,7 @@
 // que lleva a Contabilidad con el formulario completo.
 
 import { useState } from 'react';
-import { registrarPagoRecordatorio, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
+import { registrarPagoRecordatorio, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 
 type Colores = { azul: string; verde: string; blanco: string };
 
@@ -35,7 +35,7 @@ export function SabioRegistrarGastoModal({
   onRegistrado: () => void;
 }) {
   const esPT = idioma === 'PT';
-  const [monto, setMonto] = useState(String(recordatorio.monto_habitual));
+  const [monto, setMonto] = useState(String(saldoPendiente(recordatorio)));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -95,6 +95,15 @@ export function SabioRegistrarGastoModal({
         <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#6e7781' }}>
           {esPT ? 'Vencimento: ' : 'Vencimiento: '}
           {recordatorio.fecha_vencimiento} · {recordatorio.categoria} · {recordatorio.forma_pago}
+          {recordatorio.monto_pagado > 0 && (
+            <>
+              <br />
+              <span style={{ color: '#b45309', fontWeight: 700 }}>
+                {esPT ? 'Já pago' : 'Ya pagado'} {simbolo} {recordatorio.monto_pagado.toFixed(2)} {esPT ? 'de' : 'de'} {simbolo}{' '}
+                {recordatorio.monto_habitual.toFixed(2)}
+              </span>
+            </>
+          )}
         </p>
 
         {error && (

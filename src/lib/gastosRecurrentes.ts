@@ -37,7 +37,17 @@ export type RecordatorioGastoRecurrente = {
   categoria: string;
   forma_pago: string;
   monto_habitual: number;
+  monto_pagado: number;
 };
+
+// Lo que falta pagar de este recordatorio — puede ser menor a
+// monto_habitual si ya se cargó uno o más pagos parciales contra él
+// (ver registrarPagoParcial). Nunca negativo: un pago que se pasa del
+// monto habitual simplemente deja el recordatorio cumplido, sin
+// arrastrar saldo a favor al período siguiente.
+export function saldoPendiente(recordatorio: RecordatorioGastoRecurrente): number {
+  return Math.max(0, recordatorio.monto_habitual - recordatorio.monto_pagado);
+}
 
 function esPT(idioma: string | null | undefined) {
   return idioma === 'PT';
@@ -232,12 +242,45 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
   }
 }
 
+const SELECT_RECORDATORIO =
+  'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_pagado, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id)';
+
+function mapearFilaRecordatorio(fila: {
+  id: string;
+  gasto_recurrente_id: string;
+  periodo: string;
+  fecha_vencimiento: string;
+  registrado: boolean;
+  id_operacion: string | null;
+  monto_pagado: number;
+  gastos_recurrentes: unknown;
+}): RecordatorioGastoRecurrente {
+  const plantilla = fila.gastos_recurrentes as unknown as {
+    nombre: string;
+    categoria: string;
+    forma_pago: string;
+    monto_habitual: number;
+  };
+
+  return {
+    id: fila.id,
+    gasto_recurrente_id: fila.gasto_recurrente_id,
+    periodo: fila.periodo,
+    fecha_vencimiento: fila.fecha_vencimiento,
+    registrado: fila.registrado,
+    id_operacion: fila.id_operacion,
+    monto_pagado: Number(fila.monto_pagado ?? 0),
+    nombre: plantilla.nombre,
+    categoria: plantilla.categoria,
+    forma_pago: plantilla.forma_pago,
+    monto_habitual: plantilla.monto_habitual,
+  };
+}
+
 export async function listarRecordatoriosPendientes(empresaId: string): Promise<RecordatorioGastoRecurrente[]> {
   const { data, error } = await supabase
     .from('gastos_recurrentes_recordatorios')
-    .select(
-      'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id)'
-    )
+    .select(SELECT_RECORDATORIO)
     .eq('empresa_id', empresaId)
     .eq('registrado', false)
     .order('fecha_vencimiento', { ascending: true });
@@ -246,27 +289,30 @@ export async function listarRecordatoriosPendientes(empresaId: string): Promise<
     throw error;
   }
 
-  return (data ?? []).map((fila) => {
-    const plantilla = fila.gastos_recurrentes as unknown as {
-      nombre: string;
-      categoria: string;
-      forma_pago: string;
-      monto_habitual: number;
-    };
+  return (data ?? []).map(mapearFilaRecordatorio);
+}
 
-    return {
-      id: fila.id,
-      gasto_recurrente_id: fila.gasto_recurrente_id,
-      periodo: fila.periodo,
-      fecha_vencimiento: fila.fecha_vencimiento,
-      registrado: fila.registrado,
-      id_operacion: fila.id_operacion,
-      nombre: plantilla.nombre,
-      categoria: plantilla.categoria,
-      forma_pago: plantilla.forma_pago,
-      monto_habitual: plantilla.monto_habitual,
-    };
-  });
+// Trae pendientes Y ya pagados (acotado a los últimos ~3 meses) —
+// para el botón "Mostrar pagados" de Mis Vencimientos, que permite
+// revisar/verificar lo que ya se saldó sin mezclarlo por default con
+// lo que todavía falta.
+export async function listarRecordatoriosConHistorial(empresaId: string): Promise<RecordatorioGastoRecurrente[]> {
+  const hace90Dias = new Date();
+  hace90Dias.setDate(hace90Dias.getDate() - 90);
+  const desde = hace90Dias.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('gastos_recurrentes_recordatorios')
+    .select(SELECT_RECORDATORIO)
+    .eq('empresa_id', empresaId)
+    .gte('fecha_vencimiento', desde)
+    .order('fecha_vencimiento', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map(mapearFilaRecordatorio);
 }
 
 // Trae un recordatorio puntual con los datos de su plantilla — para
@@ -275,9 +321,7 @@ export async function listarRecordatoriosPendientes(empresaId: string): Promise<
 export async function obtenerRecordatorio(recordatorioId: string): Promise<RecordatorioGastoRecurrente | null> {
   const { data, error } = await supabase
     .from('gastos_recurrentes_recordatorios')
-    .select(
-      'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual)'
-    )
+    .select(SELECT_RECORDATORIO)
     .eq('id', recordatorioId)
     .maybeSingle();
 
@@ -289,35 +333,50 @@ export async function obtenerRecordatorio(recordatorioId: string): Promise<Recor
     return null;
   }
 
-  const plantilla = data.gastos_recurrentes as unknown as {
-    nombre: string;
-    categoria: string;
-    forma_pago: string;
-    monto_habitual: number;
-  };
-
-  return {
-    id: data.id,
-    gasto_recurrente_id: data.gasto_recurrente_id,
-    periodo: data.periodo,
-    fecha_vencimiento: data.fecha_vencimiento,
-    registrado: data.registrado,
-    id_operacion: data.id_operacion,
-    nombre: plantilla.nombre,
-    categoria: plantilla.categoria,
-    forma_pago: plantilla.forma_pago,
-    monto_habitual: plantilla.monto_habitual,
-  };
+  return mapearFilaRecordatorio(data);
 }
 
-// Se llama después de registrar el pago real en Contabilidad — marca
-// el recordatorio como cumplido y borra el evento del calendario (ya
-// hizo su trabajo), igual que al pagar una cuota.
-export async function marcarRecordatorioRegistrado(recordatorioId: string, idOperacion: string) {
-  const { data: recordatorio, error: errorRecordatorio } = await supabase
+export type ResultadoPagoParcial = {
+  montoPagado: number;
+  saldoPendiente: number;
+  cumplido: boolean;
+};
+
+// Núcleo compartido de todo pago (total o parcial) contra un
+// recordatorio: registra el aporte en gastos_recurrentes_recordatorios_pagos
+// (queda el historial de cada pago, con su propio asiento), actualiza
+// el acumulado monto_pagado y, solo si con este aporte el saldo llega
+// a cero, marca el recordatorio como cumplido y borra el evento del
+// calendario (ya hizo su trabajo) — si todavía queda saldo, el
+// recordatorio sigue apareciendo como pendiente, con el saldo
+// restante, para completarlo con un pago posterior.
+export async function registrarPagoParcial(
+  empresaId: string,
+  recordatorio: RecordatorioGastoRecurrente,
+  idOperacion: string,
+  monto: number,
+  fecha: string
+): Promise<ResultadoPagoParcial> {
+  const { error: errorPago } = await supabase.from('gastos_recurrentes_recordatorios_pagos').insert({
+    recordatorio_id: recordatorio.id,
+    empresa_id: empresaId,
+    id_operacion: idOperacion,
+    monto,
+    fecha,
+  });
+
+  if (errorPago) {
+    throw errorPago;
+  }
+
+  const nuevoMontoPagado = recordatorio.monto_pagado + monto;
+  const nuevoSaldo = Math.max(0, recordatorio.monto_habitual - nuevoMontoPagado);
+  const cumplido = nuevoSaldo <= 0.01;
+
+  const { data: fila, error: errorRecordatorio } = await supabase
     .from('gastos_recurrentes_recordatorios')
     .select('evento_calendario_id')
-    .eq('id', recordatorioId)
+    .eq('id', recordatorio.id)
     .single();
 
   if (errorRecordatorio) {
@@ -326,24 +385,27 @@ export async function marcarRecordatorioRegistrado(recordatorioId: string, idOpe
 
   const { error } = await supabase
     .from('gastos_recurrentes_recordatorios')
-    .update({ registrado: true, id_operacion: idOperacion })
-    .eq('id', recordatorioId);
+    .update({ monto_pagado: nuevoMontoPagado, registrado: cumplido, id_operacion: idOperacion })
+    .eq('id', recordatorio.id);
 
   if (error) {
     throw error;
   }
 
-  if (recordatorio.evento_calendario_id) {
-    await supabase.from('eventos_calendario').delete().eq('id', recordatorio.evento_calendario_id);
+  if (cumplido && fila.evento_calendario_id) {
+    await supabase.from('eventos_calendario').delete().eq('id', fila.evento_calendario_id);
   }
+
+  return { montoPagado: nuevoMontoPagado, saldoPendiente: nuevoSaldo, cumplido };
 }
 
 // Registra el Pago real (vía el motor contable) con el monto que el
-// usuario confirme o ajuste, y marca el recordatorio como cumplido —
-// pensado para el mini-diálogo de Sabio en Panel de Controle, que
-// permite hacer esto sin entrar a Contabilidad. Usa la misma
-// categoría/forma de pago con la que se cargó la plantilla; el único
-// dato que puede variar mes a mes es el monto.
+// usuario confirme o ajuste — pensado para el mini-diálogo de Sabio
+// en Panel de Controle, que permite hacer esto sin entrar a
+// Contabilidad. Usa la misma categoría/forma de pago con la que se
+// cargó la plantilla. Si el monto es menor al saldo pendiente (pagó
+// de menos), el recordatorio queda con el saldo restante para
+// completar después — no se marca cumplido hasta llegar a cero.
 export async function registrarPagoRecordatorio(
   empresaId: string,
   recordatorio: RecordatorioGastoRecurrente,
@@ -353,8 +415,10 @@ export async function registrarPagoRecordatorio(
     throw new Error('El monto tiene que ser mayor que cero.');
   }
 
+  const fecha = fechaLocalHoy();
+
   const resultado = await registrarOperacion(empresaId, {
-    fecha: fechaLocalHoy(),
+    fecha,
     operacion: 'PAGO',
     categoria: recordatorio.categoria,
     formaPago: recordatorio.forma_pago,
@@ -363,7 +427,7 @@ export async function registrarPagoRecordatorio(
     lineas: [{ producto: '', cantidad: 1, monto }],
   });
 
-  await marcarRecordatorioRegistrado(recordatorio.id, resultado.idOperacion);
+  await registrarPagoParcial(empresaId, recordatorio, resultado.idOperacion, monto, fecha);
 
   return resultado.idOperacion;
 }
@@ -397,10 +461,9 @@ export async function buscarPagosCandidatos(
       .order('fecha', { ascending: false })
       .limit(30),
     supabase
-      .from('gastos_recurrentes_recordatorios')
+      .from('gastos_recurrentes_recordatorios_pagos')
       .select('id_operacion')
-      .eq('empresa_id', empresaId)
-      .not('id_operacion', 'is', null),
+      .eq('empresa_id', empresaId),
   ]);
 
   if (error) {
@@ -420,10 +483,14 @@ export async function buscarPagosCandidatos(
 }
 
 // Vincula un recordatorio a un asiento YA cargado (ver
-// buscarPagosCandidatos) — mismo efecto final que
-// marcarRecordatorioRegistrado (queda cumplido, se borra el evento
-// del calendario), sin pasar por el motor contable porque el asiento
-// ya existe.
-export async function vincularRecordatorioAPago(recordatorioId: string, idOperacion: string) {
-  await marcarRecordatorioRegistrado(recordatorioId, idOperacion);
+// buscarPagosCandidatos) — mismo aporte parcial que registrarPagoParcial,
+// pero sin pasar por el motor contable porque el asiento ya existe.
+// El monto del asiento elegido (candidato.total) es el que se resta
+// del saldo pendiente.
+export async function vincularRecordatorioAPago(
+  empresaId: string,
+  recordatorio: RecordatorioGastoRecurrente,
+  candidato: PagoCandidato
+): Promise<ResultadoPagoParcial> {
+  return registrarPagoParcial(empresaId, recordatorio, candidato.idOperacion, candidato.total, candidato.fecha);
 }
