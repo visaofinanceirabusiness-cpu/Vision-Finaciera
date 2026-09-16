@@ -51,7 +51,7 @@ export function AcordeonSeccion({
           textAlign: 'left',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: colorTitulo, minWidth: 230, flexShrink: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: colorTitulo }}>
           <span
             style={{
               display: 'inline-block',
@@ -65,7 +65,12 @@ export function AcordeonSeccion({
           {titulo}
         </span>
 
-        <span style={{ minWidth: 150, flexShrink: 0 }}>{total}</span>
+        {/* Empuja total + acciones al borde derecho — así el número
+            de las cuatro secciones queda en la misma columna,
+            alineado a la derecha, en vez de pegado al título. */}
+        <span style={{ flex: 1 }} />
+
+        <span style={{ minWidth: 140, textAlign: 'right', flexShrink: 0 }}>{total}</span>
 
         {acciones}
       </button>
