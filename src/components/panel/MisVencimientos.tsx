@@ -22,6 +22,7 @@ import { listarCuotasPendientes, marcarCuotaPagada, type CuotaPasivo } from '@/l
 import {
   listarGastosRecurrentes,
   listarRecordatoriosConHistorial,
+  generarRecordatoriosPendientes,
   crearGastoRecurrente,
   actualizarGastoRecurrente,
   cambiarActivoGastoRecurrente,
@@ -69,6 +70,15 @@ export function MisVencimientos({
 
   async function recargar() {
     try {
+      // Se asegura de que exista el recordatorio del período actual
+      // antes de listar — si el usuario recién creó la plantilla y
+      // todavía no pasó por el lobby (que también dispara esto), no
+      // había ningún recordatorio armado todavía y el gasto no
+      // aparecía en ningún lado, ni pendiente ni pagado.
+      await generarRecordatoriosPendientes(empresaId, idioma).catch((e) =>
+        console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e)
+      );
+
       const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
         listarCuotasPendientes(empresaId),
         listarRecordatoriosConHistorial(empresaId),
