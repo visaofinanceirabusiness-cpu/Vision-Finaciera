@@ -172,7 +172,7 @@ export function MisIngresos({
           <AcordeonSeccion
             titulo={<>💵 {esPT ? 'Contas a Receber' : 'Cuentas por Cobrar'}</>}
             colorTitulo={colores.azul}
-            totalTexto={
+            total={
               gruposCuentaPorCobrar.size > 0 && (
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
                   {esPT ? 'Total: ' : 'Total: '}
@@ -245,15 +245,16 @@ export function MisIngresos({
           <AcordeonSeccion
             titulo={<>🔁 {esPT ? 'Receitas Recorrentes' : 'Ingresos Recurrentes'}</>}
             colorTitulo={colores.azul}
-            totalTexto={
+            total={
+              recordatoriosPendientes.length > 0 && (
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
+                  {esPT ? 'Total: ' : 'Total: '}
+                  {simbolo} {totalIngresosRecurrentes.toFixed(2)}
+                </div>
+              )
+            }
+            acciones={
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {recordatoriosPendientes.length > 0 && (
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
-                    {esPT ? 'Total: ' : 'Total: '}
-                    {simbolo} {totalIngresosRecurrentes.toFixed(2)}
-                  </div>
-                )}
-
                 {recordatoriosCobrados.length > 0 && (
                   <button
                     type="button"

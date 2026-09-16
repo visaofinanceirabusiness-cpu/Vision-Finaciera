@@ -13,13 +13,20 @@ import { useState, type ReactNode } from 'react';
 
 export function AcordeonSeccion({
   titulo,
-  totalTexto,
+  total,
+  acciones,
   colorTitulo,
   abiertoPorDefecto = false,
   children,
 }: {
   titulo: ReactNode;
-  totalTexto?: ReactNode;
+  // Separado de `acciones` (en vez de un solo `totalTexto` combinado)
+  // para que el título tenga un ancho fijo y el total de las cuatro
+  // secciones (Pasivos, Gastos/Ingresos Recurrentes, Cuentas por
+  // Cobrar) arranque siempre en la misma columna, en vez de correrse
+  // según cuánto texto tenga cada título o si trae botones al lado.
+  total?: ReactNode;
+  acciones?: ReactNode;
   colorTitulo: string;
   abiertoPorDefecto?: boolean;
   children: ReactNode;
@@ -35,8 +42,7 @@ export function AcordeonSeccion({
           width: '100%',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
+          gap: 16,
           background: 'transparent',
           border: 'none',
           padding: '4px 0 8px',
@@ -45,7 +51,7 @@ export function AcordeonSeccion({
           textAlign: 'left',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: colorTitulo }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: colorTitulo, minWidth: 230, flexShrink: 0 }}>
           <span
             style={{
               display: 'inline-block',
@@ -59,7 +65,9 @@ export function AcordeonSeccion({
           {titulo}
         </span>
 
-        {totalTexto}
+        <span style={{ minWidth: 150, flexShrink: 0 }}>{total}</span>
+
+        {acciones}
       </button>
 
       {abierto && <div>{children}</div>}
