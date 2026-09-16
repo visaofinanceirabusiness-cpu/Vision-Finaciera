@@ -73,7 +73,11 @@ export async function crearCuotasCobro(
 
   for (let i = 0; i < cantidadCuotas; i++) {
     const numeroCuota = i + 1;
-    const fechaVencimiento = sumarMeses(fechaVenta, numeroCuota);
+    // Con 1 sola cuota no es un plan de cuotas real (que recién
+    // vencería al mes siguiente) sino un cobro pendiente sin
+    // fraccionar — ya está pendiente desde la fecha de la venta, no
+    // hay que esperar un mes para que aparezca como vencido.
+    const fechaVencimiento = cantidadCuotas === 1 ? fechaVenta : sumarMeses(fechaVenta, numeroCuota);
 
     const titulo = esPT(idioma)
       ? `Receber ${numeroCuota}/${cantidadCuotas} — ${formaPagoNombre}`
