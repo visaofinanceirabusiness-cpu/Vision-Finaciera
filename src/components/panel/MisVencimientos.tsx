@@ -177,7 +177,7 @@ export function MisVencimientos({
           <AcordeonSeccion
             titulo={<>💳 {esPT ? 'Passivos' : 'Pasivos'}</>}
             colorTitulo={colores.azul}
-            totalTexto={
+            total={
               gruposPasivo.size > 0 && (
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
                   {esPT ? 'Total: ' : 'Total: '}
@@ -250,15 +250,16 @@ export function MisVencimientos({
           <AcordeonSeccion
             titulo={<>🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}</>}
             colorTitulo={colores.azul}
-            totalTexto={
+            total={
+              recordatoriosPendientes.length > 0 && (
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
+                  {esPT ? 'Total: ' : 'Total: '}
+                  {simbolo} {totalGastosRecurrentes.toFixed(2)}
+                </div>
+              )
+            }
+            acciones={
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {recordatoriosPendientes.length > 0 && (
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
-                    {esPT ? 'Total: ' : 'Total: '}
-                    {simbolo} {totalGastosRecurrentes.toFixed(2)}
-                  </div>
-                )}
-
                 {recordatoriosPagados.length > 0 && (
                   <button
                     type="button"

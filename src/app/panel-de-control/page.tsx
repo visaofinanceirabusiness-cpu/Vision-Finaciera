@@ -672,13 +672,7 @@ export default function MiNegocioPage() {
               boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
             }}
           >
-            <MisVencimientos
-              key={refrescarVencimientos}
-              empresaId={perfil.empresa_id}
-              idioma={idioma}
-              simbolo={simbolo}
-              colores={colores}
-            />
+            <MisIngresos empresaId={perfil.empresa_id} idioma={idioma} simbolo={simbolo} colores={colores} />
           </section>
         )}
 
@@ -693,7 +687,13 @@ export default function MiNegocioPage() {
               boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
             }}
           >
-            <MisIngresos empresaId={perfil.empresa_id} idioma={idioma} simbolo={simbolo} colores={colores} />
+            <MisVencimientos
+              key={refrescarVencimientos}
+              empresaId={perfil.empresa_id}
+              idioma={idioma}
+              simbolo={simbolo}
+              colores={colores}
+            />
           </section>
         )}
 
