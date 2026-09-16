@@ -15,7 +15,7 @@ export function AcordeonSeccion({
   titulo,
   totalTexto,
   colorTitulo,
-  abiertoPorDefecto = true,
+  abiertoPorDefecto = false,
   children,
 }: {
   titulo: ReactNode;
@@ -45,13 +45,13 @@ export function AcordeonSeccion({
           textAlign: 'left',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800, color: colorTitulo }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: colorTitulo }}>
           <span
             style={{
               display: 'inline-block',
               transform: abierto ? 'rotate(90deg)' : 'rotate(0deg)',
               transition: 'transform 150ms ease',
-              fontSize: 11,
+              fontSize: 13,
             }}
           >
             ▶
