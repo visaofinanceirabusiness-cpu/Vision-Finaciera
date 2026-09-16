@@ -142,6 +142,48 @@ export async function actualizarIngresoRecurrente(
   if (error) {
     throw error;
   }
+
+  // Si cambia el día del mes y todavía hay un recordatorio sin
+  // resolver, se actualiza (y su evento en el Calendário) para
+  // reflejar la nueva fecha — sin esto, quedaba con la fecha vieja
+  // hasta que se resolviera y se generara el siguiente, mostrando un
+  // vencimiento que ya no correspondía.
+  const { data: pendiente, error: errorPendiente } = await supabase
+    .from('ingresos_recurrentes_recordatorios')
+    .select('id, periodo, fecha_vencimiento, evento_calendario_id')
+    .eq('ingreso_recurrente_id', id)
+    .eq('registrado', false)
+    .order('periodo', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (errorPendiente) {
+    throw errorPendiente;
+  }
+
+  if (!pendiente) {
+    return;
+  }
+
+  const [anio, mes] = pendiente.periodo.split('-').map(Number);
+  const nuevaFecha = fechaDelMes(new Date(anio, mes - 1, 1), datos.diaMes);
+
+  if (nuevaFecha === pendiente.fecha_vencimiento) {
+    return;
+  }
+
+  const { error: errorFecha } = await supabase
+    .from('ingresos_recurrentes_recordatorios')
+    .update({ fecha_vencimiento: nuevaFecha })
+    .eq('id', pendiente.id);
+
+  if (errorFecha) {
+    throw errorFecha;
+  }
+
+  if (pendiente.evento_calendario_id) {
+    await supabase.from('eventos_calendario').update({ fecha: nuevaFecha }).eq('id', pendiente.evento_calendario_id);
+  }
 }
 
 export async function eliminarIngresoRecurrente(id: string) {
@@ -369,8 +411,12 @@ export async function registrarCobroParcial(
     throw errorCobro;
   }
 
-  const nuevoMontoCobrado = recordatorio.monto_cobrado + monto;
-  const nuevoSaldo = Math.max(0, recordatorio.monto_habitual - nuevoMontoCobrado);
+  // Number(...) explícito acá: si algún dato numérico llegara como
+  // string (puede pasar con columnas `numeric` de Postgres según cómo
+  // se serialicen), un "+" entre string y number concatena en vez de
+  // sumar, y quedaba un monto_cobrado corrupto silenciosamente.
+  const nuevoMontoCobrado = Number(recordatorio.monto_cobrado) + Number(monto);
+  const nuevoSaldo = Math.max(0, Number(recordatorio.monto_habitual) - nuevoMontoCobrado);
   const cumplido = nuevoSaldo <= 0.01;
 
   const { data: fila, error: errorRecordatorio } = await supabase

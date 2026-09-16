@@ -349,30 +349,40 @@ export function MisVencimientos({
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                   {esPT ? 'JÁ PAGOS' : 'YA PAGADOS'}
                 </div>
-                {recordatoriosPagados.map((recordatorio) => (
-                  <div
-                    key={recordatorio.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      background: '#f3f4f6',
-                      border: '1px solid #e5e7eb',
-                      marginBottom: 6,
-                      gap: 10,
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span style={{ fontSize: 12.5, color: '#6e7781' }}>
-                      ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
-                    </span>
-                    <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
-                      {simbolo} {recordatorio.monto_pagado.toFixed(2)}
-                    </strong>
-                  </div>
-                ))}
+                {recordatoriosPagados.map((recordatorio) => {
+                  const deMas = recordatorio.monto_pagado - recordatorio.monto_habitual;
+                  return (
+                    <div
+                      key={recordatorio.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        background: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        marginBottom: 6,
+                        gap: 10,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ fontSize: 12.5, color: '#6e7781' }}>
+                        ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
+                        {deMas > 0.01 && (
+                          <div style={{ fontSize: 11, color: '#b45309' }}>
+                            {esPT
+                              ? `Este mês você pagou ${simbolo} ${deMas.toFixed(2)} a mais do que o esperado.`
+                              : `Este mes pagaste ${simbolo} ${deMas.toFixed(2)} más de lo esperado.`}
+                          </div>
+                        )}
+                      </span>
+                      <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
+                        {simbolo} {recordatorio.monto_pagado.toFixed(2)}
+                      </strong>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
