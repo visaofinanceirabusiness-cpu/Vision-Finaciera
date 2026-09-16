@@ -30,6 +30,7 @@ import { diccionarioInicio, type ClaveInicio } from './i18n';
 import { simboloMoneda } from '@/lib/moneda';
 import { obtenerAlertasFinancieras } from '@/lib/alertasSabio';
 import { generarRecordatoriosPendientes } from '@/lib/gastosRecurrentes';
+import { generarRecordatoriosIngresosPendientes } from '@/lib/ingresosRecurrentes';
 
 const COLORES_BASE = {
   azul: '#1f3a5f',
@@ -386,8 +387,14 @@ export default function InicioPage() {
     const idiomaEmpresa = empresa?.idioma ?? 'ES';
     const simbolo = simboloMoneda(empresa?.moneda ?? null);
 
-    generarRecordatoriosPendientes(perfil.empresa_id, idiomaEmpresa)
-      .catch((e) => console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e))
+    Promise.all([
+      generarRecordatoriosPendientes(perfil.empresa_id, idiomaEmpresa).catch((e) =>
+        console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e)
+      ),
+      generarRecordatoriosIngresosPendientes(perfil.empresa_id, idiomaEmpresa).catch((e) =>
+        console.warn('No se pudieron generar los recordatorios de ingresos recurrentes:', e)
+      ),
+    ])
       .then(() => obtenerAlertasFinancieras(perfil.empresa_id, idiomaEmpresa, simbolo))
       .then((alertas) => setAlertaSabio(alertas[0] ?? null))
       .catch((e) => console.warn('No se pudieron cargar las alertas financieras:', e));

@@ -8,6 +8,7 @@
 
 import { listarCuotasPendientes } from './cuotas';
 import { listarRecordatoriosPendientes, saldoPendiente } from './gastosRecurrentes';
+import { listarRecordatoriosIngresosPendientes, saldoPendienteCobro } from './ingresosRecurrentes';
 import { fechaLocalHoy } from './fecha';
 
 export const DIAS_ANTICIPACION = 5;
@@ -30,9 +31,10 @@ export async function obtenerAlertasFinancieras(
   const hoy = fechaLocalHoy();
   const alertas: { dias: number; texto: string }[] = [];
 
-  const [cuotas, recordatorios] = await Promise.all([
+  const [cuotas, recordatorios, recordatoriosIngresos] = await Promise.all([
     listarCuotasPendientes(empresaId).catch(() => []),
     listarRecordatoriosPendientes(empresaId).catch(() => []),
+    listarRecordatoriosIngresosPendientes(empresaId).catch(() => []),
   ]);
 
   for (const cuota of cuotas) {
@@ -76,6 +78,28 @@ export async function obtenerAlertasFinancieras(
       texto = esPT(idioma)
         ? `🏠 Em ${dias} dia(s): ${recordatorio.nombre} (~${monto})`
         : `🏠 En ${dias} día(s): ${recordatorio.nombre} (~${monto})`;
+    }
+
+    alertas.push({ dias, texto });
+  }
+
+  for (const recordatorio of recordatoriosIngresos) {
+    const dias = diasHasta(recordatorio.fecha_vencimiento, hoy);
+    if (dias > DIAS_ANTICIPACION) continue;
+
+    const monto = `${simbolo} ${saldoPendienteCobro(recordatorio).toFixed(2)}`;
+    let texto: string;
+
+    if (dias < 0) {
+      texto = esPT(idioma)
+        ? `⚠️ Venceu: ${recordatorio.nombre} (~${monto}) — ainda não foi recebido`
+        : `⚠️ Venció: ${recordatorio.nombre} (~${monto}) — todavía no lo cobraste`;
+    } else if (dias === 0) {
+      texto = esPT(idioma) ? `💰 Vence hoje: ${recordatorio.nombre} (~${monto})` : `💰 Vence hoy: ${recordatorio.nombre} (~${monto})`;
+    } else {
+      texto = esPT(idioma)
+        ? `💰 Em ${dias} dia(s): ${recordatorio.nombre} (~${monto})`
+        : `💰 En ${dias} día(s): ${recordatorio.nombre} (~${monto})`;
     }
 
     alertas.push({ dias, texto });
