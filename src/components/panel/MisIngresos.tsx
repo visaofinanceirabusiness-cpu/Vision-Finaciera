@@ -343,30 +343,40 @@ export function MisIngresos({
               <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                 {esPT ? 'JÁ RECEBIDOS' : 'YA COBRADOS'}
               </div>
-              {recordatoriosCobrados.map((recordatorio) => (
-                <div
-                  key={recordatorio.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    background: '#f3f4f6',
-                    border: '1px solid #e5e7eb',
-                    marginBottom: 6,
-                    gap: 10,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span style={{ fontSize: 12.5, color: '#6e7781' }}>
-                    ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
-                  </span>
-                  <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
-                    {simbolo} {recordatorio.monto_cobrado.toFixed(2)}
-                  </strong>
-                </div>
-              ))}
+              {recordatoriosCobrados.map((recordatorio) => {
+                const deMas = recordatorio.monto_cobrado - recordatorio.monto_habitual;
+                return (
+                  <div
+                    key={recordatorio.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      marginBottom: 6,
+                      gap: 10,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: '#6e7781' }}>
+                      ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
+                      {deMas > 0.01 && (
+                        <div style={{ fontSize: 11, color: '#b45309' }}>
+                          {esPT
+                            ? `Este mês você recebeu ${simbolo} ${deMas.toFixed(2)} a mais do que o esperado.`
+                            : `Este mes cobraste ${simbolo} ${deMas.toFixed(2)} más de lo esperado.`}
+                        </div>
+                      )}
+                    </span>
+                    <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
+                      {simbolo} {recordatorio.monto_cobrado.toFixed(2)}
+                    </strong>
+                  </div>
+                );
+              })}
             </div>
           )}
 
