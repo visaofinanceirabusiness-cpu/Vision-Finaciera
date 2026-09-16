@@ -500,7 +500,11 @@ export function CalendarioOrganizador({
                           }}
                           title={ev.titulo}
                           style={{
-                            background: `${CATEGORIAS_EVENTO[ev.categoria].color}1c`,
+                            // Base blanca opaca + tinte encima: así el
+                            // fondo del evento tapa la textura de rayas
+                            // del día (si lo hay) y no compite con la
+                            // lectura del texto.
+                            background: `linear-gradient(0deg, ${CATEGORIAS_EVENTO[ev.categoria].color}2e, ${CATEGORIAS_EVENTO[ev.categoria].color}2e), ${colores.blanco}`,
                             color: CATEGORIAS_EVENTO[ev.categoria].color,
                             borderRadius: 6,
                             padding: '2px 5px',
