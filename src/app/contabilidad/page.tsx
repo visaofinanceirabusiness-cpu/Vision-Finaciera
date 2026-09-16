@@ -32,6 +32,7 @@ import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoVal
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
 import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
+import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
@@ -413,6 +414,11 @@ function CentralDeLanzamientosTab({
   // agruparCategoriasPorRubro más abajo).
   const [rubroPorCuenta, setRubroPorCuenta] = useState<Record<string, string>>({});
 
+  // Formas de pago (por nombre) habilitadas para Compra o Pago — ver
+  // el comentario en cargarDatosOperativos sobre cómo esto distingue
+  // una Cuenta por Cobrar de un medio financiero real.
+  const [formasPagoUsablesParaGasto, setFormasPagoUsablesParaGasto] = useState<Set<string>>(new Set());
+
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
   const [saldoOrigen, setSaldoOrigen] = useState<{ cuenta: string; saldo: number } | null>(null);
@@ -498,11 +504,20 @@ function CentralDeLanzamientosTab({
   // así que no corresponde pedir Cliente/Proveedor/Socio acá.
   const esTransferencia = operacion === 'TRANSFERENCIA';
 
-  // "En cuotas" solo aplica a Compra/Pago con una forma de pago que
-  // sea un Pasivo (rubro '2') — pagar en efectivo o transferir no
-  // genera una deuda que tenga sentido parcelar.
+  // "En cuotas" aplica en dos casos simétricos: Compra/Pago con una
+  // forma de pago que sea un Pasivo (rubro '2' — genera una deuda), o
+  // Venta/Cobro con una forma de pago que sea una Cuenta por Cobrar
+  // (rubro '1' pero NO habilitada para Compra/Pago — un Activo real
+  // como Caja/Banco sí lo está, por eso los distingue; ver
+  // formasPagoUsablesParaGasto). Pagar en efectivo o transferir no
+  // genera ni una deuda ni un cobro pendiente que tenga sentido
+  // parcelar.
+  const esCuentaPorCobrar =
+    Boolean(formaPago) && rubroPorCuenta[formaPago] === '1' && !formasPagoUsablesParaGasto.has(formaPago);
+
   const puedeEnCuotas =
-    (operacion === 'COMPRA' || operacion === 'PAGO') && Boolean(formaPago) && rubroPorCuenta[formaPago] === '2';
+    ((operacion === 'COMPRA' || operacion === 'PAGO') && Boolean(formaPago) && rubroPorCuenta[formaPago] === '2') ||
+    ((operacion === 'VENTA' || operacion === 'COBRO') && esCuentaPorCobrar);
 
   useEffect(() => {
     if (!puedeEnCuotas) {
@@ -518,19 +533,28 @@ function CentralDeLanzamientosTab({
   useEffect(() => {
     if (!empresaId || !modoEdicion || !idOperacionEditar) return;
 
-    supabase
-      .from('cuotas_pasivo')
-      .select('total_cuotas')
-      .eq('empresa_id', empresaId)
-      .eq('id_operacion', idOperacionEditar)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setEnCuotas(true);
-          setCantidadCuotas(String(data.total_cuotas));
-        }
-      });
+    Promise.all([
+      supabase
+        .from('cuotas_pasivo')
+        .select('total_cuotas')
+        .eq('empresa_id', empresaId)
+        .eq('id_operacion', idOperacionEditar)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('cuotas_cobro')
+        .select('total_cuotas')
+        .eq('empresa_id', empresaId)
+        .eq('id_operacion', idOperacionEditar)
+        .limit(1)
+        .maybeSingle(),
+    ]).then(([{ data: cuotaPasivo }, { data: cuotaCobro }]) => {
+      const existente = cuotaPasivo ?? cuotaCobro;
+      if (existente) {
+        setEnCuotas(true);
+        setCantidadCuotas(String(existente.total_cuotas));
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, modoEdicion, idOperacionEditar]);
 
@@ -636,12 +660,24 @@ function CentralDeLanzamientosTab({
       { data: cuentasData },
       { data: operacionesParaSaldo },
       { data: automaticosParaSaldo },
+      { data: formasPagoParaGasto },
     ] = await Promise.all([
       supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaIdActual),
       supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaIdActual).eq('activo', true),
       supabase.from('plan_cuentas').select('id, nombre, naturaleza, codigo').eq('empresa_id', empresaIdActual),
       supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', empresaIdActual),
       supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', empresaIdActual),
+      // Formas de pago habilitadas para Compra/Pago — una forma de
+      // pago de Activo que NO está acá (ej. "Cuentas a Cobrar",
+      // habilitada solo para Venta/Cobro) es una cuenta por cobrar,
+      // no un medio financiero de verdad (Caja/Banco). Mismo criterio
+      // que separa un Pasivo (habilitado solo para Compra/Pago) de
+      // cualquier otra cuenta.
+      supabase
+        .from('matriz_operaciones')
+        .select('forma_pago')
+        .eq('empresa_id', empresaIdActual)
+        .in('operacion', ['COMPRA', 'PAGO']),
     ]);
 
     const nombreCuentaPorId = new Map((cuentasData ?? []).map((c) => [c.id, c.nombre]));
@@ -704,6 +740,7 @@ function CentralDeLanzamientosTab({
     }
 
     setRubroPorCuenta(rubroPorNombre);
+    setFormasPagoUsablesParaGasto(new Set((formasPagoParaGasto ?? []).map((f) => f.forma_pago)));
   }
 
   useEffect(() => {
@@ -1271,13 +1308,23 @@ function CentralDeLanzamientosTab({
           const cantidad = Number(cantidadCuotas);
 
           if (Number.isInteger(cantidad) && cantidad >= 2) {
-            await crearCuotasPasivo(empresaId, idioma, {
-              idOperacion: idOperacionEditar,
-              formaPagoNombre: formulario.formaPago,
-              total: resultadoEdicion.total,
-              cantidadCuotas: cantidad,
-              fechaCompra: formulario.fecha,
-            });
+            if (esCuentaPorCobrar) {
+              await crearCuotasCobro(empresaId, idioma, {
+                idOperacion: idOperacionEditar,
+                formaPagoNombre: formulario.formaPago,
+                total: resultadoEdicion.total,
+                cantidadCuotas: cantidad,
+                fechaVenta: formulario.fecha,
+              });
+            } else {
+              await crearCuotasPasivo(empresaId, idioma, {
+                idOperacion: idOperacionEditar,
+                formaPagoNombre: formulario.formaPago,
+                total: resultadoEdicion.total,
+                cantidadCuotas: cantidad,
+                fechaCompra: formulario.fecha,
+              });
+            }
           }
         }
 
@@ -1300,13 +1347,23 @@ function CentralDeLanzamientosTab({
         const cantidad = Number(cantidadCuotas);
 
         if (Number.isInteger(cantidad) && cantidad >= 2) {
-          await crearCuotasPasivo(empresaId, idioma, {
-            idOperacion: resultado.idOperacion,
-            formaPagoNombre: formulario.formaPago,
-            total: resultado.total,
-            cantidadCuotas: cantidad,
-            fechaCompra: formulario.fecha,
-          });
+          if (esCuentaPorCobrar) {
+            await crearCuotasCobro(empresaId, idioma, {
+              idOperacion: resultado.idOperacion,
+              formaPagoNombre: formulario.formaPago,
+              total: resultado.total,
+              cantidadCuotas: cantidad,
+              fechaVenta: formulario.fecha,
+            });
+          } else {
+            await crearCuotasPasivo(empresaId, idioma, {
+              idOperacion: resultado.idOperacion,
+              formaPagoNombre: formulario.formaPago,
+              total: resultado.total,
+              cantidadCuotas: cantidad,
+              fechaCompra: formulario.fecha,
+            });
+          }
         }
       }
 

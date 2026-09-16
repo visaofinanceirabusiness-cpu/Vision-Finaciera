@@ -3,11 +3,10 @@
 // MIS INGRESOS — espejo de MisVencimientos, del lado del cobro.
 // Vive en Panel de Controle, debajo de Mis Vencimientos.
 //
-// Por ahora solo cubre Ingresos Recurrentes (sueldo, alquiler que
-// cobrás, suscripciones de un cliente...) — el segundo bloque
-// simétrico a Pasivos ("Cuentas por Cobrar", ventas ya facturadas a
-// crédito pendientes de cobro) queda para cuando se arme la cuenta
-// contable correspondiente en Configurações.
+// Dos bloques, igual que allá: Cuentas por Cobrar (cuotas de una
+// venta/cobro ya facturado a crédito — espejo de Pasivos) e Ingresos
+// Recurrentes (sueldo, alquiler que cobrás, suscripciones de un
+// cliente... — espejo de Gastos Recurrentes).
 //
 // Cualquier usuario de la empresa puede cargar, editar, activar/
 // desactivar o eliminar un Ingreso Recurrente — igual que un Gasto
@@ -16,6 +15,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { listarCuotasCobroPendientes, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
 import {
   listarIngresosRecurrentes,
   listarRecordatoriosIngresosConHistorial,
@@ -51,6 +51,7 @@ export function MisIngresos({
 }) {
   const esPT = idioma === 'PT';
 
+  const [cuotas, setCuotas] = useState<CuotaCobro[]>([]);
   const [recordatorios, setRecordatorios] = useState<RecordatorioIngresoRecurrente[]>([]);
   const [plantillas, setPlantillas] = useState<IngresoRecurrente[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
@@ -75,7 +76,8 @@ export function MisIngresos({
         console.warn('No se pudieron generar los recordatorios de ingresos recurrentes:', e)
       );
 
-      const [recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
+      const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
+        listarCuotasCobroPendientes(empresaId),
         listarRecordatoriosIngresosConHistorial(empresaId),
         listarIngresosRecurrentes(empresaId),
         supabase
@@ -88,6 +90,7 @@ export function MisIngresos({
         supabase.from('formas_pago').select('nombre').eq('empresa_id', empresaId).order('nombre'),
       ]);
 
+      setCuotas(cuotasData);
       setRecordatorios(recordatoriosData);
       setPlantillas(plantillasData);
       setCategorias((catData.data ?? []).map((c) => c.nombre));
@@ -108,10 +111,24 @@ export function MisIngresos({
 
   const hoy = fechaLocalHoy();
 
+  const gruposCuentaPorCobrar = new Map<string, CuotaCobro[]>();
+  for (const cuota of cuotas) {
+    const lista = gruposCuentaPorCobrar.get(cuota.forma_pago_nombre) ?? [];
+    lista.push(cuota);
+    gruposCuentaPorCobrar.set(cuota.forma_pago_nombre, lista);
+  }
+
   const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
   const recordatoriosCobrados = recordatorios.filter((r) => r.registrado);
 
-  const totalGeneral = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
+  const totalCuentasPorCobrar = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalIngresosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
+  const totalGeneral = totalCuentasPorCobrar + totalIngresosRecurrentes;
+
+  async function cobrarCuota(cuotaId: string) {
+    await marcarCuotaCobrada(cuotaId, true);
+    await recargar();
+  }
 
   return (
     <div>
@@ -128,7 +145,7 @@ export function MisIngresos({
           </p>
         </div>
 
-        {!cargando && recordatorios.length > 0 && (
+        {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
               {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
@@ -150,6 +167,82 @@ export function MisIngresos({
         <p style={{ fontSize: 13, color: '#6e7781' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>
       ) : (
         <>
+          {/* ============ CUENTAS POR COBRAR (cuotas pendientes) ============ */}
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
+                💵 {esPT ? 'Contas a Receber' : 'Cuentas por Cobrar'}
+              </div>
+
+              {gruposCuentaPorCobrar.size > 0 && (
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
+                  {esPT ? 'Total: ' : 'Total: '}
+                  {simbolo} {totalCuentasPorCobrar.toFixed(2)}
+                </div>
+              )}
+            </div>
+
+            {gruposCuentaPorCobrar.size === 0 ? (
+              <p style={{ fontSize: 12.5, color: '#6e7781' }}>
+                {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
+              </p>
+            ) : (
+              Array.from(gruposCuentaPorCobrar.entries()).map(([nombreCuenta, cuotasDeLaCuenta]) => {
+                const subtotal = cuotasDeLaCuenta.reduce((suma, cuota) => suma + cuota.monto, 0);
+
+                return (
+                  <div key={nombreCuenta} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: colores.azul }}>{nombreCuenta}</div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#6e7781' }}>
+                        {esPT ? 'Subtotal: ' : 'Subtotal: '}
+                        {simbolo} {subtotal.toFixed(2)}
+                      </div>
+                    </div>
+                    {cuotasDeLaCuenta.map((cuota) => {
+                      const vencida = cuota.fecha_vencimiento < hoy;
+                      return (
+                        <div
+                          key={cuota.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: 10,
+                            background: '#f8fafc',
+                            border: '1px solid #e5e7eb',
+                            marginBottom: 6,
+                            gap: 10,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span style={{ fontSize: 12.5, color: '#1f2937' }}>
+                            {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
+                            {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <strong style={{ fontSize: 12.5, color: '#15803d' }}>
+                              {simbolo} {cuota.monto.toFixed(2)}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => cobrarCuota(cuota.id)}
+                              style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                            >
+                              ✓ {esPT ? 'Marcar recebida' : 'Marcar cobrada'}
+                            </button>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ============ INGRESOS RECURRENTES ============ */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
@@ -159,7 +252,7 @@ export function MisIngresos({
               {recordatoriosPendientes.length > 0 && (
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
                   {esPT ? 'Total: ' : 'Total: '}
-                  {simbolo} {totalGeneral.toFixed(2)}
+                  {simbolo} {totalIngresosRecurrentes.toFixed(2)}
                 </div>
               )}
             </div>
