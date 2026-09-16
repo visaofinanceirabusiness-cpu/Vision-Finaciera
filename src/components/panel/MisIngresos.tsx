@@ -213,21 +213,33 @@ export function MisIngresos({
                             border: '1px solid #e5e7eb',
                             marginBottom: 6,
                             gap: 10,
-                            flexWrap: 'wrap',
+                            flexWrap: 'nowrap',
+                            overflowX: 'auto',
                           }}
                         >
-                          <span style={{ fontSize: 12.5, color: '#1f2937' }}>
+                          <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                             {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
                             {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <strong style={{ fontSize: 12.5, color: '#15803d' }}>
+                          <span
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              flexShrink: 0,
+                              position: 'sticky',
+                              right: 0,
+                              background: '#f8fafc',
+                              paddingLeft: 10,
+                            }}
+                          >
+                            <strong style={{ fontSize: 12.5, color: '#15803d', whiteSpace: 'nowrap' }}>
                               {simbolo} {cuota.monto.toFixed(2)}
                             </strong>
                             <button
                               type="button"
                               onClick={() => cobrarCuota(cuota.id)}
-                              style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                              style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
                             >
                               ✓ {esPT ? 'Marcar recebida' : 'Marcar cobrada'}
                             </button>
@@ -303,10 +315,11 @@ export function MisIngresos({
                     border: '1px solid #e5e7eb',
                     marginBottom: 6,
                     gap: 10,
-                    flexWrap: 'wrap',
+                    flexWrap: 'nowrap',
+                    overflowX: 'auto',
                   }}
                 >
-                  <span style={{ fontSize: 12.5, color: '#1f2937' }}>
+                  <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                     {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                     {vencido && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
                     {tieneCobroParcial && (
@@ -317,21 +330,32 @@ export function MisIngresos({
                       </div>
                     )}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: '#6e7781' }}>
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      flexShrink: 0,
+                      position: 'sticky',
+                      right: 0,
+                      background: '#f8fafc',
+                      paddingLeft: 10,
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       {tieneCobroParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setRecordatorioAVincular(recordatorio)}
-                      style={{ border: 'none', background: 'transparent', color: '#6e7781', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}
+                      style={{ border: 'none', background: 'transparent', color: '#6e7781', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
                     >
                       {esPT ? 'Já recebi' : 'Ya lo cobré'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRecordatorioAConfirmar(recordatorio)}
-                      style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                      style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       ✓ {esPT ? 'Registrar' : 'Registrar'}
                     </button>
@@ -361,10 +385,11 @@ export function MisIngresos({
                       border: '1px solid #e5e7eb',
                       marginBottom: 6,
                       gap: 10,
-                      flexWrap: 'wrap',
+                      flexWrap: 'nowrap',
+                      overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12.5, color: '#6e7781' }}>
+                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                       {deMas > 0.01 && (
                         <div style={{ fontSize: 11, color: '#b45309' }}>
@@ -374,7 +399,18 @@ export function MisIngresos({
                         </div>
                       )}
                     </span>
-                    <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
+                    <strong
+                      style={{
+                        fontSize: 12.5,
+                        color: '#16a34a',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        position: 'sticky',
+                        right: 0,
+                        background: '#f3f4f6',
+                        paddingLeft: 10,
+                      }}
+                    >
                       {simbolo} {recordatorio.monto_cobrado.toFixed(2)}
                     </strong>
                   </div>
@@ -394,7 +430,9 @@ export function MisIngresos({
                   {esPT ? 'Nenhuma cadastrada ainda.' : 'Todavía no hay ninguna cargada.'}
                 </p>
               ) : (
-                plantillas.map((plantilla) => (
+                plantillas.map((plantilla) => {
+                  const fondoFila = plantilla.activo ? '#fff' : '#f3f4f6';
+                  return (
                   <div
                     key={plantilla.id}
                     style={{
@@ -403,14 +441,15 @@ export function MisIngresos({
                       justifyContent: 'space-between',
                       padding: '7px 10px',
                       borderRadius: 8,
-                      background: plantilla.activo ? '#fff' : '#f3f4f6',
+                      background: fondoFila,
                       border: '1px solid #e5e7eb',
                       marginBottom: 6,
                       gap: 8,
-                      flexWrap: 'wrap',
+                      flexWrap: 'nowrap',
+                      overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781', whiteSpace: 'nowrap' }}>
                       {plantilla.nombre}
                       <span style={{ fontWeight: 400, color: '#6e7781' }}>
                         {' '}
@@ -418,7 +457,18 @@ export function MisIngresos({
                       </span>
                     </span>
 
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        flexShrink: 0,
+                        position: 'sticky',
+                        right: 0,
+                        background: fondoFila,
+                        paddingLeft: 10,
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={() => setEditando(plantilla)}
@@ -453,7 +503,8 @@ export function MisIngresos({
                       </button>
                     </span>
                   </div>
-                ))
+                  );
+                })
               )}
 
               {!creando && !editando && (
