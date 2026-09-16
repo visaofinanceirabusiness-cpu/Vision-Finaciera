@@ -32,7 +32,7 @@ import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoVal
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
 import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
-import { obtenerRecordatorio, marcarRecordatorioRegistrado } from '@/lib/gastosRecurrentes';
+import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -128,7 +128,7 @@ function ContabilidadPageInterno() {
   // el recordatorio al servidor.
   const searchParams = useSearchParams();
   const recordatorioIdUrl = searchParams.get('gastoRecurrenteRecordatorioId');
-  const [recordatorioGastoRecurrenteId, setRecordatorioGastoRecurrenteId] = useState<string | undefined>(undefined);
+  const [recordatorioGastoRecurrente, setRecordatorioGastoRecurrente] = useState<RecordatorioGastoRecurrente | undefined>(undefined);
   const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
   const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl);
 
@@ -152,7 +152,7 @@ function ContabilidadPageInterno() {
       .then((recordatorio) => {
         if (!recordatorio) return;
 
-        setRecordatorioGastoRecurrenteId(recordatorio.id);
+        setRecordatorioGastoRecurrente(recordatorio);
         setValoresInicialesGasto({
           fecha: fechaLocalHoy(),
           operacion: 'PAGO',
@@ -160,7 +160,7 @@ function ContabilidadPageInterno() {
           formaPago: recordatorio.forma_pago,
           historico: recordatorio.nombre,
           clienteProveedor: '',
-          lineas: [{ producto: '', cantidad: 1, monto: recordatorio.monto_habitual, unidadCarga: '' }],
+          lineas: [{ producto: '', cantidad: 1, monto: saldoPendiente(recordatorio), unidadCarga: '' }],
         });
       })
       .catch((e) => console.error('No se pudo precargar el recordatorio del gasto recurrente:', e))
@@ -304,7 +304,7 @@ function ContabilidadPageInterno() {
           {pestana === 'lanzamientos' && prefillListo && (
             <CentralDeLanzamientosTab
               valoresIniciales={valoresInicialesGasto}
-              recordatorioGastoRecurrenteId={recordatorioGastoRecurrenteId}
+              recordatorioGastoRecurrente={recordatorioGastoRecurrente}
             />
           )}
           {pestana === 'registros' && <RegistroOperacionesTab />}
@@ -353,16 +353,16 @@ type ValoresIniciales = {
 function CentralDeLanzamientosTab({
   idOperacionEditar,
   valoresIniciales,
-  recordatorioGastoRecurrenteId,
+  recordatorioGastoRecurrente,
   onGuardado,
   onCancelar,
 }: {
   idOperacionEditar?: string;
   valoresIniciales?: ValoresIniciales;
-  // Cuando se llega desde "Registrar" en Gastos Fijos — al guardar
-  // con éxito, marca ese recordatorio como cumplido (ver
-  // handleRegistrar).
-  recordatorioGastoRecurrenteId?: string;
+  // Cuando se llega desde "Registrar" en Mis Vencimientos — al
+  // guardar con éxito, se resta el monto cargado del saldo pendiente
+  // de este recordatorio (ver handleRegistrar y registrarPagoParcial).
+  recordatorioGastoRecurrente?: RecordatorioGastoRecurrente;
   onGuardado?: () => void;
   onCancelar?: () => void;
 } = {}) {
@@ -1288,11 +1288,11 @@ function CentralDeLanzamientosTab({
 
       const resultado = await registrarOperacion(empresaId, formulario);
 
-      if (recordatorioGastoRecurrenteId) {
+      if (recordatorioGastoRecurrente) {
         try {
-          await marcarRecordatorioRegistrado(recordatorioGastoRecurrenteId, resultado.idOperacion);
+          await registrarPagoParcial(empresaId, recordatorioGastoRecurrente, resultado.idOperacion, resultado.total, formulario.fecha);
         } catch (errorRecordatorio) {
-          console.warn('No se pudo marcar el recordatorio de gasto recurrente como cumplido:', errorRecordatorio);
+          console.warn('No se pudo actualizar el saldo del gasto recurrente:', errorRecordatorio);
         }
       }
 

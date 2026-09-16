@@ -20,7 +20,7 @@ import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
 import { SabioRegistrarGastoModal } from '@/components/panel/SabioRegistrarGastoModal';
-import { listarRecordatoriosPendientes, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
+import { listarRecordatoriosPendientes, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { diasHasta, DIAS_ANTICIPACION } from '@/lib/alertasSabio';
 import { fechaLocalHoy } from '@/lib/fecha';
 import {
@@ -351,8 +351,8 @@ export default function MiNegocioPage() {
 
   const fraseRecordatorioUrgente = recordatorioUrgente
     ? idioma === 'PT'
-      ? `🔁 ${recordatorioUrgente.nombre} — toque para registrar (~${simbolo} ${recordatorioUrgente.monto_habitual.toFixed(2)})`
-      : `🔁 ${recordatorioUrgente.nombre} — tocá para registrar (~${simbolo} ${recordatorioUrgente.monto_habitual.toFixed(2)})`
+      ? `🔁 ${recordatorioUrgente.nombre} — toque para registrar (~${simbolo} ${saldoPendiente(recordatorioUrgente).toFixed(2)})`
+      : `🔁 ${recordatorioUrgente.nombre} — tocá para registrar (~${simbolo} ${saldoPendiente(recordatorioUrgente).toFixed(2)})`
     : '';
 
   const esTodosLosPeriodos = periodoSeleccionado === 'TODOS';

@@ -21,11 +21,12 @@ import { supabase } from '@/lib/supabase';
 import { listarCuotasPendientes, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
 import {
   listarGastosRecurrentes,
-  listarRecordatoriosPendientes,
+  listarRecordatoriosConHistorial,
   crearGastoRecurrente,
   actualizarGastoRecurrente,
   cambiarActivoGastoRecurrente,
   eliminarGastoRecurrente,
+  saldoPendiente,
   type GastoRecurrente,
   type RecordatorioGastoRecurrente,
 } from '@/lib/gastosRecurrentes';
@@ -64,12 +65,13 @@ export function MisVencimientos({
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [mostrarPagados, setMostrarPagados] = useState(false);
 
   async function recargar() {
     try {
       const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
         listarCuotasPendientes(empresaId),
-        listarRecordatoriosPendientes(empresaId),
+        listarRecordatoriosConHistorial(empresaId),
         listarGastosRecurrentes(empresaId),
         supabase
           .from('categorias_operacion')
@@ -109,8 +111,11 @@ export function MisVencimientos({
     gruposPasivo.set(cuota.forma_pago_nombre, lista);
   }
 
+  const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
+  const recordatoriosPagados = recordatorios.filter((r) => r.registrado);
+
   const totalPasivos = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
-  const totalGastosRecurrentes = recordatorios.reduce((suma, r) => suma + r.monto_habitual, 0);
+  const totalGastosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendiente(r), 0);
   const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
   async function pagarCuota(cuotaId: string) {
@@ -240,7 +245,7 @@ export function MisVencimientos({
                   🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}
                 </div>
 
-                {recordatorios.length > 0 && (
+                {recordatoriosPendientes.length > 0 && (
                   <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
                     {esPT ? 'Total: ' : 'Total: '}
                     {simbolo} {totalGastosRecurrentes.toFixed(2)}
@@ -248,22 +253,36 @@ export function MisVencimientos({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setMostrarPlantillas((m) => !m)}
-                style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-              >
-                {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {recordatoriosPagados.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarPagados((m) => !m)}
+                    style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {mostrarPagados ? (esPT ? 'Ocultar pagos' : 'Ocultar pagados') : (esPT ? 'Mostrar pagos' : 'Mostrar pagados')}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarPlantillas((m) => !m)}
+                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
+                </button>
+              </div>
             </div>
 
-            {recordatorios.length === 0 ? (
+            {recordatoriosPendientes.length === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
                 {esPT ? 'Sem despesas fixas pendentes.' : 'Sin gastos fijos pendientes.'}
               </p>
             ) : (
-              recordatorios.map((recordatorio) => {
+              recordatoriosPendientes.map((recordatorio) => {
                 const vencido = recordatorio.fecha_vencimiento < hoy;
+                const saldo = saldoPendiente(recordatorio);
+                const tienePagoParcial = recordatorio.monto_pagado > 0;
                 return (
                   <div
                     key={recordatorio.id}
@@ -283,10 +302,17 @@ export function MisVencimientos({
                     <span style={{ fontSize: 12.5, color: '#1f2937' }}>
                       {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                       {vencido && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
+                      {tienePagoParcial && (
+                        <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
+                          {esPT ? 'Pago' : 'Pagado'} {simbolo} {recordatorio.monto_pagado.toFixed(2)}{' '}
+                          {esPT ? 'de' : 'de'} {simbolo} {recordatorio.monto_habitual.toFixed(2)} —{' '}
+                          {esPT ? 'saldo' : 'saldo'} {simbolo} {saldo.toFixed(2)}
+                        </div>
+                      )}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 12, color: '#6e7781' }}>
-                        {esPT ? 'aprox.' : 'aprox.'} {simbolo} {recordatorio.monto_habitual.toFixed(2)}
+                        {tienePagoParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                       </span>
                       <button
                         type="button"
@@ -306,6 +332,38 @@ export function MisVencimientos({
                   </div>
                 );
               })
+            )}
+
+            {mostrarPagados && recordatoriosPagados.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
+                  {esPT ? 'JÁ PAGOS' : 'YA PAGADOS'}
+                </div>
+                {recordatoriosPagados.map((recordatorio) => (
+                  <div
+                    key={recordatorio.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      marginBottom: 6,
+                      gap: 10,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: '#6e7781' }}>
+                      ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
+                    </span>
+                    <strong style={{ fontSize: 12.5, color: '#16a34a' }}>
+                      {simbolo} {recordatorio.monto_pagado.toFixed(2)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
             )}
 
             {mostrarPlantillas && (

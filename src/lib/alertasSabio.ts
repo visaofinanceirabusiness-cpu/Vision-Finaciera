@@ -7,7 +7,7 @@
 // aviso push del Calendário del lobby).
 
 import { listarCuotasPendientes } from './cuotas';
-import { listarRecordatoriosPendientes } from './gastosRecurrentes';
+import { listarRecordatoriosPendientes, saldoPendiente } from './gastosRecurrentes';
 import { fechaLocalHoy } from './fecha';
 
 export const DIAS_ANTICIPACION = 5;
@@ -63,7 +63,7 @@ export async function obtenerAlertasFinancieras(
     const dias = diasHasta(recordatorio.fecha_vencimiento, hoy);
     if (dias > DIAS_ANTICIPACION) continue;
 
-    const monto = `${simbolo} ${recordatorio.monto_habitual.toFixed(2)}`;
+    const monto = `${simbolo} ${saldoPendiente(recordatorio).toFixed(2)}`;
     let texto: string;
 
     if (dias < 0) {
