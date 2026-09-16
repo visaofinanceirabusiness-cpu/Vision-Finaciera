@@ -69,9 +69,9 @@ export async function crearCuotasPasivo(
 ) {
   const { idOperacion, formaPagoNombre, total, cantidadCuotas, fechaCompra } = datos;
 
-  if (!Number.isInteger(cantidadCuotas) || cantidadCuotas < 2) {
+  if (!Number.isInteger(cantidadCuotas) || cantidadCuotas < 1) {
     throw new Error(
-      esPT(idioma) ? 'Para parcelar, tem que ser 2 parcelas ou mais.' : 'Para cargar en cuotas, tiene que ser 2 o más.'
+      esPT(idioma) ? 'A quantidade de parcelas tem que ser 1 ou mais.' : 'La cantidad de cuotas tiene que ser 1 o más.'
     );
   }
 
