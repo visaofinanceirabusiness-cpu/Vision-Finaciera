@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { listarCuotasCobroPendientes, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
+import { listarTodasLasCuotasCobro, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
 import {
   listarIngresosRecurrentes,
   listarRecordatoriosIngresosConHistorial,
@@ -65,6 +65,7 @@ export function MisIngresos({
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [mostrarCobrados, setMostrarCobrados] = useState(false);
+  const [mostrarCuentasCobrarCobradas, setMostrarCuentasCobrarCobradas] = useState(false);
 
   async function recargar() {
     try {
@@ -78,7 +79,7 @@ export function MisIngresos({
       );
 
       const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
-        listarCuotasCobroPendientes(empresaId),
+        listarTodasLasCuotasCobro(empresaId),
         listarRecordatoriosIngresosConHistorial(empresaId),
         listarIngresosRecurrentes(empresaId),
         supabase
@@ -112,8 +113,11 @@ export function MisIngresos({
 
   const hoy = fechaLocalHoy();
 
+  const cuotasPendientes = cuotas.filter((c) => !c.cobrada);
+  const cuotasCobradas = cuotas.filter((c) => c.cobrada);
+
   const gruposCuentaPorCobrar = new Map<string, CuotaCobro[]>();
-  for (const cuota of cuotas) {
+  for (const cuota of cuotasPendientes) {
     const lista = gruposCuentaPorCobrar.get(cuota.forma_pago_nombre) ?? [];
     lista.push(cuota);
     gruposCuentaPorCobrar.set(cuota.forma_pago_nombre, lista);
@@ -122,7 +126,7 @@ export function MisIngresos({
   const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
   const recordatoriosCobrados = recordatorios.filter((r) => r.registrado);
 
-  const totalCuentasPorCobrar = cuotas.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalCuentasPorCobrar = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
   const totalIngresosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
   const totalGeneral = totalCuentasPorCobrar + totalIngresosRecurrentes;
 
@@ -178,6 +182,20 @@ export function MisIngresos({
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalCuentasPorCobrar.toFixed(2)}
                 </div>
+              )
+            }
+            acciones={
+              cuotasCobradas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMostrarCuentasCobrarCobradas((m) => !m);
+                  }}
+                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {mostrarCuentasCobrarCobradas ? (esPT ? 'Ocultar recebidas' : 'Ocultar cobradas') : (esPT ? 'Mostrar recebidas' : 'Mostrar cobradas')}
+                </button>
               )
             }
           >
@@ -250,6 +268,50 @@ export function MisIngresos({
                   </div>
                 );
               })
+            )}
+
+            {mostrarCuentasCobrarCobradas && cuotasCobradas.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
+                  {esPT ? 'JÁ RECEBIDAS' : 'YA COBRADAS'}
+                </div>
+                {cuotasCobradas.map((cuota) => (
+                  <div
+                    key={cuota.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      marginBottom: 6,
+                      gap: 10,
+                      flexWrap: 'nowrap',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                      ✓ {cuota.forma_pago_nombre} {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_cobro ?? cuota.fecha_vencimiento}
+                    </span>
+                    <strong
+                      style={{
+                        fontSize: 12.5,
+                        color: '#16a34a',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        position: 'sticky',
+                        right: 0,
+                        background: '#f3f4f6',
+                        paddingLeft: 10,
+                      }}
+                    >
+                      {simbolo} {cuota.monto.toFixed(2)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
             )}
           </AcordeonSeccion>
 
