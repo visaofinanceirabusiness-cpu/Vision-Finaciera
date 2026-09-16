@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import {
   listarIngresosRecurrentes,
   listarRecordatoriosIngresosConHistorial,
+  generarRecordatoriosIngresosPendientes,
   crearIngresoRecurrente,
   actualizarIngresoRecurrente,
   cambiarActivoIngresoRecurrente,
@@ -65,6 +66,15 @@ export function MisIngresos({
 
   async function recargar() {
     try {
+      // Se asegura de que exista el recordatorio del período actual
+      // antes de listar — si el usuario recién creó la plantilla y
+      // todavía no pasó por el lobby (que también dispara esto), no
+      // había ningún recordatorio armado todavía y el ingreso no
+      // aparecía en ningún lado, ni pendiente ni cobrado.
+      await generarRecordatoriosIngresosPendientes(empresaId, idioma).catch((e) =>
+        console.warn('No se pudieron generar los recordatorios de ingresos recurrentes:', e)
+      );
+
       const [recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
         listarRecordatoriosIngresosConHistorial(empresaId),
         listarIngresosRecurrentes(empresaId),
