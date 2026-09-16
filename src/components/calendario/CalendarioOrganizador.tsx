@@ -445,7 +445,12 @@ export function CalendarioOrganizador({
                   // llevan un tinte verde apenas más marcado para que
                   // se note la columna del fin de semana.
                   const fondoBase = celda.delMes ? `${colores.blanco}d9` : 'rgba(250,251,252,0.7)';
-                  const fondo = esFinDeSemana
+                  const fondo = esHoy
+                    ? // Textura a rayas diagonales para que el día de hoy
+                      // se distinga a simple vista del resto de la grilla,
+                      // más allá del borde verde.
+                      `repeating-linear-gradient(45deg, ${colores.verde}26 0, ${colores.verde}26 6px, transparent 6px, transparent 12px), ${fondoBase}`
+                    : esFinDeSemana
                     ? `linear-gradient(0deg, ${colores.verde}14, ${colores.verde}14), ${fondoBase}`
                     : fondoBase;
 
@@ -457,6 +462,7 @@ export function CalendarioOrganizador({
                         minHeight: 84,
                         borderRadius: 12,
                         border: esHoy ? `2px solid ${colores.verde}` : '1px solid #eef0f2',
+                        boxShadow: esHoy ? `0 0 0 1px ${colores.verde}55` : undefined,
                         background: fondo,
                         padding: 6,
                         opacity: celda.delMes ? 1 : 0.5,
