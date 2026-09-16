@@ -445,10 +445,9 @@ export function CalendarioOrganizador({
                   // llevan un tinte verde apenas más marcado para que
                   // se note la columna del fin de semana.
                   const fondoBase = celda.delMes ? `${colores.blanco}d9` : 'rgba(250,251,252,0.7)';
-                  const fondo = esHoy
-                    ? // Textura a rayas diagonales para que el día de hoy
-                      // se distinga a simple vista del resto de la grilla,
-                      // más allá del borde verde.
+                  const fondo = esPasado
+                    ? // Textura a rayas diagonales para marcar de un
+                      // vistazo los días que ya pasaron.
                       `repeating-linear-gradient(45deg, ${colores.verde}26 0, ${colores.verde}26 6px, transparent 6px, transparent 12px), ${fondoBase}`
                     : esFinDeSemana
                     ? `linear-gradient(0deg, ${colores.verde}14, ${colores.verde}14), ${fondoBase}`
@@ -461,8 +460,12 @@ export function CalendarioOrganizador({
                         position: 'relative',
                         minHeight: 84,
                         borderRadius: 12,
+                        // El día de hoy no lleva textura: se destaca
+                        // solo con un borde estilo neón (más grueso,
+                        // con glow) para que resalte sin ensuciar el
+                        // fondo de la celda.
                         border: esHoy ? `2px solid ${colores.verde}` : '1px solid #eef0f2',
-                        boxShadow: esHoy ? `0 0 0 1px ${colores.verde}55` : undefined,
+                        boxShadow: esHoy ? `0 0 0 2px ${colores.verde}55, 0 0 10px 2px ${colores.verde}80` : undefined,
                         background: fondo,
                         padding: 6,
                         opacity: celda.delMes ? 1 : 0.5,
@@ -473,25 +476,6 @@ export function CalendarioOrganizador({
                       }}
                       onClick={() => setModal({ evento: null, fecha: celda.fecha })}
                     >
-                      {esPasado && (
-                        // Tilde bien sutil de "día ya pasado" — antes
-                        // era una franja diagonal que tapaba buena
-                        // parte del cuadrado; ahora es solo esto.
-                        <span
-                          aria-hidden
-                          style={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 5,
-                            fontSize: 12,
-                            color: `${colores.verde}99`,
-                            fontWeight: 800,
-                          }}
-                        >
-                          ✓
-                        </span>
-                      )}
-
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: esHoy ? colores.verde : colores.azul }}>
                           {Number(celda.fecha.slice(8, 10))}
