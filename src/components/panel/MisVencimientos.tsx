@@ -33,6 +33,7 @@ import {
 } from '@/lib/gastosRecurrentes';
 import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 import { VincularPagoModal } from './VincularPagoModal';
+import { AcordeonSeccion } from './AcordeonSeccion';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -173,20 +174,18 @@ export function MisVencimientos({
       ) : (
         <>
           {/* ============ PASIVOS (cuotas pendientes) ============ */}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
-                💳 {esPT ? 'Passivos' : 'Pasivos'}
-              </div>
-
-              {gruposPasivo.size > 0 && (
+          <AcordeonSeccion
+            titulo={<>💳 {esPT ? 'Passivos' : 'Pasivos'}</>}
+            colorTitulo={colores.azul}
+            totalTexto={
+              gruposPasivo.size > 0 && (
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalPasivos.toFixed(2)}
                 </div>
-              )}
-            </div>
-
+              )
+            }
+          >
             {gruposPasivo.size === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
                 {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
@@ -245,29 +244,28 @@ export function MisVencimientos({
                 );
               })
             )}
-          </div>
+          </AcordeonSeccion>
 
           {/* ============ GASTOS RECURRENTES ============ */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+          <AcordeonSeccion
+            titulo={<>🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}</>}
+            colorTitulo={colores.azul}
+            totalTexto={
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
-                  🔁 {esPT ? 'Despesas Recorrentes' : 'Gastos Recurrentes'}
-                </div>
-
                 {recordatoriosPendientes.length > 0 && (
                   <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c2410c' }}>
                     {esPT ? 'Total: ' : 'Total: '}
                     {simbolo} {totalGastosRecurrentes.toFixed(2)}
                   </div>
                 )}
-              </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {recordatoriosPagados.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setMostrarPagados((m) => !m)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMostrarPagados((m) => !m);
+                    }}
                     style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                   >
                     {mostrarPagados ? (esPT ? 'Ocultar pagos' : 'Ocultar pagados') : (esPT ? 'Mostrar pagos' : 'Mostrar pagados')}
@@ -276,14 +274,17 @@ export function MisVencimientos({
 
                 <button
                   type="button"
-                  onClick={() => setMostrarPlantillas((m) => !m)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMostrarPlantillas((m) => !m);
+                  }}
                   style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                 >
                   {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
                 </button>
               </div>
-            </div>
-
+            }
+          >
             {recordatoriosPendientes.length === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
                 {esPT ? 'Sem despesas fixas pendentes.' : 'Sin gastos fijos pendientes.'}
@@ -494,7 +495,7 @@ export function MisVencimientos({
                 )}
               </div>
             )}
-          </div>
+          </AcordeonSeccion>
         </>
       )}
 

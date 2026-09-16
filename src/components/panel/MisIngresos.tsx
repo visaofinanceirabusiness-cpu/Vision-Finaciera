@@ -30,6 +30,7 @@ import {
 } from '@/lib/ingresosRecurrentes';
 import { SabioRegistrarIngresoModal } from './SabioRegistrarIngresoModal';
 import { VincularCobroModal } from './VincularCobroModal';
+import { AcordeonSeccion } from './AcordeonSeccion';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -168,20 +169,18 @@ export function MisIngresos({
       ) : (
         <>
           {/* ============ CUENTAS POR COBRAR (cuotas pendientes) ============ */}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
-                💵 {esPT ? 'Contas a Receber' : 'Cuentas por Cobrar'}
-              </div>
-
-              {gruposCuentaPorCobrar.size > 0 && (
+          <AcordeonSeccion
+            titulo={<>💵 {esPT ? 'Contas a Receber' : 'Cuentas por Cobrar'}</>}
+            colorTitulo={colores.azul}
+            totalTexto={
+              gruposCuentaPorCobrar.size > 0 && (
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalCuentasPorCobrar.toFixed(2)}
                 </div>
-              )}
-            </div>
-
+              )
+            }
+          >
             {gruposCuentaPorCobrar.size === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
                 {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
@@ -240,45 +239,48 @@ export function MisIngresos({
                 );
               })
             )}
-          </div>
+          </AcordeonSeccion>
 
           {/* ============ INGRESOS RECURRENTES ============ */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul }}>
-                🔁 {esPT ? 'Receitas Recorrentes' : 'Ingresos Recurrentes'}
-              </div>
+          <AcordeonSeccion
+            titulo={<>🔁 {esPT ? 'Receitas Recorrentes' : 'Ingresos Recurrentes'}</>}
+            colorTitulo={colores.azul}
+            totalTexto={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {recordatoriosPendientes.length > 0 && (
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
+                    {esPT ? 'Total: ' : 'Total: '}
+                    {simbolo} {totalIngresosRecurrentes.toFixed(2)}
+                  </div>
+                )}
 
-              {recordatoriosPendientes.length > 0 && (
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#15803d' }}>
-                  {esPT ? 'Total: ' : 'Total: '}
-                  {simbolo} {totalIngresosRecurrentes.toFixed(2)}
-                </div>
-              )}
-            </div>
+                {recordatoriosCobrados.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMostrarCobrados((m) => !m);
+                    }}
+                    style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {mostrarCobrados ? (esPT ? 'Ocultar recebidos' : 'Ocultar cobrados') : (esPT ? 'Mostrar recebidos' : 'Mostrar cobrados')}
+                  </button>
+                )}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {recordatoriosCobrados.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setMostrarCobrados((m) => !m)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMostrarPlantillas((m) => !m);
+                  }}
                   style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {mostrarCobrados ? (esPT ? 'Ocultar recebidos' : 'Ocultar cobrados') : (esPT ? 'Mostrar recebidos' : 'Mostrar cobrados')}
+                  {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setMostrarPlantillas((m) => !m)}
-                style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-              >
-                {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
-              </button>
-            </div>
-          </div>
-
-          {recordatoriosPendientes.length === 0 ? (
+              </div>
+            }
+          >
+            {recordatoriosPendientes.length === 0 ? (
             <p style={{ fontSize: 12.5, color: '#6e7781' }}>
               {esPT ? 'Sem receitas recorrentes pendentes.' : 'Sin ingresos recurrentes pendientes.'}
             </p>
@@ -488,6 +490,7 @@ export function MisIngresos({
               )}
             </div>
           )}
+          </AcordeonSeccion>
         </>
       )}
 
