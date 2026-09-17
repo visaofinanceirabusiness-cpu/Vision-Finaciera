@@ -4,7 +4,8 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
+import { obtenerProgresoGamificacion, type ProgresoGamificacion, type HitoPendiente, type TipoHito } from '@/lib/gamificacion';
+import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { avatarPorDefecto } from '@/lib/avatares';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
@@ -43,6 +44,26 @@ export default function PanelMaestroPage() {
   const [alternandoAutomatico, setAlternandoAutomatico] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [hitoDePrueba, setHitoDePrueba] = useState<HitoPendiente | null>(null);
+
+  // Botón "Testear medallas": muestra las 3 (Bronce → Plata → Oro con
+  // level-up) en cadena, tal cual las vería un cliente real, pero sin
+  // tocar gamificacion_hitos_vistos — es solo una vista previa.
+  function testearMedallas() {
+    setHitoDePrueba({ nivel: 1, tipo: 'BRONCE', nombreNivelNuevo: null, emojiNivelNuevo: null });
+  }
+
+  function siguienteHitoDePrueba() {
+    if (!hitoDePrueba) return;
+
+    const siguiente: Record<TipoHito, HitoPendiente | null> = {
+      BRONCE: { nivel: 1, tipo: 'PLATA', nombreNivelNuevo: null, emojiNivelNuevo: null },
+      PLATA: { nivel: 1, tipo: 'ORO', nombreNivelNuevo: 'Organizador', emojiNivelNuevo: '🗂️' },
+      ORO: null,
+    };
+
+    setHitoDePrueba(siguiente[hitoDePrueba.tipo]);
+  }
 
   async function cargarPendientes() {
     const [{ data: registros, error: errorRegistros }, { data: movimientos, error: errorMovimientos }] =
@@ -365,6 +386,21 @@ export default function PanelMaestroPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <NotificacionesPush />
               <button
+                onClick={testearMedallas}
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: COLORES_BASE.blanco,
+                  borderRadius: 999,
+                  padding: '7px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                🥇 Testear medallas
+              </button>
+              <button
                 onClick={actualizarTodo}
                 disabled={actualizando}
                 style={{
@@ -425,6 +461,10 @@ export default function PanelMaestroPage() {
             ✨ Misión actual: mantener el equilibrio de todas las empresas
           </div>
         </section>
+
+        {hitoDePrueba && (
+          <GamificacionHitoModal hito={hitoDePrueba} idioma="ES" onCerrar={siguienteHitoDePrueba} />
+        )}
 
         {error && (
           <div
