@@ -135,6 +135,46 @@ export function NotificacionesPush({
     return null;
   }
 
+  // Da de baja la suscripción: la cancela en el navegador y borra la
+  // fila en push_subscriptions (si no se borra, el servidor le sigue
+  // intentando mandar pushes a un endpoint que el browser ya no honra
+  // hasta que falle y se autolimpie solo, en vez de al toque).
+  async function desactivarNotificaciones() {
+    setError('');
+    setCargando(true);
+
+    try {
+      const registro = await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.getSubscription();
+
+      if (suscripcion) {
+        const endpoint = suscripcion.endpoint;
+        await suscripcion.unsubscribe();
+
+        const { error: errorBorrar } = await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('endpoint', endpoint);
+
+        if (errorBorrar) {
+          throw errorBorrar;
+        }
+      }
+
+      setEstado('inactivo');
+      setResultadoPrueba('');
+    } catch (errorDesactivar) {
+      console.error('Error desactivando notificaciones push:', errorDesactivar);
+      setError(
+        errorDesactivar instanceof Error
+          ? errorDesactivar.message
+          : 'No se pudieron desactivar las notificaciones.'
+      );
+    } finally {
+      setCargando(false);
+    }
+  }
+
   async function enviarPrueba() {
     setResultadoPrueba('');
     setProbando(true);
@@ -228,12 +268,35 @@ export function NotificacionesPush({
               {probando ? 'Enviando...' : 'Probar'}
             </button>
           )}
+
+          <button
+            onClick={desactivarNotificaciones}
+            disabled={cargando}
+            style={{
+              background: 'transparent',
+              border: esClaro ? '1px solid #fca5a5' : '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 12,
+              padding: '10px 14px',
+              cursor: cargando ? 'wait' : 'pointer',
+              color: esClaro ? '#b91c1c' : '#ffffff',
+              fontWeight: 700,
+              fontSize: 12,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {cargando ? 'Desactivando...' : 'Desactivar'}
+          </button>
         </div>
 
         {mostrarPrueba && resultadoPrueba && (
           <span style={{ fontSize: 11.5, color: esClaro ? '#475569' : '#ffffff', maxWidth: 260, textAlign: 'right' }}>
             {resultadoPrueba}
           </span>
+        )}
+
+        {error && (
+          <span style={{ fontSize: 11.5, color: '#dc2626', maxWidth: 260, textAlign: 'right' }}>{error}</span>
         )}
       </div>
     );

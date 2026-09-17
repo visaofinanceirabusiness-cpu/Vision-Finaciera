@@ -524,6 +524,27 @@ export async function buscarPagosCandidatos(
   categoria: string,
   formaPago: string
 ): Promise<PagoCandidato[]> {
+  // La forma de pago se puede renombrar (ej. "Transferencia" →
+  // "Naranja X" en Configurações → Formas de Pago) — cuando eso pasa,
+  // las operaciones YA registradas quedan con el nombre viejo
+  // congelado en `forma_pago` (es una foto de texto del momento, no
+  // una referencia viva), así que filtrar por ese nombre exacto deja
+  // afuera cualquier pago hecho antes del renombre. La cuenta contable
+  // real (`cuenta_credito`, el medio de pago) no tiene ese problema:
+  // vía matriz_operaciones se resuelve siempre a la cuenta ACTUAL de
+  // la forma de pago elegida, y esa es la que de verdad importa para
+  // saber "con qué se pagó" — matcheamos por ahí en vez de por nombre.
+  const { data: reglaFormaPago } = await supabase
+    .from('matriz_operaciones')
+    .select('cuenta_credito')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', 'PAGO')
+    .eq('forma_pago', formaPago)
+    .limit(1)
+    .maybeSingle();
+
+  const cuentaCredito = reglaFormaPago?.cuenta_credito ?? formaPago;
+
   const [{ data: pagos, error }, { data: vinculados }] = await Promise.all([
     supabase
       .from('registro_operaciones')
@@ -531,7 +552,7 @@ export async function buscarPagosCandidatos(
       .eq('empresa_id', empresaId)
       .eq('operacion', 'PAGO')
       .eq('categoria', categoria)
-      .eq('forma_pago', formaPago)
+      .eq('cuenta_credito', cuentaCredito)
       .order('fecha', { ascending: false })
       .limit(30),
     supabase

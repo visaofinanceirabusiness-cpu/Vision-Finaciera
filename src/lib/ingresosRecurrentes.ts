@@ -489,6 +489,22 @@ export async function buscarCobrosCandidatos(
   categoria: string,
   formaPago: string
 ): Promise<CobroCandidato[]> {
+  // Ver el comentario equivalente en buscarPagosCandidatos
+  // (lib/gastosRecurrentes.ts): la forma de pago se puede renombrar,
+  // y las operaciones ya registradas quedan con el nombre viejo
+  // congelado en `forma_pago` — se matchea por la cuenta contable real
+  // (`cuenta_debito`, el medio de cobro) en vez de por ese nombre.
+  const { data: reglaFormaPago } = await supabase
+    .from('matriz_operaciones')
+    .select('cuenta_debito')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', 'COBRO')
+    .eq('forma_pago', formaPago)
+    .limit(1)
+    .maybeSingle();
+
+  const cuentaDebito = reglaFormaPago?.cuenta_debito ?? formaPago;
+
   const [{ data: cobros, error }, { data: vinculados }] = await Promise.all([
     supabase
       .from('registro_operaciones')
@@ -496,7 +512,7 @@ export async function buscarCobrosCandidatos(
       .eq('empresa_id', empresaId)
       .eq('operacion', 'COBRO')
       .eq('categoria', categoria)
-      .eq('forma_pago', formaPago)
+      .eq('cuenta_debito', cuentaDebito)
       .order('fecha', { ascending: false })
       .limit(30),
     supabase
