@@ -6,7 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { supabase } from './supabase';
-import { notificarPendienteAlAdmin } from './notificarPush';
+import { notificarPendienteAlAdmin, notificarValidacionAEmpresa } from './notificarPush';
 
 // =====================================================
 // TIPOS
@@ -1183,6 +1183,22 @@ export async function registrarOperacion(
         console.warn('No se pudo notificar la operación pendiente:', errorNotificacion);
       }
     })();
+
+    // Empresa con validación automática: la operación ya quedó
+    // VALIDADO de una, sin que ningún admin la revise a mano — por
+    // eso el aviso "quedó validada" hay que dispararlo de una acá
+    // mismo, no en Panel Maestro (ahí nunca va a pasar por la pantalla
+    // de validar). Le avisa a TODOS los usuarios de la empresa,
+    // incluido quien acaba de cargarla — funciona como un comprobante
+    // ("listo, quedó validada"), igual que la notificación de un pago
+    // procesado en una app de banco.
+    if (estadoInicial === 'VALIDADO') {
+      notificarValidacionAEmpresa(empresaId, {
+        titulo: '✅ Operación validada',
+        cuerpo: `${idOperacion} — ${formulario.operacion} ${formulario.categoria} R$ ${total.toFixed(2)}`,
+        url: '/contabilidad',
+      });
+    }
 
     return {
       total,

@@ -35,9 +35,12 @@ export async function notificarPendienteAlAdmin(mensaje: {
 }
 
 // Le pide al servidor que avise a todos los usuarios de una empresa
-// puntual (la usa Panel Maestro al validar una operación/movimiento
-// pendiente). Solo funciona si quien llama es admin de plataforma —
-// el servidor lo valida de nuevo por las dudas.
+// puntual — funciona como un comprobante ("quedó validada"). La usa
+// Panel Maestro al validar una operación/movimiento pendiente a mano,
+// y registrarOperacion (lib/motor.ts) cuando la empresa tiene
+// validación automática (ahí no hay ningún admin de por medio, así
+// que la propia empresa se autonotifica). El servidor exige que quien
+// llama sea admin de plataforma o pertenezca a esa misma empresa.
 export async function notificarValidacionAEmpresa(
   empresaId: string,
   mensaje: { titulo: string; cuerpo: string; url?: string }
