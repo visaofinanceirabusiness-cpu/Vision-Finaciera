@@ -564,89 +564,69 @@ export default function PanelMaestroPage() {
         </Link>
 
         {/* =================================================
-            SEGURANÇA E PROTEÇÃO DE DADOS — auditoría V3.0
+            HERRAMIENTAS — agrupa los accesos que antes eran
+            banners sueltos apilados (Seguridad, Informe, Auditoría),
+            igual que la sección "Tus Herramientas" del lobby de los
+            clientes. Empieza con una sola categoría (Análisis) pero
+            queda armado para sumar más sin volver a apilar banners.
         ================================================== */}
 
-        <Link
-          href="/panel-maestro/seguranca-dados"
+        <section
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
             background: COLORES_BASE.blanco,
-            border: '1px solid #fde68a',
+            border: '1px solid #e5e7eb',
             borderRadius: 20,
-            padding: '18px 22px',
+            padding: '20px 22px',
             marginBottom: 24,
-            boxShadow: '0 10px 24px rgba(217,119,6,0.08)',
-            textDecoration: 'none',
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
-            🛡️ Segurança e Proteção de Dados
-          </span>
+          <div
+            style={{
+              marginBottom: 4,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 1.3,
+              color: COLORES_BASE.gris,
+              textTransform: 'uppercase',
+            }}
+          >
+            🧰 Herramientas
+          </div>
 
-          <span style={{ color: '#d97706', fontSize: 13, fontWeight: 700 }}>Ver informe →</span>
-        </Link>
+          <div style={{ marginTop: 14, fontSize: 12.5, fontWeight: 800, color: COLORES_BASE.azul, letterSpacing: 0.4 }}>
+            ANÁLISIS
+          </div>
 
-        {/* =================================================
-            INFORME V3.0 — DÍA 1 — VERSIÓN 2 (cierre formal:
-            ANTES → ACCIÓN → DESPUÉS → ESTADO)
-        ================================================== */}
+          <div
+            style={{
+              marginTop: 10,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <TarjetaHerramientaMaestro
+              href="/panel-maestro/seguranca-dados"
+              emoji="🛡️"
+              titulo="Segurança e Proteção de Dados"
+              color="#d97706"
+            />
 
-        <Link
-          href="/panel-maestro/informe-v2"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-            background: COLORES_BASE.blanco,
-            border: '1px solid #bbf7d0',
-            borderRadius: 20,
-            padding: '18px 22px',
-            marginBottom: 24,
-            boxShadow: '0 10px 24px rgba(22,101,52,0.08)',
-            textDecoration: 'none',
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
-            📊 Informe V3.0 — Día 1 — Versión 2 (cierre)
-          </span>
+            <TarjetaHerramientaMaestro
+              href="/panel-maestro/informe-v2"
+              emoji="📊"
+              titulo="Informe V3.0 — Día 1 (cierre)"
+              color="#166534"
+            />
 
-          <span style={{ color: '#166534', fontSize: 13, fontWeight: 700 }}>Ver informe →</span>
-        </Link>
-
-        {/* =================================================
-            AUDITORÍA DE ACTIVIDAD — Bloque F del Día 1 de seguridad
-        ================================================== */}
-
-        <Link
-          href="/panel-maestro/auditoria"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-            background: COLORES_BASE.blanco,
-            border: '1px solid #ddd6fe',
-            borderRadius: 20,
-            padding: '18px 22px',
-            marginBottom: 24,
-            boxShadow: '0 10px 24px rgba(124,58,237,0.08)',
-            textDecoration: 'none',
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, fontWeight: 800, color: COLORES_BASE.azul }}>
-            🕵️ Auditoría de Actividad
-          </span>
-
-          <span style={{ color: '#7c3aed', fontSize: 13, fontWeight: 700 }}>Ver registro →</span>
-        </Link>
+            <TarjetaHerramientaMaestro
+              href="/panel-maestro/auditoria"
+              emoji="🕵️"
+              titulo="Auditoría de Actividad"
+              color="#7c3aed"
+            />
+          </div>
+        </section>
 
         {/* =================================================
             ALTA DE CLIENTES — vincular un usuario ya creado
@@ -950,6 +930,40 @@ export default function PanelMaestroPage() {
 ========================================================== */
 
 const MEDIOS_PAGO = ['InfinitePay', 'Naranja X', 'Otro'];
+
+function TarjetaHerramientaMaestro({
+  href,
+  emoji,
+  titulo,
+  color,
+}: {
+  href: string;
+  emoji: string;
+  titulo: string;
+  color: string;
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        background: `${color}12`,
+        border: `1px solid ${color}44`,
+        borderRadius: 14,
+        padding: '14px 16px',
+        textDecoration: 'none',
+        color: COLORES_BASE.azul,
+        fontWeight: 700,
+        fontSize: 13.5,
+      }}
+    >
+      <span style={{ fontSize: 20 }}>{emoji}</span>
+      {titulo}
+    </Link>
+  );
+}
 
 // Último acceso — el dato sale de auth.users.last_sign_in_at (ver RPC
 // obtener_ultimo_acceso_por_empresa). null significa que esa empresa
