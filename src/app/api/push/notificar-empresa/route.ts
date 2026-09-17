@@ -3,16 +3,21 @@ import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
 // Envía una notificación push a TODOS los usuarios de una empresa
-// puntual. La usa Panel Maestro justo después de validar una
-// operación/movimiento pendiente, para que el cliente se entere al
-// instante de que ya quedó aprobado — sin esperar a que abra la app
-// y vea el estado cambiado.
+// puntual — funciona como un comprobante ("quedó validada"). Dos
+// disparadores:
+//   1. Panel Maestro, justo después de que un admin valida a mano una
+//      operación/movimiento pendiente.
+//   2. registrarOperacion (lib/motor.ts), cuando la empresa tiene
+//      validación automática — ahí no hay ningún admin de por medio,
+//      así que la propia empresa se autonotifica.
+//
+// Por eso quien llama tiene que ser admin de plataforma (caso 1) O
+// pertenecer a esa misma empresa (caso 2) — nunca un usuario de OTRA
+// empresa.
 //
 // Reutiliza la misma infraestructura de web-push + push_subscriptions
 // que /api/push/notificar (avisos a admins) y el cron de recordatorios
-// del Calendário (avisos a toda una empresa) — acá el disparador es un
-// admin puntual eligiendo a qué empresa avisarle, por eso valida que
-// quien llama sea admin de plataforma antes de mandar nada.
+// del Calendário (avisos a toda una empresa).
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,18 +46,23 @@ export async function POST(request: NextRequest) {
 
   const { data: perfilLlamante } = await supabaseAdmin
     .from('perfiles')
-    .select('es_admin_plataforma')
+    .select('empresa_id, es_admin_plataforma')
     .eq('id', usuario.user.id)
     .maybeSingle();
-
-  if (!perfilLlamante?.es_admin_plataforma) {
-    return NextResponse.json({ error: 'Solo un admin de plataforma puede notificar a una empresa.' }, { status: 403 });
-  }
 
   const { empresaId, titulo, cuerpo, url } = await request.json();
 
   if (!empresaId) {
     return NextResponse.json({ error: 'Falta empresaId.' }, { status: 400 });
+  }
+
+  const puedeNotificar = perfilLlamante?.es_admin_plataforma || perfilLlamante?.empresa_id === empresaId;
+
+  if (!puedeNotificar) {
+    return NextResponse.json(
+      { error: 'Solo un admin de plataforma o un usuario de esa misma empresa puede notificarla.' },
+      { status: 403 }
+    );
   }
 
   const { data: perfilesEmpresa, error: errorPerfiles } = await supabaseAdmin
