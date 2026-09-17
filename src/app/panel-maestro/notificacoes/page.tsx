@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { avatarPorDefecto } from '@/lib/avatares';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { eliminarOperacion } from '@/lib/motor';
+import { notificarValidacionAEmpresa } from '@/lib/notificarPush';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import type { Empresa, Pendiente, PendienteRegistro, PendienteMovimiento, SolicitudAlta, SolicitudAltaResuelta } from '@/lib/panelMaestroTipos';
 import { SolicitudesAlta } from '@/components/panel-maestro/SolicitudesAlta';
@@ -552,6 +553,14 @@ export default function NotificacoesPage() {
       setError(`No se pudo validar ${pendiente.idOperacion}.`);
     } else {
       setMensaje(`${pendiente.idOperacion} validada.`);
+
+      const simbolo = simboloPorEmpresa.get(pendiente.empresaId) ?? '$';
+      notificarValidacionAEmpresa(pendiente.empresaId, {
+        titulo: '✅ Operación validada',
+        cuerpo: `${pendiente.idOperacion} — ${pendiente.operacion} ${simbolo} ${pendiente.total.toFixed(2)} ya quedó validada.`,
+        url: '/contabilidad',
+      });
+
       await cargarPendientesOperaciones();
       await cargarOperacionesHistorial();
     }
@@ -582,6 +591,13 @@ export default function NotificacoesPage() {
       setError(`No se pudo validar el movimiento ${pendiente.idOperacion}.`);
     } else {
       setMensaje(`Movimiento ${pendiente.idOperacion} validado.`);
+
+      notificarValidacionAEmpresa(pendiente.empresaId, {
+        titulo: '✅ Operación validada',
+        cuerpo: `${pendiente.idOperacion} ya quedó validada.`,
+        url: '/contabilidad',
+      });
+
       await cargarPendientesOperaciones();
       await cargarOperacionesHistorial();
     }
