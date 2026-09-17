@@ -22,7 +22,7 @@ import {
   generarMatrizOperaciones,
   LineaOperacion,
 } from '@/lib/motor';
-import { crearCuentaParaMedioPago, crearFormaPago } from '@/lib/categorias';
+import { crearCuentaParaMedioPago, crearFormaPago, crearPasivo } from '@/lib/categorias';
 import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
@@ -556,10 +556,22 @@ function CentralDeLanzamientosTab({
 
     try {
       const nombre = nombreCuentaNueva.trim();
-      const operacionesValidas = tipoCuentaNueva === 'ACTIVO' ? ['VENTA', 'COBRO'] : ['COMPRA', 'PAGO'];
 
-      const cuentaId = await crearCuentaParaMedioPago(empresaId, nombre, tipoCuentaNueva);
-      await crearFormaPago(empresaId, nombre, cuentaId, operacionesValidas);
+      if (tipoCuentaNueva === 'ACTIVO') {
+        // Cuenta a cobrar: mismo camino que "Formas de Pago" en
+        // Configurações para una cuenta Activa nueva — cuelga de
+        // CONTENEDOR_MEDIO_PAGO y se habilita para Venta/Cobro.
+        const cuentaId = await crearCuentaParaMedioPago(empresaId, nombre, 'ACTIVO');
+        await crearFormaPago(empresaId, nombre, cuentaId, ['VENTA', 'COBRO']);
+      } else {
+        // Cuenta a pagar (Pasivo): crearCuentaParaMedioPago siempre
+        // cuelga de CONTENEDOR_MEDIO_PAGO, que es de Activo — para un
+        // Pasivo hay que usar crearPasivo, que busca el contenedor de
+        // Pasivo real (mirando una deuda ya existente, ej. "Tarjeta")
+        // y de paso habilita la forma de pago para Compra/Pago.
+        await crearPasivo(empresaId, nombre);
+      }
+
       await generarMatrizOperaciones(empresaId);
 
       // Recién generada la matriz, hay que releer tanto la lista de
