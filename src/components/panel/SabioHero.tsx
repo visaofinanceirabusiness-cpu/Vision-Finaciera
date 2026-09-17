@@ -11,6 +11,7 @@ type NivelHero = {
   mision: string;
   progreso: number;
   operaciones: number;
+  operacionesMin: number;
   operacionesMax: number | null;
   faltan: number;
 };
@@ -307,6 +308,42 @@ export function SabioHero({
                 }}
               />
             </div>
+
+            {/* Medallero — Bronce/Plata/Oro según el avance dentro
+                del nivel actual (25/50/75 operaciones). El último
+                nivel (sin techo) no tiene medallas nuevas por ganar. */}
+            {gamificacion.operacionesMax !== null && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                {(() => {
+                  const avance = gamificacion.operaciones - gamificacion.operacionesMin;
+                  const medallas: Array<{ emoji: string; ganada: boolean; etiqueta: string }> = [
+                    { emoji: '🥉', ganada: avance >= 25, etiqueta: idioma === 'PT' ? 'Bronze' : 'Bronce' },
+                    { emoji: '🥈', ganada: avance >= 50, etiqueta: idioma === 'PT' ? 'Prata' : 'Plata' },
+                    { emoji: '🥇', ganada: avance >= 75, etiqueta: idioma === 'PT' ? 'Ouro' : 'Oro' },
+                  ];
+
+                  return medallas.map((medalla) => (
+                    <div
+                      key={medalla.etiqueta}
+                      title={medalla.etiqueta}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2,
+                        opacity: medalla.ganada ? 1 : 0.35,
+                        filter: medalla.ganada ? 'none' : 'grayscale(1)',
+                      }}
+                    >
+                      <span style={{ fontSize: 22 }}>{medalla.emoji}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                        {medalla.etiqueta}
+                      </span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
 
             {/* Misión · Faltan */}
             <div
