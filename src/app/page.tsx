@@ -23,6 +23,7 @@ import {
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
+import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
@@ -686,6 +687,8 @@ export default function InicioPage() {
               gap: 10,
             }}
           >
+            <NotificacionesPush variante="claro" mostrarPrueba={false} />
+
             {perfil?.es_admin_plataforma && (
               <Link
                 href="/panel-maestro"
