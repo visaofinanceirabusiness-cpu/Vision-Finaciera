@@ -1645,6 +1645,36 @@ function ProgresoNivelBanner({
         <div style={{ width: `${Math.min(100, gamificacion.progreso)}%`, height: '100%', borderRadius: 999, background: colores.verde }} />
       </div>
 
+      {gamificacion.operacionesMax !== null && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+          {(() => {
+            const avance = gamificacion.operaciones - gamificacion.operacionesMin;
+            const medallas = [
+              { emoji: '🥉', ganada: avance >= 25, etiqueta: idioma === 'PT' ? 'Bronze' : 'Bronce' },
+              { emoji: '🥈', ganada: avance >= 50, etiqueta: idioma === 'PT' ? 'Prata' : 'Plata' },
+              { emoji: '🥇', ganada: avance >= 75, etiqueta: idioma === 'PT' ? 'Ouro' : 'Oro' },
+            ];
+
+            return medallas.map((medalla) => (
+              <div
+                key={medalla.etiqueta}
+                title={medalla.etiqueta}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  opacity: medalla.ganada ? 1 : 0.35,
+                  filter: medalla.ganada ? 'none' : 'grayscale(1)',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{medalla.emoji}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: COLORES_BASE.gris }}>{medalla.etiqueta}</span>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
+
       <div style={{ marginTop: 8, fontSize: 12, color: COLORES_BASE.gris }}>
         {gamificacion.faltan > 0
           ? msgFaltanParaSubirNivel(idioma, gamificacion.faltan)

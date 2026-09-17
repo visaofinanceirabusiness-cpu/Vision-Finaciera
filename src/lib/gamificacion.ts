@@ -31,6 +31,17 @@ export type NivelGamificacion = {
   mensaje: string;
 };
 
+export type TipoHito = 'BRONCE' | 'PLATA' | 'ORO';
+
+export type HitoPendiente = {
+  nivel: number;
+  tipo: TipoHito;
+  // Solo viene cargado cuando el hito es 'ORO': el Oro coincide
+  // siempre con el cruce hacia el próximo nivel.
+  nombreNivelNuevo: string | null;
+  emojiNivelNuevo: string | null;
+};
+
 export type ProgresoGamificacion = {
   operaciones: number;
 
@@ -312,4 +323,111 @@ export async function obtenerProgresoGamificacion(
 
     faltan,
   };
+}
+
+// =====================================================
+// HITOS INTERMEDIOS (BRONCE / PLATA / ORO)
+// =====================================================
+//
+// Cada nivel acotado (operaciones_max != null) dura 75 operaciones,
+// así que las tres medallas caen siempre en el mismo lugar relativo
+// dentro de cualquier nivel: +25 Bronce, +50 Plata, +75 Oro — y el
+// Oro coincide con el cruce al próximo nivel. El último nivel
+// (Leyenda, sin techo) no tiene más metas numéricas, así que no
+// genera medallas nuevas.
+// =====================================================
+
+const UMBRAL_BRONCE = 25;
+const UMBRAL_PLATA = 50;
+const UMBRAL_ORO = 75;
+
+function calcularHitosAlcanzados(
+  operaciones: number,
+  niveles: NivelGamificacion[]
+): Array<{ nivel: number; tipo: TipoHito }> {
+  const hitos: Array<{ nivel: number; tipo: TipoHito }> = [];
+
+  for (const nivelDef of niveles) {
+    if (nivelDef.operaciones_max === null) continue;
+
+    const avance = operaciones - Number(nivelDef.operaciones_min);
+
+    if (avance >= UMBRAL_BRONCE) hitos.push({ nivel: nivelDef.nivel, tipo: 'BRONCE' });
+    if (avance >= UMBRAL_PLATA) hitos.push({ nivel: nivelDef.nivel, tipo: 'PLATA' });
+    if (avance >= UMBRAL_ORO) hitos.push({ nivel: nivelDef.nivel, tipo: 'ORO' });
+  }
+
+  return hitos;
+}
+
+const ORDEN_HITO: TipoHito[] = ['BRONCE', 'PLATA', 'ORO'];
+
+// Devuelve el hito más avanzado que la empresa ya alcanzó pero
+// todavía no vio — o null si no hay ninguno pendiente. Se llama de
+// nuevo después de cerrar cada modal para encadenar el resto (si un
+// lote grande de operaciones cruzó varias medallas de una vez, se
+// muestran una por una en vez de saltear las intermedias).
+export async function obtenerHitoPendiente(
+  empresaId: string
+): Promise<HitoPendiente | null> {
+  const operaciones = await contarOperaciones(empresaId);
+  const niveles = await obtenerNiveles();
+
+  const alcanzados = calcularHitosAlcanzados(operaciones, niveles);
+  if (alcanzados.length === 0) {
+    return null;
+  }
+
+  const { data: vistos, error } = await supabase
+    .from('gamificacion_hitos_vistos')
+    .select('nivel, tipo_hito')
+    .eq('empresa_id', empresaId);
+
+  if (error) {
+    throw error;
+  }
+
+  const vistosSet = new Set((vistos ?? []).map((v) => `${v.nivel}-${v.tipo_hito}`));
+  const pendientes = alcanzados.filter((h) => !vistosSet.has(`${h.nivel}-${h.tipo}`));
+
+  if (pendientes.length === 0) {
+    return null;
+  }
+
+  pendientes.sort((a, b) => {
+    if (a.nivel !== b.nivel) return b.nivel - a.nivel;
+    return ORDEN_HITO.indexOf(b.tipo) - ORDEN_HITO.indexOf(a.tipo);
+  });
+
+  const masAvanzado = pendientes[0];
+
+  let nombreNivelNuevo: string | null = null;
+  let emojiNivelNuevo: string | null = null;
+
+  if (masAvanzado.tipo === 'ORO') {
+    const siguiente = niveles.find((n) => n.nivel === masAvanzado.nivel + 1);
+    if (siguiente) {
+      nombreNivelNuevo = siguiente.nombre;
+      emojiNivelNuevo = siguiente.emoji ?? '⭐';
+    }
+  }
+
+  return {
+    nivel: masAvanzado.nivel,
+    tipo: masAvanzado.tipo,
+    nombreNivelNuevo,
+    emojiNivelNuevo,
+  };
+}
+
+export async function marcarHitoVisto(empresaId: string, nivel: number, tipo: TipoHito) {
+  const { error } = await supabase
+    .from('gamificacion_hitos_vistos')
+    .insert({ empresa_id: empresaId, nivel, tipo_hito: tipo });
+
+  // 23505 = ya estaba marcado como visto (otra pestaña/carrera) — no
+  // es un error real, el objetivo (que no se repita) ya se cumplió.
+  if (error && error.code !== '23505') {
+    throw error;
+  }
 }

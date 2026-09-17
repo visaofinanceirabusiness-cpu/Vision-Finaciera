@@ -15,7 +15,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
+import { obtenerProgresoGamificacion, obtenerHitoPendiente, marcarHitoVisto, type HitoPendiente } from '@/lib/gamificacion';
+import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal';
 import {
   empresaManejaMercaderia,
   empresaTieneModulo,
@@ -115,6 +116,7 @@ export default function InicioPage() {
     useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] =
     useState<ProgresoGamificacion | null>(null);
+  const [hitoActual, setHitoActual] = useState<HitoPendiente | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [manejaMercaderia, setManejaMercaderia] = useState(true);
@@ -303,6 +305,14 @@ export default function InicioPage() {
         );
 
         setGamificacion(null);
+      }
+
+      if (configFinal.mostrar_gamificacion) {
+        try {
+          setHitoActual(await obtenerHitoPendiente(perfilData.empresa_id));
+        } catch (errorHito) {
+          console.warn('No se pudo calcular el hito de gamificación pendiente:', errorHito);
+        }
       }
 
       // Objetivos del mes en curso.
@@ -541,6 +551,28 @@ export default function InicioPage() {
     configuracion?.subtitulo_dashboard ??
     t('subtituloDefault');
 
+  // Al cerrar el festejo, se marca como visto y se pide el siguiente
+  // hito pendiente — si un lote grande de operaciones cruzó varias
+  // medallas de una, las va mostrando una por una en vez de saltear
+  // directo a la última.
+  async function cerrarHitoActual() {
+    if (!hitoActual || !perfil?.empresa_id) {
+      setHitoActual(null);
+      return;
+    }
+
+    const empresaId = perfil.empresa_id;
+    const hitoQueSeCierra = hitoActual;
+    setHitoActual(null);
+
+    try {
+      await marcarHitoVisto(empresaId, hitoQueSeCierra.nivel, hitoQueSeCierra.tipo);
+      setHitoActual(await obtenerHitoPendiente(empresaId));
+    } catch (errorHito) {
+      console.warn('No se pudo marcar el hito de gamificación como visto:', errorHito);
+    }
+  }
+
   return (
     <main
       style={{
@@ -730,6 +762,10 @@ export default function InicioPage() {
           mensajesSinLeer={mensajesSinLeer}
           onClickMensajes={() => router.push('/mensajes')}
         />
+
+        {hitoActual && (
+          <GamificacionHitoModal hito={hitoActual} idioma={idioma} onCerrar={cerrarHitoActual} />
+        )}
 
         {/* =================================================
             SABIO BOT — protagonista del lobby.
