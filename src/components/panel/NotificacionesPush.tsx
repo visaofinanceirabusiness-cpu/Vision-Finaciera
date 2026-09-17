@@ -20,11 +20,28 @@ function convertirClave(claveBase64: string): Uint8Array {
   return salida;
 }
 
-// Botón para que el admin active las notificaciones push en su celular.
-// Al tocarlo: pide permiso al navegador, se suscribe y guarda la
-// suscripción en Supabase para que el servidor le pueda avisar cuando
-// haya algo pendiente de aprobar.
-export function NotificacionesPush() {
+// Botón para activar las notificaciones push en el celular. Al tocarlo:
+// pide permiso al navegador, se suscribe y guarda la suscripción en
+// Supabase (push_subscriptions, por user_id) — el mismo mecanismo sirve
+// tanto para el admin (avisos de operaciones pendientes de aprobar,
+// vía /api/push/notificar) como para cualquier cliente (recordatorios
+// del Calendário Organizador de su propia empresa, vía el cron
+// /api/calendario/verificar-recordatorios), no hay nada específico de
+// admin en la suscripción en sí.
+//
+// `variante` adapta los colores al fondo donde vive (oscuro en el
+// header de Panel Maestro, claro en el lobby de los clientes).
+// `mostrarPrueba` oculta el botón "Probar", que llama a
+// /api/push/notificar — ese endpoint solo le avisa a los admins de
+// plataforma, así que en el lobby de un cliente no serviría de nada
+// (y confundiría, porque no le llegaría nada a él).
+export function NotificacionesPush({
+  variante = 'oscuro',
+  mostrarPrueba = true,
+}: {
+  variante?: 'oscuro' | 'claro';
+  mostrarPrueba?: boolean;
+}) {
   const [estado, setEstado] = useState<'inactivo' | 'activo' | 'no_disponible'>('inactivo');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
@@ -166,6 +183,8 @@ export function NotificacionesPush() {
     }
   }
 
+  const esClaro = variante === 'claro';
+
   if (estado === 'activo') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
@@ -174,9 +193,9 @@ export function NotificacionesPush() {
             style={{
               fontSize: 12.5,
               fontWeight: 700,
-              color: '#ffffff',
-              background: 'rgba(255,255,255,0.14)',
-              border: '1px solid rgba(255,255,255,0.25)',
+              color: esClaro ? '#166534' : '#ffffff',
+              background: esClaro ? '#f0fdf4' : 'rgba(255,255,255,0.14)',
+              border: esClaro ? '1px solid #bbf7d0' : '1px solid rgba(255,255,255,0.25)',
               borderRadius: 12,
               padding: '10px 16px',
               display: 'flex',
@@ -189,28 +208,30 @@ export function NotificacionesPush() {
             🔔 Notificaciones activadas
           </div>
 
-          <button
-            onClick={enviarPrueba}
-            disabled={probando}
-            style={{
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.4)',
-              borderRadius: 12,
-              padding: '10px 14px',
-              cursor: probando ? 'wait' : 'pointer',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: 12,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {probando ? 'Enviando...' : 'Probar'}
-          </button>
+          {mostrarPrueba && (
+            <button
+              onClick={enviarPrueba}
+              disabled={probando}
+              style={{
+                background: 'transparent',
+                border: esClaro ? '1px solid #94a3b8' : '1px solid rgba(255,255,255,0.4)',
+                borderRadius: 12,
+                padding: '10px 14px',
+                cursor: probando ? 'wait' : 'pointer',
+                color: esClaro ? '#475569' : '#ffffff',
+                fontWeight: 700,
+                fontSize: 12,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {probando ? 'Enviando...' : 'Probar'}
+            </button>
+          )}
         </div>
 
-        {resultadoPrueba && (
-          <span style={{ fontSize: 11.5, color: '#ffffff', maxWidth: 260, textAlign: 'right' }}>
+        {mostrarPrueba && resultadoPrueba && (
+          <span style={{ fontSize: 11.5, color: esClaro ? '#475569' : '#ffffff', maxWidth: 260, textAlign: 'right' }}>
             {resultadoPrueba}
           </span>
         )}
