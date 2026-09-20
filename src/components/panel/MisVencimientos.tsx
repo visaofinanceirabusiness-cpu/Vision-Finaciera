@@ -119,6 +119,21 @@ export function MisVencimientos({
   const cuotasPendientes = cuotas.filter((c) => !c.pagada);
   const cuotasPagadas = cuotas.filter((c) => c.pagada);
 
+  // De cada plan de cuotas (mismo id_operacion) solo la que vence
+  // primero es la que corresponde a este período — el resto ya están
+  // ahí para referencia, pero no hay que sumarlas al total de hoy
+  // porque todavía no llegó su vencimiento.
+  const proximaVencimientoPorOperacion = new Map<string, string>();
+  for (const cuota of cuotasPendientes) {
+    const actual = proximaVencimientoPorOperacion.get(cuota.id_operacion);
+    if (!actual || cuota.fecha_vencimiento < actual) {
+      proximaVencimientoPorOperacion.set(cuota.id_operacion, cuota.fecha_vencimiento);
+    }
+  }
+  function esProximoPeriodo(cuota: CuotaPasivo): boolean {
+    return proximaVencimientoPorOperacion.get(cuota.id_operacion) === cuota.fecha_vencimiento;
+  }
+
   const gruposPasivo = new Map<string, CuotaPasivo[]>();
   for (const cuota of cuotasPendientes) {
     const lista = gruposPasivo.get(cuota.forma_pago_nombre) ?? [];
@@ -129,7 +144,7 @@ export function MisVencimientos({
   const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
   const recordatoriosPagados = recordatorios.filter((r) => r.registrado);
 
-  const totalPasivos = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalPasivos = cuotasPendientes.filter(esProximoPeriodo).reduce((suma, cuota) => suma + cuota.monto, 0);
   const totalGastosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendiente(r), 0);
   const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
@@ -210,7 +225,7 @@ export function MisVencimientos({
               </p>
             ) : (
               Array.from(gruposPasivo.entries()).map(([nombrePasivo, cuotasDelPasivo]) => {
-                const subtotalPasivo = cuotasDelPasivo.reduce((suma, cuota) => suma + cuota.monto, 0);
+                const subtotalPasivo = cuotasDelPasivo.filter(esProximoPeriodo).reduce((suma, cuota) => suma + cuota.monto, 0);
 
                 return (
                 <div key={nombrePasivo} style={{ marginBottom: 10 }}>
@@ -223,6 +238,7 @@ export function MisVencimientos({
                   </div>
                   {cuotasDelPasivo.map((cuota) => {
                     const vencida = cuota.fecha_vencimiento < hoy;
+                    const esFutura = !esProximoPeriodo(cuota);
                     return (
                       <div
                         key={cuota.id}
@@ -232,17 +248,23 @@ export function MisVencimientos({
                           justifyContent: 'space-between',
                           padding: '8px 12px',
                           borderRadius: 10,
-                          background: '#f8fafc',
+                          background: esFutura ? '#f3f4f6' : '#f8fafc',
                           border: '1px solid #e5e7eb',
                           marginBottom: 6,
                           gap: 10,
                           flexWrap: 'nowrap',
                           overflowX: 'auto',
+                          opacity: esFutura ? 0.7 : 1,
                         }}
                       >
                         <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                           {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
                           {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
+                          {esFutura && (
+                            <span style={{ color: '#9ca3af', marginLeft: 6, fontWeight: 600 }}>
+                              {esPT ? '(período futuro, não soma no total)' : '(período futuro, no suma en el total)'}
+                            </span>
+                          )}
                         </span>
                         <span
                           style={{
@@ -252,11 +274,11 @@ export function MisVencimientos({
                             flexShrink: 0,
                             position: 'sticky',
                             right: 0,
-                            background: '#f8fafc',
+                            background: esFutura ? '#f3f4f6' : '#f8fafc',
                             paddingLeft: 10,
                           }}
                         >
-                          <strong style={{ fontSize: 12.5, color: '#c2410c', whiteSpace: 'nowrap' }}>
+                          <strong style={{ fontSize: 12.5, color: esFutura ? '#9ca3af' : '#c2410c', whiteSpace: 'nowrap' }}>
                             {simbolo} {cuota.monto.toFixed(2)}
                           </strong>
                           <button
