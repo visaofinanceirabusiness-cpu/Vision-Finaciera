@@ -61,20 +61,6 @@ export function PanelCotizaciones({ idioma, colores }: { idioma: string; colores
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando el historial.'));
   }, [parGrafico, granularidad]);
 
-  if (cargando) {
-    return <p style={{ fontSize: 13, color: '#6e7781' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>;
-  }
-
-  if (actuales.length === 0) {
-    return (
-      <p style={{ fontSize: 12.5, color: '#6e7781' }}>
-        {esPT
-          ? 'Ainda não hay nenhuma cotação carregada — a primeira vai aparecer depois da próxima atualização diária.'
-          : 'Todavía no hay ninguna cotización cargada — la primera va a aparecer después de la próxima actualización diaria.'}
-      </p>
-    );
-  }
-
   return (
     <div>
       <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
@@ -82,13 +68,58 @@ export function PanelCotizaciones({ idioma, colores }: { idioma: string; colores
       </div>
       <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>💱 {esPT ? 'Cotações' : 'Cotizaciones'}</h2>
 
+      {cargando ? (
+        <p style={{ fontSize: 13, color: '#6e7781', marginTop: 14 }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>
+      ) : actuales.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: '#6e7781', marginTop: 14 }}>
+          {esPT
+            ? 'Ainda não hay nenhuma cotação carregada — a primeira vai aparecer depois da próxima atualização diária.'
+            : 'Todavía no hay ninguna cotización cargada — la primera va a aparecer después de la próxima actualización diaria.'}
+        </p>
+      ) : (
+        <ContenidoCotizaciones
+          actuales={actuales}
+          historial={historial}
+          parGrafico={parGrafico}
+          setParGrafico={setParGrafico}
+          granularidad={granularidad}
+          setGranularidad={setGranularidad}
+          colores={colores}
+          esPT={esPT}
+        />
+      )}
+
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', margin: '14px 0' }}>
           {error}
         </div>
       )}
+    </div>
+  );
+}
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16, marginBottom: 20 }}>
+function ContenidoCotizaciones({
+  actuales,
+  historial,
+  parGrafico,
+  setParGrafico,
+  granularidad,
+  setGranularidad,
+  colores,
+  esPT,
+}: {
+  actuales: CotizacionActual[];
+  historial: PuntoCotizacion[];
+  parGrafico: ParCotizacion;
+  setParGrafico: (par: ParCotizacion) => void;
+  granularidad: 'dia' | 'mes';
+  setGranularidad: (g: 'dia' | 'mes') => void;
+  colores: Colores;
+  esPT: boolean;
+}) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         {actuales.map((cotizacion) => (
           <div
             key={cotizacion.par}
