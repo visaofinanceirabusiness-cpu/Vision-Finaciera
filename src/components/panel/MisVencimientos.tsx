@@ -62,13 +62,18 @@ export function MisVencimientos({
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
   const [editando, setEditando] = useState<GastoRecurrente | null>(null);
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
-  const [mostrarPagados, setMostrarPagados] = useState(false);
-  const [mostrarPasivosPagados, setMostrarPasivosPagados] = useState(false);
+  // Un solo interruptor general para todo lo "extra" (ya pagadas de
+  // ambos bloques + gestión de plantillas) — antes eran 3 botones
+  // sueltos repartidos entre los dos acordeones, que ocupaban mucho
+  // espacio para algo que se usa poco.
+  const [mostrarExtra, setMostrarExtra] = useState(false);
+  const mostrarPagados = mostrarExtra;
+  const mostrarPasivosPagados = mostrarExtra;
+  const mostrarPlantillas = mostrarExtra;
 
   async function recargar() {
     try {
@@ -161,7 +166,7 @@ export function MisVencimientos({
             {esPT ? 'VENCIMENTOS' : 'VENCIMIENTOS'}
           </div>
           <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-            {esPT ? '📅 Meus Vencimentos' : '📅 Mis Vencimientos'}
+            {esPT ? '📅 Meus Vencimentos Futuros' : '📅 Mis Vencimientos Futuros'}
           </h2>
           <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6e7781' }}>
             {esPT
@@ -170,16 +175,29 @@ export function MisVencimientos({
           </p>
         </div>
 
-        {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
-              {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
+                {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#c2410c' }}>
+                {simbolo} {totalGeneral.toFixed(2)}
+              </div>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#c2410c' }}>
-              {simbolo} {totalGeneral.toFixed(2)}
-            </div>
-          </div>
-        )}
+          )}
+
+          {!cargando && (cuotasPagadas.length > 0 || recordatoriosPagados.length > 0 || plantillas.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setMostrarExtra((m) => !m)}
+              title={esPT ? 'Ver pagas e gerenciar modelos' : 'Ver pagadas y gestionar plantillas'}
+              style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '5px 10px', fontSize: 15, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
+            >
+              {mostrarExtra ? '✕' : '⋯'}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -202,20 +220,6 @@ export function MisVencimientos({
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalPasivos.toFixed(2)}
                 </div>
-              )
-            }
-            acciones={
-              cuotasPagadas.length > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMostrarPasivosPagados((m) => !m);
-                  }}
-                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {mostrarPasivosPagados ? (esPT ? 'Ocultar pagas' : 'Ocultar pagadas') : (esPT ? 'Mostrar pagas' : 'Mostrar pagadas')}
-                </button>
               )
             }
           >
@@ -353,33 +357,6 @@ export function MisVencimientos({
                   {simbolo} {totalGastosRecurrentes.toFixed(2)}
                 </div>
               )
-            }
-            acciones={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {recordatoriosPagados.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMostrarPagados((m) => !m);
-                    }}
-                    style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    {mostrarPagados ? (esPT ? 'Ocultar pagos' : 'Ocultar pagados') : (esPT ? 'Mostrar pagos' : 'Mostrar pagados')}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMostrarPlantillas((m) => !m);
-                  }}
-                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
-                </button>
-              </div>
             }
           >
             {recordatoriosPendientes.length === 0 ? (

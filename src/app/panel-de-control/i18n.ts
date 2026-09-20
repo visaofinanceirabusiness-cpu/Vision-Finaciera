@@ -77,6 +77,15 @@ export type ClavePanelControl =
   | 'tituloDistribucionLiquidez'
   | 'subtituloDistribucionLiquidez'
   | 'vacioDistribucionLiquidez'
+  | 'tituloComposicionActivo'
+  | 'subtituloComposicionActivo'
+  | 'vacioComposicionActivo'
+  | 'tituloComposicionPasivo'
+  | 'subtituloComposicionPasivo'
+  | 'vacioComposicionPasivo'
+  | 'tituloComposicionPatrimonio'
+  | 'subtituloComposicionPatrimonio'
+  | 'vacioComposicionPatrimonio'
   | 'eyebrowEquilibrio'
   | 'endeudamiento'
   | 'ayudaEndeudamiento'
@@ -178,6 +187,15 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloVentasServicio: '🧰 Ventas por categoría de servicio',
     tituloDistribucionLiquidez: '💧 Distribución de la liquidez',
     subtituloDistribucionLiquidez: 'Caja, banco y todo lo que hay para cobrar (clientes, tarjetas, etc.)',
+    tituloComposicionActivo: '💚 Composición del Activo',
+    subtituloComposicionActivo: 'De qué está hecho tu Activo hoy',
+    vacioComposicionActivo: 'Todavía no hay Activo registrado.',
+    tituloComposicionPasivo: '💗 Composición del Pasivo',
+    subtituloComposicionPasivo: 'Qué deudas forman tu Pasivo hoy',
+    vacioComposicionPasivo: 'Hoy no tenés Pasivo registrado.',
+    tituloComposicionPatrimonio: '💙 Composición del Patrimonio',
+    subtituloComposicionPatrimonio: 'Qué forma el Patrimonio a la fecha',
+    vacioComposicionPatrimonio: 'Todavía no hay Patrimonio registrado.',
     vacioDistribucionLiquidez: 'Todavía no hay dinero disponible para graficar.',
     eyebrowEquilibrio: 'EQUILIBRIO',
     endeudamiento: 'Endeudamiento',
@@ -280,6 +298,15 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     tituloDistribucionLiquidez: '💧 Distribuição da liquidez',
     subtituloDistribucionLiquidez: 'Caixa, banco e tudo o que há para receber (clientes, cartões, etc.)',
     vacioDistribucionLiquidez: 'Ainda não há dinheiro disponível para exibir no gráfico.',
+    tituloComposicionActivo: '💚 Composição do Ativo',
+    subtituloComposicionActivo: 'Do que é feito o seu Ativo hoje',
+    vacioComposicionActivo: 'Ainda não há Ativo registrado.',
+    tituloComposicionPasivo: '💗 Composição do Passivo',
+    subtituloComposicionPasivo: 'Quais dívidas formam o seu Passivo hoje',
+    vacioComposicionPasivo: 'Hoje você não tem Passivo registrado.',
+    tituloComposicionPatrimonio: '💙 Composição do Patrimônio',
+    subtituloComposicionPatrimonio: 'O que forma o Patrimônio na data',
+    vacioComposicionPatrimonio: 'Ainda não há Patrimônio registrado.',
     eyebrowEquilibrio: 'EQUILÍBRIO',
     endeudamiento: 'Endividamento',
     ayudaEndeudamiento: 'Quanto do que você tem depende de dívida.',
