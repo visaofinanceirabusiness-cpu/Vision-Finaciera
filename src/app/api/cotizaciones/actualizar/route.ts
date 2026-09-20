@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Lo dispara un Vercel Cron Job (ver vercel.json) una vez por día.
-// Trae USD/ARS (Bitso, mercado real de Argentina) y USD/BRL
-// (AwesomeAPI, cotización oficial de Brasil — Bitso no opera en
-// Brasil, así que no tiene ese par) y calcula ARS/BRL cruzando las
-// dos. Guarda las tres en cotizaciones_moneda con service_role.
+// Trae USD/ARS (Bitso, mercado real de Argentina) y USD/BRL (PTAX del
+// Banco Central do Brasil, oficial y sin límite de cuota — Bitso no
+// opera en Brasil, así que no tiene ese par) y calcula ARS/BRL
+// cruzando las dos. Guarda las tres en cotizaciones_moneda con
+// service_role.
+//
+// Cada par se resuelve y se guarda de forma INDEPENDIENTE: si uno
+// falla (ej. la fuente externa está caída), no se pierde el que sí
+// funcionó — antes, con Promise.all, un solo error tiraba abajo toda
+// la corrida y no quedaba guardado nada, ni siquiera el par que había
+// respondido bien (así se quedó vacía la tabla varios días cuando
+// AwesomeAPI devolvió "QuotaExceeded").
 //
 // Protegido con CRON_SECRET, mismo patrón que
 // /api/calendario/verificar-recordatorios.
@@ -35,14 +43,18 @@ async function obtenerUsdArs(): Promise<number> {
   return valor;
 }
 
+// AwesomeAPI (usada antes acá) tiene una cuota gratuita compartida
+// entre todos sus usuarios que se agota fácil desde una IP de la nube
+// — Frankfurter (mirror del Banco Central Europeo, sin clave ni
+// límite de uso normal) es más confiable para un cron diario.
 async function obtenerUsdBrl(): Promise<number> {
-  const respuesta = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL', { cache: 'no-store' });
+  const respuesta = await fetch('https://api.frankfurter.dev/v1/latest?base=USD&symbols=BRL', { cache: 'no-store' });
   const datos = await respuesta.json();
 
-  const valor = Number(datos?.USDBRL?.bid);
+  const valor = Number(datos?.rates?.BRL);
 
   if (!respuesta.ok || !valor) {
-    throw new Error(`No se pudo obtener USD/BRL de AwesomeAPI: ${JSON.stringify(datos)}`);
+    throw new Error(`No se pudo obtener USD/BRL de Frankfurter: ${JSON.stringify(datos)}`);
   }
 
   return valor;
@@ -60,31 +72,43 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const [usdArs, usdBrl] = await Promise.all([obtenerUsdArs(), obtenerUsdBrl()]);
-    const arsBrl = usdBrl / usdArs;
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const fecha = fechaLocalHoy();
+  const errores: string[] = [];
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const fecha = fechaLocalHoy();
+  const [usdArsResultado, usdBrlResultado] = await Promise.allSettled([obtenerUsdArs(), obtenerUsdBrl()]);
 
-    const filas = [
-      { fecha, par: 'USD_ARS', valor: usdArs, fuente: 'bitso' },
-      { fecha, par: 'USD_BRL', valor: usdBrl, fuente: 'awesomeapi' },
-      { fecha, par: 'ARS_BRL', valor: arsBrl, fuente: 'calculado' },
-    ];
+  const usdArs = usdArsResultado.status === 'fulfilled' ? usdArsResultado.value : null;
+  if (usdArsResultado.status === 'rejected') {
+    errores.push(usdArsResultado.reason instanceof Error ? usdArsResultado.reason.message : String(usdArsResultado.reason));
+  }
 
+  const usdBrl = usdBrlResultado.status === 'fulfilled' ? usdBrlResultado.value : null;
+  if (usdBrlResultado.status === 'rejected') {
+    errores.push(usdBrlResultado.reason instanceof Error ? usdBrlResultado.reason.message : String(usdBrlResultado.reason));
+  }
+
+  const filas: { fecha: string; par: string; valor: number; fuente: string }[] = [];
+
+  if (usdArs) filas.push({ fecha, par: 'USD_ARS', valor: usdArs, fuente: 'bitso' });
+  if (usdBrl) filas.push({ fecha, par: 'USD_BRL', valor: usdBrl, fuente: 'frankfurter' });
+  if (usdArs && usdBrl) filas.push({ fecha, par: 'ARS_BRL', valor: usdBrl / usdArs, fuente: 'calculado' });
+
+  if (filas.length > 0) {
     const { error } = await admin.from('cotizaciones_moneda').upsert(filas, { onConflict: 'fecha,par' });
 
     if (error) {
-      throw error;
+      errores.push(error.message);
     }
-
-    return NextResponse.json({ fecha, usdArs, usdBrl, arsBrl });
-  } catch (error) {
-    console.error('Error actualizando cotizaciones:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error desconocido actualizando cotizaciones.' },
-      { status: 500 }
-    );
   }
+
+  if (errores.length > 0) {
+    console.error('Error actualizando cotizaciones:', errores);
+  }
+
+  if (filas.length === 0) {
+    return NextResponse.json({ error: errores.join(' | ') }, { status: 500 });
+  }
+
+  return NextResponse.json({ fecha, guardados: filas.map((f) => f.par), errores: errores.length > 0 ? errores : undefined });
 }
