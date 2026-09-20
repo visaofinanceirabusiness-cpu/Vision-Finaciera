@@ -59,13 +59,17 @@ export function MisIngresos({
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
   const [editando, setEditando] = useState<IngresoRecurrente | null>(null);
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioIngresoRecurrente | null>(null);
-  const [mostrarCobrados, setMostrarCobrados] = useState(false);
-  const [mostrarCuentasCobrarCobradas, setMostrarCuentasCobrarCobradas] = useState(false);
+  // Un solo interruptor general para todo lo "extra" (ya cobradas de
+  // ambos bloques + gestión de plantillas) — antes eran 3 botones
+  // sueltos que ocupaban mucho espacio para algo que se usa poco.
+  const [mostrarExtra, setMostrarExtra] = useState(false);
+  const mostrarCobrados = mostrarExtra;
+  const mostrarCuentasCobrarCobradas = mostrarExtra;
+  const mostrarPlantillas = mostrarExtra;
 
   async function recargar() {
     try {
@@ -143,23 +147,36 @@ export function MisIngresos({
             {esPT ? 'RECEITAS' : 'INGRESOS'}
           </div>
           <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-            {esPT ? '💰 Minhas Receitas' : '💰 Mis Ingresos'}
+            {esPT ? '💰 Minhas Receitas Futuras' : '💰 Mis Ingresos Futuros'}
           </h2>
           <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6e7781' }}>
             {esPT ? 'Receitas recorrentes por cobrar, tudo em um só lugar.' : 'Ingresos recurrentes por cobrar, todo en un mismo lugar.'}
           </p>
         </div>
 
-        {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
-              {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
+                {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+                {simbolo} {totalGeneral.toFixed(2)}
+              </div>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
-              {simbolo} {totalGeneral.toFixed(2)}
-            </div>
-          </div>
-        )}
+          )}
+
+          {!cargando && (cuotasCobradas.length > 0 || recordatoriosCobrados.length > 0 || plantillas.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setMostrarExtra((m) => !m)}
+              title={esPT ? 'Ver recebidas e gerenciar modelos' : 'Ver cobradas y gestionar plantillas'}
+              style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '5px 10px', fontSize: 15, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
+            >
+              {mostrarExtra ? '✕' : '⋯'}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -182,20 +199,6 @@ export function MisIngresos({
                   {esPT ? 'Total: ' : 'Total: '}
                   {simbolo} {totalCuentasPorCobrar.toFixed(2)}
                 </div>
-              )
-            }
-            acciones={
-              cuotasCobradas.length > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMostrarCuentasCobrarCobradas((m) => !m);
-                  }}
-                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {mostrarCuentasCobrarCobradas ? (esPT ? 'Ocultar recebidas' : 'Ocultar cobradas') : (esPT ? 'Mostrar recebidas' : 'Mostrar cobradas')}
-                </button>
               )
             }
           >
@@ -326,33 +329,6 @@ export function MisIngresos({
                   {simbolo} {totalIngresosRecurrentes.toFixed(2)}
                 </div>
               )
-            }
-            acciones={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {recordatoriosCobrados.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMostrarCobrados((m) => !m);
-                    }}
-                    style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    {mostrarCobrados ? (esPT ? 'Ocultar recebidos' : 'Ocultar cobrados') : (esPT ? 'Mostrar recebidos' : 'Mostrar cobrados')}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMostrarPlantillas((m) => !m);
-                  }}
-                  style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {mostrarPlantillas ? (esPT ? 'Ocultar gerenciamento' : 'Ocultar gestión') : (esPT ? 'Gerenciar' : 'Gestionar')}
-                </button>
-              </div>
             }
           >
             {recordatoriosPendientes.length === 0 ? (

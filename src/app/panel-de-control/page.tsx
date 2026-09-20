@@ -660,42 +660,83 @@ export default function MiNegocioPage() {
               );
             })()}
           </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 16,
+              marginTop: 16,
+            }}
+          >
+            <DistribucionPieChart
+              datos={indicadores?.composicionActivo ?? []}
+              simbolo={simbolo}
+              idioma={idioma}
+              titulo={t('tituloComposicionActivo')}
+              subtitulo={t('subtituloComposicionActivo')}
+              mensajeVacio={t('vacioComposicionActivo')}
+            />
+
+            <DistribucionPieChart
+              datos={indicadores?.composicionPasivo ?? []}
+              simbolo={simbolo}
+              idioma={idioma}
+              titulo={t('tituloComposicionPasivo')}
+              subtitulo={t('subtituloComposicionPasivo')}
+              mensajeVacio={t('vacioComposicionPasivo')}
+            />
+
+            <DistribucionPieChart
+              datos={indicadores?.composicionPatrimonio ?? []}
+              simbolo={simbolo}
+              idioma={idioma}
+              titulo={t('tituloComposicionPatrimonio')}
+              subtitulo={t('subtituloComposicionPatrimonio')}
+              mensajeVacio={t('vacioComposicionPatrimonio')}
+            />
+          </div>
         </section>
 
         {perfil?.empresa_id && (
-          <section
+          <div
             style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+              gap: 20,
               marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
             }}
           >
-            <MisIngresos empresaId={perfil.empresa_id} idioma={idioma} simbolo={simbolo} colores={colores} />
-          </section>
-        )}
+            <section
+              style={{
+                background: colores.blanco,
+                borderRadius: 24,
+                padding: 24,
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              }}
+            >
+              <MisIngresos empresaId={perfil.empresa_id} idioma={idioma} simbolo={simbolo} colores={colores} />
+            </section>
 
-        {perfil?.empresa_id && (
-          <section
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-            }}
-          >
-            <MisVencimientos
-              key={refrescarVencimientos}
-              empresaId={perfil.empresa_id}
-              idioma={idioma}
-              simbolo={simbolo}
-              colores={colores}
-            />
-          </section>
+            <section
+              style={{
+                background: colores.blanco,
+                borderRadius: 24,
+                padding: 24,
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              }}
+            >
+              <MisVencimientos
+                key={refrescarVencimientos}
+                empresaId={perfil.empresa_id}
+                idioma={idioma}
+                simbolo={simbolo}
+                colores={colores}
+              />
+            </section>
+          </div>
         )}
 
         <section

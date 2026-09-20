@@ -81,6 +81,9 @@ export type IndicadoresPanel = {
   cajaDisponible: number;
   ahorroInversiones: number;
   stockBajo: number;
+  composicionActivo: PuntoGrafico[];
+  composicionPasivo: PuntoGrafico[];
+  composicionPatrimonio: PuntoGrafico[];
 
   // ---- Resumen ejecutivo: SÍ dependen del período ----
   ingresos: number;
@@ -325,6 +328,41 @@ export async function obtenerIndicadores(
   const activos = totalPorTipo('ACTIVO');
   const pasivos = totalPorTipo('PASIVO');
   const patrimonio = totalPorTipo('PATRIMONIO');
+
+  // Composición de Activo/Pasivo/Patrimonio a HOY, agrupada por cuenta
+  // padre directa (ej. todas las cajas/bancos bajo "ATIVO CIRCULANTE")
+  // — mismo criterio que el Balance Patrimonial de Informes, para que
+  // el Panel de Control muestre la misma ecuación sin tener que
+  // navegar hasta allá.
+  const nombrePorId = new Map(cuentas.map((c) => [c.id, c.nombre]));
+
+  function nombreGrupo(cuenta: CuentaPlan): string {
+    if (!cuenta.cuenta_padre_id) return cuenta.nombre;
+    return nombrePorId.get(cuenta.cuenta_padre_id) ?? cuenta.nombre;
+  }
+
+  function composicionPorTipo(tipo: string): PuntoGrafico[] {
+    const porGrupo = new Map<string, number>();
+
+    for (const cuenta of hojas) {
+      if (cuenta.tipo_saldo !== tipo) continue;
+
+      const saldo = saldoConSigno(cuenta, acumuladoTotal, true);
+      if (Math.round(saldo * 100) === 0) continue;
+
+      const grupo = nombreGrupo(cuenta);
+      porGrupo.set(grupo, (porGrupo.get(grupo) ?? 0) + saldo);
+    }
+
+    return Array.from(porGrupo.entries())
+      .filter(([, valor]) => valor > 0)
+      .map(([nombre, valor]) => ({ nombre, valor: redondear(valor) }))
+      .sort((a, b) => b.valor - a.valor);
+  }
+
+  const composicionActivo = composicionPorTipo('ACTIVO');
+  const composicionPasivo = composicionPorTipo('PASIVO');
+  const composicionPatrimonio = composicionPorTipo('PATRIMONIO');
 
   // Caja disponible: solo las cuentas que son medios financieros de
   // verdad (Caja, Bancos, Billetera Virtual...). NO incluye "a
@@ -605,6 +643,9 @@ export async function obtenerIndicadores(
     cajaDisponible: redondear(cajaDisponible),
     ahorroInversiones: redondear(ahorroInversiones),
     stockBajo,
+    composicionActivo,
+    composicionPasivo,
+    composicionPatrimonio,
 
     // Del período seleccionado
     ingresos: redondear(ingresos),
