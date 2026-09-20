@@ -23,6 +23,14 @@ export type PuntoCotizacion = {
   valor: number;
 };
 
+// En la base se guarda "cuántos BRL vale 1 ARS" (ARS_BRL, ~0,003 —
+// así sale de cruzar USD/ARS con USD/BRL), pero para leer un cliente
+// entiende mejor "cuántos pesos ARS vale 1 Real" (~310) — se invierte
+// acá, solo para mostrar, sin tocar lo que guarda el cron.
+function invertirSiCorresponde(par: ParCotizacion, valor: number): number {
+  return par === 'ARS_BRL' ? 1 / valor : valor;
+}
+
 // Últimas dos cotizaciones de cada par (hoy — o la más reciente que
 // haya, si el cron todavía no corrió — y la anterior, para calcular
 // la variación del día).
@@ -48,8 +56,8 @@ export async function obtenerCotizacionesActuales(): Promise<CotizacionActual[]>
         return null;
       }
 
-      const valor = Number(actual.valor);
-      const valorAnterior = anterior ? Number(anterior.valor) : null;
+      const valor = invertirSiCorresponde(par, Number(actual.valor));
+      const valorAnterior = anterior ? invertirSiCorresponde(par, Number(anterior.valor)) : null;
 
       return {
         par,
@@ -85,7 +93,7 @@ export async function obtenerHistorialCotizacion(
     throw error;
   }
 
-  const filas = (data ?? []).map((f) => ({ fecha: f.fecha as string, valor: Number(f.valor) }));
+  const filas = (data ?? []).map((f) => ({ fecha: f.fecha as string, valor: invertirSiCorresponde(par, Number(f.valor)) }));
 
   if (granularidad === 'dia') {
     return filas.slice(0, cantidad).reverse();

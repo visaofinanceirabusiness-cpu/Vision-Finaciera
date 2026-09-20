@@ -20,7 +20,7 @@ type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
 const NOMBRE_PAR: Record<ParCotizacion, { es: string; pt: string }> = {
   USD_BRL: { es: 'Dólar → Real', pt: 'Dólar → Real' },
-  ARS_BRL: { es: 'Peso ARS → Real', pt: 'Peso ARS → Real' },
+  ARS_BRL: { es: 'Real → Peso ARS', pt: 'Real → Peso ARS' },
   USD_ARS: { es: 'Dólar → Peso ARS', pt: 'Dólar → Peso ARS' },
 };
 
