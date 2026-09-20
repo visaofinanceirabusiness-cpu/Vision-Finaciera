@@ -32,7 +32,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
-import { saldoDeFormaDePago } from '@/lib/saldoCuenta';
+import { saldoDeFormaDePago, saldoDeCategoria } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
@@ -1025,33 +1025,40 @@ function CentralDeLanzamientosTab({
     cargarFormasPago();
   }, [empresaId, operacion, categoria]);
 
-  // Saldo en vivo de la cuenta detrás de "Hacia Cuenta" (solo
-  // Transferencia — para Plazo Fijo/Inversiones no hay saldo porque
-  // no son una forma de pago, así que simplemente no se muestra nada).
+  // Saldo en vivo de la cuenta detrás de la Categoría (o "Hacia
+  // Cuenta" en Transferencia) — para CUALQUIER operación, siempre que
+  // resuelva a una cuenta de Activo o Pasivo (lo demás lo filtra
+  // saldoDeCategoria/saldoDeFormaDePago, que devuelven null para
+  // Ingreso/Gasto/Costo/Patrimonio o para un Plazo Fijo/Inversión que
+  // no tiene forma de pago detrás). En Transferencia el "Hacia" es una
+  // forma de pago, no una categoría de verdad, por eso ese caso usa
+  // saldoDeFormaDePago igual que el origen.
   useEffect(() => {
-    if (!empresaId || !esTransferencia || !categoria) {
+    if (!empresaId || !categoria) {
       setSaldoDestino(null);
       return;
     }
 
     let cancelado = false;
 
-    saldoDeFormaDePago(empresaId, categoria, fecha).then((resultado) => {
+    const promesa = esTransferencia
+      ? saldoDeFormaDePago(empresaId, categoria, fecha)
+      : saldoDeCategoria(empresaId, categoria, operacion, fecha);
+
+    promesa.then((resultado) => {
       if (!cancelado) setSaldoDestino(resultado);
     });
 
     return () => {
       cancelado = true;
     };
-  }, [empresaId, esTransferencia, categoria, fecha]);
+  }, [empresaId, esTransferencia, categoria, operacion, fecha]);
 
-  // Saldo en vivo de la cuenta detrás de la forma de pago — Pago,
-  // Compra y (el origen de) Transferencia son las operaciones donde
-  // esa cuenta se debita/acredita de verdad.
+  // Saldo en vivo de la cuenta detrás de la forma de pago — para
+  // CUALQUIER operación (mismo criterio que arriba: si no es una
+  // cuenta de Activo/Pasivo, simplemente no devuelve nada que mostrar).
   useEffect(() => {
-    const aplica = operacion === 'PAGO' || operacion === 'COMPRA' || esTransferencia;
-
-    if (!empresaId || !aplica || !formaPago) {
+    if (!empresaId || !formaPago) {
       setSaldoOrigen(null);
       return;
     }
@@ -1065,7 +1072,7 @@ function CentralDeLanzamientosTab({
     return () => {
       cancelado = true;
     };
-  }, [empresaId, operacion, esTransferencia, formaPago, fecha]);
+  }, [empresaId, formaPago, fecha]);
 
   useEffect(() => {
     if (!empresaId || !operacion) {
@@ -1788,9 +1795,7 @@ function CentralDeLanzamientosTab({
             ))}
           </select>
 
-          {esTransferencia && saldoDestino && (
-            <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />
-          )}
+          {saldoDestino && <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />}
         </Campo>
 
         <Campo label={esTransferencia ? t('labelDesdeCuenta') : t('labelFormaPago')}>
@@ -1865,9 +1870,7 @@ function CentralDeLanzamientosTab({
             </div>
           )}
 
-          {(esTransferencia || operacion === 'PAGO' || operacion === 'COMPRA') && saldoOrigen && (
-            <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoOrigen} />
-          )}
+          {saldoOrigen && <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoOrigen} />}
         </Campo>
       </div>
 
