@@ -59,6 +59,22 @@ export async function saldoDeFormaDePago(
   return { cuenta: cuenta.nombre, saldo: resultado.saldo };
 }
 
+// En una Transferencia, tanto "Hacia" como "Desde" pueden resolver a
+// una forma de pago real (medio a medio) o a una cuenta de Ahorro/
+// Inversión (Plazo Fijo, Caxinhas...), que vive en
+// categorias_operacion en vez de formas_pago — se prueba primero como
+// forma de pago y, si no existe, como categoría de Transferencia.
+export async function saldoEnTransferencia(
+  empresaId: string,
+  nombre: string,
+  fecha: string
+): Promise<{ cuenta: string; saldo: number } | null> {
+  const porFormaPago = await saldoDeFormaDePago(empresaId, nombre, fecha);
+  if (porFormaPago) return porFormaPago;
+
+  return saldoDeCategoria(empresaId, nombre, 'TRANSFERENCIA', fecha);
+}
+
 // Mismo cálculo que arriba, pero para la cuenta detrás de una
 // CATEGORÍA (ej. "Préstamos Santander" o "T. de Crédito a Pagar Nu"
 // cuando se paga la deuda en sí, no un gasto financiado con ella) —

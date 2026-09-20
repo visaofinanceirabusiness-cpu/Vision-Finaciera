@@ -32,7 +32,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
-import { saldoDeFormaDePago, saldoDeCategoria } from '@/lib/saldoCuenta';
+import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
@@ -1042,7 +1042,7 @@ function CentralDeLanzamientosTab({
     let cancelado = false;
 
     const promesa = esTransferencia
-      ? saldoDeFormaDePago(empresaId, categoria, fecha)
+      ? saldoEnTransferencia(empresaId, categoria, fecha)
       : saldoDeCategoria(empresaId, categoria, operacion, fecha);
 
     promesa.then((resultado) => {
@@ -1065,14 +1065,18 @@ function CentralDeLanzamientosTab({
 
     let cancelado = false;
 
-    saldoDeFormaDePago(empresaId, formaPago, fecha).then((resultado) => {
+    const promesa = esTransferencia
+      ? saldoEnTransferencia(empresaId, formaPago, fecha)
+      : saldoDeFormaDePago(empresaId, formaPago, fecha);
+
+    promesa.then((resultado) => {
       if (!cancelado) setSaldoOrigen(resultado);
     });
 
     return () => {
       cancelado = true;
     };
-  }, [empresaId, formaPago, fecha]);
+  }, [empresaId, esTransferencia, formaPago, fecha]);
 
   useEffect(() => {
     if (!empresaId || !operacion) {
