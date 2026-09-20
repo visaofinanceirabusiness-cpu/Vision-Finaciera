@@ -101,7 +101,7 @@ export async function generarMatrizOperaciones(
     supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaId).eq('activo', true),
     supabase.from('categorias_productos').select('id, codigo').eq('empresa_id', empresaId),
     supabase.from('categorias_productos_cuentas').select('categoria_producto_id, cuenta_stock_id, cuenta_ingreso_id').eq('empresa_id', empresaId).eq('activo', true),
-    supabase.from('categorias_operacion').select('id, operacion, codigo').eq('empresa_id', empresaId),
+    supabase.from('categorias_operacion').select('id, operacion, codigo, nombre').eq('empresa_id', empresaId),
     supabase.from('categorias_operacion_cuentas').select('categoria_operacion_id, cuenta_id, rol').eq('empresa_id', empresaId).eq('activo', true),
     supabase.from('plan_cuentas').select('id, nombre').eq('empresa_id', empresaId),
   ]);
@@ -383,6 +383,51 @@ export async function generarMatrizOperaciones(
         libro: regla.libro,
         cmv: regla.cmv,
         motor: regla.motor,
+      });
+    }
+  }
+
+  // ---------------------------------------------------
+  // TRANSFERENCIA "AHORRO A AHORRO" — entre dos cuentas de
+  // Ahorro/Inversión (ej. Plazo Fijo → Inversiones, o Caxinha Viaje →
+  // Caxinha Facultad), sin pasar por un medio financiero.
+  //
+  // Las reglas de crearCuentaAhorro solo cubren depósito (medio →
+  // ahorro) y retiro (ahorro → medio) porque cada cuenta se da de alta
+  // sola, sin saber de las demás — acá, con todas las cuentas de
+  // Ahorro de la empresa ya resueltas, se arma una fila por cada PAR
+  // (destino, origen) distinto, igual que "medio a medio".
+  // ---------------------------------------------------
+
+  const cuentasAhorro = (categoriasOperacion ?? [])
+    .filter((c) => c.operacion === 'TRANSFERENCIA')
+    .map((c) => {
+      const vinculo = (categoriasOperacionCuentas ?? []).find(
+        (v) => v.categoria_operacion_id === c.id && v.rol === 'AHORRO'
+      );
+      if (!vinculo) return null;
+      const cuenta = nombreCuenta.get(vinculo.cuenta_id);
+      if (!cuenta) return null;
+      return { nombre: c.nombre, cuenta };
+    })
+    .filter((c): c is { nombre: string; cuenta: string } => Boolean(c));
+
+  for (const destino of cuentasAhorro) {
+    for (const origen of cuentasAhorro) {
+      if (origen.nombre === destino.nombre || origen.cuenta === destino.cuenta) continue;
+
+      filas.push({
+        empresa_id: empresaId,
+        clave: `TRANSFERENCIA.${destino.nombre}.${origen.nombre}`,
+        operacion: 'TRANSFERENCIA',
+        categoria: destino.nombre,
+        forma_pago: origen.nombre,
+        cuenta_debito: destino.cuenta,
+        cuenta_credito: origen.cuenta,
+        stock: 'NO',
+        libro: 'SI',
+        cmv: 'NO',
+        motor: 'ACTIVO',
       });
     }
   }
