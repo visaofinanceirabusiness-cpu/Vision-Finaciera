@@ -508,6 +508,34 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
    PESTAÑA · MAYOR
 ========================================================== */
 
+// Orden natural del plan de cuentas (Activo → Pasivo → Patrimonio →
+// Ingreso → Costo → Gasto) — mismo criterio que ya se usa en
+// Contabilidad para agrupar Categoría/Forma de Pago.
+const ORDEN_TIPO_SALDO = ['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'COSTO', 'GASTO'];
+
+function tituloTipoSaldo(
+  tipoSaldo: string | null | undefined,
+  t: (clave: 'activoTitulo' | 'pasivoTitulo' | 'patrimonioTitulo' | 'ingresosTitulo' | 'costosTitulo' | 'gastosTitulo') => string,
+  idioma: string | null
+): string {
+  switch (tipoSaldo) {
+    case 'ACTIVO':
+      return t('activoTitulo');
+    case 'PASIVO':
+      return t('pasivoTitulo');
+    case 'PATRIMONIO':
+      return t('patrimonioTitulo');
+    case 'INGRESO':
+      return t('ingresosTitulo');
+    case 'COSTO':
+      return t('costosTitulo');
+    case 'GASTO':
+      return t('gastosTitulo');
+    default:
+      return idioma === 'PT' ? 'Outras' : 'Otras';
+  }
+}
+
 function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
@@ -527,6 +555,27 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
 
     return lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
   }, [hojas, asientos, mostrarCeros]);
+
+  // Separadas por naturaleza (Activo/Pasivo/.../Gasto) en vez de una
+  // sola lista plana — con decenas de cuentas, encontrar la que se
+  // busca a ojo era cada vez más difícil.
+  const gruposPorTipoSaldo = useMemo(() => {
+    const grupos = new Map<string, CuentaPlan[]>();
+
+    for (const opcion of opciones) {
+      const clave = opcion.tipo_saldo && ORDEN_TIPO_SALDO.includes(opcion.tipo_saldo) ? opcion.tipo_saldo : 'otras';
+      const lista = grupos.get(clave) ?? [];
+      lista.push(opcion);
+      grupos.set(clave, lista);
+    }
+
+    return [...ORDEN_TIPO_SALDO, 'otras']
+      .filter((clave) => grupos.has(clave))
+      .map((clave) => ({
+        titulo: tituloTipoSaldo(clave === 'otras' ? null : clave, t, idioma),
+        cuentas: grupos.get(clave) ?? [],
+      }));
+  }, [opciones, t, idioma]);
 
   const movimientos = useMemo(() => {
     if (!cuenta) return [];
@@ -569,10 +618,14 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
           <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
             <option value="">{t('seleccionarCuenta')}</option>
 
-            {opciones.map((c) => (
-              <option key={c.id} value={c.id}>
-                {nombreCuentaDisplay(idioma, c.nombre)}
-              </option>
+            {gruposPorTipoSaldo.map((grupo) => (
+              <optgroup key={grupo.titulo} label={grupo.titulo}>
+                {grupo.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {nombreCuentaDisplay(idioma, c.nombre)}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
