@@ -738,6 +738,8 @@ function CentralDeLanzamientosTab({
       { data: operacionesParaSaldo },
       { data: automaticosParaSaldo },
       { data: formasPagoParaGasto },
+      { data: categoriasOperacionData },
+      { data: categoriasOperacionCuentasData },
     ] = await Promise.all([
       supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaIdActual),
       supabase.from('forma_pago_cuentas').select('forma_pago_id, cuenta_id').eq('empresa_id', empresaIdActual).eq('activo', true),
@@ -755,6 +757,17 @@ function CentralDeLanzamientosTab({
         .select('forma_pago')
         .eq('empresa_id', empresaIdActual)
         .in('operacion', ['COMPRA', 'PAGO']),
+      // Ver el mismo comentario más abajo sobre cuentaPorFormaPagoNombre
+      // — hace falta para resolver el rubro de una Categoría cuya
+      // etiqueta no coincide con el nombre de la cuenta que tiene
+      // detrás (ej. un Pasivo personalizado como "Préstamos Santander"
+      // detrás de la categoría genérica "Préstamos Personales").
+      supabase.from('categorias_operacion').select('id, nombre').eq('empresa_id', empresaIdActual),
+      supabase
+        .from('categorias_operacion_cuentas')
+        .select('categoria_operacion_id, cuenta_id')
+        .eq('empresa_id', empresaIdActual)
+        .eq('activo', true),
     ]);
 
     const nombreCuentaPorId = new Map((cuentasData ?? []).map((c) => [c.id, c.nombre]));
@@ -813,6 +826,24 @@ function CentralDeLanzamientosTab({
       const digito = digitoPorCuenta.get(cuentaNombre);
       if (digito) {
         rubroPorNombre[formaPagoNombre] = digito;
+      }
+    }
+
+    // Mismo caso que arriba, pero del lado de Categoría: una categoría
+    // de Pasivo personalizada (ej. "Préstamos Personales" apuntando a
+    // una cuenta que el usuario renombró a "Préstamos Santander") tenía
+    // una etiqueta distinta a la de su cuenta y quedaba sin rubro,
+    // agrupada en "Otras" en vez de "Pasivo".
+    const cuentaIdPorCategoriaId = new Map(
+      (categoriasOperacionCuentasData ?? []).map((c) => [c.categoria_operacion_id, c.cuenta_id])
+    );
+
+    for (const categoria of categoriasOperacionData ?? []) {
+      const cuentaId = cuentaIdPorCategoriaId.get(categoria.id);
+      const cuentaNombre = cuentaId ? nombreCuentaPorId.get(cuentaId) : undefined;
+      const digito = cuentaNombre ? digitoPorCuenta.get(cuentaNombre) : undefined;
+      if (digito) {
+        rubroPorNombre[categoria.nombre] = digito;
       }
     }
 
