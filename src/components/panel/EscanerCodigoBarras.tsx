@@ -19,6 +19,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
+
+// Sin hints, el lector usa su modo "rápido": suficiente para una foto
+// bien nítida de frente, pero en la cámara de un celular real (algo
+// de ángulo, brillo disparejo, la mano que tiembla un poco) casi
+// nunca llega a decodificar — la imagen se ve perfecta en pantalla
+// pero el algoritmo no reconoce el patrón. TRY_HARDER prueba varias
+// pasadas extra (rotaciones, binarizados distintos) para esos casos
+// reales — cuesta más CPU por frame, pero acá se escanea a demanda
+// (el usuario abre el escáner y lo cierra), no en un loop constante
+// de fondo, así que el costo no importa.
+const HINTS = new Map<DecodeHintType, unknown>([
+  [DecodeHintType.TRY_HARDER, true],
+  [
+    DecodeHintType.POSSIBLE_FORMATS,
+    [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.QR_CODE,
+    ],
+  ],
+]);
 
 export function EscanerCodigoBarras({
   idioma,
@@ -46,7 +72,7 @@ export function EscanerCodigoBarras({
 
   useEffect(() => {
     let cancelado = false;
-    const lector = new BrowserMultiFormatReader();
+    const lector = new BrowserMultiFormatReader(HINTS);
 
     async function iniciar() {
       // "focusMode: continuous" (dentro de "advanced", así que es un
@@ -62,8 +88,8 @@ export function EscanerCodigoBarras({
         {
           video: {
             facingMode: { exact: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
             advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
           },
         },
