@@ -36,6 +36,8 @@ import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia } from '@/li
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
+import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
+import { EscanerCodigoBarras } from '@/components/panel/EscanerCodigoBarras';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -478,6 +480,8 @@ function CentralDeLanzamientosTab({
   const [lineas, setLineas] = useState<LineaFormulario[]>(
     valoresIniciales?.lineas ?? [{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]
   );
+  const [escaneandoVenta, setEscaneandoVenta] = useState(false);
+  const [errorEscaneo, setErrorEscaneo] = useState('');
 
   // Al editar, las 3 combos encadenados (categoría → forma de pago →
   // contacto) recién arman sus listas después de un fetch — sin esto,
@@ -1191,6 +1195,69 @@ function CentralDeLanzamientosTab({
       ...prev,
       { producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0, unidadCarga: '' },
     ]);
+  }
+
+  // Escaneo con la cámara — busca el producto por su código de barras
+  // (cargado en Mercadería) y agrega/incrementa la línea sola, sin
+  // tener que buscarlo en el desplegable. Si ya está en la lista, solo
+  // suma +1 a la cantidad (útil para varias unidades del mismo
+  // producto en una venta con mucho movimiento).
+  async function manejarEscaneoLinea(codigo: string) {
+    setEscaneandoVenta(false);
+    setErrorEscaneo('');
+
+    if (!empresaId) return;
+
+    try {
+      const producto = await buscarProductoPorCodigoBarras(empresaId, codigo);
+
+      if (!producto) {
+        setErrorEscaneo(
+          idioma === 'PT'
+            ? 'Código não encontrado — cadastre o produto em Mercadoria primeiro.'
+            : 'Código no encontrado — dalo de alta en Mercadería primero.'
+        );
+        return;
+      }
+
+      const productoCompleto = productos.find((p) => p.id === producto.id);
+
+      if (categoria && (productoCompleto?.categoria ?? '').toUpperCase() !== categoria.toUpperCase()) {
+        setErrorEscaneo(
+          idioma === 'PT'
+            ? `"${producto.nombre}" é de outra categoria — não é da categoria escolhida agora.`
+            : `"${producto.nombre}" es de otra categoría — no corresponde a la categoría elegida ahora.`
+        );
+        return;
+      }
+
+      setLineas((prev) => {
+        const yaExiste = prev.some((l) => l.producto === producto.id);
+
+        if (yaExiste) {
+          return prev.map((l) => (l.producto === producto.id ? { ...l, cantidad: (l.cantidad || 0) + 1 } : l));
+        }
+
+        const nuevaLinea = {
+          producto: producto.id,
+          cantidad: 1,
+          monto: 0,
+          unidadCarga: productoCompleto?.unidad_medida ?? '',
+        };
+
+        // Si la primera línea todavía está vacía, la usa en vez de
+        // agregar una nueva — así escanear el primer producto no deja
+        // una fila en blanco arriba.
+        if (prev.length === 1 && !prev[0].producto) {
+          return [nuevaLinea];
+        }
+
+        return [...prev, nuevaLinea];
+      });
+    } catch (e) {
+      console.error('Error buscando el producto escaneado:', e);
+      setErrorEscaneo(idioma === 'PT' ? 'Erro ao buscar o produto.' : 'Error buscando el producto.');
+    }
   }
 
   function eliminarLinea(indice: number) {
@@ -2126,10 +2193,38 @@ function CentralDeLanzamientosTab({
             </div>
           ))}
 
-          <button type="button" onClick={agregarLinea} style={botonSecundario}>
-            {t('agregarLinea')}
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" onClick={agregarLinea} style={botonSecundario}>
+              {t('agregarLinea')}
+            </button>
+
+            {operacionesConProducto && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorEscaneo('');
+                  setEscaneandoVenta(true);
+                }}
+                style={botonSecundario}
+              >
+                📷 {idioma === 'PT' ? 'Escanear' : 'Escanear'}
+              </button>
+            )}
+          </div>
+
+          {errorEscaneo && (
+            <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 8 }}>{errorEscaneo}</div>
+          )}
         </div>
+      )}
+
+      {escaneandoVenta && (
+        <EscanerCodigoBarras
+          idioma={idioma ?? 'ES'}
+          colores={{ azul: COLORES.azul, verde: COLORES.verde }}
+          onDetectado={manejarEscaneoLinea}
+          onCerrar={() => setEscaneandoVenta(false)}
+        />
       )}
 
       <div style={totalStyle}>
