@@ -8,28 +8,28 @@
 // Se abre como overlay a pantalla completa (mejor uso del espacio en
 // celular, que es el dispositivo real donde se va a usar esto).
 //
-// Pide la cámara TRASERA explícitamente y en una resolución decente
-// (decodeFromVideoDevice con deviceId=undefined, la opción más
-// simple, deja que el navegador elija cámara y a veces trae la
-// frontal o una resolución muy baja — con eso el lector "ve" la
-// imagen pero nunca llega a distinguir las barras). Si aun así no
-// logra leerlo (código gastado, muy chico, poca luz), siempre queda
-// la opción de escribirlo a mano.
+// EL DECODIFICADOR NO ANALIZA EL FRAME COMPLETO DE LA CÁMARA: cada
+// pocos milisegundos se recorta SOLO la zona del recuadro verde y se
+// la agranda digitalmente antes de analizarla (ver bucleEscaneo). Con
+// un código grande esto no hace falta — pero con uno chico, dentro de
+// una foto de 1920x1080, el patrón real ocupa muy pocos píxeles y el
+// lector no llega a distinguir las barras finas por más nítida que
+// esté la imagen. Recortar + agrandar le da mucha más resolución
+// efectiva al patrón sin depender de que la cámara pueda enfocar de
+// cerca (varios celulares simplemente no tienen esa capacidad de
+// hardware, sin importar qué le pidamos por software).
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import type { IScannerControls } from '@zxing/browser';
-import { BarcodeFormat, DecodeHintType } from '@zxing/library';
+import { BarcodeFormat, DecodeHintType, NotFoundException } from '@zxing/library';
 
 // Sin hints, el lector usa su modo "rápido": suficiente para una foto
 // bien nítida de frente, pero en la cámara de un celular real (algo
 // de ángulo, brillo disparejo, la mano que tiembla un poco) casi
-// nunca llega a decodificar — la imagen se ve perfecta en pantalla
-// pero el algoritmo no reconoce el patrón. TRY_HARDER prueba varias
-// pasadas extra (rotaciones, binarizados distintos) para esos casos
-// reales — cuesta más CPU por frame, pero acá se escanea a demanda
-// (el usuario abre el escáner y lo cierra), no en un loop constante
-// de fondo, así que el costo no importa.
+// nunca llega a decodificar. TRY_HARDER prueba varias pasadas extra
+// (rotaciones, binarizados distintos) para esos casos reales — cuesta
+// más CPU por frame, pero acá se escanea a demanda (el usuario abre
+// el escáner y lo cierra), no en un loop constante de fondo.
 const HINTS = new Map<DecodeHintType, unknown>([
   [DecodeHintType.TRY_HARDER, true],
   [
@@ -46,6 +46,20 @@ const HINTS = new Map<DecodeHintType, unknown>([
   ],
 ]);
 
+// Proporción del recuadro verde respecto al video completo — la
+// misma que dibuja el div guía más abajo (inset: '35% 8%'). Vive acá
+// arriba porque el recorte del canvas tiene que coincidir exacto con
+// lo que el usuario ve marcado en pantalla.
+const RECUADRO = { top: 0.35, bottom: 0.35, left: 0.08, right: 0.08 };
+
+// Cuánto se agranda el recorte antes de analizarlo. Con un código
+// chico que en el recuadro ocupa, digamos, 300px reales, llevarlo a
+// ~1100px de ancho le da al decodificador casi 4x más resolución
+// efectiva sobre las barras.
+const ANCHO_RECORTE_ESCALADO = 1100;
+
+const INTERVALO_ESCANEO_MS = 220;
+
 export function EscanerCodigoBarras({
   idioma,
   colores,
@@ -60,10 +74,12 @@ export function EscanerCodigoBarras({
   const esPT = idioma === 'PT';
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Evita procesar el mismo código varias veces seguidas mientras
-  // sigue en cuadro (el escaneo continuo dispara un resultado por
-  // frame) — se resetea recién cuando se abre un escaneo nuevo.
+  // sigue en cuadro (se analiza un frame nuevo cada pocos ms) — se
+  // resetea recién cuando se abre un escaneo nuevo.
   const ultimoCodigoRef = useRef<string | null>(null);
 
   const [error, setError] = useState('');
@@ -78,17 +94,61 @@ export function EscanerCodigoBarras({
     let cancelado = false;
     const lector = new BrowserMultiFormatReader(HINTS);
 
+    function detenerStream() {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      if (intervaloRef.current) {
+        clearInterval(intervaloRef.current);
+        intervaloRef.current = null;
+      }
+    }
+
+    function bucleEscaneo() {
+      const video = videoRef.current;
+      if (!video || video.readyState < video.HAVE_CURRENT_DATA || !video.videoWidth) return;
+
+      const canvas = canvasRef.current ?? document.createElement('canvas');
+      canvasRef.current = canvas;
+
+      const sx = video.videoWidth * RECUADRO.left;
+      const sy = video.videoHeight * RECUADRO.top;
+      const sw = video.videoWidth * (1 - RECUADRO.left - RECUADRO.right);
+      const sh = video.videoHeight * (1 - RECUADRO.top - RECUADRO.bottom);
+
+      const escala = ANCHO_RECORTE_ESCALADO / sw;
+      canvas.width = ANCHO_RECORTE_ESCALADO;
+      canvas.height = Math.round(sh * escala);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+      try {
+        const resultado = lector.decodeFromCanvas(canvas);
+        const texto = resultado.getText();
+
+        if (texto !== ultimoCodigoRef.current) {
+          ultimoCodigoRef.current = texto;
+          onDetectado(texto);
+        }
+      } catch (e) {
+        // NotFoundException en cada frame sin código es lo esperado
+        // (la mayoría de los frames, mientras se acomoda el celular)
+        // — no es un error real, no hace falta hacer nada con él.
+        if (!(e instanceof NotFoundException)) {
+          console.warn('Error decodificando el frame:', e);
+        }
+      }
+    }
+
     async function iniciar() {
       // "focusMode: continuous" (dentro de "advanced", así que es un
       // pedido best-effort — si el navegador no lo soporta, lo ignora
-      // en vez de hacer fallar el getUserMedia) es la parte que más
-      // importa acá: sin esto, varias cámaras de celular arrancan con
-      // el foco fijo en distancia "normal" (pensado para video-
-      // llamada) y a la distancia corta que necesita un código de
-      // barras la imagen queda borrosa todo el tiempo, sin importar
-      // la resolución que se pida.
+      // en vez de hacer fallar el getUserMedia) — sin esto, varias
+      // cámaras de celular arrancan con el foco fijo en distancia
+      // "normal" (pensado para videollamada).
       const intentos: MediaStreamConstraints[] = [
-        // 1) Cámara trasera, buena resolución, foco continuo.
         {
           video: {
             facingMode: { exact: 'environment' },
@@ -97,11 +157,11 @@ export function EscanerCodigoBarras({
             advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
           },
         },
-        // 2) Si el dispositivo no tiene/permite "exact environment"
-        //    (pasa en algunas notebooks/tablets con una sola cámara),
-        //    se pide "ideal" en vez de forzarlo.
+        // Si el dispositivo no tiene/permite "exact environment"
+        // (pasa en algunas notebooks/tablets con una sola cámara), se
+        // pide "ideal" en vez de forzarlo.
         { video: { facingMode: 'environment', advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] } },
-        // 3) Último recurso: la cámara que el navegador elija.
+        // Último recurso: la cámara que el navegador elija.
         { video: true },
       ];
 
@@ -109,35 +169,33 @@ export function EscanerCodigoBarras({
         if (cancelado) return;
 
         try {
-          const controls = await lector.decodeFromConstraints(constraints, videoRef.current ?? undefined, (resultado) => {
-            if (cancelado || !resultado) return;
-
-            const texto = resultado.getText();
-            if (texto === ultimoCodigoRef.current) return;
-
-            ultimoCodigoRef.current = texto;
-            onDetectado(texto);
-          });
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
           if (cancelado) {
-            controls.stop();
+            stream.getTracks().forEach((track) => track.stop());
             return;
           }
 
-          controlsRef.current = controls;
+          streamRef.current = stream;
 
+          const video = videoRef.current;
+          if (video) {
+            video.srcObject = stream;
+            await video.play().catch(() => {});
+          }
+
+          intervaloRef.current = setInterval(bucleEscaneo, INTERVALO_ESCANEO_MS);
+
+          const track = stream.getVideoTracks()[0];
           try {
-            const capacidades = controls.streamVideoCapabilitiesGet?.((track) => [track]);
-            const focoSoportado = Array.isArray((capacidades as { focusMode?: string[] })?.focusMode)
-              ? (capacidades as { focusMode?: string[] }).focusMode
-              : null;
+            const capacidades = track?.getCapabilities?.() as { focusMode?: string[] } | undefined;
 
             setDiagnosticoFoco(
-              focoSoportado && focoSoportado.length > 0
-                ? (esPT ? `Foco controlável: ${focoSoportado.join(', ')}` : `Foco controlable: ${focoSoportado.join(', ')}`)
+              capacidades?.focusMode && capacidades.focusMode.length > 0
+                ? (esPT ? `Foco controlável: ${capacidades.focusMode.join(', ')}` : `Foco controlable: ${capacidades.focusMode.join(', ')}`)
                 : esPT
-                  ? 'Este celular não permite controlar o foco pelo navegador — o zoom/distância da câmera é o único jeito de ajudar.'
-                  : 'Este celular no permite controlar el foco desde el navegador — el zoom/distancia de la cámara es la única forma de ayudar.'
+                  ? 'Este celular não permite controlar o foco pelo navegador.'
+                  : 'Este celular no permite controlar el foco desde el navegador.'
             );
           } catch (e) {
             console.warn('No se pudo leer las capacidades de la cámara:', e);
@@ -162,7 +220,7 @@ export function EscanerCodigoBarras({
 
     return () => {
       cancelado = true;
-      controlsRef.current?.stop();
+      detenerStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -176,19 +234,17 @@ export function EscanerCodigoBarras({
   // En varios Android el enfoque continuo se "traba" mirando fijo un
   // punto — pedirle DE NUEVO el mismo valor ("continuous") no dispara
   // nada, porque para el driver de la cámara no cambió nada. Hay que
-  // pasar primero por OTRO valor ("manual", aunque este celular no lo
-  // vaya a usar de verdad) para que el cambio de estado sea real, y
-  // recién ahí volver a "continuous" — ese vaivén es lo que fuerza una
-  // búsqueda de foco nueva, similar a tocar la pantalla en una app de
-  // cámara nativa.
+  // pasar primero por OTRO valor ("manual") para que el cambio de
+  // estado sea real, y recién ahí volver a "continuous" — ese vaivén
+  // es lo que fuerza una búsqueda de foco nueva.
   async function reenfocar() {
-    const controls = controlsRef.current;
-    if (!controls?.streamVideoConstraintsApply) return;
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
 
     try {
-      await controls.streamVideoConstraintsApply({ advanced: [{ focusMode: 'manual' } as MediaTrackConstraintSet] });
+      await track.applyConstraints({ advanced: [{ focusMode: 'manual' } as MediaTrackConstraintSet] });
       await new Promise((resolve) => setTimeout(resolve, 120));
-      await controls.streamVideoConstraintsApply({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
     } catch (e) {
       console.warn('No se pudo reenfocar:', e);
     }
@@ -237,7 +293,7 @@ export function EscanerCodigoBarras({
               <div
                 style={{
                   position: 'absolute',
-                  inset: '35% 8%',
+                  inset: `${RECUADRO.top * 100}% ${RECUADRO.left * 100}%`,
                   border: `3px solid ${colores.verde}`,
                   borderRadius: 10,
                   pointerEvents: 'none',
@@ -266,8 +322,8 @@ export function EscanerCodigoBarras({
 
             <p style={{ color: '#cbd5e1', fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
               {esPT
-                ? 'Se a imagem ficar borrada: afaste um pouco (uns 15 cm), com boa luz, e mantenha firme uns segundos — muito perto, a câmera não consegue focar.'
-                : 'Si se ve borroso: alejalo un poco (unos 15 cm), con buena luz, y mantenelo firme unos segundos — muy cerca, la cámara no puede enfocar.'}
+                ? 'Centralize o código de barras dentro do quadro verde — a área do quadro é ampliada antes de analisar, então códigos pequenos também funcionam.'
+                : 'Centrá el código de barras dentro del recuadro verde — esa zona se agranda antes de analizarla, así que los códigos chicos también funcionan.'}
             </p>
 
             {diagnosticoFoco && (
