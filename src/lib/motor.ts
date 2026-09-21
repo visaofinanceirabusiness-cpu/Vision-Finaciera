@@ -154,6 +154,17 @@ export async function generarMatrizOperaciones(
     (categoriasOperacion ?? []).map((c) => [`${c.operacion}.${c.codigo}`, c.id])
   );
 
+  // Nombre EN VIVO de una categoría de operación (por su clave
+  // operacion.codigo) — NUNCA el texto de reglas_contables.
+  // categoria_nombre, que es una foto del nombre al momento de crear
+  // la regla y queda desactualizada si la categoría se renombra
+  // después (ver el caso "Plazo Fijo"/"Inversiones" que en Buenaventura
+  // pasaron a llamarse "Providencia Santander"/"Super Caxinha Nu" sin
+  // que reglas_contables se enterara).
+  const nombreCategoriaOperacionPorClave = new Map(
+    (categoriasOperacion ?? []).map((c) => [`${c.operacion}.${c.codigo}`, c.nombre])
+  );
+
   const cuentaOperacionPorClaveYRol = new Map(
     (categoriasOperacionCuentas ?? []).map((c) => [`${c.categoria_operacion_id}.${c.rol}`, nombreCuenta.get(c.cuenta_id)])
   );
@@ -237,6 +248,15 @@ export async function generarMatrizOperaciones(
       continue;
     }
 
+    // Nombre a mostrar de esta categoría: el EN VIVO desde
+    // categorias_operacion cuando existe (ej. tras un rename que
+    // reglas_contables.categoria_nombre nunca se enteró), si no el que
+    // ya traía la regla (roles de producto — STOCK_CATEGORIA/
+    // INGRESO_CATEGORIA — no tienen match acá porque su código es de
+    // categorias_productos, no de categorias_operacion).
+    const nombreCategoriaEnVivo =
+      nombreCategoriaOperacionPorClave.get(`${regla.operacion}.${regla.categoria_codigo}`) ?? regla.categoria_nombre;
+
     // ---------------------------------------------------
     // TRANSFERENCIA "MEDIO A MEDIO" — caso especial.
     //
@@ -319,10 +339,10 @@ export async function generarMatrizOperaciones(
 
         filas.push({
           empresa_id: empresaId,
-          clave: `TRANSFERENCIA.${medio.nombre}.${regla.categoria_nombre ?? ''}`,
+          clave: `TRANSFERENCIA.${medio.nombre}.${nombreCategoriaEnVivo ?? ''}`,
           operacion: 'TRANSFERENCIA',
           categoria: medio.nombre,
-          forma_pago: regla.categoria_nombre,
+          forma_pago: nombreCategoriaEnVivo,
           cuenta_debito: cuentaMedio,
           cuenta_credito: cuentaAhorro,
           stock: regla.stock,
@@ -350,9 +370,9 @@ export async function generarMatrizOperaciones(
 
       filas.push({
         empresa_id: empresaId,
-        clave: `${regla.operacion}.${regla.categoria_nombre ?? ''}.Ajustes`,
+        clave: `${regla.operacion}.${nombreCategoriaEnVivo ?? ''}.Ajustes`,
         operacion: regla.operacion,
-        categoria: regla.categoria_nombre,
+        categoria: nombreCategoriaEnVivo,
         forma_pago: 'Ajustes',
         cuenta_debito: cuentaDebito,
         cuenta_credito: cuentaCredito,
@@ -373,9 +393,9 @@ export async function generarMatrizOperaciones(
 
       filas.push({
         empresa_id: empresaId,
-        clave: `${regla.operacion}.${regla.categoria_nombre ?? ''}.${medio.nombre}`,
+        clave: `${regla.operacion}.${nombreCategoriaEnVivo ?? ''}.${medio.nombre}`,
         operacion: regla.operacion,
-        categoria: regla.categoria_nombre,
+        categoria: nombreCategoriaEnVivo,
         forma_pago: medio.nombre,
         cuenta_debito: cuentaDebito,
         cuenta_credito: cuentaCredito,
