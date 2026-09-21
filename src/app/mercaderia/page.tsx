@@ -22,6 +22,8 @@ import { fechaLocalHoy } from '@/lib/fecha';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
+import { EscanerCodigoBarras } from '@/components/panel/EscanerCodigoBarras';
+import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
 import { crearTraductor, estadoDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
@@ -58,6 +60,7 @@ type ProductoCrudo = {
   id: string;
   nombre: string;
   codigo: string | null;
+  codigo_barras: string | null;
   categoria: string | null;
   categoria_producto_id: string | null;
   proveedor_id: string | null;
@@ -93,6 +96,7 @@ type Formulario = {
   unidad_medida: string;
   proveedor_id: string;
   fecha_alta: string;
+  codigo_barras: string;
 };
 
 const FORMULARIO_VACIO: Formulario = {
@@ -102,6 +106,7 @@ const FORMULARIO_VACIO: Formulario = {
   unidad_medida: '',
   proveedor_id: '',
   fecha_alta: fechaLocalHoy(),
+  codigo_barras: '',
 };
 
 function opcionesTipo(t: (clave: any) => string) {
@@ -161,6 +166,8 @@ export default function MercaderiaPage() {
   const [formulario, setFormulario] = useState<Formulario>(FORMULARIO_VACIO);
   const [editandoProductoId, setEditandoProductoId] = useState<string | null>(null);
   const [eliminandoProductoId, setEliminandoProductoId] = useState<string | null>(null);
+  const [escaneandoAlta, setEscaneandoAlta] = useState(false);
+  const [avisoCodigoBarras, setAvisoCodigoBarras] = useState('');
 
   const [error, setError] = useState('');
 
@@ -210,7 +217,7 @@ export default function MercaderiaPage() {
       supabase
         .from('productos')
         .select(
-          'id, nombre, codigo, categoria, categoria_producto_id, proveedor_id, tipo_producto, unidad_medida, fecha_alta'
+          'id, nombre, codigo, codigo_barras, categoria, categoria_producto_id, proveedor_id, tipo_producto, unidad_medida, fecha_alta'
         )
         .eq('empresa_id', perfil.empresa_id),
 
@@ -519,10 +526,35 @@ export default function MercaderiaPage() {
       unidad_medida: producto.unidad_medida ?? '',
       proveedor_id: producto.proveedor_id ?? '',
       fecha_alta: producto.fecha_alta ?? fechaLocalHoy(),
+      codigo_barras: producto.codigo_barras ?? '',
     });
     setEditandoProductoId(producto.id);
     setError('');
     setMostrarFormulario(true);
+  }
+
+  async function manejarCodigoEscaneado(codigo: string) {
+    setEscaneandoAlta(false);
+    setAvisoCodigoBarras('');
+
+    if (!empresaId) return;
+
+    try {
+      const existente = await buscarProductoPorCodigoBarras(empresaId, codigo);
+
+      if (existente && existente.id !== editandoProductoId) {
+        setAvisoCodigoBarras(
+          idioma === 'PT'
+            ? `Este código já está usado no produto "${existente.nombre}".`
+            : `Ese código ya está usado en el producto "${existente.nombre}".`
+        );
+        return;
+      }
+
+      setFormulario((actual) => ({ ...actual, codigo_barras: codigo }));
+    } catch (e) {
+      console.error('Error verificando el código de barras:', e);
+    }
   }
 
   async function guardarProducto() {
@@ -562,6 +594,7 @@ export default function MercaderiaPage() {
             tipo_producto: formulario.tipo_producto,
             unidad_medida: formulario.unidad_medida || null,
             fecha_alta: formulario.fecha_alta || null,
+            codigo_barras: formulario.codigo_barras.trim() || null,
           })
           .eq('id', editandoProductoId);
 
@@ -581,6 +614,7 @@ export default function MercaderiaPage() {
           tipo_producto: formulario.tipo_producto,
           unidad_medida: formulario.unidad_medida || null,
           fecha_alta: formulario.fecha_alta || null,
+          codigo_barras: formulario.codigo_barras.trim() || null,
         });
 
         if (errorInsert) {
@@ -951,6 +985,47 @@ export default function MercaderiaPage() {
                   />
                 </div>
 
+                <div style={campo}>
+                  <label style={label}>{idioma === 'PT' ? 'Código de barras' : 'Código de barras'}</label>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={formulario.codigo_barras}
+                      onChange={(e) => {
+                        setAvisoCodigoBarras('');
+                        setFormulario((actual) => ({ ...actual, codigo_barras: e.target.value }));
+                      }}
+                      placeholder={idioma === 'PT' ? 'Opcional — ou escaneie' : 'Opcional — o escaneá'}
+                      style={{ ...inputFormulario, flex: 1 }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAvisoCodigoBarras('');
+                        setEscaneandoAlta(true);
+                      }}
+                      style={{
+                        border: `1px solid ${COLORES.azul}`,
+                        background: 'transparent',
+                        color: COLORES.azul,
+                        borderRadius: 10,
+                        padding: '0 14px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      📷 {idioma === 'PT' ? 'Escanear' : 'Escanear'}
+                    </button>
+                  </div>
+
+                  {avisoCodigoBarras && (
+                    <div style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 4 }}>{avisoCodigoBarras}</div>
+                  )}
+                </div>
+
                 <div
                   style={{
                     display: 'flex',
@@ -1231,6 +1306,15 @@ export default function MercaderiaPage() {
           )}
         </main>
       </div>
+
+      {escaneandoAlta && (
+        <EscanerCodigoBarras
+          idioma={idioma ?? 'ES'}
+          colores={{ azul: COLORES.azul, verde: COLORES.verde }}
+          onDetectado={manejarCodigoEscaneado}
+          onCerrar={() => setEscaneandoAlta(false)}
+        />
+      )}
     </div>
   );
 }
