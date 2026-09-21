@@ -36,6 +36,10 @@ export default function PanelMaestroPage() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [nivelesPorEmpresa, setNivelesPorEmpresa] = useState<Record<string, ProgresoGamificacion>>({});
   const [ultimoAccesoPorEmpresa, setUltimoAccesoPorEmpresa] = useState<Record<string, string | null>>({});
+  const [actividadPorEmpresa, setActividadPorEmpresa] = useState<
+    Record<string, { ultimaOperacion: string | null; totalOperaciones: number }>
+  >({});
+  const [cargandoActividad, setCargandoActividad] = useState(true);
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudAlta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -126,7 +130,7 @@ export default function PanelMaestroPage() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
       .select(
-        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, validacion_automatica, perfiles_empresa(nombre)'
+        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, telefono, idioma, validacion_automatica, perfiles_empresa(nombre)'
       )
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
@@ -171,6 +175,33 @@ export default function PanelMaestroPage() {
         )
       );
     }
+
+    // Actividad real (cargó operaciones, no solo abrió sesión) — es lo
+    // que distingue a un cliente que probó el sistema en serio de uno
+    // que se registró y nunca llegó a usarlo, cosa que "último acceso"
+    // (solo login) no puede distinguir por sí solo.
+    const { data: operacionesData, error: errorOperaciones } = await supabase
+      .from('registro_operaciones')
+      .select('empresa_id, fecha');
+
+    if (errorOperaciones) {
+      console.warn('No se pudo cargar la actividad de las empresas:', errorOperaciones);
+    } else {
+      const actividad = new Map<string, { ultimaOperacion: string | null; totalOperaciones: number }>();
+
+      for (const fila of operacionesData ?? []) {
+        const actual = actividad.get(fila.empresa_id) ?? { ultimaOperacion: null, totalOperaciones: 0 };
+        actual.totalOperaciones += 1;
+        if (!actual.ultimaOperacion || fila.fecha > actual.ultimaOperacion) {
+          actual.ultimaOperacion = fila.fecha;
+        }
+        actividad.set(fila.empresa_id, actual);
+      }
+
+      setActividadPorEmpresa(Object.fromEntries(actividad));
+    }
+
+    setCargandoActividad(false);
   }
 
   async function cargarSolicitudes() {
@@ -841,6 +872,66 @@ export default function PanelMaestroPage() {
                             ? 'Último acceso: cargando...'
                             : formatearUltimoAcceso(ultimoAccesoPorEmpresa[empresa.id])}
                         </div>
+
+                        {!cargandoActividad && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                            {(() => {
+                              const esPT = empresa.idioma === 'PT';
+                              const semaforo = calcularSemaforo(empresa.creado_en, actividadPorEmpresa[empresa.id]);
+                              const cfg = CONFIG_SEMAFORO[semaforo.nivel];
+
+                              return (
+                                <>
+                                  <span
+                                    title={
+                                      semaforo.nuncaOpero
+                                        ? (esPT ? 'Nunca lançou nenhuma operação' : 'Nunca cargó ninguna operación')
+                                        : `${semaforo.diasSinActividad} ${esPT ? 'dias sem operar' : 'días sin operar'}`
+                                    }
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      fontSize: 10.5,
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: 999,
+                                      background: cfg.fondo,
+                                      color: cfg.color,
+                                    }}
+                                  >
+                                    {cfg.emoji} {esPT ? cfg.etiquetaPt : cfg.etiquetaEs}
+                                  </span>
+
+                                  {empresa.telefono && (
+                                    <a
+                                      href={`https://wa.me/${telefonoWhatsApp(empresa.telefono)}?text=${encodeURIComponent(
+                                        mensajeWhatsAppPorSemaforo(empresa.nombre, esPT, semaforo)
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener"
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        fontSize: 10.5,
+                                        fontWeight: 700,
+                                        padding: '2px 8px',
+                                        borderRadius: 999,
+                                        background: '#dcfce7',
+                                        color: '#15803d',
+                                        textDecoration: 'none',
+                                      }}
+                                    >
+                                      💬 WhatsApp
+                                    </a>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -987,6 +1078,66 @@ function diasEnSistema(fechaAlta: string): number {
   const alta = new Date(fechaAlta).getTime();
   const hoy = new Date().getTime();
   return Math.max(0, Math.floor((hoy - alta) / msPorDia));
+}
+
+// SEMÁFORO DE ACTIVIDAD
+// =====================================================
+// Un solo cálculo de "días sin actividad" cubre los dos casos que
+// antes se confundían con solo mirar el último acceso:
+//   - nunca cargó ninguna operación (se cuenta desde el alta)
+//   - cargó y dejó de volver (se cuenta desde su última operación)
+// Los umbrales (5 / 15 días) son un punto de partida razonable para
+// un sistema de uso diario/semanal — se pueden ajustar con el tiempo.
+type NivelSemaforo = 'ACTIVO' | 'RIESGO' | 'INACTIVO';
+
+const CONFIG_SEMAFORO: Record<NivelSemaforo, { emoji: string; color: string; fondo: string; etiquetaEs: string; etiquetaPt: string }> = {
+  ACTIVO: { emoji: '🟢', color: '#15803d', fondo: '#dcfce7', etiquetaEs: 'Activo', etiquetaPt: 'Ativo' },
+  RIESGO: { emoji: '🟡', color: '#92400e', fondo: '#fef3c7', etiquetaEs: 'En riesgo', etiquetaPt: 'Em risco' },
+  INACTIVO: { emoji: '🔴', color: '#b91c1c', fondo: '#fee2e2', etiquetaEs: 'Inactivo', etiquetaPt: 'Inativo' },
+};
+
+function calcularSemaforo(
+  fechaAlta: string,
+  actividad: { ultimaOperacion: string | null; totalOperaciones: number } | undefined
+): { nivel: NivelSemaforo; diasSinActividad: number; nuncaOpero: boolean } {
+  const nuncaOpero = !actividad || actividad.totalOperaciones === 0;
+  const fechaReferencia = actividad?.ultimaOperacion ?? fechaAlta;
+  const diasSinActividad = diasEnSistema(fechaReferencia);
+
+  const nivel: NivelSemaforo = diasSinActividad <= 5 ? 'ACTIVO' : diasSinActividad <= 15 ? 'RIESGO' : 'INACTIVO';
+
+  return { nivel, diasSinActividad, nuncaOpero };
+}
+
+// Deja solo dígitos y agrega el "55" de Brasil si el número no trae
+// código de país — mismo criterio simple que ya usan los links de
+// WhatsApp de la landing (wa.me necesita el número completo sin "+"
+// ni espacios).
+function telefonoWhatsApp(telefono: string): string {
+  const soloDigitos = telefono.replace(/\D/g, '');
+  return soloDigitos.length <= 11 ? `55${soloDigitos}` : soloDigitos;
+}
+
+function mensajeWhatsAppPorSemaforo(
+  nombreCliente: string,
+  esPT: boolean,
+  semaforo: { nivel: NivelSemaforo; nuncaOpero: boolean }
+): string {
+  if (semaforo.nivel === 'ACTIVO') {
+    return esPT
+      ? `Oi ${nombreCliente}! Passando para saber como está sendo usar a Visão Financeira — alguma dúvida ou sugestão?`
+      : `Hola ${nombreCliente}! Te escribo para saber cómo te está yendo con Visão Financeira — ¿alguna duda o sugerencia?`;
+  }
+
+  if (semaforo.nuncaOpero) {
+    return esPT
+      ? `Oi ${nombreCliente}! Vi que você se cadastrou na Visão Financeira mas ainda não chegou a usar — travou em algo? Te ajudo agora mesmo por aqui, leva 2 minutos.`
+      : `Hola ${nombreCliente}! Vi que te registraste en Visão Financeira pero todavía no llegaste a usarla — ¿te trabó algo? Te ayudo ahora mismo por acá, 2 minutos.`;
+  }
+
+  return esPT
+    ? `Oi ${nombreCliente}! Vi que você usou a Visão Financeira e depois parou de entrar — como foi? Me ajuda muito saber se teve algo que não funcionou bem.`
+    : `Hola ${nombreCliente}! Vi que usaste Visão Financeira y después dejaste de entrar — ¿cómo te fue? Me ayuda mucho saber si hubo algo que no funcionó bien.`;
 }
 
 function BloqueSuscripcionEmpresa({
