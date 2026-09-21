@@ -49,14 +49,28 @@ export function EscanerCodigoBarras({
     const lector = new BrowserMultiFormatReader();
 
     async function iniciar() {
+      // "focusMode: continuous" (dentro de "advanced", así que es un
+      // pedido best-effort — si el navegador no lo soporta, lo ignora
+      // en vez de hacer fallar el getUserMedia) es la parte que más
+      // importa acá: sin esto, varias cámaras de celular arrancan con
+      // el foco fijo en distancia "normal" (pensado para video-
+      // llamada) y a la distancia corta que necesita un código de
+      // barras la imagen queda borrosa todo el tiempo, sin importar
+      // la resolución que se pida.
       const intentos: MediaStreamConstraints[] = [
-        // 1) Cámara trasera, buena resolución — lo ideal para leer un
-        //    código de barras chico de cerca.
-        { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        // 1) Cámara trasera, buena resolución, foco continuo.
+        {
+          video: {
+            facingMode: { exact: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+          },
+        },
         // 2) Si el dispositivo no tiene/permite "exact environment"
         //    (pasa en algunas notebooks/tablets con una sola cámara),
         //    se pide "ideal" en vez de forzarlo.
-        { video: { facingMode: 'environment' } },
+        { video: { facingMode: 'environment', advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] } },
         // 3) Último recurso: la cámara que el navegador elija.
         { video: true },
       ];
@@ -161,8 +175,8 @@ export function EscanerCodigoBarras({
 
             <p style={{ color: '#cbd5e1', fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
               {esPT
-                ? 'Se não ler: aproxime bem, com boa luz, e mantenha firme uns segundos.'
-                : 'Si no lo lee: acercalo bien, con buena luz, y mantenelo firme unos segundos.'}
+                ? 'Se a imagem ficar borrada: afaste um pouco (uns 15 cm), com boa luz, e mantenha firme uns segundos — muito perto, a câmera não consegue focar.'
+                : 'Si se ve borroso: alejalo un poco (unos 15 cm), con buena luz, y mantenelo firme unos segundos — muy cerca, la cámara no puede enfocar.'}
             </p>
           </>
         )}
