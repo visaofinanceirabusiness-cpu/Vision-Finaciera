@@ -263,7 +263,7 @@ export function EscanerCodigoBarras({
         padding: 16,
       }}
     >
-      <div style={{ width: '100%', maxWidth: 480 }}>
+      <div style={{ width: '100%', maxWidth: 480, maxHeight: '100%', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <strong style={{ color: '#fff', fontSize: 15 }}>
             📷 {esPT ? 'Aponte para o código de barras' : 'Apuntá al código de barras'}
@@ -297,11 +297,14 @@ export function EscanerCodigoBarras({
               />
             </div>
 
-            <div style={{ marginTop: 10 }}>
-              <div style={{ color: '#cbd5e1', fontSize: 10.5, textAlign: 'center', marginBottom: 4 }}>
-                {esPT ? 'O que o leitor está analisando (ampliado):' : 'Lo que el lector está analizando (agrandado):'}
-              </div>
-              <canvas ref={canvasRef} style={{ width: '100%', display: 'block', borderRadius: 10, background: '#000' }} />
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: '#94a3b8', fontSize: 10, whiteSpace: 'nowrap' }}>
+                {esPT ? 'Analisando:' : 'Analizando:'}
+              </span>
+              <canvas
+                ref={canvasRef}
+                style={{ height: 60, width: 'auto', maxWidth: '70%', display: 'block', borderRadius: 6, background: '#000' }}
+              />
             </div>
 
             {focoManualRango && focoManualValor !== null && (
