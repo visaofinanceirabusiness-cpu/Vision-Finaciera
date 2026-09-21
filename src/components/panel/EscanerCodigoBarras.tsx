@@ -69,6 +69,10 @@ export function EscanerCodigoBarras({
   const [error, setError] = useState('');
   const [codigoManual, setCodigoManual] = useState('');
   const [mostrarManual, setMostrarManual] = useState(false);
+  // Diagnóstico: si este celular ni siquiera ofrece control de foco
+  // por software, ningún botón de "reenfocar" va a poder hacer nada
+  // — mejor saberlo con certeza que seguir probando a ciegas.
+  const [diagnosticoFoco, setDiagnosticoFoco] = useState('');
 
   useEffect(() => {
     let cancelado = false;
@@ -121,6 +125,24 @@ export function EscanerCodigoBarras({
           }
 
           controlsRef.current = controls;
+
+          try {
+            const capacidades = controls.streamVideoCapabilitiesGet?.((track) => [track]);
+            const focoSoportado = Array.isArray((capacidades as { focusMode?: string[] })?.focusMode)
+              ? (capacidades as { focusMode?: string[] }).focusMode
+              : null;
+
+            setDiagnosticoFoco(
+              focoSoportado && focoSoportado.length > 0
+                ? (esPT ? `Foco controlável: ${focoSoportado.join(', ')}` : `Foco controlable: ${focoSoportado.join(', ')}`)
+                : esPT
+                  ? 'Este celular não permite controlar o foco pelo navegador — o zoom/distância da câmera é o único jeito de ajudar.'
+                  : 'Este celular no permite controlar el foco desde el navegador — el zoom/distancia de la cámara es la única forma de ayudar.'
+            );
+          } catch (e) {
+            console.warn('No se pudo leer las capacidades de la cámara:', e);
+          }
+
           return;
         } catch (e) {
           console.warn('No se pudo abrir la cámara con estas condiciones, probando la siguiente opción:', e);
@@ -152,14 +174,24 @@ export function EscanerCodigoBarras({
   }
 
   // En varios Android el enfoque continuo se "traba" mirando fijo un
-  // punto y no vuelve a buscar foco solo — volver a aplicar el mismo
-  // constraint le pide a la cámara que arranque una nueva búsqueda de
-  // foco, como el toque en la pantalla de cualquier app de cámara.
-  // streamVideoConstraintsApply es experimental (puede no existir en
-  // todos los navegadores), por eso el chequeo con "?." antes de
-  // usarlo — si no está disponible, simplemente no hace nada.
-  function reenfocar() {
-    controlsRef.current?.streamVideoConstraintsApply?.({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+  // punto — pedirle DE NUEVO el mismo valor ("continuous") no dispara
+  // nada, porque para el driver de la cámara no cambió nada. Hay que
+  // pasar primero por OTRO valor ("manual", aunque este celular no lo
+  // vaya a usar de verdad) para que el cambio de estado sea real, y
+  // recién ahí volver a "continuous" — ese vaivén es lo que fuerza una
+  // búsqueda de foco nueva, similar a tocar la pantalla en una app de
+  // cámara nativa.
+  async function reenfocar() {
+    const controls = controlsRef.current;
+    if (!controls?.streamVideoConstraintsApply) return;
+
+    try {
+      await controls.streamVideoConstraintsApply({ advanced: [{ focusMode: 'manual' } as MediaTrackConstraintSet] });
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      await controls.streamVideoConstraintsApply({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+    } catch (e) {
+      console.warn('No se pudo reenfocar:', e);
+    }
   }
 
   return (
@@ -237,6 +269,10 @@ export function EscanerCodigoBarras({
                 ? 'Se a imagem ficar borrada: afaste um pouco (uns 15 cm), com boa luz, e mantenha firme uns segundos — muito perto, a câmera não consegue focar.'
                 : 'Si se ve borroso: alejalo un poco (unos 15 cm), con buena luz, y mantenelo firme unos segundos — muy cerca, la cámara no puede enfocar.'}
             </p>
+
+            {diagnosticoFoco && (
+              <p style={{ color: '#94a3b8', fontSize: 10.5, textAlign: 'center', margin: '6px 0 0' }}>{diagnosticoFoco}</p>
+            )}
           </>
         )}
 
