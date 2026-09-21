@@ -14,6 +14,8 @@ export type Empresa = {
   moneda: string | null;
   fecha_vencimiento_suscripcion: string;
   creado_en: string;
+  telefono: string | null;
+  idioma: string | null;
   perfiles_empresa: { nombre: string } | null;
   // Modo automático: si es true, las operaciones de esta empresa
   // entran directo como VALIDADO (no pasan por la cola de "Pendientes
