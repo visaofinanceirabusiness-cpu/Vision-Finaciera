@@ -96,10 +96,8 @@ export function EscanerCodigoBarras({
 
     function bucleEscaneo() {
       const video = videoRef.current;
-      if (!video || video.readyState < video.HAVE_CURRENT_DATA || !video.videoWidth) return;
-
-      const canvas = canvasRef.current ?? document.createElement('canvas');
-      canvasRef.current = canvas;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < video.HAVE_CURRENT_DATA || !video.videoWidth) return;
 
       const sx = video.videoWidth * RECUADRO.left;
       const sy = video.videoHeight * RECUADRO.top;
@@ -297,6 +295,13 @@ export function EscanerCodigoBarras({
                   pointerEvents: 'none',
                 }}
               />
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <div style={{ color: '#cbd5e1', fontSize: 10.5, textAlign: 'center', marginBottom: 4 }}>
+                {esPT ? 'O que o leitor está analisando (ampliado):' : 'Lo que el lector está analizando (agrandado):'}
+              </div>
+              <canvas ref={canvasRef} style={{ width: '100%', display: 'block', borderRadius: 10, background: '#000' }} />
             </div>
 
             {focoManualRango && focoManualValor !== null && (
