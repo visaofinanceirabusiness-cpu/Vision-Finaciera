@@ -16,6 +16,7 @@ export type Empresa = {
   creado_en: string;
   telefono: string | null;
   idioma: string | null;
+  descripcion_perfil: string | null;
   perfiles_empresa: { nombre: string } | null;
   // Modo automático: si es true, las operaciones de esta empresa
   // entran directo como VALIDADO (no pasan por la cola de "Pendientes
