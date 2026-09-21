@@ -10,6 +10,7 @@ import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { avatarPorDefecto } from '@/lib/avatares';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
+import { FichaCliente } from '@/components/panel/FichaCliente';
 import { resumirSuscripcion, marcarPagoRecibido, restarDiasDeTest } from '@/lib/suscripcion';
 import { BadgeEstadoSuscripcion } from '@/components/EstadoSuscripcion';
 import type { Empresa, Pendiente, PendienteMovimiento, SolicitudAlta } from '@/lib/panelMaestroTipos';
@@ -40,6 +41,7 @@ export default function PanelMaestroPage() {
     Record<string, { ultimaOperacion: string | null; totalOperaciones: number }>
   >({});
   const [cargandoActividad, setCargandoActividad] = useState(true);
+  const [fichaAbiertaId, setFichaAbiertaId] = useState<string | null>(null);
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudAlta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -130,7 +132,7 @@ export default function PanelMaestroPage() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
       .select(
-        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, telefono, idioma, validacion_automatica, perfiles_empresa(nombre)'
+        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, telefono, idioma, descripcion_perfil, validacion_automatica, perfiles_empresa(nombre)'
       )
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
@@ -943,6 +945,37 @@ export default function PanelMaestroPage() {
                         onActualizado={cargarEmpresas}
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFichaAbiertaId((actual) => (actual === empresa.id ? null : empresa.id));
+                      }}
+                      style={{
+                        border: `1px solid ${COLORES_BASE.azul}`,
+                        background: fichaAbiertaId === empresa.id ? COLORES_BASE.azul : 'transparent',
+                        color: fichaAbiertaId === empresa.id ? '#fff' : COLORES_BASE.azul,
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      {fichaAbiertaId === empresa.id ? (empresa.idioma === 'PT' ? '▲ Fechar ficha' : '▲ Cerrar ficha') : '📋 Ficha del cliente'}
+                    </button>
+
+                    {fichaAbiertaId === empresa.id && (
+                      <FichaCliente
+                        empresaId={empresa.id}
+                        simbolo={simboloMoneda(empresa.moneda)}
+                        idioma={empresa.idioma ?? 'ES'}
+                        colores={COLORES_BASE}
+                        descripcionInicial={empresa.descripcion_perfil}
+                      />
+                    )}
 
                     {nivelesPorEmpresa[empresa.id] && (
                       <div
