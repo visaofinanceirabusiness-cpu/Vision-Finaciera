@@ -8,28 +8,27 @@
 // Se abre como overlay a pantalla completa (mejor uso del espacio en
 // celular, que es el dispositivo real donde se va a usar esto).
 //
+// FOCO: muchos celulares NO soportan foco "continuous" (autofoco) por
+// software — solo foco "manual" a una distancia fija que el navegador
+// SÍ puede controlar (capabilities.focusDistance). Por eso, apenas se
+// abre la cámara, se chequean sus capacidades reales: si soporta
+// continuous se pide eso; si solo soporta manual con una distancia
+// controlable, se muestra un deslizador para que el usuario ajuste la
+// distancia de foco a mano — no hay forma de adivinar automáticamente
+// a qué distancia va a estar el producto.
+//
 // EL DECODIFICADOR NO ANALIZA EL FRAME COMPLETO DE LA CÁMARA: cada
 // pocos milisegundos se recorta SOLO la zona del recuadro verde y se
-// la agranda digitalmente antes de analizarla (ver bucleEscaneo). Con
-// un código grande esto no hace falta — pero con uno chico, dentro de
-// una foto de 1920x1080, el patrón real ocupa muy pocos píxeles y el
-// lector no llega a distinguir las barras finas por más nítida que
-// esté la imagen. Recortar + agrandar le da mucha más resolución
-// efectiva al patrón sin depender de que la cámara pueda enfocar de
-// cerca (varios celulares simplemente no tienen esa capacidad de
-// hardware, sin importar qué le pidamos por software).
+// la agranda digitalmente antes de analizarla (ver bucleEscaneo) — le
+// da más resolución efectiva a un código chico, aunque esto solo
+// ayuda si la imagen de esa zona ya está nítida (agrandar una zona
+// borrosa sigue dando una imagen borrosa, por eso el foco de arriba
+// es lo que más importa).
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType, NotFoundException } from '@zxing/library';
 
-// Sin hints, el lector usa su modo "rápido": suficiente para una foto
-// bien nítida de frente, pero en la cámara de un celular real (algo
-// de ángulo, brillo disparejo, la mano que tiembla un poco) casi
-// nunca llega a decodificar. TRY_HARDER prueba varias pasadas extra
-// (rotaciones, binarizados distintos) para esos casos reales — cuesta
-// más CPU por frame, pero acá se escanea a demanda (el usuario abre
-// el escáner y lo cierra), no en un loop constante de fondo.
 const HINTS = new Map<DecodeHintType, unknown>([
   [DecodeHintType.TRY_HARDER, true],
   [
@@ -47,18 +46,14 @@ const HINTS = new Map<DecodeHintType, unknown>([
 ]);
 
 // Proporción del recuadro verde respecto al video completo — la
-// misma que dibuja el div guía más abajo (inset: '35% 8%'). Vive acá
-// arriba porque el recorte del canvas tiene que coincidir exacto con
-// lo que el usuario ve marcado en pantalla.
+// misma que dibuja el div guía más abajo. Vive acá arriba porque el
+// recorte del canvas tiene que coincidir exacto con lo que el usuario
+// ve marcado en pantalla.
 const RECUADRO = { top: 0.35, bottom: 0.35, left: 0.08, right: 0.08 };
-
-// Cuánto se agranda el recorte antes de analizarlo. Con un código
-// chico que en el recuadro ocupa, digamos, 300px reales, llevarlo a
-// ~1100px de ancho le da al decodificador casi 4x más resolución
-// efectiva sobre las barras.
 const ANCHO_RECORTE_ESCALADO = 1100;
-
 const INTERVALO_ESCANEO_MS = 220;
+
+type CapacidadesFoco = { focusMode?: string[]; focusDistance?: { min: number; max: number; step: number } };
 
 export function EscanerCodigoBarras({
   idioma,
@@ -77,18 +72,14 @@ export function EscanerCodigoBarras({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Evita procesar el mismo código varias veces seguidas mientras
-  // sigue en cuadro (se analiza un frame nuevo cada pocos ms) — se
-  // resetea recién cuando se abre un escaneo nuevo.
   const ultimoCodigoRef = useRef<string | null>(null);
 
   const [error, setError] = useState('');
   const [codigoManual, setCodigoManual] = useState('');
   const [mostrarManual, setMostrarManual] = useState(false);
-  // Diagnóstico: si este celular ni siquiera ofrece control de foco
-  // por software, ningún botón de "reenfocar" va a poder hacer nada
-  // — mejor saberlo con certeza que seguir probando a ciegas.
   const [diagnosticoFoco, setDiagnosticoFoco] = useState('');
+  const [focoManualRango, setFocoManualRango] = useState<{ min: number; max: number; step: number } | null>(null);
+  const [focoManualValor, setFocoManualValor] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -133,34 +124,67 @@ export function EscanerCodigoBarras({
           onDetectado(texto);
         }
       } catch (e) {
-        // NotFoundException en cada frame sin código es lo esperado
-        // (la mayoría de los frames, mientras se acomoda el celular)
-        // — no es un error real, no hace falta hacer nada con él.
         if (!(e instanceof NotFoundException)) {
           console.warn('Error decodificando el frame:', e);
         }
       }
     }
 
+    // Ajusta el foco según lo que esta cámara realmente soporte —
+    // nunca se asume de antemano, se lee de sus capacidades reales.
+    async function ajustarFoco(track: MediaStreamTrack) {
+      let capacidades: CapacidadesFoco = {};
+      try {
+        capacidades = (track.getCapabilities?.() ?? {}) as CapacidadesFoco;
+      } catch (e) {
+        console.warn('No se pudo leer las capacidades de la cámara:', e);
+        return;
+      }
+
+      if (capacidades.focusMode?.includes('manual') && capacidades.focusDistance) {
+        // Solo foco manual: el navegador SÍ puede fijar una distancia
+        // exacta, pero no sabe a qué distancia va a estar el producto
+        // — arranca en el extremo más cercano (lo más útil para un
+        // código de barras) y queda un deslizador para que el usuario
+        // lo ajuste a mano si no calza justo.
+        const { min, max, step } = capacidades.focusDistance;
+        const pasoSeguro = step > 0 ? step : (max - min) / 100 || 0.1;
+
+        setFocoManualRango({ min, max, step: pasoSeguro });
+        setFocoManualValor(min);
+        setDiagnosticoFoco(
+          esPT
+            ? 'Este celular só tem foco manual — ajuste com a barra abaixo até a imagem ficar nítida.'
+            : 'Este celular solo tiene foco manual — ajustalo con la barra de abajo hasta que se vea nítido.'
+        );
+
+        try {
+          await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: min } as MediaTrackConstraintSet] });
+        } catch (e) {
+          console.warn('No se pudo fijar el foco manual inicial:', e);
+        }
+      } else if (capacidades.focusMode?.includes('continuous')) {
+        setDiagnosticoFoco('');
+        try {
+          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+        } catch (e) {
+          console.warn('No se pudo activar el foco continuo:', e);
+        }
+      } else {
+        setDiagnosticoFoco(
+          esPT
+            ? 'Este celular não permite controlar o foco pelo navegador.'
+            : 'Este celular no permite controlar el foco desde el navegador.'
+        );
+      }
+    }
+
     async function iniciar() {
-      // "focusMode: continuous" (dentro de "advanced", así que es un
-      // pedido best-effort — si el navegador no lo soporta, lo ignora
-      // en vez de hacer fallar el getUserMedia) — sin esto, varias
-      // cámaras de celular arrancan con el foco fijo en distancia
-      // "normal" (pensado para videollamada).
       const intentos: MediaStreamConstraints[] = [
-        {
-          video: {
-            facingMode: { exact: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
-          },
-        },
+        { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
         // Si el dispositivo no tiene/permite "exact environment"
-        // (pasa en algunas notebooks/tablets con una sola cámara), se
-        // pide "ideal" en vez de forzarlo.
-        { video: { facingMode: 'environment', advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] } },
+        // (pasa en algunas notebooks/tablets con una sola cámara).
+        { video: { facingMode: 'environment' } },
         // Último recurso: la cámara que el navegador elija.
         { video: true },
       ];
@@ -187,19 +211,7 @@ export function EscanerCodigoBarras({
           intervaloRef.current = setInterval(bucleEscaneo, INTERVALO_ESCANEO_MS);
 
           const track = stream.getVideoTracks()[0];
-          try {
-            const capacidades = track?.getCapabilities?.() as { focusMode?: string[] } | undefined;
-
-            setDiagnosticoFoco(
-              capacidades?.focusMode && capacidades.focusMode.length > 0
-                ? (esPT ? `Foco controlável: ${capacidades.focusMode.join(', ')}` : `Foco controlable: ${capacidades.focusMode.join(', ')}`)
-                : esPT
-                  ? 'Este celular não permite controlar o foco pelo navegador.'
-                  : 'Este celular no permite controlar el foco desde el navegador.'
-            );
-          } catch (e) {
-            console.warn('No se pudo leer las capacidades de la cámara:', e);
-          }
+          if (track) await ajustarFoco(track);
 
           return;
         } catch (e) {
@@ -231,23 +243,12 @@ export function EscanerCodigoBarras({
     onDetectado(codigo);
   }
 
-  // En varios Android el enfoque continuo se "traba" mirando fijo un
-  // punto — pedirle DE NUEVO el mismo valor ("continuous") no dispara
-  // nada, porque para el driver de la cámara no cambió nada. Hay que
-  // pasar primero por OTRO valor ("manual") para que el cambio de
-  // estado sea real, y recién ahí volver a "continuous" — ese vaivén
-  // es lo que fuerza una búsqueda de foco nueva.
-  async function reenfocar() {
+  function moverFocoManual(valor: number) {
+    setFocoManualValor(valor);
     const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-
-    try {
-      await track.applyConstraints({ advanced: [{ focusMode: 'manual' } as MediaTrackConstraintSet] });
-      await new Promise((resolve) => setTimeout(resolve, 120));
-      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
-    } catch (e) {
-      console.warn('No se pudo reenfocar:', e);
-    }
+    track?.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: valor } as MediaTrackConstraintSet] }).catch((e) => {
+      console.warn('No se pudo mover el foco manual:', e);
+    });
   }
 
   return (
@@ -283,10 +284,7 @@ export function EscanerCodigoBarras({
           <div style={{ color: '#fecaca', fontSize: 13, textAlign: 'center', padding: '30px 10px' }}>{error}</div>
         ) : (
           <>
-            <div
-              onClick={reenfocar}
-              style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000', cursor: 'pointer' }}
-            >
+            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000' }}>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video ref={videoRef} style={{ width: '100%', display: 'block' }} muted playsInline />
 
@@ -301,24 +299,28 @@ export function EscanerCodigoBarras({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={reenfocar}
-              style={{
-                marginTop: 10,
-                width: '100%',
-                border: `1px solid ${colores.verde}`,
-                background: 'transparent',
-                color: colores.verde,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 12.5,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              🔄 {esPT ? 'Não está focando? Toque para reenfocar' : '¿No enfoca? Tocá para reenfocar'}
-            </button>
+            {focoManualRango && focoManualValor !== null && (
+              <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 14px' }}>
+                <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
+                  🔍 {esPT ? 'Ajuste o foco manualmente' : 'Ajustá el foco a mano'}
+                </div>
+
+                <input
+                  type="range"
+                  min={focoManualRango.min}
+                  max={focoManualRango.max}
+                  step={focoManualRango.step}
+                  value={focoManualValor}
+                  onChange={(e) => moverFocoManual(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#cbd5e1', fontSize: 11 }}>
+                  <span>🔎 {esPT ? 'Perto' : 'Cerca'}</span>
+                  <span>{esPT ? 'Longe' : 'Lejos'} 🏔️</span>
+                </div>
+              </div>
+            )}
 
             <p style={{ color: '#cbd5e1', fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
               {esPT
