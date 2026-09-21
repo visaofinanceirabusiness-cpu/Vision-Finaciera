@@ -7,6 +7,14 @@
 //
 // Se abre como overlay a pantalla completa (mejor uso del espacio en
 // celular, que es el dispositivo real donde se va a usar esto).
+//
+// Pide la cámara TRASERA explícitamente y en una resolución decente
+// (decodeFromVideoDevice con deviceId=undefined, la opción más
+// simple, deja que el navegador elija cámara y a veces trae la
+// frontal o una resolución muy baja — con eso el lector "ve" la
+// imagen pero nunca llega a distinguir las barras). Si aun así no
+// logra leerlo (código gastado, muy chico, poca luz), siempre queda
+// la opción de escribirlo a mano.
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
@@ -33,38 +41,58 @@ export function EscanerCodigoBarras({
   const ultimoCodigoRef = useRef<string | null>(null);
 
   const [error, setError] = useState('');
+  const [codigoManual, setCodigoManual] = useState('');
+  const [mostrarManual, setMostrarManual] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
     const lector = new BrowserMultiFormatReader();
 
     async function iniciar() {
-      try {
-        const controls = await lector.decodeFromVideoDevice(undefined, videoRef.current ?? undefined, (resultado) => {
-          if (cancelado || !resultado) return;
+      const intentos: MediaStreamConstraints[] = [
+        // 1) Cámara trasera, buena resolución — lo ideal para leer un
+        //    código de barras chico de cerca.
+        { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        // 2) Si el dispositivo no tiene/permite "exact environment"
+        //    (pasa en algunas notebooks/tablets con una sola cámara),
+        //    se pide "ideal" en vez de forzarlo.
+        { video: { facingMode: 'environment' } },
+        // 3) Último recurso: la cámara que el navegador elija.
+        { video: true },
+      ];
 
-          const texto = resultado.getText();
-          if (texto === ultimoCodigoRef.current) return;
+      for (const constraints of intentos) {
+        if (cancelado) return;
 
-          ultimoCodigoRef.current = texto;
-          onDetectado(texto);
-        });
+        try {
+          const controls = await lector.decodeFromConstraints(constraints, videoRef.current ?? undefined, (resultado) => {
+            if (cancelado || !resultado) return;
 
-        if (cancelado) {
-          controls.stop();
+            const texto = resultado.getText();
+            if (texto === ultimoCodigoRef.current) return;
+
+            ultimoCodigoRef.current = texto;
+            onDetectado(texto);
+          });
+
+          if (cancelado) {
+            controls.stop();
+            return;
+          }
+
+          controlsRef.current = controls;
           return;
+        } catch (e) {
+          console.warn('No se pudo abrir la cámara con estas condiciones, probando la siguiente opción:', e);
         }
+      }
 
-        controlsRef.current = controls;
-      } catch (e) {
-        if (!cancelado) {
-          setError(
-            esPT
-              ? 'Não foi possível acessar a câmera. Verifique se você deu a permissão no navegador.'
-              : 'No se pudo acceder a la cámara. Revisá que le hayas dado permiso al navegador.'
-          );
-        }
-        console.error('Error iniciando el escáner de código de barras:', e);
+      if (!cancelado) {
+        setError(
+          esPT
+            ? 'Não foi possível acessar a câmera. Verifique se você deu a permissão no navegador.'
+            : 'No se pudo acceder a la cámara. Revisá que le hayas dado permiso al navegador.'
+        );
       }
     }
 
@@ -76,6 +104,12 @@ export function EscanerCodigoBarras({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function confirmarCodigoManual() {
+    const codigo = codigoManual.trim();
+    if (!codigo) return;
+    onDetectado(codigo);
+  }
 
   return (
     <div
@@ -109,19 +143,68 @@ export function EscanerCodigoBarras({
         {error ? (
           <div style={{ color: '#fecaca', fontSize: 13, textAlign: 'center', padding: '30px 10px' }}>{error}</div>
         ) : (
-          <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000' }}>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video ref={videoRef} style={{ width: '100%', display: 'block' }} muted playsInline />
+          <>
+            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000' }}>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video ref={videoRef} style={{ width: '100%', display: 'block' }} muted playsInline />
 
-            <div
-              style={{
-                position: 'absolute',
-                inset: '30% 10%',
-                border: `3px solid ${colores.verde}`,
-                borderRadius: 10,
-                pointerEvents: 'none',
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: '35% 8%',
+                  border: `3px solid ${colores.verde}`,
+                  borderRadius: 10,
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
+
+            <p style={{ color: '#cbd5e1', fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
+              {esPT
+                ? 'Se não ler: aproxime bem, com boa luz, e mantenha firme uns segundos.'
+                : 'Si no lo lee: acercalo bien, con buena luz, y mantenelo firme unos segundos.'}
+            </p>
+          </>
+        )}
+
+        {!mostrarManual ? (
+          <button
+            type="button"
+            onClick={() => setMostrarManual(true)}
+            style={{ border: 'none', background: 'transparent', color: '#cbd5e1', fontSize: 12.5, textDecoration: 'underline', cursor: 'pointer', display: 'block', margin: '12px auto 0' }}
+          >
+            {esPT ? 'A câmera não está lendo? Digite o código' : '¿La cámara no lo lee? Escribilo a mano'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <input
+              value={codigoManual}
+              onChange={(e) => setCodigoManual(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmarCodigoManual();
               }}
+              placeholder={esPT ? 'Digite o código...' : 'Escribí el código...'}
+              autoFocus
+              style={{ flex: 1, borderRadius: 10, border: 'none', padding: '10px 12px', fontSize: 13 }}
             />
+            <button
+              type="button"
+              onClick={confirmarCodigoManual}
+              disabled={!codigoManual.trim()}
+              style={{
+                border: 'none',
+                background: colores.verde,
+                color: '#fff',
+                borderRadius: 10,
+                padding: '0 16px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                opacity: codigoManual.trim() ? 1 : 0.6,
+              }}
+            >
+              OK
+            </button>
           </div>
         )}
 
