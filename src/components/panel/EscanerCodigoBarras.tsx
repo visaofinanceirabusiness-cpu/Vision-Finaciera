@@ -151,6 +151,17 @@ export function EscanerCodigoBarras({
     onDetectado(codigo);
   }
 
+  // En varios Android el enfoque continuo se "traba" mirando fijo un
+  // punto y no vuelve a buscar foco solo — volver a aplicar el mismo
+  // constraint le pide a la cámara que arranque una nueva búsqueda de
+  // foco, como el toque en la pantalla de cualquier app de cámara.
+  // streamVideoConstraintsApply es experimental (puede no existir en
+  // todos los navegadores), por eso el chequeo con "?." antes de
+  // usarlo — si no está disponible, simplemente no hace nada.
+  function reenfocar() {
+    controlsRef.current?.streamVideoConstraintsApply?.({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+  }
+
   return (
     <div
       style={{
@@ -184,7 +195,10 @@ export function EscanerCodigoBarras({
           <div style={{ color: '#fecaca', fontSize: 13, textAlign: 'center', padding: '30px 10px' }}>{error}</div>
         ) : (
           <>
-            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000' }}>
+            <div
+              onClick={reenfocar}
+              style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000', cursor: 'pointer' }}
+            >
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video ref={videoRef} style={{ width: '100%', display: 'block' }} muted playsInline />
 
@@ -198,6 +212,25 @@ export function EscanerCodigoBarras({
                 }}
               />
             </div>
+
+            <button
+              type="button"
+              onClick={reenfocar}
+              style={{
+                marginTop: 10,
+                width: '100%',
+                border: `1px solid ${colores.verde}`,
+                background: 'transparent',
+                color: colores.verde,
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🔄 {esPT ? 'Não está focando? Toque para reenfocar' : '¿No enfoca? Tocá para reenfocar'}
+            </button>
 
             <p style={{ color: '#cbd5e1', fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
               {esPT
