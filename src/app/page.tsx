@@ -20,6 +20,7 @@ import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal'
 import {
   empresaManejaMercaderia,
   empresaTieneModulo,
+  empresaTienePlanAccion,
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
@@ -901,6 +902,15 @@ export default function InicioPage() {
               colorPrincipal="#db2777"
               destacado
             />
+
+            {empresaTienePlanAccion(perfil?.empresa_id) && (
+              <BotonAcceso
+                href="/plan-accion"
+                titulo="🎯 Plan de Acción"
+                colorPrincipal="#1f3a5f"
+                destacado
+              />
+            )}
 
             <BotonAcceso
               href="/configuracoes"

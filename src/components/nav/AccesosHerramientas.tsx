@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
@@ -33,6 +33,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/informes', titulo: 'Informes', emoji: '📈', color: '#0891b2' },
   { href: '/produccion', titulo: 'Producción', emoji: '🏭', color: '#65a30d' },
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', emoji: '👥', color: '#db2777' },
+  { href: '/plan-accion', titulo: 'Plan de Acción', emoji: '🎯', color: '#1f3a5f' },
   { href: '/configuracoes', titulo: 'Configurações', emoji: '⚙️', color: '#475569' },
 ];
 
@@ -79,6 +80,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         TODAS_LAS_HERRAMIENTAS.filter((herramienta) => {
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
+          if (herramienta.href === '/plan-accion') return empresaTienePlanAccion(perfil.empresa_id);
           return true;
         })
       );
