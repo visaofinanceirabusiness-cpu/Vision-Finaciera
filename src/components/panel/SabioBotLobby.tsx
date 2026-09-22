@@ -38,7 +38,11 @@ export function SabioBotLobby({
           display: 'flex',
           alignItems: 'center',
           gap: 18,
-          background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
+          // Bordó fijo, independiente de los colores de marca de la
+          // empresa (colores.azul/verde) — para que la tarjeta del
+          // Sabio Bot se distinga tanto del header ("Mi Negocio", que
+          // sí usa esos colores) como del verde del Sabio del Azar.
+          background: 'linear-gradient(125deg, #8a3a4a 0%, #6b2436 58%, #4f1a29 100%)',
           border: 'none',
           borderRadius: 20,
           padding: '22px 26px',
