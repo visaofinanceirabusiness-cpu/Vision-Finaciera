@@ -24,11 +24,16 @@ import {
 } from '@/lib/miniJuego';
 import { iconoOperacion, iconoParaTexto } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
+import { SABIO_URL } from './SabioWidget';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
 const OPERACIONES_JUEGO = ['VENTA', 'COMPRA', 'PAGO', 'COBRO', 'TRANSFERENCIA', 'INVERSION', 'EXTRACCION', 'PERDIDA'];
+
+// A partir de cuántas tarjetas el buscador deja de ser opcional.
+const MINIMO_PARA_BUSCADOR = 6;
 
 // Misma regla que usa Contabilidad para saber si la categoría elegida
 // mueve stock y por lo tanto hay que elegir un producto puntual.
@@ -39,6 +44,20 @@ function operacionNecesitaProducto(operacion: string, formaPago: string, categor
 }
 
 type Paso = 'operacion' | 'categoria' | 'formaPago' | 'producto' | 'cantidad' | 'monto' | 'guardando';
+
+// El "Sabio del Azar" (mismo avatar 3D de Sabio Bot, con disfraz de
+// jugador) va cambiando de gesto y frase según en qué paso está el
+// jugador — la idea es que se sienta que está jugando con alguien, no
+// llenando un formulario.
+const REACCION_POR_PASO: Record<Paso, { emoji: string; es: string; pt: string }> = {
+  operacion: { emoji: '🤔', es: '¿Con qué jugamos?', pt: 'Com o que vamos jogar?' },
+  categoria: { emoji: '🧐', es: 'Interesante...', pt: 'Interessante...' },
+  formaPago: { emoji: '👀', es: '¿Con qué medio?', pt: 'Com qual meio?' },
+  producto: { emoji: '📦', es: '¿Cuál es?', pt: 'Qual é?' },
+  cantidad: { emoji: '🔢', es: '¿Cuántas van?', pt: 'Quantas vão?' },
+  monto: { emoji: '🤑', es: '¡Decime el número!', pt: 'Me diz o número!' },
+  guardando: { emoji: '🎲', es: 'Tirando los dados...', pt: 'Jogando os dados...' },
+};
 
 export function MiniJuego({
   empresaId,
@@ -56,6 +75,7 @@ export function MiniJuego({
   const esPT = idioma === 'PT';
 
   const [paso, setPaso] = useState<Paso>('operacion');
+  const [fecha, setFecha] = useState(fechaLocalHoy());
   const [operacion, setOperacion] = useState('');
   const [categoria, setCategoria] = useState('');
   const [formaPago, setFormaPago] = useState('');
@@ -71,6 +91,8 @@ export function MiniJuego({
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!operacion) return;
@@ -92,6 +114,36 @@ export function MiniJuego({
       .finally(() => setCargandoOpciones(false));
   }, [empresaId, operacion, categoria]);
 
+  // Saldo de la cuenta detrás de cada medio (Activo: Caja, Banco... o
+  // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
+  // dónde hay plata (o deuda), no a ciegas por el nombre solo.
+  useEffect(() => {
+    if (formasPago.length === 0) {
+      setSaldosPorMedio({});
+      return;
+    }
+
+    let cancelado = false;
+
+    Promise.all(
+      formasPago.map(async (fp) => {
+        const resultado = await saldoEnTransferencia(empresaId, fp, fecha).catch(() => null);
+        return [fp, resultado] as const;
+      })
+    ).then((pares) => {
+      if (cancelado) return;
+      const mapa: Record<string, number> = {};
+      for (const [fp, resultado] of pares) {
+        if (resultado) mapa[fp] = resultado.saldo;
+      }
+      setSaldosPorMedio(mapa);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, formasPago, fecha]);
+
   const categoriaSeleccionada = categorias.find((c) => c.nombre === categoria);
   const necesitaProducto = operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada);
   const productosDeCategoria = productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase());
@@ -105,6 +157,7 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto('');
+    setBusqueda('');
     setPaso('categoria');
   }
 
@@ -116,12 +169,14 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto('');
+    setBusqueda('');
     setPaso('formaPago');
   }
 
   async function elegirFormaPago(fp: string) {
     setFormaPago(fp);
     setMonto('');
+    setBusqueda('');
 
     if (operacionNecesitaProducto(operacion, fp, categoriaSeleccionada)) {
       setCargandoOpciones(true);
@@ -143,6 +198,7 @@ export function MiniJuego({
     setProductoNombre(p.nombre);
     setUnidadMedida(p.unidad_medida ?? '');
     setCantidad('1');
+    setBusqueda('');
     setPaso('cantidad');
   }
 
@@ -168,6 +224,7 @@ export function MiniJuego({
 
   function volver() {
     setError('');
+    setBusqueda('');
     if (paso === 'categoria') setPaso('operacion');
     else if (paso === 'formaPago') setPaso('categoria');
     else if (paso === 'producto') setPaso('formaPago');
@@ -176,6 +233,7 @@ export function MiniJuego({
   }
 
   function reiniciarJuego() {
+    setFecha(fechaLocalHoy());
     setOperacion('');
     setCategoria('');
     setFormaPago('');
@@ -185,6 +243,7 @@ export function MiniJuego({
     setCantidad('');
     setMonto('');
     setError('');
+    setBusqueda('');
     setPaso('operacion');
   }
 
@@ -204,7 +263,7 @@ export function MiniJuego({
       const montoParaMotor = necesitaProducto ? total / cantidadNum : total;
 
       await registrarOperacion(empresaId, {
-        fecha: fechaLocalHoy(),
+        fecha,
         operacion,
         categoria,
         formaPago,
@@ -232,14 +291,14 @@ export function MiniJuego({
       : esPT
         ? 'Escolha a categoria'
         : 'Elegí la categoría',
-    formaPago: esPT ? 'De onde sai o dinheiro?' : '¿De dónde sale la plata?',
+    formaPago: esPT ? 'Escolha o meio' : 'Elegí el medio',
     producto: esPT ? 'Qual produto?' : '¿Qué producto?',
     cantidad: esPT ? 'Quantas unidades?' : '¿Cuántas unidades?',
     monto: necesitaProducto ? (esPT ? 'Quanto no total?' : '¿Cuánto salió en total?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
     guardando: esPT ? 'Registrando...' : 'Registrando...',
   };
 
-  const tarjeta = (emoji: string, etiqueta: string, onClick: () => void, key: string) => (
+  const tarjeta = (emoji: string, etiqueta: string, onClick: () => void, key: string, subEtiqueta?: string) => (
     <button
       key={key}
       type="button"
@@ -264,7 +323,67 @@ export function MiniJuego({
     >
       <span style={{ fontSize: 34 }}>{emoji}</span>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: colores.azul, textAlign: 'center' }}>{etiqueta}</span>
+      {subEtiqueta && (
+        <span style={{ fontSize: 11, fontWeight: 700, color: colores.verde, textAlign: 'center' }}>{subEtiqueta}</span>
+      )}
     </button>
+  );
+
+  function formatearSaldo(valor: number): string {
+    return `${simbolo} ${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  const coincide = (texto: string) => texto.toLowerCase().includes(busqueda.trim().toLowerCase());
+
+  const operacionesFiltradas = OPERACIONES_JUEGO.filter(coincide);
+  const categoriasFiltradas = categorias.filter((c) => coincide(c.nombre));
+  const formasPagoFiltradas = formasPago.filter(coincide);
+  const productosFiltrados = productosDeCategoria.filter((p) => coincide(p.nombre));
+
+  const buscador = (
+    <input
+      type="text"
+      value={busqueda}
+      onChange={(e) => setBusqueda(e.target.value)}
+      placeholder={esPT ? '🔎 Buscar...' : '🔎 Buscar...'}
+      style={{
+        width: '100%',
+        boxSizing: 'border-box',
+        border: '2px solid rgba(255,255,255,0.25)',
+        background: 'rgba(255,255,255,0.08)',
+        color: '#fff',
+        borderRadius: 14,
+        padding: '11px 14px',
+        fontSize: 14,
+        marginBottom: 14,
+        outline: 'none',
+      }}
+    />
+  );
+
+  const reaccion = REACCION_POR_PASO[paso];
+
+  const avatarSabio = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={SABIO_URL} alt="Sabio" style={{ width: 54, height: 54, objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.3))' }} />
+        <span style={{ position: 'absolute', bottom: -4, right: -6, fontSize: 20 }}>{reaccion.emoji}</span>
+      </div>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 14,
+          padding: '7px 13px',
+          color: '#fff',
+          fontSize: 12.5,
+          fontWeight: 700,
+        }}
+      >
+        {esPT ? reaccion.pt : reaccion.es}
+      </div>
+    </div>
   );
 
   return (
@@ -280,15 +399,43 @@ export function MiniJuego({
         overflowY: 'auto',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
         <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>🎲 {esPT ? 'Mini-Jogo' : 'Mini-Juego'}</div>
-        <button
-          type="button"
-          onClick={onCerrar}
-          style={{ border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-        >
-          {esPT ? 'Fechar' : 'Cerrar'}
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 10,
+              padding: '5px 10px',
+              color: '#fff',
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: paso === 'guardando' ? 'default' : 'pointer',
+            }}
+          >
+            📅
+            <input
+              type="date"
+              value={fecha}
+              disabled={paso === 'guardando'}
+              onChange={(e) => setFecha(e.target.value || fechaLocalHoy())}
+              style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'inherit', colorScheme: 'dark' }}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={onCerrar}
+            style={{ border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            {esPT ? 'Fechar' : 'Cerrar'}
+          </button>
+        </div>
       </div>
 
       <div style={{ maxWidth: 480, width: '100%', margin: '0 auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -302,6 +449,8 @@ export function MiniJuego({
           </button>
         )}
 
+        {avatarSabio}
+
         <h2 style={{ color: '#fff', fontSize: 20, textAlign: 'center', margin: '0 0 18px' }}>{tituloPaso[paso]}</h2>
 
         {error && (
@@ -311,16 +460,25 @@ export function MiniJuego({
         )}
 
         {paso === 'operacion' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-            {OPERACIONES_JUEGO.map((op) =>
-              tarjeta(
-                iconoOperacion(op),
-                op.charAt(0) + op.slice(1).toLowerCase(),
-                () => elegirOperacion(op),
-                op
-              )
+          <>
+            {OPERACIONES_JUEGO.length > MINIMO_PARA_BUSCADOR && buscador}
+            {operacionesFiltradas.length === 0 ? (
+              <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
+                {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                {operacionesFiltradas.map((op) =>
+                  tarjeta(
+                    iconoOperacion(op),
+                    op.charAt(0) + op.slice(1).toLowerCase(),
+                    () => elegirOperacion(op),
+                    op
+                  )
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {paso === 'categoria' && (
@@ -332,9 +490,18 @@ export function MiniJuego({
                 {esPT ? 'Nenhuma categoria configurada para essa jogada.' : 'No hay ninguna categoría configurada para esta jugada.'}
               </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                {categorias.map((cat) => tarjeta(iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre))}
-              </div>
+              <>
+                {categorias.length > MINIMO_PARA_BUSCADOR && buscador}
+                {categoriasFiltradas.length === 0 ? (
+                  <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
+                    {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                    {categoriasFiltradas.map((cat) => tarjeta(iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -348,9 +515,26 @@ export function MiniJuego({
                 {esPT ? 'Nenhuma forma de pagamento configurada.' : 'No hay ninguna forma de pago configurada.'}
               </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                {formasPago.map((fp) => tarjeta(iconoParaTexto(fp), fp, () => elegirFormaPago(fp), fp))}
-              </div>
+              <>
+                {formasPago.length > MINIMO_PARA_BUSCADOR && buscador}
+                {formasPagoFiltradas.length === 0 ? (
+                  <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
+                    {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                    {formasPagoFiltradas.map((fp) =>
+                      tarjeta(
+                        iconoParaTexto(fp),
+                        fp,
+                        () => elegirFormaPago(fp),
+                        fp,
+                        fp in saldosPorMedio ? formatearSaldo(saldosPorMedio[fp]) : undefined
+                      )
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -364,9 +548,18 @@ export function MiniJuego({
                 {esPT ? 'Nenhum produto cadastrado nessa categoria.' : 'No hay ningún producto cargado en esta categoría.'}
               </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                {productosDeCategoria.map((p) => tarjeta('📦', p.nombre, () => elegirProducto(p), p.id))}
-              </div>
+              <>
+                {productosDeCategoria.length > MINIMO_PARA_BUSCADOR && buscador}
+                {productosFiltrados.length === 0 ? (
+                  <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
+                    {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                    {productosFiltrados.map((p) => tarjeta('📦', p.nombre, () => elegirProducto(p), p.id))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

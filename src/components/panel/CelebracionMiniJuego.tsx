@@ -7,6 +7,7 @@
 // de "cargar la próxima".
 
 import { useEffect, useState } from 'react';
+import { SABIO_URL } from './SabioWidget';
 
 const PALETA = ['#2e8b57', '#fbbf24', '#60a5fa', '#f97316', '#ffffff'];
 
@@ -56,7 +57,7 @@ export function CelebracionMiniJuego({
   useEffect(() => {
     reproducirSonidoJugada();
     const aparecer = requestAnimationFrame(() => setVisible(true));
-    const cerrar = setTimeout(onTerminar, 1500);
+    const cerrar = setTimeout(onTerminar, 3500);
 
     return () => {
       cancelAnimationFrame(aparecer);
@@ -89,6 +90,10 @@ export function CelebracionMiniJuego({
           60% { transform: scale(1.15) rotate(4deg); opacity: 1; }
           100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
+        @keyframes miniJuegoSabioFesteja {
+          0%, 100% { transform: translateY(0) rotate(-4deg); }
+          50% { transform: translateY(-8px) rotate(4deg); }
+        }
       `}</style>
 
       <div
@@ -120,13 +125,21 @@ export function CelebracionMiniJuego({
           />
         ))}
 
-        <div style={{ fontSize: 56, animation: 'miniJuegoPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>✅</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={SABIO_URL}
+            alt="Sabio"
+            style={{ width: 46, height: 46, objectFit: 'contain', animation: 'miniJuegoSabioFesteja 0.6s ease-in-out infinite' }}
+          />
+          <div style={{ fontSize: 56, animation: 'miniJuegoPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>✅</div>
+        </div>
 
         <div style={{ marginTop: 6, fontSize: 17, fontWeight: 800, color: '#1f3a5f' }}>
           {esPT ? 'Jogada registrada!' : '¡Jugada registrada!'}
         </div>
 
-        <div style={{ marginTop: 2, fontSize: 13, fontWeight: 700, color: '#2e8b57' }}>
+        <div style={{ marginTop: 4, fontSize: 19, fontWeight: 800, color: '#2e8b57' }}>
           {esPT ? `Já são ${numeroDelDia} hoje 🔥` : `Van ${numeroDelDia} hoy 🔥`}
         </div>
       </div>
