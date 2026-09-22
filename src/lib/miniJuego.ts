@@ -7,16 +7,36 @@
 import { supabase } from './supabase';
 import { fechaLocalHoy } from './fecha';
 
-export async function obtenerCategoriasJuego(empresaId: string, operacion: string): Promise<string[]> {
+export type CategoriaJuego = { nombre: string; stock: string | null };
+
+export async function obtenerCategoriasJuego(empresaId: string, operacion: string): Promise<CategoriaJuego[]> {
   const { data, error } = await supabase
     .from('matriz_operaciones')
-    .select('categoria')
+    .select('categoria, stock')
     .eq('empresa_id', empresaId)
     .eq('operacion', operacion);
 
   if (error) throw error;
 
-  return Array.from(new Set((data ?? []).map((f) => f.categoria).filter(Boolean))) as string[];
+  const porNombre = new Map<string, string | null>();
+  for (const fila of data ?? []) {
+    if (fila.categoria) porNombre.set(fila.categoria, fila.stock ?? null);
+  }
+
+  return Array.from(porNombre.entries()).map(([nombre, stock]) => ({ nombre, stock }));
+}
+
+export type ProductoJuego = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null };
+
+export async function obtenerProductosJuego(empresaId: string): Promise<ProductoJuego[]> {
+  const { data, error } = await supabase
+    .from('productos')
+    .select('id, nombre, categoria, unidad_medida')
+    .eq('empresa_id', empresaId);
+
+  if (error) throw error;
+
+  return (data ?? []) as ProductoJuego[];
 }
 
 export async function obtenerFormasPagoJuego(empresaId: string, operacion: string, categoria: string): Promise<string[]> {
