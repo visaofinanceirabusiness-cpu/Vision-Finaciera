@@ -88,7 +88,15 @@ type Clave =
   | 'haberHeader'
   | 'importeHeader'
   | 'automatico'
-  | 'operacionEtiqueta';
+  | 'operacionEtiqueta'
+  | 'tabEditar'
+  | 'tituloEditarRegistros'
+  | 'subtituloEditarRegistros'
+  | 'cargandoEditarRegistros'
+  | 'sinRegistrosRecientes'
+  | 'noEditableEtiqueta'
+  | 'noEditableExplicacion'
+  | 'tocarParaEditar';
 
 export const diccionarioContabilidad: Diccionario<Clave> = {
   ES: {
@@ -181,6 +189,14 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     importeHeader: 'Importe',
     automatico: 'AUTOMÁTICO',
     operacionEtiqueta: 'OPERACIÓN',
+    tabEditar: '✏️ Editar Registros',
+    tituloEditarRegistros: '¿Qué querés corregir?',
+    subtituloEditarRegistros: 'Tus movimientos de los últimos 7 días. Tocá uno para editarlo.',
+    cargandoEditarRegistros: 'Buscando tus últimos registros...',
+    sinRegistrosRecientes: 'No hay registros de los últimos 7 días.',
+    noEditableEtiqueta: 'No editable',
+    noEditableExplicacion: 'Para corregir una Venta o Pérdida, pedile a un administrador que la elimine y la vuelva a cargar.',
+    tocarParaEditar: 'Tocá para editar',
   },
   PT: {
     volver: '← Voltar para Meu Negócio',
@@ -272,6 +288,14 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     importeHeader: 'Valor',
     automatico: 'AUTOMÁTICO',
     operacionEtiqueta: 'OPERAÇÃO',
+    tabEditar: '✏️ Editar Registros',
+    tituloEditarRegistros: 'O que você quer corrigir?',
+    subtituloEditarRegistros: 'Suas movimentações dos últimos 7 dias. Toque em uma para editá-la.',
+    cargandoEditarRegistros: 'Buscando seus últimos registros...',
+    sinRegistrosRecientes: 'Não há registros dos últimos 7 dias.',
+    noEditableEtiqueta: 'Não editável',
+    noEditableExplicacion: 'Para corrigir uma Venda ou Perda, peça a um administrador para excluí-la e cadastrá-la de novo.',
+    tocarParaEditar: 'Toque para editar',
   },
 };
 
