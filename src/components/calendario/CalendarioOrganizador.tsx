@@ -10,12 +10,14 @@ import {
   type AnotacionCalendario,
   type CategoriaEvento,
   type EventoCalendario,
+  type FrecuenciaRepeticion,
   actualizarEvento,
   alternarAnotacion,
   crearAnotacion,
   crearEvento,
   eliminarAnotacion,
   eliminarEvento,
+  eliminarSerie,
   listarAnotacionesDelMes,
   listarEventosDelMes,
   nombreCategoria,
@@ -206,6 +208,7 @@ export function CalendarioOrganizador({
     notas: string;
     notificar: boolean;
     antelacionMinutos: number;
+    repeticion?: { frecuencia: FrecuenciaRepeticion; diasSemana?: number[]; hasta: string };
   }) {
     if (modal?.evento) {
       await actualizarEvento(modal.evento.id, datos);
@@ -219,6 +222,13 @@ export function CalendarioOrganizador({
   async function borrarEvento() {
     if (!modal?.evento) return;
     await eliminarEvento(modal.evento.id);
+    await refrescarEventos();
+    setModal(null);
+  }
+
+  async function borrarSerie() {
+    if (!modal?.evento?.serie_id) return;
+    await eliminarSerie(modal.evento.serie_id);
     await refrescarEventos();
     setModal(null);
   }
@@ -678,6 +688,7 @@ export function CalendarioOrganizador({
           colores={colores}
           onGuardar={guardarEvento}
           onEliminar={borrarEvento}
+          onEliminarSerie={borrarSerie}
           onCancelar={() => setModal(null)}
         />
       )}
