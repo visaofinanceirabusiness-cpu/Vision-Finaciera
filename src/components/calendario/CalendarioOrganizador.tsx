@@ -361,7 +361,15 @@ export function CalendarioOrganizador({
           como en la pc. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* GRILLA MENSUAL */}
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+        {/* Antes tenía un maxWidth de 860px fijo — en una pantalla de
+            PC ancha (el lobby ocupa hasta 1180px) eso dejaba una
+            franja vacía a la derecha de la grilla y, encima, obligaba
+            a un scroll horizontal para ver sábado/domingo aun cuando
+            sobraba espacio. Sin el tope, la grilla ocupa todo el
+            ancho disponible del lobby — el overflowX de más abajo
+            sigue estando para cuando el contenedor real sea angosto
+            (celular). */}
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, width: '100%' }}>
           {/* MARCA DE AGUA — el logo de la empresa, con su color
               original (nada de blanco y negro). Ancla acá adentro (no
               en el <section> completo) para que siempre quede fijo
@@ -463,8 +471,12 @@ export function CalendarioOrganizador({
                         // El día de hoy no lleva textura: se destaca
                         // solo con un borde estilo neón (más grueso,
                         // con glow) para que resalte sin ensuciar el
-                        // fondo de la celda.
-                        border: esHoy ? `2px solid ${colores.verde}` : '1px solid #eef0f2',
+                        // fondo de la celda. El resto de los días
+                        // llevaba un borde gris clarísimo (#eef0f2)
+                        // que casi no se notaba y hacía que las
+                        // casillas se mezclaran entre sí — se cambia a
+                        // negro para marcar bien cada casilla.
+                        border: esHoy ? `2px solid ${colores.verde}` : '1px solid rgba(0,0,0,0.65)',
                         boxShadow: esHoy ? `0 0 0 2px ${colores.verde}55, 0 0 10px 2px ${colores.verde}80` : undefined,
                         background: fondo,
                         padding: 6,
