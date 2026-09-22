@@ -415,6 +415,115 @@ export async function inicializarEmpresaDesdePerfil(
   }
 
   // ---------------------------------------------------
+  // 6.6. PASIVOS DEL PLAN — forma de pago (Compra) + categoría de
+  // Pago (para saldarlos)
+  //
+  // Mismo hueco que los Activos Fijos: las cuentas de Pasivo que trae
+  // el perfil (Alquiler a Pagar, Sueldos a Pagar, FGTS a Pagar...)
+  // quedaban mudas — ni se podía comprar a crédito contra ellas, ni
+  // pagarlas — salvo que un admin las conectara a mano (como quedaron
+  // Proveedor/Préstamos Bancarios LP en algunas empresas). Se conectan
+  // solas acá con el mismo patrón: forma de pago habilitada en Compra
+  // (para tomar la deuda) + categoría de Pago con rol PASIVO_CATEGORIA
+  // (para saldarla después con cualquier medio).
+  // ---------------------------------------------------
+
+  const RUBROS_PASIVO = ['PASIVO CORRIENTE', 'PASIVO NO CORRIENTE'];
+
+  if (operacionIdPorNombre.has('PAGO')) {
+    const codigosRubroPasivo = new Set(
+      cuentasMaestro.filter((c) => RUBROS_PASIVO.includes(c.nombre)).map((c) => c.codigo)
+    );
+
+    const cuentasPasivo = cuentasMaestro.filter(
+      (c) => c.cuenta_padre_codigo && codigosRubroPasivo.has(c.cuenta_padre_codigo) && c.naturaleza === 'ACREEDORA' && !c.rol_contable
+    );
+
+    const operacionCompraId = operacionIdPorNombre.get('COMPRA');
+    const codigosFormaPagoExistentes = (formasPagoCreadas ?? []).map((f) => f.codigo);
+    const codigosCategoriaPasivoExistentes: string[] = [];
+
+    for (const cuenta of cuentasPasivo) {
+      const cuentaId = idPorCodigo.get(cuenta.codigo);
+      if (!cuentaId) continue;
+
+      // Forma de pago para Compra (tomar la deuda) — se salta en
+      // perfiles sin la operación Compra (Servicios).
+      if (operacionCompraId) {
+        const codigoFormaPago = generarCodigo(cuenta.nombre, codigosFormaPagoExistentes);
+        codigosFormaPagoExistentes.push(codigoFormaPago);
+
+        const { data: formaPagoCreada, error: errorFormaPago } = await cliente
+          .from('formas_pago')
+          .insert({ empresa_id: empresaId, codigo: codigoFormaPago, nombre: cuenta.nombre, activo: true })
+          .select('id')
+          .single();
+
+        if (errorFormaPago || !formaPagoCreada) {
+          console.warn(`No se pudo crear la forma de pago del Pasivo "${cuenta.nombre}":`, errorFormaPago);
+        } else {
+          await cliente.from('forma_pago_cuentas').insert({
+            empresa_id: empresaId,
+            forma_pago_id: formaPagoCreada.id,
+            cuenta_id: cuentaId,
+            activo: true,
+          });
+
+          await cliente.from('formas_pago_operacion').insert({
+            empresa_id: empresaId,
+            operacion_id: operacionCompraId,
+            forma_pago_id: formaPagoCreada.id,
+            activo: true,
+          });
+        }
+      }
+
+      // Categoría de Pago para saldar la deuda con cualquier medio.
+      const codigoCategoria = generarCodigo(cuenta.nombre, codigosCategoriaPasivoExistentes);
+      codigosCategoriaPasivoExistentes.push(codigoCategoria);
+
+      const { data: categoriaCreada, error: errorCategoria } = await cliente
+        .from('categorias_operacion')
+        .insert({
+          empresa_id: empresaId,
+          operacion: 'PAGO',
+          codigo: codigoCategoria,
+          nombre: cuenta.nombre,
+          tipo: 'PASIVO',
+          activo: true,
+        })
+        .select('id')
+        .single();
+
+      if (errorCategoria || !categoriaCreada) {
+        console.warn(`No se pudo crear la categoría de Pago del Pasivo "${cuenta.nombre}":`, errorCategoria);
+        continue;
+      }
+
+      await cliente.from('categorias_operacion_cuentas').insert({
+        empresa_id: empresaId,
+        categoria_operacion_id: categoriaCreada.id,
+        cuenta_id: cuentaId,
+        rol: 'PASIVO',
+        activo: true,
+      });
+
+      await cliente.from('reglas_contables').insert({
+        empresa_id: empresaId,
+        operacion: 'PAGO',
+        categoria_codigo: codigoCategoria,
+        categoria_nombre: cuenta.nombre,
+        rol_debito: 'PASIVO_CATEGORIA',
+        rol_credito: 'MEDIO_FINANCIERO',
+        stock: 'NO',
+        libro: 'SI',
+        cmv: 'NO',
+        motor: 'PASIVOS',
+      });
+    }
+  }
+
+  // ---------------------------------------------------
   // 7. SEMBRAR LOS OBJETIVOS MODELO
   //
   // No tiene nada que ver con el Plano de Contas, pero es el mismo
