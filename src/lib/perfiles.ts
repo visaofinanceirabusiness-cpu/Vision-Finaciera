@@ -415,17 +415,25 @@ export async function inicializarEmpresaDesdePerfil(
   }
 
   // ---------------------------------------------------
-  // 6.6. PASIVOS DEL PLAN — forma de pago (Compra) + categoría de
-  // Pago (para saldarlos)
+  // 6.6. PASIVOS DEL PLAN — categoría de Pago (para saldarlos)
   //
-  // Mismo hueco que los Activos Fijos: las cuentas de Pasivo que trae
-  // el perfil (Alquiler a Pagar, Sueldos a Pagar, FGTS a Pagar...)
-  // quedaban mudas — ni se podía comprar a crédito contra ellas, ni
-  // pagarlas — salvo que un admin las conectara a mano (como quedaron
-  // Proveedor/Préstamos Bancarios LP en algunas empresas). Se conectan
-  // solas acá con el mismo patrón: forma de pago habilitada en Compra
-  // (para tomar la deuda) + categoría de Pago con rol PASIVO_CATEGORIA
-  // (para saldarla después con cualquier medio).
+  // Las cuentas de Pasivo que trae el perfil (Alquiler a Pagar,
+  // Sueldos a Pagar, FGTS a Pagar, Proveedores...) quedaban mudas del
+  // lado del Pago — nadie podía saldarlas salvo que un admin armara
+  // la categoría a mano. Se conectan todas acá con una categoría de
+  // Pago (rol PASIVO_CATEGORIA), para poder saldar cualquiera de
+  // ellas después con cualquier medio.
+  //
+  // OJO: esto NO las convierte en forma de pago de Compra. Ese
+  // hueco existió antes (ver historial) y estaba mal: metía a
+  // Sueldos a Pagar, Impuestos a Pagar, IVA Débito Fiscal, etc. como
+  // si fueran formas de comprar a crédito, cuando en realidad son el
+  // contra-asiento de un Gasto (se devengan, no se usan para
+  // comprar). El único pasivo que de verdad sirve para comprar a
+  // crédito (Proveedores, y en Familiar Préstamo Personal/Tarjeta de
+  // Crédito a Pagar) ya viene armado como forma de pago desde el
+  // propio perfil maestro (ver perfil_formas_pago_maestro) — no hace
+  // falta (ni corresponde) duplicarlo acá.
   // ---------------------------------------------------
 
   const RUBROS_PASIVO = ['PASIVO CORRIENTE', 'PASIVO NO CORRIENTE'];
@@ -439,44 +447,11 @@ export async function inicializarEmpresaDesdePerfil(
       (c) => c.cuenta_padre_codigo && codigosRubroPasivo.has(c.cuenta_padre_codigo) && c.naturaleza === 'ACREEDORA' && !c.rol_contable
     );
 
-    const operacionCompraId = operacionIdPorNombre.get('COMPRA');
-    const codigosFormaPagoExistentes = (formasPagoCreadas ?? []).map((f) => f.codigo);
     const codigosCategoriaPasivoExistentes: string[] = [];
 
     for (const cuenta of cuentasPasivo) {
       const cuentaId = idPorCodigo.get(cuenta.codigo);
       if (!cuentaId) continue;
-
-      // Forma de pago para Compra (tomar la deuda) — se salta en
-      // perfiles sin la operación Compra (Servicios).
-      if (operacionCompraId) {
-        const codigoFormaPago = generarCodigo(cuenta.nombre, codigosFormaPagoExistentes);
-        codigosFormaPagoExistentes.push(codigoFormaPago);
-
-        const { data: formaPagoCreada, error: errorFormaPago } = await cliente
-          .from('formas_pago')
-          .insert({ empresa_id: empresaId, codigo: codigoFormaPago, nombre: cuenta.nombre, activo: true })
-          .select('id')
-          .single();
-
-        if (errorFormaPago || !formaPagoCreada) {
-          console.warn(`No se pudo crear la forma de pago del Pasivo "${cuenta.nombre}":`, errorFormaPago);
-        } else {
-          await cliente.from('forma_pago_cuentas').insert({
-            empresa_id: empresaId,
-            forma_pago_id: formaPagoCreada.id,
-            cuenta_id: cuentaId,
-            activo: true,
-          });
-
-          await cliente.from('formas_pago_operacion').insert({
-            empresa_id: empresaId,
-            operacion_id: operacionCompraId,
-            forma_pago_id: formaPagoCreada.id,
-            activo: true,
-          });
-        }
-      }
 
       // Categoría de Pago para saldar la deuda con cualquier medio.
       const codigoCategoria = generarCodigo(cuenta.nombre, codigosCategoriaPasivoExistentes);

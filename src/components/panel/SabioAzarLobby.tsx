@@ -36,12 +36,23 @@ export function SabioAzarLobby({
         textAlign: 'left',
       }}
     >
-      <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'relative', flexShrink: 0, width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            position: 'absolute',
+            width: 92,
+            height: 92,
+            borderRadius: '50%',
+            background: '#fff',
+            border: '3px solid #f4b400',
+            boxShadow: '0 6px 14px rgba(0,0,0,0.25)',
+          }}
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={SABIO_LUDICO_URL}
           alt="Sabio"
-          style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.3))' }}
+          style={{ position: 'relative', width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.3))' }}
         />
         <span style={{ position: 'absolute', top: -4, left: -8, fontSize: 24 }}>🎲</span>
         <span style={{ position: 'absolute', bottom: 2, right: -8, fontSize: 22 }}>🃏</span>
