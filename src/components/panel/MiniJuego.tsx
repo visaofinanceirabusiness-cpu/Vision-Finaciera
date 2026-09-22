@@ -26,6 +26,7 @@ import { iconoOperacion, iconoParaTexto, SABIO_LUDICO_URL } from '@/lib/iconosJu
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
+import { SABIO_URL } from './SabioWidget';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
