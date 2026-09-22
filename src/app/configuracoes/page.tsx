@@ -32,6 +32,7 @@ import { generarMatrizOperaciones } from '@/lib/motor';
 import {
   crearCategoriaProducto,
   crearCategoriaGasto,
+  crearCategoriaActivo,
   crearCategoriaIngreso,
   crearFormaPago,
   crearCuentaParaMedioPago,
@@ -1442,6 +1443,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
   const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
   const [categoriasServicio, setCategoriasServicio] = useState<CategoriaGasto[]>([]);
   const [categoriasGasto, setCategoriasGasto] = useState<CategoriaGasto[]>([]);
+  const [categoriasActivo, setCategoriasActivo] = useState<CategoriaGasto[]>([]);
   const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
   const [pasivos, setPasivos] = useState<FormaPago[]>([]);
   const [inversiones, setInversiones] = useState<FormaPago[]>([]);
@@ -1460,6 +1462,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
     const [
       { data: cp },
       { data: cg },
+      { data: ca },
       { data: fp },
       { data: fpc },
       { data: inv },
@@ -1481,6 +1484,16 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
         .eq('empresa_id', empresaId)
         .eq('operacion', 'PAGO')
         .eq('tipo', 'GASTO')
+        .order('nombre'),
+      // Compra de Activo Fijo (Equipos de Computación, Maquinarias,
+      // Muebles y Útiles...) — no es mercadería, es una cuenta de
+      // Activo que ya trae el perfil, ver crearCategoriaActivo.
+      supabase
+        .from('categorias_operacion')
+        .select('id, codigo, nombre, activo')
+        .eq('empresa_id', empresaId)
+        .eq('operacion', 'COMPRA')
+        .eq('tipo', 'ACTIVO')
         .order('nombre'),
       supabase.from('formas_pago').select('id, codigo, nombre, activo').eq('empresa_id', empresaId).order('nombre'),
       // Para separar Formas de Pago (Activo) de Pasivos: qué cuenta
@@ -1552,6 +1565,7 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
 
     setCategoriasProducto(cp ?? []);
     setCategoriasGasto(cg ?? []);
+    setCategoriasActivo(ca ?? []);
     setSocios(soc ?? []);
     // Solo cuentas de ACTIVO: la cuenta detrás de una forma de pago
     // (Formas de Pago, la sección de Activo) tiene que ser plata
@@ -1691,6 +1705,24 @@ function CategoriasYFormasDePagoTab({ empresaId, esAdmin, idioma }: { empresaId:
             // esto la categoría queda creada pero no aparece en la
             // Central de Lançamentos hasta que un admin regenere la
             // matriz a mano.
+            await generarMatrizOperaciones(empresaId);
+          }, msgCategoriaCreada(idioma, nombre))
+        }
+        onCambiarActivo={(id, activo) =>
+          manejarAccion(() => cambiarActivoCategoriaGasto(id, activo), msgCategoriaActualizada(idioma))
+        }
+        onEliminar={(id, nombre) =>
+          manejarAccion(() => eliminarCategoriaOperacion(id), msgCategoriaEliminada(idioma, nombre))
+        }
+      />
+
+      <BloqueCategoriaActivo
+        categorias={categoriasActivo}
+        esAdmin={esAdmin}
+        idioma={idioma}
+        onCrear={(nombre) =>
+          manejarAccion(async () => {
+            await crearCategoriaActivo(empresaId, nombre);
             await generarMatrizOperaciones(empresaId);
           }, msgCategoriaCreada(idioma, nombre))
         }
@@ -1926,6 +1958,43 @@ function BloqueCategoriaGasto({
 
       <FormularioNuevo
         placeholder={t('placeholderCategoriaGasto')}
+        valor={nombreNuevo}
+        idioma={idioma}
+        onCambiar={setNombreNuevo}
+        onAgregar={() => {
+          if (!nombreNuevo.trim()) return;
+          onCrear(nombreNuevo);
+          setNombreNuevo('');
+        }}
+      />
+    </SeccionCategoria>
+  );
+}
+
+function BloqueCategoriaActivo({
+  categorias,
+  esAdmin,
+  idioma,
+  onCrear,
+  onCambiarActivo,
+  onEliminar,
+}: {
+  categorias: CategoriaGasto[];
+  esAdmin: boolean;
+  idioma: string;
+  onCrear: (nombre: string) => void;
+  onCambiarActivo: (id: string, activo: boolean) => void;
+  onEliminar: (id: string, nombre: string) => void;
+}) {
+  const t = crearTraductor(diccionarioConfiguracoes, idioma);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
+  return (
+    <SeccionCategoria titulo={t('tituloCategoriaActivo')} subtitulo={t('subtituloCategoriaActivo')} cantidad={categorias.length}>
+      <ListaConToggle items={categorias} onCambiarActivo={onCambiarActivo} onEliminar={onEliminar} soloLectura={!esAdmin} idioma={idioma} />
+
+      <FormularioNuevo
+        placeholder={t('placeholderCategoriaActivo')}
         valor={nombreNuevo}
         idioma={idioma}
         onCambiar={setNombreNuevo}
