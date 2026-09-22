@@ -18,8 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioPanel, FRASES_SABIO_POR_IDIOMA } from './i18n';
 
-export const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO_3D_WEBP_ligero.webp';
+export const SABIO_URL = '/sabio/sabio-bot.webp';
 
 const INTERVALO_FRASE_MS = 5 * 60 * 1000;
 

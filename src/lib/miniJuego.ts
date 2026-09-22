@@ -52,6 +52,22 @@ export async function obtenerFormasPagoJuego(empresaId: string, operacion: strin
   return Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
 }
 
+// Cliente (Venta/Cobro) o proveedor (Compra/Pago) — mismo criterio
+// que ya usa Contabilidad para decidir qué tabla mirar.
+export function tablaContactoJuego(operacion: string): 'clientes' | 'proveedores' | null {
+  if (operacion === 'VENTA' || operacion === 'COBRO') return 'clientes';
+  if (operacion === 'COMPRA' || operacion === 'PAGO') return 'proveedores';
+  return null;
+}
+
+export async function obtenerContactosJuego(empresaId: string, tabla: 'clientes' | 'proveedores'): Promise<string[]> {
+  const { data, error } = await supabase.from(tabla).select('nombre').eq('empresa_id', empresaId);
+
+  if (error) throw error;
+
+  return Array.from(new Set((data ?? []).map((c) => c.nombre).filter(Boolean))) as string[];
+}
+
 // Cuántas jugadas van cargadas hoy — le da sensación de racha a la
 // celebración de cada una ("van 3 hoy 🔥"). Cuenta por creado_en (el
 // momento real en que se cargó), no por la fecha elegida en la

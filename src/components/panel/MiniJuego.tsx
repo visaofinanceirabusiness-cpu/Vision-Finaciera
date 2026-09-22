@@ -18,10 +18,13 @@ import {
   obtenerCategoriasJuego,
   obtenerFormasPagoJuego,
   obtenerProductosJuego,
+  obtenerContactosJuego,
+  tablaContactoJuego,
   contarJugadasHoy,
   type CategoriaJuego,
   type ProductoJuego,
 } from '@/lib/miniJuego';
+import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
 import { iconoOperacion, iconoParaTexto, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldoEnTransferencia } from '@/lib/saldoCuenta';
@@ -42,7 +45,7 @@ function operacionNecesitaProducto(operacion: string, formaPago: string, categor
   return (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) || (operacion === 'INVERSION' && formaPago === 'Mercadería');
 }
 
-type Paso = 'operacion' | 'categoria' | 'formaPago' | 'producto' | 'cantidad' | 'monto' | 'guardando';
+type Paso = 'operacion' | 'categoria' | 'formaPago' | 'contacto' | 'producto' | 'cantidad' | 'monto' | 'guardando';
 
 // El Sabio Lúdico no habla — reacciona con un símbolo (no un diálogo)
 // y una "pose" distinta (nomás con transform, no hay dibujo aparte
@@ -51,6 +54,7 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
   operacion: { simbolo: '❓', pose: 'rotate(-4deg)' },
   categoria: { simbolo: '❗', pose: 'rotate(3deg) scale(1.04)' },
   formaPago: { simbolo: '❗', pose: 'rotate(-3deg) scale(1.04)' },
+  contacto: { simbolo: '👤', pose: 'rotate(2deg)' },
   producto: { simbolo: '❓', pose: 'rotate(4deg)' },
   cantidad: { simbolo: '🔢', pose: 'scale(1.06)' },
   monto: { simbolo: '💰', pose: 'rotate(-5deg) scale(1.08)' },
@@ -61,10 +65,14 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
 // en vez de elegir la operación de una grilla libre, viene forzada
 // paso a paso desde afuera — el jugador solo completa categoría en
 // adelante. `onCompletado` se llama una sola vez, al terminar la
-// última operación de la lista.
+// última operación de la lista. `mensaje` es una función (no un
+// string fijo) porque el paso del tutorial avanza ACÁ ADENTRO
+// (pasoTutorial es estado propio del Mini-Juego) — pasarlo ya
+// calculado desde afuera lo dejaba congelado en el mensaje del
+// primer paso para siempre.
 type TutorialMiniJuego = {
   operaciones: string[];
-  mensaje: string;
+  mensaje: (paso: number) => string;
 };
 
 export function MiniJuego({
@@ -99,10 +107,16 @@ export function MiniJuego({
   const [unidadMedida, setUnidadMedida] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [monto, setMonto] = useState('');
+  const [clienteProveedor, setClienteProveedor] = useState('');
+  const [nombreContacto, setNombreContacto] = useState('');
+  const [telefonoContacto, setTelefonoContacto] = useState('');
 
   const [categorias, setCategorias] = useState<CategoriaJuego[]>([]);
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [productos, setProductos] = useState<ProductoJuego[]>([]);
+  const [contactos, setContactos] = useState<string[]>([]);
+  const [creandoContacto, setCreandoContacto] = useState(false);
+  const [guardandoContacto, setGuardandoContacto] = useState(false);
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
@@ -162,11 +176,33 @@ export function MiniJuego({
   const categoriaSeleccionada = categorias.find((c) => c.nombre === categoria);
   const necesitaProducto = operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada);
   const productosDeCategoria = productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase());
+  const tablaContacto = tablaContactoJuego(operacion);
+
+  async function irAProductoOMonto() {
+    if (operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada)) {
+      setCargandoOpciones(true);
+      try {
+        if (productos.length === 0) setProductos(await obtenerProductosJuego(empresaId));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error cargando productos.');
+      } finally {
+        setCargandoOpciones(false);
+      }
+      setPaso('producto');
+    } else {
+      setPaso('monto');
+    }
+  }
 
   function elegirOperacion(op: string) {
     setOperacion(op);
     setCategoria('');
     setFormaPago('');
+    setClienteProveedor('');
+    setContactos([]);
+    setCreandoContacto(false);
+    setNombreContacto('');
+    setTelefonoContacto('');
     setProductoId('');
     setProductoNombre('');
     setUnidadMedida('');
@@ -179,6 +215,11 @@ export function MiniJuego({
   function elegirCategoria(cat: string) {
     setCategoria(cat);
     setFormaPago('');
+    setClienteProveedor('');
+    setContactos([]);
+    setCreandoContacto(false);
+    setNombreContacto('');
+    setTelefonoContacto('');
     setProductoId('');
     setProductoNombre('');
     setUnidadMedida('');
@@ -193,18 +234,57 @@ export function MiniJuego({
     setMonto('');
     setBusqueda('');
 
-    if (operacionNecesitaProducto(operacion, fp, categoriaSeleccionada)) {
+    const tabla = tablaContactoJuego(operacion);
+    if (tabla) {
       setCargandoOpciones(true);
       try {
-        if (productos.length === 0) setProductos(await obtenerProductosJuego(empresaId));
+        setContactos(await obtenerContactosJuego(empresaId, tabla));
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error cargando productos.');
+        setError(e instanceof Error ? e.message : 'Error cargando contactos.');
       } finally {
         setCargandoOpciones(false);
       }
-      setPaso('producto');
-    } else {
-      setPaso('monto');
+      setPaso('contacto');
+      return;
+    }
+
+    await irAProductoOMonto();
+  }
+
+  function elegirContacto(nombre: string) {
+    setClienteProveedor(nombre);
+    setBusqueda('');
+    setCreandoContacto(false);
+    irAProductoOMonto();
+  }
+
+  async function confirmarNuevoContacto() {
+    if (!nombreContacto.trim()) {
+      setError(esPT ? 'Coloque um nome.' : 'Poné un nombre.');
+      return;
+    }
+
+    if (!telefonoContacto.trim()) {
+      setError(esPT ? 'Coloque um telefone (com código do país).' : 'Poné un teléfono (con código de país).');
+      return;
+    }
+
+    const tabla = tablaContactoJuego(operacion);
+    if (!tabla) return;
+
+    setGuardandoContacto(true);
+    setError('');
+
+    try {
+      const contacto = await crearOUsarContactoPorTelefono(empresaId, tabla, nombreContacto, telefonoContacto);
+      setContactos((actual) => (actual.includes(contacto.nombre) ? actual : [...actual, contacto.nombre]));
+      setNombreContacto('');
+      setTelefonoContacto('');
+      elegirContacto(contacto.nombre);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar el contacto.');
+    } finally {
+      setGuardandoContacto(false);
     }
   }
 
@@ -240,11 +320,13 @@ export function MiniJuego({
   function volver() {
     setError('');
     setBusqueda('');
+    setCreandoContacto(false);
     if (paso === 'categoria') setPaso('operacion');
     else if (paso === 'formaPago') setPaso('categoria');
-    else if (paso === 'producto') setPaso('formaPago');
+    else if (paso === 'contacto') setPaso('formaPago');
+    else if (paso === 'producto') setPaso(tablaContacto ? 'contacto' : 'formaPago');
     else if (paso === 'cantidad') setPaso('producto');
-    else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : 'formaPago');
+    else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : tablaContacto ? 'contacto' : 'formaPago');
   }
 
   function reiniciarJuego() {
@@ -252,6 +334,11 @@ export function MiniJuego({
     setOperacion('');
     setCategoria('');
     setFormaPago('');
+    setClienteProveedor('');
+    setContactos([]);
+    setCreandoContacto(false);
+    setNombreContacto('');
+    setTelefonoContacto('');
     setProductoId('');
     setProductoNombre('');
     setUnidadMedida('');
@@ -283,7 +370,7 @@ export function MiniJuego({
         categoria,
         formaPago,
         historico: categoria,
-        clienteProveedor: '',
+        clienteProveedor: clienteProveedor.trim(),
         lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
 
@@ -307,6 +394,7 @@ export function MiniJuego({
         ? 'Escolha a categoria'
         : 'Elegí la categoría',
     formaPago: esPT ? 'Escolha o meio' : 'Elegí el medio',
+    contacto: tablaContacto === 'proveedores' ? (esPT ? 'Qual fornecedor?' : '¿Qué proveedor?') : esPT ? 'Qual cliente?' : '¿Qué cliente?',
     producto: esPT ? 'Qual produto?' : '¿Qué producto?',
     cantidad: esPT ? 'Quantas unidades?' : '¿Cuántas unidades?',
     monto: necesitaProducto ? (esPT ? 'Quanto no total?' : '¿Cuánto salió en total?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
@@ -353,6 +441,7 @@ export function MiniJuego({
   const operacionesFiltradas = OPERACIONES_JUEGO.filter(coincide);
   const categoriasFiltradas = categorias.filter((c) => coincide(c.nombre));
   const formasPagoFiltradas = formasPago.filter(coincide);
+  const contactosFiltrados = contactos.filter(coincide);
   const productosFiltrados = productosDeCategoria.filter((p) => coincide(p.nombre));
 
   const buscador = (
@@ -492,7 +581,7 @@ export function MiniJuego({
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.8, color: '#f4b400', marginBottom: 6, textTransform: 'uppercase' }}>
               {esPT ? 'Tutorial guiado' : 'Tutorial guiado'} · {pasoTutorial + 1}/{tutorial.operaciones.length}
             </div>
-            {tutorial.mensaje}
+            {tutorial.mensaje(pasoTutorial)}
           </div>
         )}
 
@@ -580,6 +669,105 @@ export function MiniJuego({
                       )
                     )}
                   </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {paso === 'contacto' && (
+          <>
+            {cargandoOpciones ? (
+              <p style={{ color: '#fff', textAlign: 'center' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>
+            ) : creandoContacto ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input
+                  type="text"
+                  value={nombreContacto}
+                  onChange={(e) => setNombreContacto(e.target.value)}
+                  placeholder={esPT ? 'Nome' : 'Nombre'}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    border: '2px solid rgba(255,255,255,0.25)',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    borderRadius: 14,
+                    padding: '13px 14px',
+                    fontSize: 15,
+                    outline: 'none',
+                  }}
+                />
+                <input
+                  type="tel"
+                  value={telefonoContacto}
+                  onChange={(e) => setTelefonoContacto(e.target.value)}
+                  placeholder={esPT ? 'Telefone (com código do país) — ex: 5511987654321' : 'Teléfono (con código de país) — ej: 5491122334455'}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    border: '2px solid rgba(255,255,255,0.25)',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    borderRadius: 14,
+                    padding: '13px 14px',
+                    fontSize: 15,
+                    outline: 'none',
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreandoContacto(false)}
+                    style={{
+                      flex: 1,
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      background: 'transparent',
+                      color: '#fff',
+                      borderRadius: 14,
+                      padding: '13px 0',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {esPT ? 'Cancelar' : 'Cancelar'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={guardandoContacto}
+                    onClick={confirmarNuevoContacto}
+                    style={{
+                      flex: 2,
+                      border: 'none',
+                      background: colores.verde,
+                      color: '#fff',
+                      borderRadius: 14,
+                      padding: '13px 0',
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: guardandoContacto ? 'wait' : 'pointer',
+                      opacity: guardandoContacto ? 0.7 : 1,
+                    }}
+                  >
+                    {guardandoContacto ? (esPT ? 'Salvando...' : 'Guardando...') : esPT ? 'Salvar' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {contactos.length > MINIMO_PARA_BUSCADOR && buscador}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                  {tarjeta('➕', esPT ? 'Novo' : 'Nuevo', () => setCreandoContacto(true), '__nuevo_contacto__')}
+                  {contactosFiltrados.map((c) => tarjeta('👤', c, () => elegirContacto(c), c))}
+                </div>
+                {contactos.length > 0 && contactosFiltrados.length === 0 && (
+                  <p style={{ color: '#fff', textAlign: 'center', fontSize: 13, marginTop: 14 }}>
+                    {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
+                  </p>
                 )}
               </>
             )}
@@ -698,6 +886,11 @@ export function MiniJuego({
               }}
             >
               {iconoOperacion(operacion)} {operacion.charAt(0) + operacion.slice(1).toLowerCase()} · {iconoParaTexto(categoria)} {categoria} · {iconoParaTexto(formaPago)} {formaPago}
+              {tablaContacto && clienteProveedor && (
+                <>
+                  {' '}· 👤 {clienteProveedor}
+                </>
+              )}
               {necesitaProducto && productoNombre && (
                 <>
                   {' '}· 📦 {productoNombre} ({cantidad} {unidadMedida})

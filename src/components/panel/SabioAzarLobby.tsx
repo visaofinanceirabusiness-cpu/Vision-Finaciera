@@ -43,6 +43,8 @@ export function SabioAzarLobby({
           alt="Sabio"
           style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.3))' }}
         />
+        <span style={{ position: 'absolute', top: -4, left: -8, fontSize: 24 }}>🎲</span>
+        <span style={{ position: 'absolute', bottom: 2, right: -8, fontSize: 22 }}>🃏</span>
       </div>
 
       <span style={{ flex: 1, minWidth: 0 }}>

@@ -10,11 +10,12 @@
 // no matchea ninguna, cae en un ícono genérico — nunca deja una
 // tarjeta sin dibujo.
 
-// El "Sabio Lúdico" — versión con galera, moño y bastón del Sabio de
-// siempre, dibujada a pedido para el Mini-Juego (lobby + adentro del
-// juego + festejo final). Vive en /public porque es un asset propio
-// del Mini-Juego, no el 3D genérico de Sabio Bot (SABIO_URL).
-export const SABIO_LUDICO_URL = '/mini-juego/sabio-ludico.webp';
+// El "Sabio del Azar" — versión con galera, moño y bastón del Sabio
+// de siempre, para el Mini-Juego (lobby + adentro del juego +
+// festejo final). Mismo personaje que SABIO_URL (Sabio Bot), otro
+// disfraz — se homogeneizan tamaño/forma entre los dos, la diferencia
+// es el color de fondo de cada tarjeta.
+export const SABIO_LUDICO_URL = '/sabio/sabio-azar.webp';
 
 export const ICONO_OPERACION: Record<string, string> = {
   VENTA: '💰',

@@ -1,11 +1,12 @@
 // lib/clientes.ts
 //
-// Alta rápida de un cliente nuevo desde el formulario de Venta en
-// Contabilidad (sin tener que ir hasta Recursos Humanos). La clave
-// para no duplicar es el TELÉFONO, no el nombre — dos personas
-// pueden compartir nombre, pero no número. Se normaliza a solo
-// dígitos para comparar (mismo criterio que lib/whatsapp.ts), así
-// "+54 9 11 2233-4455" y "5491122334455" cuentan como el mismo.
+// Alta rápida de un cliente o proveedor nuevo desde el formulario de
+// Venta/Compra en Contabilidad o desde el Mini-Juego/Sabio Bot (sin
+// tener que ir hasta Recursos Humanos). La clave para no duplicar es
+// el TELÉFONO, no el nombre — dos personas pueden compartir nombre,
+// pero no número. Se normaliza a solo dígitos para comparar (mismo
+// criterio que lib/whatsapp.ts), así "+54 9 11 2233-4455" y
+// "5491122334455" cuentan como el mismo.
 
 import { supabase } from './supabase';
 
@@ -13,21 +14,29 @@ function soloDigitos(telefono: string): string {
   return telefono.replace(/\D/g, '');
 }
 
-function generarProximoCodigoCliente(existentes: { codigo: string | null }[]): string {
+const PREFIJO_CODIGO: Record<'clientes' | 'proveedores', string> = {
+  clientes: 'CLI',
+  proveedores: 'PROVE',
+};
+
+function generarProximoCodigoContacto(tabla: 'clientes' | 'proveedores', existentes: { codigo: string | null }[]): string {
+  const prefijo = PREFIJO_CODIGO[tabla];
+  const patron = new RegExp(`^${prefijo}-(\\d+)$`);
   let maximo = 0;
 
   for (const c of existentes) {
-    const match = /^CLI-(\d+)$/.exec(c.codigo ?? '');
+    const match = patron.exec(c.codigo ?? '');
     if (match) {
       maximo = Math.max(maximo, parseInt(match[1], 10));
     }
   }
 
-  return `CLI-${String(maximo + 1).padStart(5, '0')}`;
+  return `${prefijo}-${String(maximo + 1).padStart(5, '0')}`;
 }
 
-export async function crearOUsarClientePorTelefono(
+export async function crearOUsarContactoPorTelefono(
   empresaId: string,
+  tabla: 'clientes' | 'proveedores',
   nombre: string,
   telefono: string
 ): Promise<{ id: string; nombre: string; telefono: string | null; yaExistia: boolean }> {
@@ -38,7 +47,7 @@ export async function crearOUsarClientePorTelefono(
   }
 
   const { data: existentes, error: errorLista } = await supabase
-    .from('clientes')
+    .from(tabla)
     .select('id, nombre, telefono, codigo')
     .eq('empresa_id', empresaId);
 
@@ -54,10 +63,10 @@ export async function crearOUsarClientePorTelefono(
     return { id: coincidente.id, nombre: coincidente.nombre, telefono: coincidente.telefono, yaExistia: true };
   }
 
-  const codigo = generarProximoCodigoCliente(existentes ?? []);
+  const codigo = generarProximoCodigoContacto(tabla, existentes ?? []);
 
   const { data: nuevo, error: errorInsert } = await supabase
-    .from('clientes')
+    .from(tabla)
     .insert({
       empresa_id: empresaId,
       nombre: nombre.trim(),
@@ -72,4 +81,13 @@ export async function crearOUsarClientePorTelefono(
   }
 
   return { id: nuevo.id, nombre: nuevo.nombre, telefono: nuevo.telefono, yaExistia: false };
+}
+
+// Mantenido para Contabilidad (Venta), que ya lo usa por este nombre.
+export async function crearOUsarClientePorTelefono(
+  empresaId: string,
+  nombre: string,
+  telefono: string
+): Promise<{ id: string; nombre: string; telefono: string | null; yaExistia: boolean }> {
+  return crearOUsarContactoPorTelefono(empresaId, 'clientes', nombre, telefono);
 }
