@@ -92,3 +92,15 @@ export async function empresaTieneModulo(
 
   return (modulosData ?? []).some((fila) => fila.modulo === modulo);
 }
+
+// Plan de Acción de 30 Días — feature a medida para un único cliente
+// (Buenaventura), no un perfil ni un módulo del resto de empresas.
+// Se centraliza acá el chequeo (en vez de repetir el empresa_id en
+// cada pantalla) para que sea fácil de encontrar y sacar el día que
+// se decida ofrecerlo a más empresas (en ese momento reemplazar este
+// chequeo por una columna/flag real).
+const EMPRESAS_CON_PLAN_ACCION = ['8512b8b0-1985-4731-981b-955f1d62a898']; // Buenaventura
+
+export function empresaTienePlanAccion(empresaId: string | null | undefined): boolean {
+  return Boolean(empresaId) && EMPRESAS_CON_PLAN_ACCION.includes(empresaId as string);
+}
