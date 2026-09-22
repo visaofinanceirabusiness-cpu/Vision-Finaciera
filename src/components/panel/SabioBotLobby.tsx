@@ -55,12 +55,16 @@ export function SabioBotLobby({
             cursor: 'pointer',
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={SABIO_URL}
-            alt="Sabio"
-            style={{ width: 130, height: 130, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.25))' }}
-          />
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SABIO_URL}
+              alt="Sabio"
+              style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.25))' }}
+            />
+            <span style={{ position: 'absolute', top: -4, left: -8, fontSize: 24 }}>💬</span>
+            <span style={{ position: 'absolute', bottom: 2, right: -8, fontSize: 22 }}>🔢</span>
+          </div>
 
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontWeight: 800, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3 }}>

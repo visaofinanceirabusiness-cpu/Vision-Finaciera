@@ -38,7 +38,7 @@ import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
 import { saldoDeFormaDePago } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
-import { crearOUsarClientePorTelefono } from './clientes';
+import { crearOUsarContactoPorTelefono } from './clientes';
 
 type Paso =
   | 'FECHA'
@@ -142,13 +142,15 @@ function parsearFechaBot(texto: string): string | null {
   return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
-// Solo Venta/Cobro dan de alta un cliente nuevo pidiendo también el
-// teléfono (igual que el modal "Nuevo cliente" de Contabilidad, para
-// poder mandarle el comprobante por WhatsApp después) — Compra/Pago
-// (proveedor) y el resto (socio) siguen con nombre libre nomás, sin
-// pedir teléfono, igual que antes.
-function esContactoCliente(operacion: string): boolean {
-  return operacion === 'VENTA' || operacion === 'COBRO';
+// Venta/Cobro (cliente) y Compra/Pago (proveedor) dan de alta el
+// contacto nuevo pidiendo también el teléfono — mismo criterio en
+// las dos direcciones, para no duplicar sin querer ("Juan" cliente
+// vs. "Juan" proveedor con otro número). Inversión/Extracción/Pérdida
+// usan socios, que no tienen tabla de contacto propia ni teléfono.
+function tablaContactoBot(operacion: string): 'clientes' | 'proveedores' | null {
+  if (operacion === 'VENTA' || operacion === 'COBRO') return 'clientes';
+  if (operacion === 'COMPRA' || operacion === 'PAGO') return 'proveedores';
+  return null;
 }
 
 function etiquetaContacto(idioma: string | undefined, operacion: string): string {
@@ -508,10 +510,12 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   if (paso === 'CONTACTO') {
     if (datos.pidiendoContactoLibre) {
-      // Venta/Cobro: dar de alta el cliente de verdad (nombre +
-      // teléfono), igual que "Nuevo cliente" en Contabilidad — no
-      // alcanza con guardar el nombre suelto como texto libre.
-      if (esContactoCliente(datos.operacion ?? '')) {
+      // Cliente o proveedor: dar de alta el contacto de verdad
+      // (nombre + teléfono), igual que "Nuevo cliente" en
+      // Contabilidad — no alcanza con guardar el nombre suelto como
+      // texto libre. Socio (Inversión/Extracción/Pérdida) no tiene
+      // tabla propia, sigue con nombre libre nomás.
+      if (tablaContactoBot(datos.operacion ?? '')) {
         const nuevosDatos: Datos = { ...datos, pidiendoContactoLibre: false, contactoNombreNuevo: texto };
         await guardarConversacion(empresaId, 'CONTACTO_TELEFONO', nuevosDatos);
         return t(idioma, '¿Cuál es el teléfono (con código de país)? Ej: +54 9 11 2233-4455', 'Qual é o telefone (com código do país)? Ex: +55 48 99999-9999');
@@ -541,9 +545,11 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // 4.a CONTACTO_TELEFONO (solo Venta/Cobro, cliente nuevo)
   // ---------------------------------------------------
   if (paso === 'CONTACTO_TELEFONO') {
+    const tabla = tablaContactoBot(datos.operacion ?? '') ?? 'clientes';
+
     try {
-      const cliente = await crearOUsarClientePorTelefono(empresaId, datos.contactoNombreNuevo ?? '', texto);
-      return avanzarAProductoODetalle(empresaId, { ...datos, contacto: cliente.nombre, contactoNombreNuevo: undefined });
+      const contacto = await crearOUsarContactoPorTelefono(empresaId, tabla, datos.contactoNombreNuevo ?? '', texto);
+      return avanzarAProductoODetalle(empresaId, { ...datos, contacto: contacto.nombre, contactoNombreNuevo: undefined });
     } catch (errorTelefono) {
       return t(
         idioma,

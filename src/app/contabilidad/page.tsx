@@ -95,8 +95,7 @@ const COLORES = {
 
 const OPCION_CREAR_CUENTA_NUEVA = '__crear_cuenta_nueva__';
 
-const SABIO_URL =
-  'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/SABIO.png';
+const SABIO_URL = '/sabio/sabio-bot.webp';
 
 const LOGO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Vision%20financiera.jpeg';
