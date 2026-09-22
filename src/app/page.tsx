@@ -25,6 +25,7 @@ import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
+import { MiniJuego } from '@/components/panel/MiniJuego';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
@@ -125,6 +126,7 @@ export default function InicioPage() {
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [miniJuegoAbierto, setMiniJuegoAbierto] = useState(false);
   const [estadoSolicitud, setEstadoSolicitud] = useState<
     'PENDIENTE' | 'RECHAZADA' | null
   >(null);
@@ -784,6 +786,56 @@ export default function InicioPage() {
             idioma={idioma}
             colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
             alerta={alertaSabio}
+          />
+        )}
+
+        {/* =================================================
+            MINI-JUEGO — tercera forma de cargar operaciones:
+            tarjetas con ícono en vez de formulario/chat, pensada para
+            cargar varias operaciones seguidas rápido (Pago/Cobro/
+            Transferencia) con un festejo chico en cada una.
+        ================================================== */}
+
+        {perfil && (
+          <button
+            type="button"
+            onClick={() => setMiniJuegoAbierto(true)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              background: `linear-gradient(125deg, ${colores.verde} 0%, #163a2e 100%)`,
+              border: 'none',
+              borderRadius: 20,
+              padding: '18px 24px',
+              marginBottom: 20,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 40 }}>🎲</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', color: '#fff', fontWeight: 800, fontSize: 17 }}>
+                {idioma === 'PT' ? 'Mini-Jogo — carregue jogando' : 'Mini-Juego — cargá jugando'}
+              </span>
+              <span style={{ display: 'block', color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>
+                {idioma === 'PT'
+                  ? 'Pagamentos, recebimentos e transferências, com cartas em vez de formulário'
+                  : 'Pagos, cobros y transferencias, con cartas en vez de formulario'}
+              </span>
+            </span>
+            <span style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>→</span>
+          </button>
+        )}
+
+        {miniJuegoAbierto && perfil && (
+          <MiniJuego
+            empresaId={perfil.empresa_id}
+            idioma={idioma}
+            simbolo={simboloMoneda(empresa?.moneda ?? null)}
+            colores={{ azul: colores.azul, verde: colores.verde, acento: colores.acento, blanco: colores.blanco }}
+            onCerrar={() => setMiniJuegoAbierto(false)}
           />
         )}
 
