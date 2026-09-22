@@ -28,33 +28,24 @@ export function SabioBotLobby({
   const [abierto, setAbierto] = useState(false);
   const esPT = idioma === 'PT';
 
-  return (
-    <section
-      style={{
-        background: colores.blanco,
-        borderRadius: 24,
-        padding: 24,
-        marginBottom: 20,
-        border: '1px solid #e5e7eb',
-        boxShadow: abierto ? '0 10px 26px rgba(31,58,95,0.07)' : 'none',
-      }}
-    >
-      {!abierto ? (
-        <button
-          onClick={() => setAbierto(true)}
-          className="sabio-lobby-banner"
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 18,
-            background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
-            border: 'none',
-            borderRadius: 20,
-            padding: '22px 26px',
-            cursor: 'pointer',
-          }}
-        >
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="sabio-lobby-banner"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 18,
+          background: `linear-gradient(125deg, ${colores.azul} 0%, ${colores.azul} 58%, ${colores.verde} 100%)`,
+          border: 'none',
+          borderRadius: 20,
+          padding: '22px 26px',
+          marginBottom: 20,
+          cursor: 'pointer',
+        }}
+      >
           <div style={{ position: 'relative', flexShrink: 0, width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div
               style={{
@@ -120,38 +111,48 @@ export function SabioBotLobby({
               }
             }
           `}</style>
-        </button>
-      ) : (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={SABIO_URL} alt="Sabio" style={{ width: 52, height: 52, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 800, color: colores.azul, fontSize: 18 }}>
-                {esPT ? 'Sábio, seu assistente financeiro' : 'Sabio, tu asistente financiero'}
-              </span>
-            </div>
+      </button>
+    );
+  }
 
-            <button
-              onClick={() => setAbierto(false)}
-              style={{
-                border: '1px solid #d1d5db',
-                background: colores.blanco,
-                borderRadius: 10,
-                padding: '6px 12px',
-                fontSize: 12,
-                fontWeight: 700,
-                color: colores.azul,
-                cursor: 'pointer',
-              }}
-            >
-              {esPT ? 'Fechar' : 'Cerrar'}
-            </button>
-          </div>
-
-          <SabioBotChat empresaId={empresaId} colores={colores} altura="50vh" />
+  return (
+    <section
+      style={{
+        background: colores.blanco,
+        borderRadius: 24,
+        padding: 24,
+        marginBottom: 20,
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 10px 26px rgba(31,58,95,0.07)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={SABIO_URL} alt="Sabio" style={{ width: 52, height: 52, objectFit: 'contain' }} />
+          <span style={{ fontWeight: 800, color: colores.azul, fontSize: 18 }}>
+            {esPT ? 'Sábio, seu assistente financeiro' : 'Sabio, tu asistente financiero'}
+          </span>
         </div>
-      )}
+
+        <button
+          onClick={() => setAbierto(false)}
+          style={{
+            border: '1px solid #d1d5db',
+            background: colores.blanco,
+            borderRadius: 10,
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 700,
+            color: colores.azul,
+            cursor: 'pointer',
+          }}
+        >
+          {esPT ? 'Fechar' : 'Cerrar'}
+        </button>
+      </div>
+
+      <SabioBotChat empresaId={empresaId} colores={colores} altura="50vh" />
     </section>
   );
 }
