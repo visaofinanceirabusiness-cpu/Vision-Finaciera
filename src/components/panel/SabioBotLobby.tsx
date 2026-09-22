@@ -62,7 +62,7 @@ export function SabioBotLobby({
                 width: 92,
                 height: 92,
                 borderRadius: '50%',
-                background: 'transparent',
+                background: '#fff',
                 border: '3px solid #c0c0c0',
                 boxShadow: '0 6px 14px rgba(0,0,0,0.25)',
               }}
