@@ -39,6 +39,7 @@ import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type Recorda
 import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
 import { EscanerCodigoBarras } from '@/components/panel/EscanerCodigoBarras';
 import { MiniJuego } from '@/components/panel/MiniJuego';
+import { iconoOperacion } from '@/lib/iconosJuego';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -97,10 +98,17 @@ const OPCION_CREAR_CUENTA_NUEVA = '__crear_cuenta_nueva__';
 
 const SABIO_URL = '/sabio/sabio-bot.webp';
 
+// Venta y Pérdida no guardan el precio/monto original por línea
+// (solo el costo promedio, para el CMV) — reconstruirlo al editar
+// sería adivinar. Para esas dos es más seguro eliminar y cargar de
+// nuevo a mano que "editar" con un valor estimado. Comparten esta
+// lista Registro de Operaciones (admin) y Editar Registros (cliente).
+const OPERACIONES_EDITABLES = ['COMPRA', 'PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'];
+
 const LOGO_URL =
   'https://dbmbyqsgyrbccxesqdfj.supabase.co/storage/v1/object/public/Logos/Vision%20financiera.jpeg';
 
-type Pestana = 'lanzamientos' | 'registros' | 'libro';
+type Pestana = 'lanzamientos' | 'registros' | 'libro' | 'editar';
 
 export default function ContabilidadPage() {
   return (
@@ -304,6 +312,14 @@ function ContabilidadPageInterno() {
             >
               {t('tabLibro')}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setPestana('editar')}
+              style={tabStyle(pestana === 'editar')}
+            >
+              {t('tabEditar')}
+            </button>
           </div>
 
           {pestana === 'lanzamientos' && prefillListo && (
@@ -314,6 +330,7 @@ function ContabilidadPageInterno() {
           )}
           {pestana === 'registros' && <RegistroOperacionesTab />}
           {pestana === 'libro' && <LibroDiarioTab />}
+          {pestana === 'editar' && <EditarRegistrosTab />}
         </main>
       </div>
     </div>
@@ -2470,6 +2487,44 @@ type Registro = {
   estado: string | null;
 };
 
+// Reconstruye los ValoresIniciales de un registro ya cargado para
+// poder reabrirlo en modo edición — usado tanto por Registro de
+// Operaciones (admin) como por Editar Registros (cliente). Para
+// Compra, el monto original por línea se recupera de
+// movimientos_stock (ver comentario en OPERACIONES_EDITABLES); para
+// el resto se usa el total de la operación en una sola línea.
+async function construirValoresEdicion(empresaId: string, fila: Registro): Promise<ValoresIniciales> {
+  const { data: movimientos, error: errorMovimientos } = await supabase
+    .from('movimientos_stock')
+    .select('producto_id, cantidad, costo_unitario')
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', fila.id_operacion);
+
+  if (errorMovimientos) {
+    throw errorMovimientos;
+  }
+
+  const lineas: LineaFormulario[] =
+    movimientos && movimientos.length > 0
+      ? movimientos.map((m) => ({
+          producto: m.producto_id,
+          cantidad: Number(m.cantidad),
+          monto: Number(m.costo_unitario),
+          unidadCarga: '',
+        }))
+      : [{ producto: '', cantidad: 1, monto: Number(fila.total), unidadCarga: '' }];
+
+  return {
+    fecha: fila.fecha,
+    operacion: fila.operacion,
+    categoria: fila.categoria,
+    formaPago: fila.forma_pago,
+    historico: fila.historico ?? '',
+    clienteProveedor: fila.cliente_proveedor ?? '',
+    lineas,
+  };
+}
+
 function RegistroOperacionesTab() {
   const simbolo = useContext(SimboloContext);
   const esFamiliar = useContext(EsFamiliarContext);
@@ -2486,12 +2541,6 @@ function RegistroOperacionesTab() {
   const [error, setError] = useState('');
   const [editando, setEditando] = useState<{ idOperacion: string; valores: ValoresIniciales } | null>(null);
   const [mostrandoNuevo, setMostrandoNuevo] = useState(false);
-
-  // Venta y Pérdida no guardan el precio/monto original por línea
-  // (solo el costo promedio, para el CMV) — reconstruirlo al editar
-  // sería adivinar. Para esas dos, es más seguro eliminar y cargar
-  // de nuevo a mano que "editar" con un valor estimado.
-  const OPERACIONES_EDITABLES = ['COMPRA', 'PAGO', 'INVERSION', 'EXTRACCION', 'TRANSFERENCIA'];
 
   async function cargar(empresa: string) {
     const { data, error } = await supabase
@@ -2564,47 +2613,12 @@ function RegistroOperacionesTab() {
 
     setError('');
 
-    const { data: movimientos, error: errorMovimientos } = await supabase
-      .from('movimientos_stock')
-      .select('producto_id, cantidad, costo_unitario')
-      .eq('empresa_id', empresaId)
-      .eq('id_operacion', fila.id_operacion);
-
-    if (errorMovimientos) {
+    try {
+      const valores = await construirValoresEdicion(empresaId, fila);
+      setEditando({ idOperacion: fila.id_operacion, valores });
+    } catch {
       setError(t('errorDetallesEdicion'));
-      return;
     }
-
-    let lineas: LineaFormulario[];
-
-    if (movimientos && movimientos.length > 0) {
-      // "Editar" solo está habilitado para Compra (Pago/Inversión/
-      // Extracción no tocan stock) — ahí el monto original se guarda
-      // tal cual en costo_unitario, así que se recupera exacto. Ya
-      // está en la unidad general del producto (así se guardó), no
-      // hace falta elegir una unidad de carga distinta.
-      lineas = movimientos.map((m) => ({
-        producto: m.producto_id,
-        cantidad: Number(m.cantidad),
-        monto: Number(m.costo_unitario),
-        unidadCarga: '',
-      }));
-    } else {
-      lineas = [{ producto: '', cantidad: 1, monto: Number(fila.total), unidadCarga: '' }];
-    }
-
-    setEditando({
-      idOperacion: fila.id_operacion,
-      valores: {
-        fecha: fila.fecha,
-        operacion: fila.operacion,
-        categoria: fila.categoria,
-        formaPago: fila.forma_pago,
-        historico: fila.historico ?? '',
-        clienteProveedor: fila.cliente_proveedor ?? '',
-        lineas,
-      },
-    });
   }
 
   async function handleEliminarYRecargar(idOperacion: string) {
@@ -3404,6 +3418,221 @@ function Td({
     >
       {children}
     </td>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA 4 · EDITAR REGISTROS
+   Versión "cliente" de Registro de Operaciones: mismos datos, en
+   formato de tarjetas tipo Mini-Juego en vez de tabla, sin baja ni
+   validación — solo elegir un registro reciente y corregirlo. Ve la
+   misma pestaña cualquier usuario (no solo esAdmin); el listado
+   crudo con baja sigue siendo exclusivo del admin.
+========================================================== */
+
+const DIAS_VENTANA_EDITAR_REGISTROS = 7;
+
+function fechaHaceNDias(dias: number): string {
+  const hoy = new Date();
+  hoy.setDate(hoy.getDate() - dias);
+  const anio = hoy.getFullYear();
+  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoy.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
+function EditarRegistrosTab() {
+  const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const t = crearTraductor(diccionarioContabilidad, idioma);
+  const router = useRouter();
+
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [filas, setFilas] = useState<Registro[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [editando, setEditando] = useState<{ idOperacion: string; valores: ValoresIniciales } | null>(null);
+
+  async function cargar(empresa: string) {
+    const { data, error } = await supabase
+      .from('registro_operaciones')
+      .select(
+        'id_operacion, fecha, operacion, categoria, forma_pago, total, historico, cliente_proveedor, estado'
+      )
+      .eq('empresa_id', empresa)
+      .gte('fecha', fechaHaceNDias(DIAS_VENTANA_EDITAR_REGISTROS))
+      .order('id_operacion', { ascending: false });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setFilas((data ?? []) as Registro[]);
+  }
+
+  useEffect(() => {
+    async function iniciar() {
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!userData.user) {
+        router.push('/login');
+        return;
+      }
+
+      const { data: perfil } = await supabase
+        .from('perfiles')
+        .select('empresa_id')
+        .eq('id', userData.user.id)
+        .maybeSingle();
+
+      if (!perfil?.empresa_id) {
+        setCargando(false);
+        return;
+      }
+
+      setEmpresaId(perfil.empresa_id);
+      await cargar(perfil.empresa_id);
+      setCargando(false);
+    }
+
+    iniciar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  async function handleTocar(fila: Registro) {
+    if (!empresaId || !OPERACIONES_EDITABLES.includes(fila.operacion)) return;
+
+    setError('');
+
+    try {
+      const valores = await construirValoresEdicion(empresaId, fila);
+      setEditando({ idOperacion: fila.id_operacion, valores });
+    } catch {
+      setError(t('errorDetallesEdicion'));
+    }
+  }
+
+  if (editando) {
+    return (
+      <CentralDeLanzamientosTab
+        idOperacionEditar={editando.idOperacion}
+        valoresIniciales={editando.valores}
+        onCancelar={() => setEditando(null)}
+        onGuardado={() => {
+          setEditando(null);
+          if (empresaId) cargar(empresaId);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <p style={{ margin: '0 0 4px', fontSize: 19, fontWeight: 800, color: COLORES.azul }}>
+        {t('tituloEditarRegistros')}
+      </p>
+      <p style={{ margin: '0 0 20px', fontSize: 14, color: COLORES.gris }}>
+        {t('subtituloEditarRegistros')}
+      </p>
+
+      {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+
+      {cargando ? (
+        <p>{t('cargandoEditarRegistros')}</p>
+      ) : filas.length === 0 ? (
+        <div style={vacioOperacion}>🎲 {t('sinRegistrosRecientes')}</div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+            gap: 14,
+          }}
+        >
+          {filas.map((fila) => {
+            const editable = OPERACIONES_EDITABLES.includes(fila.operacion);
+
+            return (
+              <button
+                key={fila.id_operacion}
+                type="button"
+                onClick={() => handleTocar(fila)}
+                disabled={!editable}
+                title={editable ? t('tocarParaEditar') : t('noEditableExplicacion')}
+                style={{
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  padding: 16,
+                  borderRadius: 20,
+                  border: editable ? `1px solid ${COLORES.azul}22` : '1px solid #e5e7eb',
+                  background: editable ? COLORES.blanco : '#f8fafc',
+                  boxShadow: editable ? '0 6px 16px rgba(31,58,95,0.08)' : 'none',
+                  cursor: editable ? 'pointer' : 'not-allowed',
+                  opacity: editable ? 1 : 0.65,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      style={{
+                        fontSize: 22,
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        background: '#eff5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {iconoOperacion(fila.operacion)}
+                    </span>
+                    <span style={{ fontWeight: 800, color: COLORES.azul, fontSize: 14 }}>
+                      {nombreOperacionDisplay(idioma, fila.operacion)}
+                    </span>
+                  </span>
+
+                  {!editable && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: COLORES.gris,
+                        background: '#e5e7eb',
+                        borderRadius: 999,
+                        padding: '3px 8px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {t('noEditableEtiqueta')}
+                    </span>
+                  )}
+                </div>
+
+                <span style={{ fontSize: 20, fontWeight: 800, color: COLORES.verde }}>
+                  {simbolo} {formatearNumeroEntero(Number(fila.total))}
+                </span>
+
+                <span style={{ fontSize: 12, color: COLORES.gris }}>
+                  {new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}
+                  {' · '}
+                  {fila.categoria}
+                  {' · '}
+                  {fila.forma_pago}
+                </span>
+
+                {fila.cliente_proveedor && (
+                  <span style={{ fontSize: 12, color: COLORES.gris }}>👤 {fila.cliente_proveedor}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
