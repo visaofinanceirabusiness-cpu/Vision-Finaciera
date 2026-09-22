@@ -149,9 +149,17 @@ export function MiniJuego({
     }
   }
 
+  const esTransferencia = operacion === 'TRANSFERENCIA';
+
   const tituloPaso: Record<Paso, string> = {
     operacion: esPT ? '¿Qual jogada vamos fazer?' : '¿Qué jugada hacemos?',
-    categoria: esPT ? 'Escolha a categoria' : 'Elegí la categoría',
+    categoria: esTransferencia
+      ? esPT
+        ? 'Para onde vai o dinheiro?'
+        : '¿Hacia dónde va la plata?'
+      : esPT
+        ? 'Escolha a categoria'
+        : 'Elegí la categoría',
     formaPago: esPT ? 'De onde sai o dinheiro?' : '¿De dónde sale la plata?',
     monto: esPT ? 'Quanto foi?' : '¿Cuánto fue?',
     guardando: esPT ? 'Registrando...' : 'Registrando...',
