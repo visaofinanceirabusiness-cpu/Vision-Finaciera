@@ -38,6 +38,7 @@ import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { obtenerRecordatorio, registrarPagoParcial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
 import { EscanerCodigoBarras } from '@/components/panel/EscanerCodigoBarras';
+import { MiniJuego } from '@/components/panel/MiniJuego';
 
 const NUEVO_CLIENTE_OPCION = '__nuevo_cliente__';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -69,9 +70,7 @@ import {
   msgConfirmarEliminarOperacion,
   msgConfirmarEliminarYRecargar,
   pasosTutorial,
-  msgTutorialCancelar,
   msgTutorialPaso,
-  msgTutorialCompletado,
   frasesSabioContabilidad,
   agruparCategoriasPorRubro,
 } from './i18n';
@@ -1628,27 +1627,6 @@ function CentralDeLanzamientosTab({
       setCantidadCuotas('2');
 
       setLineas([{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]);
-
-      // El progreso del tutorial avanza SOLO si la operación recién
-      // registrada es la que tocaba en el paso actual — así una
-      // empresa que registra otra cosa mientras tanto (o que ya tenía
-      // ese tipo de operación en su historial) no hace saltar pasos.
-      if (modoTutorial && formulario.operacion === operacionesTutorial[pasoTutorial]) {
-        const pasoNuevo = pasoTutorial + 1;
-
-        if (pasoNuevo >= operacionesTutorial.length) {
-          setMensajeSabio(msgTutorialCompletado(idioma));
-          setModoTutorial(false);
-
-          if (!tutorialVoluntario) {
-            await marcarOnboardingCompleto(empresaId);
-          }
-
-          setTimeout(() => router.push('/panel-de-control?tutorial=1'), 1400);
-        } else {
-          setPasoTutorial(pasoNuevo);
-        }
-      }
     } catch (e: unknown) {
       console.error('ERROR REGISTRANDO OPERACIÓN:', e);
 
@@ -1684,105 +1662,48 @@ function CentralDeLanzamientosTab({
     return <p style={{ padding: 24 }}>{t('cargando')}</p>;
   }
 
-  // Mientras dura el tutorial guiado, todo el formulario se aísla en
-  // un modal a pantalla completa — antes convivía como un banner
-  // arriba del formulario normal, con las pestañas, los accesos
-  // rápidos y el "Volver a mi negocio" real todavía visibles y
-  // clickeables al lado, lo que hacía confuso qué había que hacer.
-  // Acá abajo NO se duplica el formulario: se le agregan estos dos
-  // `<div>` contenedores condicionales alrededor del mismo JSX de
-  // siempre (panelTitulo en adelante), que hoy tapan el resto de la
-  // pantalla con un fondo oscuro fijo cuando modoTutorial está activo.
+  // El tutorial guiado (Fase 3 del onboarding) ya no se muestra como
+  // un modal encima del formulario de Central de Lançamentos: se
+  // reemplaza por completo con el Mini-Juego, mismo motor
+  // (registrarOperacion) pero como tarjetas en vez de formulario —
+  // le pareció mejor método para las primeras operaciones que
+  // cualquier empresa nueva tiene que cargar. Acá simplemente NO se
+  // renderiza nada de lo que sigue mientras dure.
   const enTutorial = !modoEdicion && modoTutorial;
 
+  if (enTutorial && empresaId) {
+    return (
+      <MiniJuego
+        empresaId={empresaId}
+        idioma={idioma ?? 'ES'}
+        simbolo={simbolo}
+        colores={{ azul: COLORES.azul, verde: COLORES.verde, acento: COLORES.gris, blanco: COLORES.blanco }}
+        tutorial={{
+          operaciones: operacionesTutorial,
+          mensaje: msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? ''),
+        }}
+        onCompletadoTutorial={async () => {
+          if (!tutorialVoluntario) {
+            await marcarOnboardingCompleto(empresaId);
+          }
+          setModoTutorial(false);
+          router.push('/panel-de-control?tutorial=1');
+        }}
+        onCerrar={async () => {
+          if (tutorialVoluntario) {
+            setModoTutorial(false);
+            setOfrecerTutorialVoluntario(true);
+          } else {
+            await supabase.auth.signOut();
+            router.push('/login');
+          }
+        }}
+      />
+    );
+  }
+
   return (
-    <div style={enTutorial ? fondoTutorial : undefined}>
-      <div style={enTutorial ? tarjetaTutorial : undefined}>
-        {enTutorial && (
-          <div
-            style={{
-              background: 'linear-gradient(125deg, #142a47 0%, #1f3a5f 58%, #245a52 100%)',
-              borderRadius: 24,
-              padding: '24px 28px',
-              marginBottom: 24,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 20,
-              flexWrap: 'wrap',
-              boxShadow: '0 18px 40px rgba(20,42,71,0.16)',
-            }}
-          >
-            <div style={{ flex: '1 1 200px', minWidth: 200 }}>
-              <p
-                style={{
-                  margin: '0 0 10px',
-                  color: '#86efac',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: 1.4,
-                }}
-              >
-                {t('tutorialEyebrow')}
-              </p>
-
-              <h2 style={{ margin: '0 0 14px', color: COLORES.blanco, fontSize: 22 }}>
-                {t('tutorialTitulo')}
-              </h2>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {tutorialVoluntario && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModoTutorial(false);
-                      setOfrecerTutorialVoluntario(true);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.14)',
-                      border: '1px solid rgba(255,255,255,0.3)',
-                      borderRadius: 999,
-                      color: COLORES.blanco,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      padding: '6px 12px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {msgTutorialCancelar(idioma)}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    router.push('/login');
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: 999,
-                    color: 'rgba(255,255,255,0.85)',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('tutorialSalir')}
-                </button>
-              </div>
-            </div>
-
-            <SabioWidget
-              colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-              idioma={idioma ?? 'ES'}
-              frase={msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? '')}
-            />
-          </div>
-        )}
-
+    <div>
       <div style={panelTitulo}>
         <div>
           <p style={eyebrowVerde}>{modoEdicion ? t('editandoOperacion') : t('nuevoRegistro')}</p>
@@ -2361,7 +2282,6 @@ function CentralDeLanzamientosTab({
         </button>
       </div>
       </div>
-    </div>
   );
 }
 
@@ -3540,28 +3460,6 @@ const panel: React.CSSProperties = {
   padding: 26,
   boxShadow: '0 14px 36px rgba(31,58,95,0.10)',
   overflow: 'hidden',
-};
-
-// Modal a pantalla completa del tutorial guiado (ver enTutorial en
-// CentralDeLanzamientosTab) — tapa el resto de la pantalla (pestañas,
-// accesos rápidos, el "Volver a mi negocio" real) con un fondo fijo
-// oscuro mientras dura, para que no compita con el formulario.
-const fondoTutorial: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(15,23,42,0.72)',
-  zIndex: 1000,
-  display: 'flex',
-  justifyContent: 'center',
-  padding: '32px 16px',
-  overflowY: 'auto',
-};
-
-const tarjetaTutorial: React.CSSProperties = {
-  ...panel,
-  width: '100%',
-  maxWidth: 720,
-  height: 'fit-content',
 };
 
 const panelTitulo: React.CSSProperties = {

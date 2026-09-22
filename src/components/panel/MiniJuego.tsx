@@ -57,24 +57,41 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
   guardando: { simbolo: '⏳', pose: 'scale(0.95)' },
 };
 
+// Modo tutorial (Fase 3 del onboarding, ver contabilidad/page.tsx):
+// en vez de elegir la operación de una grilla libre, viene forzada
+// paso a paso desde afuera — el jugador solo completa categoría en
+// adelante. `onCompletado` se llama una sola vez, al terminar la
+// última operación de la lista.
+type TutorialMiniJuego = {
+  operaciones: string[];
+  mensaje: string;
+};
+
 export function MiniJuego({
   empresaId,
   idioma,
   simbolo,
   colores,
+  tutorial,
+  onCompletadoTutorial,
   onCerrar,
 }: {
   empresaId: string;
   idioma: string;
   simbolo: string;
   colores: Colores;
+  tutorial?: TutorialMiniJuego;
+  onCompletadoTutorial?: () => void;
   onCerrar: () => void;
 }) {
   const esPT = idioma === 'PT';
 
-  const [paso, setPaso] = useState<Paso>('operacion');
+  const [pasoTutorial, setPasoTutorial] = useState(0);
+  const operacionForzada = tutorial?.operaciones[pasoTutorial] ?? null;
+
+  const [paso, setPaso] = useState<Paso>(operacionForzada ? 'categoria' : 'operacion');
   const [fecha, setFecha] = useState(fechaLocalHoy());
-  const [operacion, setOperacion] = useState('');
+  const [operacion, setOperacion] = useState(operacionForzada ?? '');
   const [categoria, setCategoria] = useState('');
   const [formaPago, setFormaPago] = useState('');
   const [productoId, setProductoId] = useState('');
@@ -447,7 +464,7 @@ export function MiniJuego({
       </div>
 
       <div style={{ maxWidth: 480, width: '100%', margin: '0 auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {paso !== 'operacion' && paso !== 'guardando' && (
+        {paso !== 'operacion' && paso !== 'guardando' && !(tutorial && paso === 'categoria') && (
           <button
             type="button"
             onClick={volver}
@@ -455,6 +472,28 @@ export function MiniJuego({
           >
             ← {esPT ? 'Voltar' : 'Atrás'}
           </button>
+        )}
+
+        {tutorial && (
+          <div
+            style={{
+              background: 'rgba(244,180,0,0.12)',
+              border: '1px solid rgba(244,180,0,0.4)',
+              borderRadius: 16,
+              padding: '14px 18px',
+              marginBottom: 14,
+              color: '#fff',
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              whiteSpace: 'pre-line',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.8, color: '#f4b400', marginBottom: 6, textTransform: 'uppercase' }}>
+              {esPT ? 'Tutorial guiado' : 'Tutorial guiado'} · {pasoTutorial + 1}/{tutorial.operaciones.length}
+            </div>
+            {tutorial.mensaje}
+          </div>
         )}
 
         {avatarSabio}
@@ -732,6 +771,18 @@ export function MiniJuego({
           idioma={idioma}
           onTerminar={() => {
             setCelebrando(null);
+
+            if (tutorial) {
+              const pasoNuevo = pasoTutorial + 1;
+              if (pasoNuevo >= tutorial.operaciones.length) {
+                onCompletadoTutorial?.();
+              } else {
+                setPasoTutorial(pasoNuevo);
+                elegirOperacion(tutorial.operaciones[pasoNuevo]);
+              }
+              return;
+            }
+
             reiniciarJuego();
           }}
         />
