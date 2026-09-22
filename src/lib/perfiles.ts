@@ -26,6 +26,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { crearObjetivosModelo } from './objetivos';
 import { crearMensajesTutorialModelo, crearMensajeBienvenidaOnboarding } from './mensajesTutorial';
+import { generarCodigo } from './categorias';
 
 export async function empresaYaTieneEsqueleto(empresaId: string, cliente: SupabaseClient = supabase) {
   const { count, error } = await cliente
@@ -334,6 +335,82 @@ export async function inicializarEmpresaDesdePerfil(
 
     if (error) {
       throw new Error(error.message);
+    }
+  }
+
+  // ---------------------------------------------------
+  // 6.5. CATEGORÍAS DE COMPRA DE ACTIVO FIJO — automático
+  //
+  // Todo perfil con la operación COMPRA trae también cuentas de
+  // Activo Fijo (Equipos de Computación, Maquinarias y Equipos,
+  // Muebles y Útiles — o Vehículos/Inmuebles/Electrodomésticos en
+  // Familiar) colgando de un rubro fijo ("ACTIVO NO CORRIENTE" /
+  // "BIENES Y PROPIEDADES"), pero hasta acá nadie las conectaba a
+  // ninguna operación — quedaban mudas hasta que un admin las cargara
+  // a mano, una por una, en CONFIGURAÇÕES → Categorias (ver
+  // crearCategoriaActivo). Se conectan solas acá, con el mismo criterio
+  // (misma cuenta, sin producto/stock), así el negocio puede comprar
+  // un activo fijo desde el primer día.
+  // ---------------------------------------------------
+
+  const RUBROS_ACTIVO_FIJO = ['ACTIVO NO CORRIENTE', 'BIENES Y PROPIEDADES'];
+
+  if (operacionIdPorNombre.has('COMPRA')) {
+    const codigosRubro = new Set(
+      cuentasMaestro.filter((c) => RUBROS_ACTIVO_FIJO.includes(c.nombre)).map((c) => c.codigo)
+    );
+
+    const cuentasActivoFijo = cuentasMaestro.filter(
+      (c) => c.cuenta_padre_codigo && codigosRubro.has(c.cuenta_padre_codigo) && c.naturaleza === 'DEUDORA' && !c.rol_contable
+    );
+
+    const codigosExistentes: string[] = [];
+
+    for (const cuenta of cuentasActivoFijo) {
+      const cuentaId = idPorCodigo.get(cuenta.codigo);
+      if (!cuentaId) continue;
+
+      const codigoCategoria = generarCodigo(cuenta.nombre, codigosExistentes);
+      codigosExistentes.push(codigoCategoria);
+
+      const { data: categoriaCreada, error: errorCategoria } = await cliente
+        .from('categorias_operacion')
+        .insert({
+          empresa_id: empresaId,
+          operacion: 'COMPRA',
+          codigo: codigoCategoria,
+          nombre: cuenta.nombre,
+          tipo: 'ACTIVO',
+          activo: true,
+        })
+        .select('id')
+        .single();
+
+      if (errorCategoria || !categoriaCreada) {
+        console.warn(`No se pudo crear la categoría de Activo Fijo "${cuenta.nombre}":`, errorCategoria);
+        continue;
+      }
+
+      await cliente.from('categorias_operacion_cuentas').insert({
+        empresa_id: empresaId,
+        categoria_operacion_id: categoriaCreada.id,
+        cuenta_id: cuentaId,
+        rol: 'ACTIVO',
+        activo: true,
+      });
+
+      await cliente.from('reglas_contables').insert({
+        empresa_id: empresaId,
+        operacion: 'COMPRA',
+        categoria_codigo: codigoCategoria,
+        categoria_nombre: cuenta.nombre,
+        rol_debito: 'ACTIVO_CATEGORIA',
+        rol_credito: 'MEDIO_FINANCIERO',
+        stock: 'NO',
+        libro: 'SI',
+        cmv: 'NO',
+        motor: 'ACTIVO',
+      });
     }
   }
 

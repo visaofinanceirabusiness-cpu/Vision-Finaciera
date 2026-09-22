@@ -18,7 +18,7 @@
 
 import { supabase } from './supabase';
 
-function generarCodigo(nombre: string, existentes: string[]): string {
+export function generarCodigo(nombre: string, existentes: string[]): string {
   const base = nombre
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
