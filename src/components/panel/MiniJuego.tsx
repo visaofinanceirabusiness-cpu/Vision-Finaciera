@@ -3,9 +3,9 @@
 // MINI-JUEGO — tercera forma de cargar operaciones (además de Central
 // de Lanzamientos y Sabio Bot): mismas preguntas, pero como tarjetas
 // con ícono en vez de formulario/chat — "jugás una carta" en vez de
-// llenar un campo. Pensado para Pago/Cobro/Transferencia, las
-// operaciones más repetitivas y sin producto (Venta/Compra quedan
-// para una segunda vuelta, necesitan elegir producto también).
+// llenar un campo. Cubre todas las operaciones, incluidas Venta/Compra
+// (que suman un paso más: elegir el producto y la cantidad, igual que
+// en Contabilidad).
 //
 // Usa el MISMO motor que ya usan Sabio Bot y Contabilidad
 // (registrarOperacion) — esto es solo una capa visual nueva, no
@@ -14,18 +14,31 @@
 
 import { useEffect, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
-import { obtenerCategoriasJuego, obtenerFormasPagoJuego, contarJugadasHoy } from '@/lib/miniJuego';
+import {
+  obtenerCategoriasJuego,
+  obtenerFormasPagoJuego,
+  obtenerProductosJuego,
+  contarJugadasHoy,
+  type CategoriaJuego,
+  type ProductoJuego,
+} from '@/lib/miniJuego';
 import { iconoOperacion, iconoParaTexto } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
-// Fase 1: solo operaciones sin producto — Venta/Compra quedan para
-// una segunda vuelta del Mini-Juego.
-const OPERACIONES_JUEGO = ['PAGO', 'COBRO', 'TRANSFERENCIA'];
+const OPERACIONES_JUEGO = ['VENTA', 'COMPRA', 'PAGO', 'COBRO', 'TRANSFERENCIA', 'INVERSION', 'EXTRACCION', 'PERDIDA'];
 
-type Paso = 'operacion' | 'categoria' | 'formaPago' | 'monto' | 'guardando';
+// Misma regla que usa Contabilidad para saber si la categoría elegida
+// mueve stock y por lo tanto hay que elegir un producto puntual.
+function operacionNecesitaProducto(operacion: string, formaPago: string, categoria: CategoriaJuego | undefined) {
+  if (!categoria) return false;
+  const categoriaEsProducto = categoria.stock === 'SI';
+  return (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) || (operacion === 'INVERSION' && formaPago === 'Mercadería');
+}
+
+type Paso = 'operacion' | 'categoria' | 'formaPago' | 'producto' | 'cantidad' | 'monto' | 'guardando';
 
 export function MiniJuego({
   empresaId,
@@ -46,10 +59,15 @@ export function MiniJuego({
   const [operacion, setOperacion] = useState('');
   const [categoria, setCategoria] = useState('');
   const [formaPago, setFormaPago] = useState('');
+  const [productoId, setProductoId] = useState('');
+  const [productoNombre, setProductoNombre] = useState('');
+  const [unidadMedida, setUnidadMedida] = useState('');
+  const [cantidad, setCantidad] = useState('');
   const [monto, setMonto] = useState('');
 
-  const [categorias, setCategorias] = useState<string[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaJuego[]>([]);
   const [formasPago, setFormasPago] = useState<string[]>([]);
+  const [productos, setProductos] = useState<ProductoJuego[]>([]);
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
@@ -74,10 +92,18 @@ export function MiniJuego({
       .finally(() => setCargandoOpciones(false));
   }, [empresaId, operacion, categoria]);
 
+  const categoriaSeleccionada = categorias.find((c) => c.nombre === categoria);
+  const necesitaProducto = operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada);
+  const productosDeCategoria = productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase());
+
   function elegirOperacion(op: string) {
     setOperacion(op);
     setCategoria('');
     setFormaPago('');
+    setProductoId('');
+    setProductoNombre('');
+    setUnidadMedida('');
+    setCantidad('');
     setMonto('');
     setPaso('categoria');
   }
@@ -85,17 +111,44 @@ export function MiniJuego({
   function elegirCategoria(cat: string) {
     setCategoria(cat);
     setFormaPago('');
+    setProductoId('');
+    setProductoNombre('');
+    setUnidadMedida('');
+    setCantidad('');
     setMonto('');
     setPaso('formaPago');
   }
 
-  function elegirFormaPago(fp: string) {
+  async function elegirFormaPago(fp: string) {
     setFormaPago(fp);
-    setPaso('monto');
+    setMonto('');
+
+    if (operacionNecesitaProducto(operacion, fp, categoriaSeleccionada)) {
+      setCargandoOpciones(true);
+      try {
+        if (productos.length === 0) setProductos(await obtenerProductosJuego(empresaId));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error cargando productos.');
+      } finally {
+        setCargandoOpciones(false);
+      }
+      setPaso('producto');
+    } else {
+      setPaso('monto');
+    }
   }
 
-  function tocarTecla(tecla: string) {
-    setMonto((actual) => {
+  function elegirProducto(p: ProductoJuego) {
+    setProductoId(p.id);
+    setProductoNombre(p.nombre);
+    setUnidadMedida(p.unidad_medida ?? '');
+    setCantidad('1');
+    setPaso('cantidad');
+  }
+
+  function tocarTecla(destino: 'monto' | 'cantidad', tecla: string) {
+    const setter = destino === 'monto' ? setMonto : setCantidad;
+    setter((actual) => {
       if (tecla === 'borrar') return actual.slice(0, -1);
       if (tecla === '.' && actual.includes('.')) return actual;
       if (actual.length >= 10) return actual;
@@ -103,17 +156,33 @@ export function MiniJuego({
     });
   }
 
+  function confirmarCantidad() {
+    const cantidadNum = Number(cantidad);
+    if (!cantidadNum || cantidadNum <= 0) {
+      setError(esPT ? 'A quantidade tem que ser maior que zero.' : 'La cantidad tiene que ser mayor a cero.');
+      return;
+    }
+    setError('');
+    setPaso('monto');
+  }
+
   function volver() {
     setError('');
     if (paso === 'categoria') setPaso('operacion');
     else if (paso === 'formaPago') setPaso('categoria');
-    else if (paso === 'monto') setPaso('formaPago');
+    else if (paso === 'producto') setPaso('formaPago');
+    else if (paso === 'cantidad') setPaso('producto');
+    else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : 'formaPago');
   }
 
   function reiniciarJuego() {
     setOperacion('');
     setCategoria('');
     setFormaPago('');
+    setProductoId('');
+    setProductoNombre('');
+    setUnidadMedida('');
+    setCantidad('');
     setMonto('');
     setError('');
     setPaso('operacion');
@@ -131,6 +200,9 @@ export function MiniJuego({
     setError('');
 
     try {
+      const cantidadNum = necesitaProducto ? Number(cantidad) || 1 : 1;
+      const montoParaMotor = necesitaProducto ? total / cantidadNum : total;
+
       await registrarOperacion(empresaId, {
         fecha: fechaLocalHoy(),
         operacion,
@@ -138,7 +210,7 @@ export function MiniJuego({
         formaPago,
         historico: categoria,
         clienteProveedor: '',
-        lineas: [{ producto: '', cantidad: 1, monto: total }],
+        lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
 
       const numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
@@ -161,7 +233,9 @@ export function MiniJuego({
         ? 'Escolha a categoria'
         : 'Elegí la categoría',
     formaPago: esPT ? 'De onde sai o dinheiro?' : '¿De dónde sale la plata?',
-    monto: esPT ? 'Quanto foi?' : '¿Cuánto fue?',
+    producto: esPT ? 'Qual produto?' : '¿Qué producto?',
+    cantidad: esPT ? 'Quantas unidades?' : '¿Cuántas unidades?',
+    monto: necesitaProducto ? (esPT ? 'Quanto no total?' : '¿Cuánto salió en total?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
     guardando: esPT ? 'Registrando...' : 'Registrando...',
   };
 
@@ -259,7 +333,7 @@ export function MiniJuego({
               </p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                {categorias.map((cat) => tarjeta(iconoParaTexto(cat), cat, () => elegirCategoria(cat), cat))}
+                {categorias.map((cat) => tarjeta(iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre))}
               </div>
             )}
           </>
@@ -281,6 +355,96 @@ export function MiniJuego({
           </>
         )}
 
+        {paso === 'producto' && (
+          <>
+            {cargandoOpciones ? (
+              <p style={{ color: '#fff', textAlign: 'center' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>
+            ) : productosDeCategoria.length === 0 ? (
+              <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
+                {esPT ? 'Nenhum produto cadastrado nessa categoria.' : 'No hay ningún producto cargado en esta categoría.'}
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
+                {productosDeCategoria.map((p) => tarjeta('📦', p.nombre, () => elegirProducto(p), p.id))}
+              </div>
+            )}
+          </>
+        )}
+
+        {paso === 'cantidad' && (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                borderRadius: 16,
+                padding: '10px 16px',
+                marginBottom: 10,
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.75)',
+                textAlign: 'center',
+              }}
+            >
+              📦 {productoNombre}
+            </div>
+
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: 20,
+                padding: '26px 20px',
+                textAlign: 'center',
+                fontSize: 40,
+                fontWeight: 900,
+                color: colores.azul,
+                marginBottom: 18,
+              }}
+            >
+              {cantidad || '0'} {unidadMedida}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'borrar'].map((tecla) => (
+                <button
+                  key={tecla}
+                  type="button"
+                  onClick={() => tocarTecla('cantidad', tecla)}
+                  style={{
+                    padding: '16px 0',
+                    borderRadius: 14,
+                    border: 'none',
+                    background: 'rgba(255,255,255,0.12)',
+                    color: '#fff',
+                    fontSize: 20,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tecla === 'borrar' ? '⌫' : tecla}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              disabled={!cantidad}
+              onClick={confirmarCantidad}
+              style={{
+                border: 'none',
+                background: colores.verde,
+                color: '#fff',
+                borderRadius: 16,
+                padding: '16px 0',
+                fontSize: 17,
+                fontWeight: 800,
+                cursor: 'pointer',
+                opacity: cantidad ? 1 : 0.5,
+              }}
+            >
+              {esPT ? 'Continuar' : 'Continuar'}
+            </button>
+          </div>
+        )}
+
         {(paso === 'monto' || paso === 'guardando') && (
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div
@@ -294,6 +458,11 @@ export function MiniJuego({
               }}
             >
               {iconoOperacion(operacion)} {operacion.charAt(0) + operacion.slice(1).toLowerCase()} · {iconoParaTexto(categoria)} {categoria} · {iconoParaTexto(formaPago)} {formaPago}
+              {necesitaProducto && productoNombre && (
+                <>
+                  {' '}· 📦 {productoNombre} ({cantidad} {unidadMedida})
+                </>
+              )}
             </div>
 
             <div
@@ -317,7 +486,7 @@ export function MiniJuego({
                   key={tecla}
                   type="button"
                   disabled={paso === 'guardando'}
-                  onClick={() => tocarTecla(tecla)}
+                  onClick={() => tocarTecla('monto', tecla)}
                   style={{
                     padding: '16px 0',
                     borderRadius: 14,
