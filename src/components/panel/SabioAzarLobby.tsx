@@ -1,12 +1,12 @@
 'use client';
 
 // SABIO DEL AZAR — banner del lobby que invita al Mini-Juego, mismo
-// modelo visual que SabioBotLobby (avatar 3D + texto + flecha) pero
-// con un toque de "casino/Monopoly" para separarlo del Sabio de
-// siempre: es el mismo personaje, pero "disfrazado" para el modo
-// juego. Va arriba de SabioBotLobby en el lobby.
+// modelo visual que SabioBotLobby (avatar + texto + flecha) pero con
+// el "Sabio Lúdico" (galera, moño y bastón, dibujado especialmente
+// para el Mini-Juego) en vez del 3D de siempre. Va arriba de
+// SabioBotLobby en el lobby.
 
-import { SABIO_URL } from './SabioWidget';
+import { SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 
 export function SabioAzarLobby({
   idioma,
@@ -39,12 +39,10 @@ export function SabioAzarLobby({
       <div style={{ position: 'relative', flexShrink: 0 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={SABIO_URL}
+          src={SABIO_LUDICO_URL}
           alt="Sabio"
-          style={{ width: 110, height: 110, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.3))' }}
+          style={{ width: 120, height: 120, objectFit: 'contain', filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.3))' }}
         />
-        <span style={{ position: 'absolute', top: -6, left: -6, fontSize: 30, transform: 'rotate(-18deg)' }}>🎩</span>
-        <span style={{ position: 'absolute', bottom: 4, right: -8, fontSize: 26 }}>🎲</span>
       </div>
 
       <span style={{ flex: 1, minWidth: 0 }}>

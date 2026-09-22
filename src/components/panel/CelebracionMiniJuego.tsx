@@ -7,7 +7,7 @@
 // de "cargar la próxima".
 
 import { useEffect, useState } from 'react';
-import { SABIO_URL } from './SabioWidget';
+import { SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 
 const PALETA = ['#2e8b57', '#fbbf24', '#60a5fa', '#f97316', '#ffffff'];
 
@@ -128,9 +128,9 @@ export function CelebracionMiniJuego({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={SABIO_URL}
+            src={SABIO_LUDICO_URL}
             alt="Sabio"
-            style={{ width: 46, height: 46, objectFit: 'contain', animation: 'miniJuegoSabioFesteja 0.6s ease-in-out infinite' }}
+            style={{ width: 64, height: 64, objectFit: 'contain', animation: 'miniJuegoSabioFesteja 0.6s ease-in-out infinite' }}
           />
           <div style={{ fontSize: 56, animation: 'miniJuegoPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>✅</div>
         </div>

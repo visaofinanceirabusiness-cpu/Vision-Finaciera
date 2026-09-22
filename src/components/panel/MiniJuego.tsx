@@ -22,11 +22,10 @@ import {
   type CategoriaJuego,
   type ProductoJuego,
 } from '@/lib/miniJuego';
-import { iconoOperacion, iconoParaTexto } from '@/lib/iconosJuego';
+import { iconoOperacion, iconoParaTexto, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
-import { SABIO_URL } from './SabioWidget';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -45,18 +44,17 @@ function operacionNecesitaProducto(operacion: string, formaPago: string, categor
 
 type Paso = 'operacion' | 'categoria' | 'formaPago' | 'producto' | 'cantidad' | 'monto' | 'guardando';
 
-// El "Sabio del Azar" (mismo avatar 3D de Sabio Bot, con disfraz de
-// jugador) va cambiando de gesto y frase según en qué paso está el
-// jugador — la idea es que se sienta que está jugando con alguien, no
-// llenando un formulario.
-const REACCION_POR_PASO: Record<Paso, { emoji: string; es: string; pt: string }> = {
-  operacion: { emoji: '🤔', es: '¿Con qué jugamos?', pt: 'Com o que vamos jogar?' },
-  categoria: { emoji: '🧐', es: 'Interesante...', pt: 'Interessante...' },
-  formaPago: { emoji: '👀', es: '¿Con qué medio?', pt: 'Com qual meio?' },
-  producto: { emoji: '📦', es: '¿Cuál es?', pt: 'Qual é?' },
-  cantidad: { emoji: '🔢', es: '¿Cuántas van?', pt: 'Quantas vão?' },
-  monto: { emoji: '🤑', es: '¡Decime el número!', pt: 'Me diz o número!' },
-  guardando: { emoji: '🎲', es: 'Tirando los dados...', pt: 'Jogando os dados...' },
+// El Sabio Lúdico no habla — reacciona con un símbolo (no un diálogo)
+// y una "pose" distinta (nomás con transform, no hay dibujo aparte
+// por pose) según en qué paso está el jugador.
+const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
+  operacion: { simbolo: '❓', pose: 'rotate(-4deg)' },
+  categoria: { simbolo: '❗', pose: 'rotate(3deg) scale(1.04)' },
+  formaPago: { simbolo: '❗', pose: 'rotate(-3deg) scale(1.04)' },
+  producto: { simbolo: '❓', pose: 'rotate(4deg)' },
+  cantidad: { simbolo: '🔢', pose: 'scale(1.06)' },
+  monto: { simbolo: '💰', pose: 'rotate(-5deg) scale(1.08)' },
+  guardando: { simbolo: '⏳', pose: 'scale(0.95)' },
 };
 
 export function MiniJuego({
@@ -364,24 +362,34 @@ export function MiniJuego({
   const reaccion = REACCION_POR_PASO[paso];
 
   const avatarSabio = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
       <div style={{ position: 'relative', flexShrink: 0 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={SABIO_URL} alt="Sabio" style={{ width: 54, height: 54, objectFit: 'contain', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.3))' }} />
-        <span style={{ position: 'absolute', bottom: -4, right: -6, fontSize: 20 }}>{reaccion.emoji}</span>
-      </div>
-      <div
-        style={{
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          borderRadius: 14,
-          padding: '7px 13px',
-          color: '#fff',
-          fontSize: 12.5,
-          fontWeight: 700,
-        }}
-      >
-        {esPT ? reaccion.pt : reaccion.es}
+        <img
+          src={SABIO_LUDICO_URL}
+          alt="Sabio"
+          style={{
+            width: 76,
+            height: 76,
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.3))',
+            transform: reaccion.pose,
+            transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        />
+        <span
+          style={{
+            position: 'absolute',
+            top: -6,
+            right: -10,
+            fontSize: 24,
+            fontWeight: 900,
+            color: '#f4b400',
+            textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+          }}
+        >
+          {reaccion.simbolo}
+        </span>
       </div>
     </div>
   );
@@ -399,43 +407,43 @@ export function MiniJuego({
         overflowY: 'auto',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>🎲 {esPT ? 'Mini-Jogo' : 'Mini-Juego'}</div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: 10,
-              padding: '5px 10px',
-              color: '#fff',
-              fontSize: 12.5,
-              fontWeight: 700,
-              cursor: paso === 'guardando' ? 'default' : 'pointer',
-            }}
-          >
-            📅
-            <input
-              type="date"
-              value={fecha}
-              disabled={paso === 'guardando'}
-              onChange={(e) => setFecha(e.target.value || fechaLocalHoy())}
-              style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'inherit', colorScheme: 'dark' }}
-            />
-          </label>
+        <button
+          type="button"
+          onClick={onCerrar}
+          style={{ border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        >
+          {esPT ? 'Fechar' : 'Cerrar'}
+        </button>
+      </div>
 
-          <button
-            type="button"
-            onClick={onCerrar}
-            style={{ border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-          >
-            {esPT ? 'Fechar' : 'Cerrar'}
-          </button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'rgba(244,180,0,0.14)',
+            border: '2px solid #f4b400',
+            borderRadius: 14,
+            padding: '10px 18px',
+            color: '#fff',
+            fontSize: 17,
+            fontWeight: 800,
+            cursor: paso === 'guardando' ? 'default' : 'pointer',
+          }}
+        >
+          📅
+          <input
+            type="date"
+            value={fecha}
+            disabled={paso === 'guardando'}
+            onChange={(e) => setFecha(e.target.value || fechaLocalHoy())}
+            style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'inherit', colorScheme: 'dark' }}
+          />
+        </label>
       </div>
 
       <div style={{ maxWidth: 480, width: '100%', margin: '0 auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
