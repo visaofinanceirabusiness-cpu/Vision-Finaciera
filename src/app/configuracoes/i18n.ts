@@ -92,6 +92,9 @@ export type ClaveConfiguracoes =
   | 'tituloCategoriaGasto'
   | 'subtituloCategoriaGasto'
   | 'placeholderCategoriaGasto'
+  | 'tituloCategoriaActivo'
+  | 'subtituloCategoriaActivo'
+  | 'placeholderCategoriaActivo'
   | 'tituloFormasPago'
   | 'subtituloFormasPago'
   | 'placeholderFormaPago'
@@ -319,6 +322,9 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tituloCategoriaGasto: '🧾 Categorías de Gasto',
     subtituloCategoriaGasto: 'Habilitan la operación Pago (si el nombre ya existe en el plan, se reutiliza esa cuenta en vez de duplicar).',
     placeholderCategoriaGasto: 'Nombre del gasto (ej. Alquiler del local)',
+    tituloCategoriaActivo: '🏢 Compra de Activo Fijo',
+    subtituloCategoriaActivo: 'Habilitan la operación Compra contra una cuenta de Activo que no es mercadería (Equipos, Maquinarias, Muebles y Útiles...) — la cuenta ya tiene que existir en el Plan de Cuentas.',
+    placeholderCategoriaActivo: 'Nombre exacto de la cuenta de Activo (ej. Equipos de Computación)',
     tituloFormasPago: '💳 Formas de Pago',
     subtituloFormasPago: 'Cada una se vincula a una cuenta contable existente (o nueva) y a las operaciones donde se puede usar.',
     placeholderFormaPago: 'Nombre (ej. Mercado Pago)',
@@ -541,6 +547,9 @@ export const diccionarioConfiguracoes: Diccionario<ClaveConfiguracoes> = {
     tituloCategoriaGasto: '🧾 Categorias de Despesa',
     subtituloCategoriaGasto: 'Habilitam a operação Pagamento (se o nome já existe no plano, reutiliza essa conta em vez de duplicar).',
     placeholderCategoriaGasto: 'Nome da despesa (ex.: Aluguel do local)',
+    tituloCategoriaActivo: '🏢 Compra de Ativo Fixo',
+    subtituloCategoriaActivo: 'Habilitam a operação Compra contra uma conta de Ativo que não é mercadoria (Equipamentos, Maquinário, Móveis e Utensílios...) — a conta já precisa existir no Plano de Contas.',
+    placeholderCategoriaActivo: 'Nome exato da conta de Ativo (ex.: Equipamentos de Informática)',
     tituloFormasPago: '💳 Formas de Pagamento',
     subtituloFormasPago: 'Cada uma se vincula a uma conta contábil existente (ou nova) e às operações em que pode ser usada.',
     placeholderFormaPago: 'Nome (ex.: Mercado Pago)',

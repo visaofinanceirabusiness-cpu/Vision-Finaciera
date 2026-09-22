@@ -404,6 +404,99 @@ export async function crearCategoriaGasto(empresaId: string, nombre: string) {
 }
 
 // =====================================================
+// CATEGORÍA DE ACTIVO FIJO (habilita COMPRA contra una cuenta de
+// Activo que NO es mercadería — Equipos de Computación, Maquinarias,
+// Muebles y Útiles...)
+//
+// A diferencia de una categoría de Gasto, acá NO se crea una cuenta
+// nueva: la cuenta de Activo Fijo ya tiene que existir en el Plan de
+// Cuentas (la trae el perfil de la empresa) — esta función solo la
+// conecta a la operación COMPRA para que se pueda registrar la
+// adquisición. No pide producto/stock: es una compra de una sola vez,
+// no algo que se revende.
+// =====================================================
+
+export async function crearCategoriaActivo(empresaId: string, nombre: string) {
+  const nombreLimpio = nombre.trim();
+
+  if (!nombreLimpio) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+
+  const cuentaActivoId = await buscarCuentaExistentePorNombre(empresaId, nombreLimpio, 'ACTIVO');
+
+  if (!cuentaActivoId) {
+    throw new Error(
+      `No encontré ninguna cuenta de Activo llamada "${nombreLimpio}" en el Plan de Cuentas. Cargala ahí primero (admin de plataforma) y después volvé a crear esta categoría.`
+    );
+  }
+
+  const { data: existentes, error: errorExistentes } = await supabase
+    .from('categorias_operacion')
+    .select('codigo')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', 'COMPRA');
+
+  if (errorExistentes) {
+    throw errorExistentes;
+  }
+
+  const codigo = generarCodigo(nombreLimpio, (existentes ?? []).map((c) => c.codigo));
+
+  const { data: categoriaCreada, error: errorCategoria } = await supabase
+    .from('categorias_operacion')
+    .insert({
+      empresa_id: empresaId,
+      operacion: 'COMPRA',
+      codigo,
+      nombre: nombreLimpio,
+      tipo: 'ACTIVO',
+      activo: true,
+    })
+    .select('id')
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  const { error: errorVinculo } = await supabase.from('categorias_operacion_cuentas').insert({
+    empresa_id: empresaId,
+    categoria_operacion_id: categoriaCreada.id,
+    cuenta_id: cuentaActivoId,
+    rol: 'ACTIVO',
+    activo: true,
+  });
+
+  if (errorVinculo) {
+    throw errorVinculo;
+  }
+
+  // Los roles ACTIVO_CATEGORIA/MEDIO_FINANCIERO son constantes para
+  // toda categoría de este tipo (no dependen del perfil de la
+  // empresa como sí pasa con Gasto/Ingreso) — no hace falta buscar
+  // una plantilla, se arma la regla directo.
+  const { error: errorRegla } = await supabase.from('reglas_contables').insert({
+    empresa_id: empresaId,
+    operacion: 'COMPRA',
+    categoria_codigo: codigo,
+    categoria_nombre: nombreLimpio,
+    rol_debito: 'ACTIVO_CATEGORIA',
+    rol_credito: 'MEDIO_FINANCIERO',
+    stock: 'NO',
+    libro: 'SI',
+    cmv: 'NO',
+    motor: 'ACTIVO',
+  });
+
+  if (errorRegla) {
+    throw errorRegla;
+  }
+
+  return { codigo, nombre: nombreLimpio };
+}
+
+// =====================================================
 // CATEGORÍA DE SERVICIO / INGRESO (sin stock)
 //
 // Sirve para dos casos que son estructuralmente iguales: una venta
