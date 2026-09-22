@@ -24,6 +24,7 @@ import {
 } from '@/lib/miniJuego';
 import { iconoOperacion, iconoParaTexto } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 import { SABIO_URL } from './SabioWidget';
 
@@ -91,6 +92,7 @@ export function MiniJuego({
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!operacion) return;
@@ -111,6 +113,36 @@ export function MiniJuego({
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando formas de pago.'))
       .finally(() => setCargandoOpciones(false));
   }, [empresaId, operacion, categoria]);
+
+  // Saldo de la cuenta detrás de cada medio (Activo: Caja, Banco... o
+  // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
+  // dónde hay plata (o deuda), no a ciegas por el nombre solo.
+  useEffect(() => {
+    if (formasPago.length === 0) {
+      setSaldosPorMedio({});
+      return;
+    }
+
+    let cancelado = false;
+
+    Promise.all(
+      formasPago.map(async (fp) => {
+        const resultado = await saldoEnTransferencia(empresaId, fp, fecha).catch(() => null);
+        return [fp, resultado] as const;
+      })
+    ).then((pares) => {
+      if (cancelado) return;
+      const mapa: Record<string, number> = {};
+      for (const [fp, resultado] of pares) {
+        if (resultado) mapa[fp] = resultado.saldo;
+      }
+      setSaldosPorMedio(mapa);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, formasPago, fecha]);
 
   const categoriaSeleccionada = categorias.find((c) => c.nombre === categoria);
   const necesitaProducto = operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada);
@@ -266,7 +298,7 @@ export function MiniJuego({
     guardando: esPT ? 'Registrando...' : 'Registrando...',
   };
 
-  const tarjeta = (emoji: string, etiqueta: string, onClick: () => void, key: string) => (
+  const tarjeta = (emoji: string, etiqueta: string, onClick: () => void, key: string, subEtiqueta?: string) => (
     <button
       key={key}
       type="button"
@@ -291,8 +323,15 @@ export function MiniJuego({
     >
       <span style={{ fontSize: 34 }}>{emoji}</span>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: colores.azul, textAlign: 'center' }}>{etiqueta}</span>
+      {subEtiqueta && (
+        <span style={{ fontSize: 11, fontWeight: 700, color: colores.verde, textAlign: 'center' }}>{subEtiqueta}</span>
+      )}
     </button>
   );
+
+  function formatearSaldo(valor: number): string {
+    return `${simbolo} ${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 
   const coincide = (texto: string) => texto.toLowerCase().includes(busqueda.trim().toLowerCase());
 
@@ -484,7 +523,15 @@ export function MiniJuego({
                   </p>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                    {formasPagoFiltradas.map((fp) => tarjeta(iconoParaTexto(fp), fp, () => elegirFormaPago(fp), fp))}
+                    {formasPagoFiltradas.map((fp) =>
+                      tarjeta(
+                        iconoParaTexto(fp),
+                        fp,
+                        () => elegirFormaPago(fp),
+                        fp,
+                        fp in saldosPorMedio ? formatearSaldo(saldosPorMedio[fp]) : undefined
+                      )
+                    )}
                   </div>
                 )}
               </>
