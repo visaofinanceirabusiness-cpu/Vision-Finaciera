@@ -575,6 +575,15 @@ export default function MercaderiaPage() {
       return;
     }
 
+    const yaExiste = productos.some(
+      (p) => p.id !== editandoProductoId && p.nombre.trim().toLowerCase() === nombreLimpio.toLowerCase()
+    );
+
+    if (yaExiste) {
+      setError(t('errorNombreDuplicado'));
+      return;
+    }
+
     setGuardando(true);
     setError('');
 
