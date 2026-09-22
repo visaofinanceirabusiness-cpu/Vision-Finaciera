@@ -10,12 +10,14 @@ import {
   type AnotacionCalendario,
   type CategoriaEvento,
   type EventoCalendario,
+  type FrecuenciaRepeticion,
   actualizarEvento,
   alternarAnotacion,
   crearAnotacion,
   crearEvento,
   eliminarAnotacion,
   eliminarEvento,
+  eliminarSerie,
   listarAnotacionesDelMes,
   listarEventosDelMes,
   nombreCategoria,
@@ -206,6 +208,7 @@ export function CalendarioOrganizador({
     notas: string;
     notificar: boolean;
     antelacionMinutos: number;
+    repeticion?: { frecuencia: FrecuenciaRepeticion; diasSemana?: number[]; hasta: string };
   }) {
     if (modal?.evento) {
       await actualizarEvento(modal.evento.id, datos);
@@ -219,6 +222,13 @@ export function CalendarioOrganizador({
   async function borrarEvento() {
     if (!modal?.evento) return;
     await eliminarEvento(modal.evento.id);
+    await refrescarEventos();
+    setModal(null);
+  }
+
+  async function borrarSerie() {
+    if (!modal?.evento?.serie_id) return;
+    await eliminarSerie(modal.evento.serie_id);
     await refrescarEventos();
     setModal(null);
   }
@@ -406,7 +416,18 @@ export function CalendarioOrganizador({
               un ancho mínimo deja que se deslice el dedo para ver los
               días que no entran, en vez de perderlos. */}
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6, minWidth: 560 }}>
+          {/* minmax(0, 1fr) en vez de 1fr a secas: por default una
+              columna de grid no encoge más allá del contenido que
+              tenga adentro (min-width: auto), así que un título de
+              evento largo sin cortar empujaba esa columna más ancha
+              que 1/7 del total — corriendo las columnas siguientes
+              hacia la derecha y perdiendo la relación día/columna
+              (Sábado terminaba mostrando la fecha de otro día, y
+              hacía falta scrollear para volver a alinearlo). Con el
+              0 como piso, la columna nunca crece más de lo que le
+              toca — el texto de adentro es el que se corta (ver
+              minWidth: 0 en la celda y en cada evento, más abajo). */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6, marginBottom: 6, minWidth: 560 }}>
             {diasSemana.map((dia, indiceColumna) => {
               const esFinDeSemana = indiceColumna === 5 || indiceColumna === 6;
               return (
@@ -435,7 +456,7 @@ export function CalendarioOrganizador({
             </div>
           ) : (
             filas.map((fila, i) => (
-              <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6, minWidth: 560 }}>
+              <div key={i} style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6, marginBottom: 6, minWidth: 560 }}>
                 {fila.map((celda, indiceColumna) => {
                   const eventosDelDia = eventosPorFecha.get(celda.fecha) ?? [];
                   const esHoy = celda.fecha === hoyStr;
@@ -466,6 +487,7 @@ export function CalendarioOrganizador({
                       key={celda.fecha}
                       style={{
                         position: 'relative',
+                        minWidth: 0,
                         minHeight: 84,
                         borderRadius: 12,
                         // El día de hoy no lleva textura: se destaca
@@ -519,6 +541,7 @@ export function CalendarioOrganizador({
                             background: `linear-gradient(0deg, ${CATEGORIAS_EVENTO[ev.categoria].color}2e, ${CATEGORIAS_EVENTO[ev.categoria].color}2e), ${colores.blanco}`,
                             color: CATEGORIAS_EVENTO[ev.categoria].color,
                             borderRadius: 6,
+                            minWidth: 0,
                             padding: '2px 5px',
                             fontSize: 10,
                             fontWeight: 700,
@@ -678,6 +701,7 @@ export function CalendarioOrganizador({
           colores={colores}
           onGuardar={guardarEvento}
           onEliminar={borrarEvento}
+          onEliminarSerie={borrarSerie}
           onCancelar={() => setModal(null)}
         />
       )}
