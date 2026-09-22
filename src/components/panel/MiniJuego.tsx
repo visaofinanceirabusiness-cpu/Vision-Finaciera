@@ -65,10 +65,14 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
 // en vez de elegir la operación de una grilla libre, viene forzada
 // paso a paso desde afuera — el jugador solo completa categoría en
 // adelante. `onCompletado` se llama una sola vez, al terminar la
-// última operación de la lista.
+// última operación de la lista. `mensaje` es una función (no un
+// string fijo) porque el paso del tutorial avanza ACÁ ADENTRO
+// (pasoTutorial es estado propio del Mini-Juego) — pasarlo ya
+// calculado desde afuera lo dejaba congelado en el mensaje del
+// primer paso para siempre.
 type TutorialMiniJuego = {
   operaciones: string[];
-  mensaje: string;
+  mensaje: (paso: number) => string;
 };
 
 export function MiniJuego({
@@ -577,7 +581,7 @@ export function MiniJuego({
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.8, color: '#f4b400', marginBottom: 6, textTransform: 'uppercase' }}>
               {esPT ? 'Tutorial guiado' : 'Tutorial guiado'} · {pasoTutorial + 1}/{tutorial.operaciones.length}
             </div>
-            {tutorial.mensaje}
+            {tutorial.mensaje(pasoTutorial)}
           </div>
         )}
 

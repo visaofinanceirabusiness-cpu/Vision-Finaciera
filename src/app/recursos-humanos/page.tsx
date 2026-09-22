@@ -228,10 +228,12 @@ export default function RecursosHumanosPage() {
       return;
     }
 
-    // Solo para clientes: el teléfono es la clave para no duplicar
-    // (ver lib/clientes.ts) y el número al que se manda el
-    // comprobante por WhatsApp — sin él no tiene sentido la ficha.
-    if (pestana === 'clientes' && !telefonoLimpio) {
+    // El teléfono es la clave para no duplicar (ver lib/clientes.ts,
+    // mismo criterio que usan Contabilidad/Mini-Juego/Sabio Bot al
+    // dar de alta un contacto nuevo) y, para clientes, el número al
+    // que se manda el comprobante por WhatsApp — obligatorio en las
+    // dos pestañas.
+    if (!telefonoLimpio) {
       setError(t('errorTelefonoObligatorio'));
       return;
     }
@@ -442,13 +444,16 @@ export default function RecursosHumanosPage() {
                     placeholder={t('nombrePlaceholder')}
                     style={inputFormulario}
                   />
+
+                  <span style={{ fontSize: 11, color: '#6b7280', marginTop: 4, display: 'block' }}>
+                    {idioma === 'PT'
+                      ? (pestana === 'clientes' ? 'Nome da pessoa ou empresa que compra/paga.' : 'Nome da pessoa ou empresa à qual você compra/paga.')
+                      : (pestana === 'clientes' ? 'Nombre de la persona o empresa que compra/paga.' : 'Nombre de la persona o empresa a la que le comprás/pagás.')}
+                  </span>
                 </div>
 
                 <div style={campo}>
-                  <label style={label}>
-                    {t('telefono')}
-                    {pestana === 'clientes' && ' *'}
-                  </label>
+                  <label style={label}>{t('telefono')} *</label>
 
                   <input
                     value={formulario.telefono}
@@ -457,13 +462,15 @@ export default function RecursosHumanosPage() {
                     style={inputFormulario}
                   />
 
-                  {pestana === 'clientes' && (
-                    <span style={{ fontSize: 11, color: '#6b7280', marginTop: 4, display: 'block' }}>
-                      {idioma === 'PT'
-                        ? 'Com código do país (ex: 5511987654321) — é o número usado para enviar o comprovante por WhatsApp.'
-                        : 'Con código de país (ej: 5491122334455) — es el número que se usa para mandar el comprobante por WhatsApp.'}
-                    </span>
-                  )}
+                  <span style={{ fontSize: 11, color: '#6b7280', marginTop: 4, display: 'block' }}>
+                    {idioma === 'PT'
+                      ? (pestana === 'clientes'
+                          ? 'Obrigatório, com código do país (ex: 5511987654321) — é a chave para não duplicar e o número usado para enviar o comprovante por WhatsApp.'
+                          : 'Obrigatório, com código do país (ex: 5511987654321) — é a chave para não duplicar fornecedores.')
+                      : (pestana === 'clientes'
+                          ? 'Obligatorio, con código de país (ej: 5491122334455) — es la clave para no duplicar y el número que se usa para mandar el comprobante por WhatsApp.'
+                          : 'Obligatorio, con código de país (ej: 5491122334455) — es la clave para no duplicar proveedores.')}
+                  </span>
                 </div>
 
                 <div style={{ ...campo, gridColumn: 'span 2' }}>
@@ -475,6 +482,12 @@ export default function RecursosHumanosPage() {
                     placeholder={t('direccionPlaceholder')}
                     style={inputFormulario}
                   />
+
+                  <span style={{ fontSize: 11, color: '#6b7280', marginTop: 4, display: 'block' }}>
+                    {idioma === 'PT'
+                      ? 'Opcional — só para sua referência, não é usado em nenhuma operação.'
+                      : 'Opcional — solo para tu referencia, no se usa en ninguna operación.'}
+                  </span>
                 </div>
 
                 <div style={campo}>

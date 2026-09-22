@@ -392,7 +392,6 @@ function CentralDeLanzamientosTab({
   // le pasa a este tab desde ContabilidadPage).
   const [modoTutorial, setModoTutorial] = useState(false);
   const [tutorialVoluntario, setTutorialVoluntario] = useState(false);
-  const [pasoTutorial, setPasoTutorial] = useState(0);
   const [operacionesTutorial, setOperacionesTutorial] = useState<string[]>([]);
   const [manejaMercaderiaEmpresa, setManejaMercaderiaEmpresa] = useState(false);
   const [esFamiliarEmpresa, setEsFamiliarEmpresa] = useState(false);
@@ -683,7 +682,6 @@ function CentralDeLanzamientosTab({
     if (!empresaId) return;
 
     setOperacionesTutorial(pasosTutorial(esFamiliarEmpresa, manejaMercaderiaEmpresa));
-    setPasoTutorial(0);
     setTutorialVoluntario(true);
     setModoTutorial(true);
     setOfrecerTutorialVoluntario(false);
@@ -920,7 +918,6 @@ function CentralDeLanzamientosTab({
 
       if (quiereTutorial && !modoEdicion) {
         setOperacionesTutorial(pasosTutorial(empresaEsFamiliar, manejaMercaderia));
-        setPasoTutorial(0);
         setTutorialVoluntario(onboardingCompleto);
         setModoTutorial(true);
       }
@@ -1679,7 +1676,7 @@ function CentralDeLanzamientosTab({
         colores={{ azul: COLORES.azul, verde: COLORES.verde, acento: COLORES.gris, blanco: COLORES.blanco }}
         tutorial={{
           operaciones: operacionesTutorial,
-          mensaje: msgTutorialPaso(idioma, pasoTutorial, operacionesTutorial[pasoTutorial] ?? ''),
+          mensaje: (paso) => msgTutorialPaso(idioma, paso, operacionesTutorial[paso] ?? ''),
         }}
         onCompletadoTutorial={async () => {
           if (!tutorialVoluntario) {
