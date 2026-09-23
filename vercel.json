@@ -7,6 +7,10 @@
     {
       "path": "/api/cotizaciones/actualizar",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/plan-accion/resumen-diario",
+      "schedule": "0 1 * * *"
     }
   ]
 }
