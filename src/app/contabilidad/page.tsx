@@ -989,7 +989,10 @@ function CentralDeLanzamientosTab({
         // vacía y sin opciones para elegir, igual que el bug que ya
         // se había resuelto para clienteProveedor con hidratarContacto.
       } else {
-        setCategoria('');
+        // Si hay una única categoría posible (ej. Aporte/Retiro), no
+        // tiene sentido pedirla: se preselecciona sola, igual que hace
+        // Sabio Bot en la misma situación.
+        setCategoria(unicas.length === 1 ? unicas[0] : '');
         setFormaPago('');
         setFormasPago([]);
       }
@@ -999,7 +1002,7 @@ function CentralDeLanzamientosTab({
 
     cargarCategorias();
 
-    setMensajeSabio(msgElegirCategoria(idioma, operacion));
+    setMensajeSabio(msgElegirCategoria(idioma, operacion, esFamiliar));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, operacion]);
 
@@ -1689,6 +1692,7 @@ function CentralDeLanzamientosTab({
       <MiniJuego
         empresaId={empresaId}
         idioma={idioma ?? 'ES'}
+        esFamiliar={esFamiliar}
         simbolo={simbolo}
         colores={{ azul: COLORES.azul, verde: COLORES.verde, acento: COLORES.gris, blanco: COLORES.blanco }}
         tutorial={{
@@ -1774,31 +1778,45 @@ function CentralDeLanzamientosTab({
 
             {operaciones.map((op) => (
               <option key={op} value={op}>
-                {nombreOperacionDisplay(idioma, op)}
+                {nombreOperacionDisplay(idioma, op, esFamiliar)}
               </option>
             ))}
           </select>
         </Campo>
 
         <Campo label={esTransferencia ? t('labelHaciaCuenta') : t('labelCategoria')}>
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            disabled={!operacion}
-            style={campoInput}
-          >
-            <option value="">{t('seleccionar')}</option>
+          {categorias.length === 1 ? (
+            <span
+              style={{
+                ...campoInput,
+                display: 'flex',
+                alignItems: 'center',
+                color: COLORES.gris,
+                background: '#f1f5f9',
+              }}
+            >
+              {categorias[0]}
+            </span>
+          ) : (
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              disabled={!operacion}
+              style={campoInput}
+            >
+              <option value="">{t('seleccionar')}</option>
 
-            {agruparCategoriasPorRubro(categorias, rubroPorCuenta, idioma).map((grupo) => (
-              <optgroup key={grupo.rubro} label={grupo.rubro}>
-                {grupo.categorias.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+              {agruparCategoriasPorRubro(categorias, rubroPorCuenta, idioma).map((grupo) => (
+                <optgroup key={grupo.rubro} label={grupo.rubro}>
+                  {grupo.categorias.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
 
           {saldoDestino && <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />}
         </Campo>
@@ -2737,7 +2755,7 @@ function RegistroOperacionesTab() {
                 <tr key={fila.id_operacion} style={filaStyle}>
                   <Td>{fila.id_operacion}</Td>
                   <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}</Td>
-                  <Td>{nombreOperacionDisplay(idioma, fila.operacion)}</Td>
+                  <Td>{nombreOperacionDisplay(idioma, fila.operacion, esFamiliar)}</Td>
                   <Td>{fila.categoria}</Td>
                   <Td>{fila.forma_pago}</Td>
                   <Td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 220 }}>
@@ -2842,6 +2860,7 @@ type GrupoOperacion = {
 function LibroDiarioTab() {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
+  const esFamiliar = useContext(EsFamiliarContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
 
@@ -3111,6 +3130,7 @@ function GrupoOperacionCard({
 }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
+  const esFamiliar = useContext(EsFamiliarContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
   const importeGrupo = grupo.filas.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
 
@@ -3187,7 +3207,7 @@ function GrupoOperacionCard({
                 </Td>
 
                 <Td>
-                  <strong style={{ color: COLORES.azul }}>{nombreOperacionDisplay(idioma, fila.operacion)}</strong>
+                  <strong style={{ color: COLORES.azul }}>{nombreOperacionDisplay(idioma, fila.operacion, esFamiliar)}</strong>
                 </Td>
 
                 <Td>{fila.historico || '—'}</Td>
@@ -3444,6 +3464,7 @@ function fechaHaceNDias(dias: number): string {
 function EditarRegistrosTab() {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
+  const esFamiliar = useContext(EsFamiliarContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
 
@@ -3591,7 +3612,7 @@ function EditarRegistrosTab() {
                       {iconoOperacion(fila.operacion)}
                     </span>
                     <span style={{ fontWeight: 800, color: COLORES.azul, fontSize: 14 }}>
-                      {nombreOperacionDisplay(idioma, fila.operacion)}
+                      {nombreOperacionDisplay(idioma, fila.operacion, esFamiliar)}
                     </span>
                   </span>
 

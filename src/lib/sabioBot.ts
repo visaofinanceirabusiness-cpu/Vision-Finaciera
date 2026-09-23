@@ -221,8 +221,8 @@ async function iniciar(empresaId: string): Promise<string> {
   return `🦉 ${t(idioma, '¡Hola! Soy Sabio. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio. Qual é a data da operação?')}\n\n${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
 }
 
-function mensajeElegirOperacion(idioma: string | undefined, opciones: string[]): string {
-  const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o));
+function mensajeElegirOperacion(idioma: string | undefined, opciones: string[], esFamiliar?: boolean): string {
+  const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o, esFamiliar));
   return `${t(idioma, '¿Qué operación querés registrar?', 'Qual operação você quer registrar?')}\n\n${numerarLista(opcionesDisplay)}`;
 }
 
@@ -322,6 +322,53 @@ function etiquetaFormaPago(idioma: string | undefined, operacion?: string): stri
   return operacion === 'TRANSFERENCIA' ? t(idioma, 'Desde', 'De') : t(idioma, 'Forma de pago', 'Forma de pagamento');
 }
 
+// Resuelve las formas de pago de una categoría ya elegida (a mano, o
+// auto-seleccionada por ser la única opción) y avanza al paso
+// FORMA_PAGO. Compartido entre el paso OPERACION (cuando hay una sola
+// categoría, se salta el paso CATEGORIA) y el paso CATEGORIA (cuando
+// el usuario la elige de una lista de varias).
+async function avanzarDesdeCategoria(
+  empresaId: string,
+  datos: Datos,
+  categoria: string,
+  idioma: string | undefined
+): Promise<string> {
+  const esStock = datos.stockPorCategoria?.[categoria] === 'SI';
+
+  const { data: filasFormaPago } = await supabase
+    .from('matriz_operaciones')
+    .select('forma_pago')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', datos.operacion ?? '')
+    .eq('categoria', categoria);
+
+  const formasPago = Array.from(new Set((filasFormaPago ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
+
+  if (formasPago.length === 0) {
+    return t(
+      idioma,
+      `No encontré formas de pago para esa categoría. Escribí "cancelar" y probá de nuevo.`,
+      `Não encontrei formas de pagamento para essa categoria. Digite "cancelar" e tente de novo.`
+    );
+  }
+
+  const nuevosDatos: Datos = { ...datos, categoria, esStock, opciones: formasPago };
+  await guardarConversacion(empresaId, 'FORMA_PAGO', nuevosDatos);
+
+  // En Transferencia, "categoría" es la cuenta destino — mostrar su
+  // saldo acá (si tiene una cuenta real detrás; Plazo Fijo/
+  // Inversiones no la tienen y simplemente no agrega nada).
+  const esTransferenciaCategoria = datos.operacion === 'TRANSFERENCIA';
+  const saldoDestino = esTransferenciaCategoria
+    ? await lineaSaldo(empresaId, categoria, datos.simbolo ?? 'R$', idioma)
+    : '';
+  const tituloFormaPago = esTransferenciaCategoria
+    ? t(idioma, '¿Desde qué cuenta sale la plata?', 'De qual conta sai o dinheiro?')
+    : t(idioma, 'Forma de pago:', 'Forma de pagamento:');
+
+  return `${tituloFormaPago}\n\n${numerarLista(formasPago)}${saldoDestino}`;
+}
+
 export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: string): Promise<string> {
   const texto = textoOriginal.trim();
   const textoNormalizado = texto.toLowerCase();
@@ -365,7 +412,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const nuevosDatos: Datos = { ...datos, fecha };
     await guardarConversacion(empresaId, 'OPERACION', nuevosDatos);
 
-    return mensajeElegirOperacion(idioma, datos.opciones ?? []);
+    return mensajeElegirOperacion(idioma, datos.opciones ?? [], datos.esFamiliar);
   }
 
   // ---------------------------------------------------
@@ -373,7 +420,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   if (paso === 'OPERACION') {
     const opciones = datos.opciones ?? [];
-    const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o));
+    const opcionesDisplay = opciones.map((o) => nombreOperacionDisplay(idioma, o, datos.esFamiliar));
     const n = parseNumero(texto, opciones.length);
 
     if (n === null) {
@@ -391,8 +438,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     if (error || !filasMatriz || filasMatriz.length === 0) {
       return t(
         idioma,
-        `No encontré categorías configuradas para "${nombreOperacionDisplay(idioma, operacion)}". Probá con otra operación o cargala desde la app.`,
-        `Não encontrei categorias configuradas para "${nombreOperacionDisplay(idioma, operacion)}". Tente outra operação ou cadastre pelo aplicativo.`
+        `No encontré categorías configuradas para "${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}". Probá con otra operación o cargala desde la app.`,
+        `Não encontrei categorias configuradas para "${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}". Tente outra operação ou cadastre pelo aplicativo.`
       );
     }
 
@@ -400,6 +447,16 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const stockPorCategoria = Object.fromEntries(filasMatriz.map((f) => [f.categoria, f.stock]));
 
     const nuevosDatos: Datos = { ...datos, operacion, opciones: categorias, stockPorCategoria };
+
+    // Si esa operación tiene una única categoría posible (ej. Aporte/
+    // Retiro para el perfil Familiar, o Aporte de Socios/Retiro
+    // Personal en el resto de los perfiles), no tiene sentido
+    // preguntarla: se selecciona sola y se pasa directo a Forma de
+    // pago, igual que hace el formulario web.
+    if (categorias.length === 1) {
+      return avanzarDesdeCategoria(empresaId, nuevosDatos, categorias[0], idioma);
+    }
+
     await guardarConversacion(empresaId, 'CATEGORIA', nuevosDatos);
 
     // En Transferencia no hay "categoría" en el sentido habitual —
@@ -410,7 +467,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     const titulo =
       operacion === 'TRANSFERENCIA'
         ? t(idioma, '¿Hacia qué cuenta transferís?', 'Para qual conta você quer transferir?')
-        : t(idioma, `Categoría para ${nombreOperacionDisplay(idioma, operacion)}:`, `Categoria para ${nombreOperacionDisplay(idioma, operacion)}:`);
+        : t(idioma, `Categoría para ${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}:`, `Categoria para ${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}:`);
 
     return `${titulo}\n\n${numerarLista(categorias)}`;
   }
@@ -427,40 +484,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     const categoria = opciones[n - 1];
-    const esStock = datos.stockPorCategoria?.[categoria] === 'SI';
-
-    const { data: filasFormaPago } = await supabase
-      .from('matriz_operaciones')
-      .select('forma_pago')
-      .eq('empresa_id', empresaId)
-      .eq('operacion', datos.operacion ?? '')
-      .eq('categoria', categoria);
-
-    const formasPago = Array.from(new Set((filasFormaPago ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
-
-    if (formasPago.length === 0) {
-      return t(
-        idioma,
-        `No encontré formas de pago para esa categoría. Escribí "cancelar" y probá de nuevo.`,
-        `Não encontrei formas de pagamento para essa categoria. Digite "cancelar" e tente de novo.`
-      );
-    }
-
-    const nuevosDatos: Datos = { ...datos, categoria, esStock, opciones: formasPago };
-    await guardarConversacion(empresaId, 'FORMA_PAGO', nuevosDatos);
-
-    // En Transferencia, "categoría" es la cuenta destino — mostrar su
-    // saldo acá (si tiene una cuenta real detrás; Plazo Fijo/
-    // Inversiones no la tienen y simplemente no agrega nada).
-    const esTransferenciaCategoria = datos.operacion === 'TRANSFERENCIA';
-    const saldoDestino = esTransferenciaCategoria
-      ? await lineaSaldo(empresaId, categoria, datos.simbolo ?? 'R$', idioma)
-      : '';
-    const tituloFormaPago = esTransferenciaCategoria
-      ? t(idioma, '¿Desde qué cuenta sale la plata?', 'De qual conta sai o dinheiro?')
-      : t(idioma, 'Forma de pago:', 'Forma de pagamento:');
-
-    return `${tituloFormaPago}\n\n${numerarLista(formasPago)}${saldoDestino}`;
+    return avanzarDesdeCategoria(empresaId, datos, categoria, idioma);
   }
 
   // ---------------------------------------------------
@@ -620,7 +644,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     return (
       `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
       `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
-      `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '')}\n` +
+      `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
       `${t(idioma, 'Producto', 'Produto')}: ${datos.productoNombre} x${datos.cantidad}\n` +
@@ -667,7 +691,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     return (
       `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
       `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
-      `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '')}\n` +
+      `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
       `${t(idioma, 'Detalle', 'Detalhe')}: ${detalle}\n` +

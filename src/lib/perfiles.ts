@@ -109,13 +109,6 @@ export async function inicializarEmpresaDesdePerfil(
     cliente.from('perfiles_empresa').select('codigo, nombre').eq('id', perfilEmpresaId).maybeSingle(),
   ]);
 
-  // El perfil Familiar no usa el concepto de Inversión/Extracción (no
-  // tiene sentido mezclar "invertir en el negocio" con las finanzas
-  // de una familia) — se crean desactivadas de fábrica, igual que se
-  // desactivaron a mano en las empresas Familiares que ya existían.
-  const esPerfilFamiliar = perfilEmpresaData?.codigo === 'FAMILIAR';
-  const OPERACIONES_SIN_SENTIDO_FAMILIAR = ['INVERSION', 'EXTRACCION'];
-
   const primerError =
     errorCuentas || errorOperaciones || errorFormasPago || errorFPO || errorCatOp || errorReglas;
 
@@ -190,7 +183,7 @@ export async function inicializarEmpresaDesdePerfil(
         (operacionesMaestro ?? []).map((o) => ({
           empresa_id: empresaId,
           nombre: o.nombre,
-          activo: !(esPerfilFamiliar && OPERACIONES_SIN_SENTIDO_FAMILIAR.includes(o.nombre)),
+          activo: true,
         }))
       )
       .select('id, nombre');

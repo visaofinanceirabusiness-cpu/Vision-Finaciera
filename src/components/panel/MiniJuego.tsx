@@ -28,6 +28,7 @@ import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
 import { iconoOperacion, iconoParaTexto, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldoEnTransferencia } from '@/lib/saldoCuenta';
+import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
@@ -78,6 +79,7 @@ type TutorialMiniJuego = {
 export function MiniJuego({
   empresaId,
   idioma,
+  esFamiliar,
   simbolo,
   colores,
   tutorial,
@@ -86,6 +88,7 @@ export function MiniJuego({
 }: {
   empresaId: string;
   idioma: string;
+  esFamiliar?: boolean;
   simbolo: string;
   colores: Colores;
   tutorial?: TutorialMiniJuego;
@@ -132,6 +135,17 @@ export function MiniJuego({
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando categorías.'))
       .finally(() => setCargandoOpciones(false));
   }, [empresaId, operacion]);
+
+  // Si la operación tiene una única categoría posible (ej. Aporte/
+  // Retiro), no tiene sentido mostrar la tarjeta para elegirla: se
+  // selecciona sola y se salta directo a Forma de pago — igual que
+  // hacen Central de Lanzamientos y Sabio Bot en la misma situación.
+  useEffect(() => {
+    if (paso === 'categoria' && !cargandoOpciones && categorias.length === 1) {
+      elegirCategoria(categorias[0].nombre);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso, cargandoOpciones, categorias]);
 
   useEffect(() => {
     if (!operacion || !categoria) return;
@@ -607,7 +621,7 @@ export function MiniJuego({
                 {operacionesFiltradas.map((op) =>
                   tarjeta(
                     iconoOperacion(op),
-                    op.charAt(0) + op.slice(1).toLowerCase(),
+                    nombreOperacionDisplay(idioma, op, esFamiliar),
                     () => elegirOperacion(op),
                     op
                   )
@@ -885,7 +899,7 @@ export function MiniJuego({
                 color: 'rgba(255,255,255,0.75)',
               }}
             >
-              {iconoOperacion(operacion)} {operacion.charAt(0) + operacion.slice(1).toLowerCase()} · {iconoParaTexto(categoria)} {categoria} · {iconoParaTexto(formaPago)} {formaPago}
+              {iconoOperacion(operacion)} {nombreOperacionDisplay(idioma, operacion, esFamiliar)} · {iconoParaTexto(categoria)} {categoria} · {iconoParaTexto(formaPago)} {formaPago}
               {tablaContacto && clienteProveedor && (
                 <>
                   {' '}· 👤 {clienteProveedor}

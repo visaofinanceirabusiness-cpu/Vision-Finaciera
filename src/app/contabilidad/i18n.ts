@@ -388,8 +388,8 @@ export function msgElegirOperacion(idioma: string | null | undefined): string {
   return esPT(idioma) ? 'Escolha uma operação para começar.' : 'Elegí una operación para empezar.';
 }
 
-export function msgElegirCategoria(idioma: string | null | undefined, operacion: string): string {
-  const nombre = nombreOperacionDisplay(idioma, operacion);
+export function msgElegirCategoria(idioma: string | null | undefined, operacion: string, esFamiliar?: boolean): string {
+  const nombre = nombreOperacionDisplay(idioma, operacion, esFamiliar);
   return esPT(idioma) ? `Escolha a categoria para "${nombre}".` : `Elegí la categoría para "${nombre}".`;
 }
 
