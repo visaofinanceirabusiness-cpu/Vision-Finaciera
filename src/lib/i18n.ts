@@ -60,7 +60,33 @@ const NOMBRE_OPERACION_PT: Record<string, string> = {
   TRANSFERENCIA: 'Transferência',
 };
 
-export function nombreOperacionDisplay(idioma: string | null | undefined, nombreOperacion: string): string {
+// Para el perfil Familiar, Inversión/Extracción se muestran con nombres
+// más caseros — el concepto contable (aporte/retiro de un socio) es el
+// mismo que en una empresa, pero acá el "socio" es un miembro de la
+// familia, así que "Inversión"/"Extracción" suena innecesariamente
+// empresarial. El valor real (nombreOperacion) nunca cambia, solo la
+// etiqueta.
+const NOMBRE_OPERACION_FAMILIAR: Record<string, string> = {
+  INVERSION: 'Aporte',
+  EXTRACCION: 'Retiro',
+};
+
+const NOMBRE_OPERACION_FAMILIAR_PT: Record<string, string> = {
+  INVERSION: 'Aporte',
+  EXTRACCION: 'Retirada',
+};
+
+export function nombreOperacionDisplay(
+  idioma: string | null | undefined,
+  nombreOperacion: string,
+  esFamiliar?: boolean
+): string {
+  if (esFamiliar) {
+    const mapaFamiliar = idioma === 'PT' ? NOMBRE_OPERACION_FAMILIAR_PT : NOMBRE_OPERACION_FAMILIAR;
+    const nombreFamiliar = mapaFamiliar[nombreOperacion];
+    if (nombreFamiliar) return nombreFamiliar;
+  }
+
   if (idioma !== 'PT') return nombreOperacion;
   return NOMBRE_OPERACION_PT[nombreOperacion] ?? nombreOperacion;
 }

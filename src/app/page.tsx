@@ -59,6 +59,7 @@ type Empresa = {
   perfil_empresa_id: string | null;
   idioma: string;
   moneda: string | null;
+  perfiles_empresa?: { codigo: string }[] | null;
 };
 
 type ConfiguracionDashboard = {
@@ -200,7 +201,7 @@ export default function InicioPage() {
       const { data: empresaData, error: errorEmpresa } = await supabase
         .from('empresas')
         .select(
-          'nombre, rubro, logo_url, perfil_empresa_id, idioma, moneda'
+          'nombre, rubro, logo_url, perfil_empresa_id, idioma, moneda, perfiles_empresa(codigo)'
         )
         .eq('id', perfilData.empresa_id)
         .maybeSingle();
@@ -416,6 +417,7 @@ export default function InicioPage() {
   }, [perfil?.empresa_id, empresa?.idioma, empresa?.moneda]);
 
   const idioma = empresa?.idioma ?? 'ES';
+  const esFamiliar = empresa?.perfiles_empresa?.[0]?.codigo === 'FAMILIAR';
   const t = crearTraductor(diccionarioInicio, idioma);
 
   if (cargando) {
@@ -804,6 +806,7 @@ export default function InicioPage() {
           <MiniJuego
             empresaId={perfil.empresa_id}
             idioma={idioma}
+            esFamiliar={esFamiliar}
             simbolo={simboloMoneda(empresa?.moneda ?? null)}
             colores={{ azul: colores.azul, verde: colores.verde, acento: colores.acento, blanco: colores.blanco }}
             onCerrar={() => setMiniJuegoAbierto(false)}
