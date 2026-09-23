@@ -9,6 +9,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { EMPRESAS_CON_PLAN_ACCION } from './planAccionEmpresas';
+
+export { EMPRESAS_CON_PLAN_ACCION };
 
 export async function empresaManejaMercaderia(
   empresaId: string,
@@ -99,8 +102,6 @@ export async function empresaTieneModulo(
 // cada pantalla) para que sea fácil de encontrar y sacar el día que
 // se decida ofrecerlo a más empresas (en ese momento reemplazar este
 // chequeo por una columna/flag real).
-const EMPRESAS_CON_PLAN_ACCION = ['8512b8b0-1985-4731-981b-955f1d62a898']; // Buenaventura
-
 export function empresaTienePlanAccion(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_PLAN_ACCION.includes(empresaId as string);
 }
