@@ -171,9 +171,16 @@ export async function GET(request: NextRequest) {
   // Se marca como notificado incluso si no había ninguna suscripción
   // activa (el usuario no aceptó push) — para no reintentar para
   // siempre un evento cuyo horario ya pasó.
+  let errorMarcado: string | undefined;
   if (idsAMarcar.length > 0) {
-    await admin.from('eventos_calendario').update({ notificado: true }).in('id', idsAMarcar);
+    const { error } = await admin.from('eventos_calendario').update({ notificado: true }).in('id', idsAMarcar);
+    errorMarcado = error?.message;
   }
 
-  return NextResponse.json({ revisados: candidatos?.length ?? 0, notificados, procesados: idsAMarcar.length });
+  return NextResponse.json({
+    revisados: candidatos?.length ?? 0,
+    notificados,
+    procesados: idsAMarcar.length,
+    errorMarcado,
+  });
 }
