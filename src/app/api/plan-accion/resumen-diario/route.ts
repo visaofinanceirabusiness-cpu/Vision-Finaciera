@@ -23,6 +23,13 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:visaofinanceirabusiness@gmail.com';
 const CRON_SECRET = process.env.CRON_SECRET;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+// Mientras no haya un dominio propio verificado en Resend, el
+// remitente de pruebas (onboarding@resend.dev) solo puede mandar a la
+// casilla dueña de la cuenta de Resend — no a la de cada empresa. Esta
+// variable, si está definida, redirige TODOS los emails de este cron
+// a esa casilla de prueba en vez del email real de la empresa. Sacarla
+// (o dejarla vacía) apenas se verifique un dominio propio.
+const EMAIL_DESTINO_PRUEBA = process.env.RESEND_TEST_TO;
 
 type Tarea = { turno: 'EJECUCION' | 'CIERRE'; completada: boolean };
 
@@ -136,11 +143,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // --- Email a la empresa ---
+    // --- Email a la empresa (o a la casilla de prueba, ver EMAIL_DESTINO_PRUEBA) ---
     const { data: empresa } = await admin.from('empresas').select('email').eq('id', empresaId).maybeSingle();
+    const destinoEmail = EMAIL_DESTINO_PRUEBA || empresa?.email;
     let emailEnviado = false;
-    if (empresa?.email) {
-      const envio = await enviarEmail({ to: empresa.email, subject: resumen.subject, html: resumen.html });
+    if (destinoEmail) {
+      const envio = await enviarEmail({ to: destinoEmail, subject: resumen.subject, html: resumen.html });
       emailEnviado = envio.enviado;
     }
 
