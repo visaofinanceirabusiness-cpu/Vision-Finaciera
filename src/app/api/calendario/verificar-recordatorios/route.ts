@@ -43,68 +43,39 @@ export async function GET(request: NextRequest) {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const ahora = new Date();
 
-  // Ventana acotada: eventos de hoy, ayer o mañana con recordatorio
-  // pendiente — de ahí se filtra en memoria por el instante exacto
-  // (evita traer toda la tabla, y cubre la antelación máxima de 1 día).
-  const desde = new Date(ahora);
-  desde.setDate(desde.getDate() - 1);
-  const hasta = new Date(ahora);
-  hasta.setDate(hasta.getDate() + 1);
-
-  const aFecha = (d: Date) => d.toISOString().slice(0, 10);
-
+  // El rango de fechas se filtra acá en memoria, NO con .gte()/.lte()
+  // encadenados sobre la misma columna en la consulta a Supabase: esa
+  // combinación (notificar + notificado + hora-not-null + gte + lte,
+  // los 5 filtros juntos) devuelve 0 filas en producción aunque cada
+  // mitad de los filtros por separado sí encuentra la fila — un bug de
+  // supabase-js/PostgREST al combinar tantos filtros encadenados sobre
+  // eventos_calendario (confirmado a mano, ver PRs #285-287). El resto
+  // de filtros (notificar/notificado/hora) si funciona bien encadenado,
+  // así que solo se saca la fecha de la consulta SQL.
   const { data: candidatos, error: errorCandidatos } = await admin
     .from('eventos_calendario')
     .select('id, empresa_id, titulo, categoria, fecha, hora, antelacion_minutos')
     .eq('notificar', true)
     .eq('notificado', false)
-    .not('hora', 'is', null)
-    .gte('fecha', aFecha(desde))
-    .lte('fecha', aFecha(hasta));
+    .not('hora', 'is', null);
 
   if (errorCandidatos) {
     return NextResponse.json({ error: errorCandidatos.message }, { status: 500 });
   }
 
-  if (request.nextUrl.searchParams.get('debug') === '1') {
-    const { data: sinFiltros, error: errorSinFiltros } = await admin
-      .from('eventos_calendario')
-      .select('id, empresa_id, titulo, notificar, notificado, fecha, hora')
-      .eq('notificar', true);
-
-    const { data: soloRango } = await admin
-      .from('eventos_calendario')
-      .select('id, titulo, fecha, hora')
-      .gte('fecha', aFecha(desde))
-      .lte('fecha', aFecha(hasta));
-
-    const { data: sinFechas } = await admin
-      .from('eventos_calendario')
-      .select('id, titulo, fecha, hora, notificar, notificado')
-      .eq('notificar', true)
-      .eq('notificado', false)
-      .not('hora', 'is', null);
-
-    const { data: soloNotificarYFecha } = await admin
-      .from('eventos_calendario')
-      .select('id, titulo, fecha, hora')
-      .eq('notificar', true)
-      .gte('fecha', aFecha(desde))
-      .lte('fecha', aFecha(hasta));
-
-    return NextResponse.json({
-      desde: aFecha(desde),
-      hasta: aFecha(hasta),
-      candidatos,
-      soloNotificarTrue: sinFiltros,
-      errorSoloNotificarTrue: errorSinFiltros?.message,
-      soloRangoFechas: soloRango,
-      sinFechas,
-      soloNotificarYFecha,
-    });
-  }
+  // Ventana acotada en memoria: eventos de hoy, ayer o mañana (cubre
+  // la antelación máxima de 1 día), y de ahí el instante exacto de
+  // aviso (fecha+hora - antelación).
+  const desde = new Date(ahora);
+  desde.setDate(desde.getDate() - 1);
+  const hasta = new Date(ahora);
+  hasta.setDate(hasta.getDate() + 1);
+  const aFecha = (d: Date) => d.toISOString().slice(0, 10);
+  const fechaDesde = aFecha(desde);
+  const fechaHasta = aFecha(hasta);
 
   const listos = (candidatos ?? []).filter((ev) => {
+    if (ev.fecha < fechaDesde || ev.fecha > fechaHasta) return false;
     const momentoEvento = new Date(`${ev.fecha}T${ev.hora}`);
     const momentoAviso = new Date(momentoEvento.getTime() - ev.antelacion_minutos * 60_000);
     return momentoAviso <= ahora;
