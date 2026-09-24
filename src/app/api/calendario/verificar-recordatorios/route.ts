@@ -172,23 +172,15 @@ export async function GET(request: NextRequest) {
   // activa (el usuario no aceptó push) — para no reintentar para
   // siempre un evento cuyo horario ya pasó.
   let errorMarcado: string | undefined;
-  let filasMarcadas: unknown;
   if (idsAMarcar.length > 0) {
-    const { data, error } = await admin
-      .from('eventos_calendario')
-      .update({ notificado: true })
-      .in('id', idsAMarcar)
-      .select('id, notificado');
+    const { error } = await admin.from('eventos_calendario').update({ notificado: true }).in('id', idsAMarcar);
     errorMarcado = error?.message;
-    filasMarcadas = data;
   }
 
   return NextResponse.json({
     revisados: candidatos?.length ?? 0,
     notificados,
     procesados: idsAMarcar.length,
-    idsAMarcar,
     errorMarcado,
-    filasMarcadas,
   });
 }
