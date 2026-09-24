@@ -67,7 +67,25 @@ export async function GET(request: NextRequest) {
   }
 
   if (request.nextUrl.searchParams.get('debug') === '1') {
-    return NextResponse.json({ desde: aFecha(desde), hasta: aFecha(hasta), candidatos });
+    const { data: sinFiltros, error: errorSinFiltros } = await admin
+      .from('eventos_calendario')
+      .select('id, empresa_id, titulo, notificar, notificado, fecha, hora')
+      .eq('notificar', true);
+
+    const { data: soloRango } = await admin
+      .from('eventos_calendario')
+      .select('id, titulo, fecha, hora')
+      .gte('fecha', aFecha(desde))
+      .lte('fecha', aFecha(hasta));
+
+    return NextResponse.json({
+      desde: aFecha(desde),
+      hasta: aFecha(hasta),
+      candidatos,
+      soloNotificarTrue: sinFiltros,
+      errorSoloNotificarTrue: errorSinFiltros?.message,
+      soloRangoFechas: soloRango,
+    });
   }
 
   const listos = (candidatos ?? []).filter((ev) => {
