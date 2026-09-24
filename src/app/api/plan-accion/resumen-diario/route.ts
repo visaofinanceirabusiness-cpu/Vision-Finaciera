@@ -100,12 +100,17 @@ export async function GET(request: NextRequest) {
   const resultados: Record<string, string> = {};
 
   for (const empresaId of EMPRESAS_CON_PLAN_ACCION) {
-    const { data: dia } = await admin
+    const { data: dia, error: errorDia } = await admin
       .from('plan_accion_dias')
       .select('id, dia_numero, fase, objetivo')
       .eq('empresa_id', empresaId)
       .eq('estado', 'DISPONIBLE')
       .maybeSingle();
+
+    if (errorDia) {
+      resultados[empresaId] = `error consultando plan_accion_dias: ${errorDia.message}`;
+      continue;
+    }
 
     if (!dia) {
       resultados[empresaId] = 'sin día disponible (ciclo no iniciado o ya completado)';
