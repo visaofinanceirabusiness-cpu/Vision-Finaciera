@@ -66,6 +66,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorCandidatos.message }, { status: 500 });
   }
 
+  if (request.nextUrl.searchParams.get('debug') === '1') {
+    return NextResponse.json({ desde: aFecha(desde), hasta: aFecha(hasta), candidatos });
+  }
+
   const listos = (candidatos ?? []).filter((ev) => {
     const momentoEvento = new Date(`${ev.fecha}T${ev.hora}`);
     const momentoAviso = new Date(momentoEvento.getTime() - ev.antelacion_minutos * 60_000);
