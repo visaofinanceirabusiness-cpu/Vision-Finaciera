@@ -13,6 +13,13 @@ import { createClient } from '@supabase/supabase-js';
 // Protegido con CRON_SECRET (patrón estándar de Vercel Cron): Vercel
 // manda automáticamente `Authorization: Bearer <CRON_SECRET>` cuando
 // invoca el cron si la env var está configurada.
+//
+// force-dynamic: sin esto, Next.js puede tratar este GET como
+// contenido estático y cachear la respuesta del build para siempre en
+// vez de ejecutar la consulta a la base de datos en cada invocación
+// del cron (bug confirmado en /api/plan-accion/resumen-diario, mismo
+// patrón de código — ver ese archivo).
+export const dynamic = 'force-dynamic';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

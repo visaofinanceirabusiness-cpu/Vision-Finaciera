@@ -17,6 +17,12 @@ import { createClient } from '@supabase/supabase-js';
 //
 // Protegido con CRON_SECRET, mismo patrón que
 // /api/calendario/verificar-recordatorios.
+//
+// force-dynamic: evita que Next.js cachee este GET como contenido
+// estático y sirva la misma respuesta del build para siempre en vez
+// de correr la consulta real en cada invocación del cron (ver el
+// mismo fix en resumen-diario/route.ts).
+export const dynamic = 'force-dynamic';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

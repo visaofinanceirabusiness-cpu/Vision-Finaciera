@@ -14,6 +14,10 @@ import { createClient } from '@supabase/supabase-js';
 // Se borra a mano después de usarse una vez — no la dispara ningún
 // cron. Protegida con BACKFILL_SECRET (variable de entorno separada
 // de CRON_SECRET, de un solo uso).
+//
+// force-dynamic: evita que Next.js cachee este GET como contenido
+// estático (mismo bug encontrado y corregido en resumen-diario/route.ts).
+export const dynamic = 'force-dynamic';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
