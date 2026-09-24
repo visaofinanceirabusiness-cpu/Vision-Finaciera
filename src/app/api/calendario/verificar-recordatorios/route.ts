@@ -78,6 +78,20 @@ export async function GET(request: NextRequest) {
       .gte('fecha', aFecha(desde))
       .lte('fecha', aFecha(hasta));
 
+    const { data: sinFechas } = await admin
+      .from('eventos_calendario')
+      .select('id, titulo, fecha, hora, notificar, notificado')
+      .eq('notificar', true)
+      .eq('notificado', false)
+      .not('hora', 'is', null);
+
+    const { data: soloNotificarYFecha } = await admin
+      .from('eventos_calendario')
+      .select('id, titulo, fecha, hora')
+      .eq('notificar', true)
+      .gte('fecha', aFecha(desde))
+      .lte('fecha', aFecha(hasta));
+
     return NextResponse.json({
       desde: aFecha(desde),
       hasta: aFecha(hasta),
@@ -85,6 +99,8 @@ export async function GET(request: NextRequest) {
       soloNotificarTrue: sinFiltros,
       errorSoloNotificarTrue: errorSinFiltros?.message,
       soloRangoFechas: soloRango,
+      sinFechas,
+      soloNotificarYFecha,
     });
   }
 
