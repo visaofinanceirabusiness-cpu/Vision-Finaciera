@@ -15,6 +15,14 @@ import { EMPRESAS_CON_PLAN_ACCION } from '@/lib/planAccionEmpresas';
 // al otro — cada empresa se procesa de forma independiente.
 //
 // Protegido con CRON_SECRET (patrón estándar de Vercel Cron).
+//
+// force-dynamic: sin esto, Next.js detecta un GET sin uso obligatorio
+// de request/cookies y lo trata como contenido estático — lo ejecuta
+// UNA sola vez en el build y sirve esa misma respuesta cacheada para
+// siempre (confirmado en los logs de producción: cache=PRERENDER en
+// cada invocación del cron). Con force-dynamic corre de nuevo en cada
+// llamada, como corresponde a un cron que lee la base de datos.
+export const dynamic = 'force-dynamic';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
