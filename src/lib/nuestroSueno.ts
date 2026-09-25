@@ -141,3 +141,135 @@ export async function enviarMensaje(parejaId: string, perfilId: string, empresaI
 
   if (error) throw error;
 }
+
+// =====================================================
+// FASE 2 — TABLERO GAMIFICADO DE ETAPAS
+// =====================================================
+
+export const ETAPAS_SUENO: { clave: string; etiqueta: string; emoji: string }[] = [
+  { clave: 'ahorro_inicial', etiqueta: 'Ahorro inicial', emoji: '🌱' },
+  { clave: 'elegir_banco', etiqueta: 'Elegir banco', emoji: '🏦' },
+  { clave: 'preaprobacion', etiqueta: 'Pre-aprobación', emoji: '📋' },
+  { clave: 'buscar_propiedad', etiqueta: 'Buscar propiedad', emoji: '🔍' },
+  { clave: 'propuesta_enviada', etiqueta: 'Propuesta de compra', emoji: '📝' },
+  { clave: 'desembolso', etiqueta: 'Desembolso', emoji: '💰' },
+  { clave: 'escritura', etiqueta: 'Escritura', emoji: '🔑' },
+  { clave: 'mudanza', etiqueta: '¡Mudanza!', emoji: '🏠' },
+];
+
+export type SuenoEtapa = {
+  clave: string;
+  completada: boolean;
+  completada_en: string | null;
+};
+
+export async function listarEtapas(parejaId: string): Promise<Record<string, SuenoEtapa>> {
+  const { data, error } = await supabase
+    .from('sueno_etapas')
+    .select('clave, completada, completada_en')
+    .eq('pareja_id', parejaId);
+
+  if (error) throw error;
+
+  const mapa: Record<string, SuenoEtapa> = {};
+  for (const fila of (data ?? []) as SuenoEtapa[]) {
+    mapa[fila.clave] = fila;
+  }
+  return mapa;
+}
+
+export async function marcarEtapa(parejaId: string, perfilId: string, clave: string, completada: boolean) {
+  const { error } = await supabase.from('sueno_etapas').upsert(
+    {
+      pareja_id: parejaId,
+      clave,
+      completada,
+      completada_en: completada ? new Date().toISOString() : null,
+      completada_por: completada ? perfilId : null,
+    },
+    { onConflict: 'pareja_id,clave' }
+  );
+
+  if (error) throw error;
+}
+
+// =====================================================
+// FASE 3 — TARJETAS DE PROPUESTA DE COMPRA
+// =====================================================
+
+export type EstadoPropuesta = 'VIENDO' | 'VISITADA' | 'PROPUESTA_ENVIADA' | 'DESCARTADA' | 'ELEGIDA';
+
+export const ESTADOS_PROPUESTA: { valor: EstadoPropuesta; etiqueta: string }[] = [
+  { valor: 'VIENDO', etiqueta: 'Viendo' },
+  { valor: 'VISITADA', etiqueta: 'Visitada' },
+  { valor: 'PROPUESTA_ENVIADA', etiqueta: 'Propuesta enviada' },
+  { valor: 'DESCARTADA', etiqueta: 'Descartada' },
+  { valor: 'ELEGIDA', etiqueta: 'Elegida' },
+];
+
+export type SuenoPropuesta = {
+  id: string;
+  link: string | null;
+  titulo: string | null;
+  precio: number | null;
+  moneda: string | null;
+  m2: number | null;
+  cuartos: number | null;
+  banos: number | null;
+  direccion: string | null;
+  lat: number | null;
+  lng: number | null;
+  imagen_url: string | null;
+  servicios: string | null;
+  estado: EstadoPropuesta;
+  notas: string | null;
+  creado_en: string;
+};
+
+const CAMPOS_PROPUESTA =
+  'id, link, titulo, precio, moneda, m2, cuartos, banos, direccion, lat, lng, imagen_url, servicios, estado, notas, creado_en';
+
+export async function listarPropuestas(parejaId: string): Promise<SuenoPropuesta[]> {
+  const { data, error } = await supabase
+    .from('sueno_propuestas')
+    .select(CAMPOS_PROPUESTA)
+    .eq('pareja_id', parejaId)
+    .order('creado_en', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as unknown as SuenoPropuesta[];
+}
+
+export type DatosPropuesta = {
+  link: string | null;
+  titulo: string | null;
+  precio: number | null;
+  moneda: string | null;
+  m2: number | null;
+  cuartos: number | null;
+  banos: number | null;
+  direccion: string | null;
+  lat: number | null;
+  lng: number | null;
+  imagen_url: string | null;
+  servicios: string | null;
+  notas: string | null;
+};
+
+export async function crearPropuesta(parejaId: string, perfilId: string, datos: DatosPropuesta) {
+  const { error } = await supabase.from('sueno_propuestas').insert({ pareja_id: parejaId, creado_por: perfilId, ...datos });
+  if (error) throw error;
+}
+
+export async function actualizarPropuesta(id: string, datos: Partial<DatosPropuesta & { estado: EstadoPropuesta }>) {
+  const { error } = await supabase
+    .from('sueno_propuestas')
+    .update({ ...datos, actualizado_en: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function eliminarPropuesta(id: string) {
+  const { error } = await supabase.from('sueno_propuestas').delete().eq('id', id);
+  if (error) throw error;
+}
