@@ -11,7 +11,8 @@
 // tarjetas de propuestas de compra con extracción de datos del link
 // y del mapa.
 
-import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { empresaTieneNuestroSueno } from '@/lib/perfilCapacidades';
@@ -60,8 +61,11 @@ export default function NuestroSuenoPage() {
   const [enviandoMensaje, setEnviandoMensaje] = useState(false);
   const [valoresCampos, setValoresCampos] = useState<Record<string, string>>({});
   const [guardandoCampo, setGuardandoCampo] = useState<string | null>(null);
+  const [verificando, setVerificando] = useState(false);
 
   const esPT = empresa?.idioma === 'PT';
+  const perfilRef = useRef(perfil);
+  perfilRef.current = perfil;
 
   const cargarEspacioVinculado = useCallback(async (parejaActual: SuenoPareja, miEmpresaId: string) => {
     const [otroNombre, camposData, mensajesData] = await Promise.all([
@@ -127,6 +131,38 @@ export default function NuestroSuenoPage() {
 
     cargar();
   }, [router, cargarEspacioVinculado]);
+
+  // Mientras el código está esperando que la otra empresa se una, se
+  // vuelve a consultar cada 5s — así la pantalla pasa sola a "vinculado"
+  // apenas Ocaña entra el código, sin que Buenaventura tenga que
+  // recargar a mano para enterarse.
+  useEffect(() => {
+    if (pareja?.estado !== 'PENDIENTE') return;
+
+    const intervalo = setInterval(async () => {
+      const miPerfil = perfilRef.current;
+      if (!miPerfil) return;
+
+      const parejaActual = await obtenerMiPareja(miPerfil.empresa_id);
+      if (parejaActual?.estado === 'VINCULADA') {
+        setPareja(parejaActual);
+        await cargarEspacioVinculado(parejaActual, miPerfil.empresa_id);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  }, [pareja?.estado, cargarEspacioVinculado]);
+
+  async function verificarAhora() {
+    if (!perfil) return;
+    setVerificando(true);
+    const parejaActual = await obtenerMiPareja(perfil.empresa_id);
+    setPareja(parejaActual);
+    if (parejaActual?.estado === 'VINCULADA') {
+      await cargarEspacioVinculado(parejaActual, perfil.empresa_id);
+    }
+    setVerificando(false);
+  }
 
   async function generarCodigo() {
     if (!perfil) return;
@@ -210,6 +246,9 @@ export default function NuestroSuenoPage() {
   return (
     <main style={estilos.main}>
       <div style={estilos.contenedor}>
+        <Link href="/" style={{ color: COLORES.gris, fontSize: 14, textDecoration: 'none' }}>
+          {esPT ? '← Voltar ao início' : '← Volver al inicio'}
+        </Link>
         <h1 style={{ color: COLORES.rosa, marginBottom: 4 }}>💞 Nuestro Sueño</h1>
         <p style={{ color: COLORES.gris, marginTop: 0 }}>
           {esPT ? 'Um espaço para construir juntos o sonho da casa própria.' : 'Un espacio para construir juntos el sueño de la casa propia.'}
@@ -263,6 +302,14 @@ export default function NuestroSuenoPage() {
                 ? 'Envie pela mensageria que vocês já usam. A outra pessoa entra nele em Nosso Sonho para se juntar.'
                 : 'Mandalo por la mensajería que ya usan. La otra persona lo entra en Nuestro Sueño para unirse.'}
             </p>
+            <p style={{ color: COLORES.gris, fontSize: 13 }}>
+              {esPT
+                ? 'Esta tela atualiza sozinha assim que a outra pessoa entrar o código.'
+                : 'Esta pantalla se actualiza sola apenas la otra persona entre el código.'}
+            </p>
+            <button onClick={verificarAhora} disabled={verificando} style={estilos.botonSecundario}>
+              {verificando ? '...' : esPT ? 'Verificar agora' : 'Verificar ahora'}
+            </button>
           </div>
         )}
 
