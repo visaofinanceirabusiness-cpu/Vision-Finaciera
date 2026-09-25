@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { EMPRESAS_CON_PLAN_ACCION } from './planAccionEmpresas';
+import { EMPRESAS_CON_NUESTRO_SUENO } from './nuestroSuenoEmpresas';
 
 export { EMPRESAS_CON_PLAN_ACCION };
 
@@ -104,4 +105,10 @@ export async function empresaTieneModulo(
 // chequeo por una columna/flag real).
 export function empresaTienePlanAccion(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_PLAN_ACCION.includes(empresaId as string);
+}
+
+// Nuestro Sueño — espacio compartido de pareja (ver
+// nuestroSuenoEmpresas.ts), mismo criterio que Plan de Acción.
+export function empresaTieneNuestroSueno(empresaId: string | null | undefined): boolean {
+  return Boolean(empresaId) && EMPRESAS_CON_NUESTRO_SUENO.includes(empresaId as string);
 }
