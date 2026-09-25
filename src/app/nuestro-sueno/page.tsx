@@ -28,6 +28,8 @@ import {
   type SuenoCampo,
   type SuenoMensaje,
 } from '@/lib/nuestroSueno';
+import { TableroEtapas } from '@/components/nuestroSueno/TableroEtapas';
+import { PropuestasCompra } from '@/components/nuestroSueno/PropuestasCompra';
 
 const COLORES = {
   azul: '#1f3a5f',
@@ -269,6 +271,20 @@ export default function NuestroSuenoPage() {
             <p style={{ color: COLORES.gris }}>
               {esPT ? 'Vinculado com' : 'Vinculado con'} <strong>{nombreOtroLado ?? '—'}</strong>
             </p>
+
+            <div style={estilos.tarjeta}>
+              <h2 style={{ color: COLORES.azul, marginTop: 0 }}>
+                {esPT ? 'Nosso caminho' : 'Nuestro camino'}
+              </h2>
+              {perfil && <TableroEtapas parejaId={pareja.id} perfilId={perfil.id} esPT={!!esPT} colorAcento={COLORES.rosa} />}
+            </div>
+
+            <div style={estilos.tarjeta}>
+              <h2 style={{ color: COLORES.azul, marginTop: 0 }}>
+                {esPT ? 'Propostas de compra' : 'Propuestas de compra'}
+              </h2>
+              {perfil && <PropuestasCompra parejaId={pareja.id} perfilId={perfil.id} esPT={!!esPT} colorAcento={COLORES.rosa} />}
+            </div>
 
             <div style={estilos.tarjeta}>
               <h2 style={{ color: COLORES.azul, marginTop: 0 }}>
