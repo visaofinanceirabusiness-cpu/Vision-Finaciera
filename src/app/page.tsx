@@ -21,6 +21,7 @@ import {
   empresaManejaMercaderia,
   empresaTieneModulo,
   empresaTienePlanAccion,
+  empresaTieneNuestroSueno,
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
@@ -911,6 +912,15 @@ export default function InicioPage() {
                 href="/plan-accion"
                 titulo="🎯 Plan de Acción"
                 colorPrincipal="#1f3a5f"
+                destacado
+              />
+            )}
+
+            {empresaTieneNuestroSueno(perfil?.empresa_id) && (
+              <BotonAcceso
+                href="/nuestro-sueno"
+                titulo="💞 Nuestro Sueño"
+                colorPrincipal="#db2777"
                 destacado
               />
             )}
