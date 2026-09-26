@@ -59,6 +59,7 @@ type ParametrosSim = { entrada: number; tasa: number; plazo: number; alquiler: n
 const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240, alquiler: 0 };
 
 const COLOR_ALQUILER = '#0891b2';
+const COLOR_FALTA_AHORRO = '#d97706';
 
 // El "resto a cargo" de la cuota (después de descontar el aporte de
 // alquiler) lo termina poniendo la familia en Argentina — se lo llama
@@ -73,11 +74,17 @@ export function PropuestasCompra({
   perfilId,
   esPT,
   colorAcento,
+  ahorroActual,
 }: {
   parejaId: string;
   perfilId: string;
   esPT: boolean;
   colorAcento: string;
+  // El ahorro compartido de la pareja (campo "Ahorro acumulado hoy" de
+  // La casa de los sueños, ver page.tsx) — se usa acá para calcular
+  // cuánto falta juntar para cubrir la entrada de cada propuesta, sin
+  // duplicar ese dato en un campo aparte.
+  ahorroActual: number | null;
 }) {
   const [propuestas, setPropuestas] = useState<SuenoPropuesta[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -518,6 +525,7 @@ export function PropuestasCompra({
           tasasManual={tasasManual}
           onCambiarTasasManual={setTasasManual}
           tasasEfectivas={tasasEfectivas}
+          ahorroActual={ahorroActual}
         />
       )}
     </div>
@@ -744,6 +752,7 @@ function ComparadorTabla({
   tasasManual,
   onCambiarTasasManual,
   tasasEfectivas,
+  ahorroActual,
 }: {
   propuestas: SuenoPropuesta[];
   esPT: boolean;
@@ -756,6 +765,7 @@ function ComparadorTabla({
   tasasManual: TasasARS;
   onCambiarTasasManual: Dispatch<SetStateAction<TasasARS>>;
   tasasEfectivas: TasasARS;
+  ahorroActual: number | null;
 }) {
   const conFinanciamiento = propuestas.map((p) => {
     const resultado = p.precio
@@ -774,8 +784,13 @@ function ComparadorTabla({
     // nunca. Una propuesta nueva con moneda elegida a mano siempre usa
     // esa, no este valor por defecto.
     const restoEnPesos = restoACargo !== null ? convertirAPesos(restoACargo, p.moneda ?? 'BRL', tasasEfectivas) : null;
+    const restoEnPesosPorMitad = restoEnPesos !== null ? restoEnPesos / 2 : null;
 
-    return { propuesta: p, resultado, restoACargo, restoEnPesos };
+    // Cuánto falta juntar para cubrir la entrada de ESTA propiedad —
+    // negativo (o cero) significa que el ahorro ya alcanza y sobra.
+    const faltaParaEntrada = resultado && ahorroActual !== null ? resultado.entradaMonto - ahorroActual : null;
+
+    return { propuesta: p, resultado, restoACargo, restoEnPesos, restoEnPesosPorMitad, faltaParaEntrada };
   });
 
   return (
@@ -890,9 +905,28 @@ function ComparadorTabla({
                 ),
               },
               {
+                etiqueta: esPT ? 'Falta para a entrada' : 'Falta para la entrada',
+                color: COLOR_FALTA_AHORRO,
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, faltaParaEntrada }) => {
+                    if (faltaParaEntrada === null) return [p.id, esPT ? 'sem poupança carregada' : 'sin ahorro cargado'];
+                    if (faltaParaEntrada <= 0) {
+                      return [p.id, esPT ? `alcança (sobra ${p.moneda ?? ''} ${Math.abs(faltaParaEntrada).toLocaleString()})` : `alcanza (sobra ${p.moneda ?? ''} ${Math.abs(faltaParaEntrada).toLocaleString()})`];
+                    }
+                    return [p.id, `${p.moneda ?? ''} ${faltaParaEntrada.toLocaleString()}`];
+                  })
+                ),
+              },
+              {
                 etiqueta: esPT ? 'Parcela mensal' : 'Cuota mensual',
                 valores: Object.fromEntries(
                   conFinanciamiento.map(({ propuesta: p, resultado: r }) => [p.id, r ? `${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}` : '—'])
+                ),
+              },
+              {
+                etiqueta: esPT ? 'Total de juros' : 'Total de intereses',
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [p.id, r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'])
                 ),
               },
               {
@@ -923,9 +957,13 @@ function ComparadorTabla({
                 ),
               },
               {
-                etiqueta: esPT ? 'Total de juros' : 'Total de intereses',
+                etiqueta: esPT ? `${etiquetaFinanciamientoArg(esPT)} em $ARS ÷ 2 (cada um)` : `${etiquetaFinanciamientoArg(esPT)} en $ARS ÷ 2 (cada uno)`,
+                color: colorAcento,
                 valores: Object.fromEntries(
-                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [p.id, r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'])
+                  conFinanciamiento.map(({ propuesta: p, restoEnPesosPorMitad }) => [
+                    p.id,
+                    restoEnPesosPorMitad !== null ? `$ ${restoEnPesosPorMitad.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización'),
+                  ])
                 ),
               },
             ]}

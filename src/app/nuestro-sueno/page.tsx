@@ -330,7 +330,15 @@ export default function NuestroSuenoPage() {
               <h2 style={{ color: COLORES.azul, marginTop: 0 }}>
                 {esPT ? 'Propostas de compra' : 'Propuestas de compra'}
               </h2>
-              {perfil && <PropuestasCompra parejaId={pareja.id} perfilId={perfil.id} esPT={!!esPT} colorAcento={COLORES.rosa} />}
+              {perfil && (
+                <PropuestasCompra
+                  parejaId={pareja.id}
+                  perfilId={perfil.id}
+                  esPT={!!esPT}
+                  colorAcento={COLORES.rosa}
+                  ahorroActual={campos.ahorro_actual?.valor ? Number(campos.ahorro_actual.valor) : null}
+                />
+              )}
             </div>
 
             <div style={estilos.tarjeta}>
