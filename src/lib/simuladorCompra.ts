@@ -96,6 +96,34 @@ export function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: numb
   return Number((R * c).toFixed(1));
 }
 
+// Convierte un monto a pesos ARS usando la cotización real del día
+// (ver lib/cotizaciones.ts) — para saber a cuánto equivale en pesos el
+// financiamiento de una propiedad cargada en otra moneda. `tasas` es
+// cuántos ARS vale 1 unidad de esa moneda (USD y BRL); ARS no
+// necesita tasa, vale 1 a 1.
+export type TasasARS = { USD: number | null; BRL: number | null };
+
+// La moneda de una propuesta es texto libre (viene de la extracción
+// del link, que trae códigos ISO como "BRL"/"USD", o de lo que la
+// persona haya tipeado a mano) — se normaliza buscando estos patrones
+// conocidos en vez de exigir un formato exacto.
+export function normalizarMoneda(moneda: string | null): 'ARS' | 'USD' | 'BRL' | null {
+  if (!moneda) return null;
+  const m = moneda.trim().toUpperCase();
+  if (m.includes('BRL') || m.includes('R$')) return 'BRL';
+  if (m.includes('USD') || m.includes('U$S') || m.includes('US$')) return 'USD';
+  if (m.includes('ARS') || m.includes('AR$') || m === '$') return 'ARS';
+  return null;
+}
+
+export function convertirAPesos(monto: number, moneda: string | null, tasas: TasasARS): number | null {
+  const normalizada = normalizarMoneda(moneda);
+  if (normalizada === 'ARS') return Number(monto.toFixed(2));
+  if (normalizada === 'USD' && tasas.USD) return Number((monto * tasas.USD).toFixed(2));
+  if (normalizada === 'BRL' && tasas.BRL) return Number((monto * tasas.BRL).toFixed(2));
+  return null;
+}
+
 export function urlGoogleMaps(direccion: string | null, lat: number | null, lng: number | null): string | null {
   if (lat !== null && lng !== null) {
     return `https://www.google.com/maps?q=${lat},${lng}`;
