@@ -503,7 +503,7 @@ export function PropuestasCompra({
                             </p>
                           )}
 
-                          <GraficoAmortizacion detalle={resultado.detalle} colorAcento={colorAcento} />
+                          <GraficoAmortizacion detalle={resultado.detalle} colorAcento={colorAcento} esPT={esPT} moneda={p.moneda} />
                         </>
                       )}
                     </>
@@ -735,53 +735,77 @@ function CampoSim({ etiqueta, valor, onChange }: { etiqueta: string; valor: numb
 // que es lo que suele sorprender a quien nunca sacó un crédito
 // hipotecario. Barras apiladas, una cada 12 meses para que entre en
 // el ancho de una tarjeta.
+// Una barra por CUOTA (no una por año) — con un plazo largo (240
+// meses típico de una hipoteca) son muchas barras para entrar en el
+// ancho de la pantalla, así que el gráfico se dibuja a un ancho fijo
+// en píxeles (no en %) dentro de un contenedor que se desplaza para
+// el costado, en vez de achicar cada barra hasta que no se distinga
+// capital de interés.
 function GraficoAmortizacion({
   detalle,
   colorAcento,
+  esPT,
+  moneda,
 }: {
   detalle: { numero: number; capital: number; interes: number }[];
   colorAcento: string;
+  esPT: boolean;
+  moneda: string | null;
 }) {
-  // Un punto por año: el ÚLTIMO mes de cada año ((i+1) % 12 === 0), más
-  // el último mes del préstamo si el plazo no es múltiplo exacto de 12
-  // (ej. un plazo de 200 meses tiene un "año 17" incompleto de 8
-  // meses). Antes se tomaba el PRIMER mes de cada año (i % 12 === 0) Y
-  // por separado el último mes del array — con un plazo múltiplo de 12
-  // (ej. 240 meses) ambos criterios caían en años distintos que se
-  // redondeaban al mismo número de año visualmente, mostrando el
-  // último año dos veces seguidas.
-  const puntos = detalle.filter((_, i) => (i + 1) % 12 === 0 || i === detalle.length - 1);
-  const maxCuota = Math.max(...puntos.map((p) => p.capital + p.interes));
-  const ancho = 320;
-  const alto = 120;
-  const anchoBarra = Math.min(28, ancho / puntos.length - 6);
+  const anchoBarra = 10;
+  const espacioBarra = 4;
+  const alto = 140;
+  const maxCuota = Math.max(...detalle.map((p) => p.capital + p.interes));
+  const anchoSvg = detalle.length * (anchoBarra + espacioBarra);
+  const valorCuota = detalle[0] ? detalle[0].capital + detalle[0].interes : 0;
 
   return (
-    <svg width="100%" viewBox={`0 0 ${ancho} ${alto + 20}`} role="img" aria-label="Composición de la cuota a lo largo del tiempo">
-      {puntos.map((p, i) => {
-        const x = i * (ancho / puntos.length) + 4;
-        const totalAlto = (( p.capital + p.interes) / maxCuota) * alto;
-        const interesAlto = (p.interes / maxCuota) * alto;
-        const capitalAlto = totalAlto - interesAlto;
+    <div>
+      <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#6e7781', marginBottom: 6 }}>
+        <span>
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: colorAcento, marginRight: 4, borderRadius: 2 }} />
+          {esPT ? 'Capital' : 'Capital'}
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#cbd5e1', marginRight: 4, borderRadius: 2 }} />
+          {esPT ? 'Juros' : 'Interés'}
+        </span>
+        <span style={{ marginLeft: 'auto' }}>
+          {esPT ? '← desliza para o lado →' : '← deslizá para el costado →'}
+        </span>
+      </div>
 
-        return (
-          <g key={p.numero}>
-            <rect x={x} y={alto - totalAlto} width={anchoBarra} height={interesAlto} fill="#cbd5e1" />
-            <rect x={x} y={alto - capitalAlto} width={anchoBarra} height={capitalAlto} fill={colorAcento} />
-            <text x={x + anchoBarra / 2} y={alto + 14} fontSize="9" textAnchor="middle" fill="#6e7781">
-              {esNumeroDeAnio(p.numero)}
-            </text>
-          </g>
-        );
-      })}
-      <text x={0} y={0} fontSize="0" />
-    </svg>
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <svg width={anchoSvg} height={alto + 22} role="img" aria-label="Composición de cada cuota, mes a mes">
+          {detalle.map((p, i) => {
+            const x = i * (anchoBarra + espacioBarra);
+            const totalAlto = ((p.capital + p.interes) / maxCuota) * alto;
+            const interesAlto = (p.interes / maxCuota) * alto;
+            const capitalAlto = totalAlto - interesAlto;
+            const esMarcaDeAnio = p.numero % 12 === 0 || p.numero === detalle.length;
+
+            return (
+              <g key={p.numero}>
+                <rect x={x} y={alto - totalAlto} width={anchoBarra} height={interesAlto} fill="#cbd5e1" />
+                <rect x={x} y={alto - capitalAlto} width={anchoBarra} height={capitalAlto} fill={colorAcento} />
+                {esMarcaDeAnio && (
+                  <text x={x + anchoBarra / 2} y={alto + 14} fontSize="9" textAnchor="middle" fill="#6e7781">
+                    M{p.numero}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+        {esPT
+          ? `Cada barra é uma parcela (${moneda ?? ''} ${valorCuota.toLocaleString()}/mês) — abaixo, quanto é capital e quanto é juros.`
+          : `Cada barra es una cuota (${moneda ?? ''} ${valorCuota.toLocaleString()}/mes) — de abajo hacia arriba, cuánto es capital y cuánto interés.`}
+      </p>
+    </div>
   );
-}
-
-function esNumeroDeAnio(numeroMes: number): string {
-  const anio = Math.ceil(numeroMes / 12);
-  return `A${anio}`;
 }
 
 // Compara TODAS las propuestas bajo los MISMOS supuestos de
