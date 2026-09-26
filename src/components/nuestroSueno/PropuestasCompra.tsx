@@ -60,6 +60,14 @@ const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240, alquiler
 
 const COLOR_ALQUILER = '#0891b2';
 
+// El "resto a cargo" de la cuota (después de descontar el aporte de
+// alquiler) lo termina poniendo la familia en Argentina — se lo llama
+// así en vez de un genérico "resto a cargo" porque es quién realmente
+// pone esa plata cada mes.
+function etiquetaFinanciamientoArg(esPT: boolean): string {
+  return esPT ? 'financiamento argentino (papais)' : 'financiamiento argentino (papis)';
+}
+
 export function PropuestasCompra({
   parejaId,
   perfilId,
@@ -447,7 +455,7 @@ export function PropuestasCompra({
                               </strong>
                               {' + '}
                               <strong style={{ color: colorAcento }}>
-                                {esPT ? 'resto a cargo' : 'resto a cargo'} {p.moneda ?? ''}{' '}
+                                {etiquetaFinanciamientoArg(esPT)} {p.moneda ?? ''}{' '}
                                 {(resultado.cuotaMensual - sim.alquiler).toLocaleString()}
                               </strong>
                             </p>
@@ -517,6 +525,16 @@ function CamposPropuestaForm({
           placeholder={esPT ? 'Preço' : 'Precio'}
           style={estilosLocales.input}
         />
+        <select
+          value={valores.moneda ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, moneda: e.target.value || null }))}
+          style={estilosLocales.input}
+        >
+          <option value="">{esPT ? 'Moeda…' : 'Moneda…'}</option>
+          <option value="BRL">R$ (BRL)</option>
+          <option value="ARS">$ (ARS)</option>
+          <option value="USD">U$S (USD)</option>
+        </select>
         <input
           type="number"
           value={valores.m2 ?? ''}
@@ -561,6 +579,27 @@ function CamposPropuestaForm({
         style={{ ...estilosLocales.input, width: '100%', minHeight: 60, marginBottom: 12 }}
       />
     </>
+  );
+}
+
+// Una fila "etiqueta: valor" — el bloque mínimo de las tarjetas de
+// comparación verticales (ver ComparadorTabla), en vez de columnas de
+// una tabla ancha que en el celular obligan a desplazar para el costado.
+function FilaDato({ etiqueta, valor, color, sinBorde }: { etiqueta: string; valor: string; color?: string; sinBorde?: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '4px 0',
+        borderBottom: sinBorde ? 'none' : '1px solid #f1f5f9',
+        fontSize: 13,
+      }}
+    >
+      <span style={{ color: '#6e7781' }}>{etiqueta}</span>
+      <span style={{ fontWeight: 700, color: color ?? '#1f2937', textAlign: 'right' }}>{valor}</span>
+    </div>
   );
 }
 
@@ -683,31 +722,23 @@ function ComparadorTabla({
     <div style={{ marginTop: 20 }}>
       <h3 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Comparador' : 'Comparador'}</h3>
 
-      <div style={{ overflowX: 'auto', marginBottom: 20 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
-              <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
-              <th style={{ padding: 6 }}>{esPT ? 'Preço' : 'Precio'}</th>
-              <th style={{ padding: 6 }}>m²</th>
-              <th style={{ padding: 6 }}>{esPT ? 'Preço/m²' : 'Precio/m²'}</th>
-              <th style={{ padding: 6 }}>{esPT ? 'Quartos' : 'Cuartos'}</th>
-              <th style={{ padding: 6 }}>{esPT ? 'Estado' : 'Estado'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {propuestas.map((p) => (
-              <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
-                <td style={{ padding: 6 }}>{p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'}</td>
-                <td style={{ padding: 6 }}>{p.m2 ?? '—'}</td>
-                <td style={{ padding: 6 }}>{p.precio && p.m2 ? Math.round(p.precio / p.m2).toLocaleString() : '—'}</td>
-                <td style={{ padding: 6 }}>{p.cuartos ?? '—'}</td>
-                <td style={{ padding: 6 }}>{ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Una tarjeta por propiedad, apilada hacia abajo — en vez de una
+          tabla ancha que obliga a desplazar horizontalmente en el
+          celular, cada dato queda en su propia fila legible. */}
+      <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+        {propuestas.map((p) => (
+          <div key={p.id} style={estilosLocales.tarjetaComparador}>
+            <strong style={{ color: '#1f3a5f', display: 'block', marginBottom: 6 }}>{p.titulo || '—'}</strong>
+            <FilaDato etiqueta={esPT ? 'Preço' : 'Precio'} valor={p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'} />
+            <FilaDato etiqueta="m²" valor={p.m2?.toString() ?? '—'} />
+            <FilaDato
+              etiqueta={esPT ? 'Preço/m²' : 'Precio/m²'}
+              valor={p.precio && p.m2 ? `${p.moneda ?? ''} ${Math.round(p.precio / p.m2).toLocaleString()}` : '—'}
+            />
+            <FilaDato etiqueta={esPT ? 'Quartos' : 'Cuartos'} valor={p.cuartos?.toString() ?? '—'} />
+            <FilaDato etiqueta={esPT ? 'Estado' : 'Estado'} valor={ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta ?? '—'} sinBorde />
+          </div>
+        ))}
       </div>
 
       <h4 style={{ color: '#1f3a5f', fontSize: 14, marginBottom: 4 }}>
@@ -770,43 +801,44 @@ function ComparadorTabla({
         <>
           <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 8 }}>
             {esPT
-              ? 'Como se paga cada parcela: uma parte com o aluguel, o resto sai do bolso do casal (convertido a pesos com a cotação escolhida acima).'
-              : 'Cómo se paga cada cuota: una parte con el alquiler, el resto sale del bolsillo de la pareja (convertido a pesos con la cotización elegida arriba).'}
+              ? 'Como se paga cada parcela: uma parte com o aluguel, o resto é o financiamento argentino (papais) — convertido a pesos com a cotação escolhida acima.'
+              : 'Cómo se paga cada cuota: una parte con el alquiler, el resto es el financiamiento argentino (papis) — convertido a pesos con la cotización elegida arriba.'}
           </p>
 
-          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
-                  <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
-                  <th style={{ padding: 6 }}>{esPT ? 'Parcela mensal' : 'Cuota mensual'}</th>
-                  <th style={{ padding: 6, color: COLOR_ALQUILER }}>{esPT ? 'Aporte aluguel' : 'Aporte alquiler'}</th>
-                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto a cargo' : 'Resto a cargo'}</th>
-                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto em $ARS' : 'Resto en $ARS'}</th>
-                  <th style={{ padding: 6 }}>{esPT ? 'Total de juros' : 'Total de intereses'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conFinanciamiento.map(({ propuesta: p, resultado: r, restoACargo, restoEnPesos }) => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
-                    <td style={{ padding: 6, fontWeight: 700 }}>
-                      {r ? `${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}` : (esPT ? 'sem preço' : 'sin precio')}
-                    </td>
-                    <td style={{ padding: 6, color: COLOR_ALQUILER }}>
-                      {r && parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—'}
-                    </td>
-                    <td style={{ padding: 6, fontWeight: 700, color: colorAcento }}>
-                      {restoACargo !== null ? `${p.moneda ?? ''} ${restoACargo.toLocaleString()}` : '—'}
-                    </td>
-                    <td style={{ padding: 6, color: colorAcento }}>
-                      {restoEnPesos !== null ? `$ ${restoEnPesos.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización')}
-                    </td>
-                    <td style={{ padding: 6 }}>{r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+            {conFinanciamiento.map(({ propuesta: p, resultado: r, restoACargo, restoEnPesos }) => (
+              <div key={p.id} style={estilosLocales.tarjetaComparador}>
+                <strong style={{ color: '#1f3a5f', display: 'block', marginBottom: 6 }}>{p.titulo || '—'}</strong>
+                {!r ? (
+                  <p style={{ fontSize: 13, color: '#6e7781', margin: 0 }}>{esPT ? 'sem preço carregado' : 'sin precio cargado'}</p>
+                ) : (
+                  <>
+                    <FilaDato etiqueta={esPT ? 'Entrada' : 'Entrada'} valor={`${p.moneda ?? ''} ${r.entradaMonto.toLocaleString()}`} />
+                    <FilaDato etiqueta={esPT ? 'Parcela mensal' : 'Cuota mensual'} valor={`${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}`} />
+                    <FilaDato
+                      etiqueta={esPT ? 'Aporte aluguel' : 'Aporte alquiler'}
+                      valor={parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—'}
+                      color={COLOR_ALQUILER}
+                    />
+                    <FilaDato
+                      etiqueta={etiquetaFinanciamientoArg(esPT)}
+                      valor={restoACargo !== null ? `${p.moneda ?? ''} ${restoACargo.toLocaleString()}` : '—'}
+                      color={colorAcento}
+                    />
+                    <FilaDato
+                      etiqueta={`${etiquetaFinanciamientoArg(esPT)} en $ARS`}
+                      valor={restoEnPesos !== null ? `$ ${restoEnPesos.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización')}
+                      color={colorAcento}
+                    />
+                    <FilaDato
+                      etiqueta={esPT ? 'Total de juros' : 'Total de intereses'}
+                      valor={`${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}`}
+                      sinBorde
+                    />
+                  </>
+                )}
+              </div>
+            ))}
           </div>
 
           <GraficoComparacionCuotas
@@ -873,6 +905,12 @@ const estilosLocales = {
     border: '1px solid #e5e7eb',
     borderRadius: 10,
     padding: 14,
+  },
+  tarjetaComparador: {
+    background: '#f8fafc',
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    padding: 12,
   },
   input: {
     padding: '8px 10px',
