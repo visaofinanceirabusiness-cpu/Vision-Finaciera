@@ -257,7 +257,7 @@ export function PropuestasCompra({
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p style={{ margin: 0, color: '#6e7781', fontSize: 13 }}>
+        <p style={{ margin: 0, color: '#6e7781', fontSize: 15 }}>
           {esPT
             ? 'Cole o link de um anúncio para trazer os dados reais.'
             : 'Pegá el link de una publicación para traer los datos reales.'}
@@ -285,7 +285,7 @@ export function PropuestasCompra({
             </button>
           </div>
 
-          {errorExtraccion && <p style={{ color: '#b91c1c', fontSize: 13 }}>{errorExtraccion}</p>}
+          {errorExtraccion && <p style={{ color: '#b91c1c', fontSize: 15 }}>{errorExtraccion}</p>}
 
           <CamposPropuestaForm valores={borrador} onChange={setBorrador} esPT={esPT} />
 
@@ -334,7 +334,7 @@ export function PropuestasCompra({
                   </button>
                 </div>
 
-                {errorExtraccionEdicion && <p style={{ color: '#b91c1c', fontSize: 13 }}>{errorExtraccionEdicion}</p>}
+                {errorExtraccionEdicion && <p style={{ color: '#b91c1c', fontSize: 15 }}>{errorExtraccionEdicion}</p>}
 
                 <CamposPropuestaForm valores={borradorEdicion} onChange={setBorradorEdicion} esPT={esPT} />
 
@@ -363,7 +363,7 @@ export function PropuestasCompra({
                     <select
                       value={p.estado}
                       onChange={(e) => cambiarEstado(p.id, e.target.value as EstadoPropuesta)}
-                      style={{ fontSize: 12, borderRadius: 6, border: '1px solid #d1d5db' }}
+                      style={{ fontSize: 14, borderRadius: 6, border: '1px solid #d1d5db' }}
                     >
                       {ESTADOS_PROPUESTA.map((e) => (
                         <option key={e.valor} value={e.valor}>
@@ -373,9 +373,9 @@ export function PropuestasCompra({
                     </select>
                   </div>
 
-                  {p.direccion && <p style={{ margin: '4px 0', fontSize: 13, color: '#6e7781' }}>{p.direccion}</p>}
+                  {p.direccion && <p style={{ margin: '4px 0', fontSize: 15, color: '#6e7781' }}>{p.direccion}</p>}
 
-                  <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#374151', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 15, color: '#374151', flexWrap: 'wrap' }}>
                     {p.precio !== null && <span>💰 {p.moneda ?? ''} {p.precio.toLocaleString()}</span>}
                     {p.m2 !== null && <span>📐 {p.m2} m²</span>}
                     {precioM2 !== null && <span>({p.moneda ?? ''} {precioM2.toLocaleString()}/m²)</span>}
@@ -384,7 +384,7 @@ export function PropuestasCompra({
                     {dist !== null && <span>📍 {dist} km {esPT ? 'da referência' : 'de referencia'}</span>}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 13 }}>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 15 }}>
                     {p.link && (
                       <a href={p.link} target="_blank" rel="noreferrer" style={{ color: colorAcento }}>
                         {esPT ? 'Ver anúncio' : 'Ver publicación'}
@@ -397,17 +397,17 @@ export function PropuestasCompra({
                     )}
                     <button
                       onClick={() => setExpandido(expandido === p.id ? null : p.id)}
-                      style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 13 }}
+                      style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 15 }}
                     >
                       {expandido === p.id ? (esPT ? 'Fechar simulador' : 'Cerrar simulador') : esPT ? 'Simular financiamento' : 'Simular financiamiento'}
                     </button>
                     <button
                       onClick={() => iniciarEdicion(p)}
-                      style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 13 }}
+                      style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 15 }}
                     >
                       {esPT ? 'Editar' : 'Editar'}
                     </button>
-                    <button onClick={() => borrar(p.id)} style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: 0, fontSize: 13 }}>
+                    <button onClick={() => borrar(p.id)} style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: 0, fontSize: 15 }}>
                       {esPT ? 'Excluir' : 'Eliminar'}
                     </button>
                   </div>
@@ -417,7 +417,7 @@ export function PropuestasCompra({
               {expandido === p.id && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
                   {!p.precio ? (
-                    <p style={{ fontSize: 13, color: '#6e7781' }}>
+                    <p style={{ fontSize: 15, color: '#6e7781' }}>
                       {esPT ? 'Carregue o preço da propriedade para simular.' : 'Cargá el precio de la propiedad para simular.'}
                     </p>
                   ) : (
@@ -447,7 +447,7 @@ export function PropuestasCompra({
 
                       {resultado && (
                         <>
-                          <div style={{ display: 'flex', gap: 24, marginBottom: 12, fontSize: 13, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: 24, marginBottom: 12, fontSize: 15, flexWrap: 'wrap' }}>
                             <span>
                               {esPT ? 'Entrada' : 'Entrada'}: <strong>{p.moneda ?? ''} {resultado.entradaMonto.toLocaleString()}</strong>
                             </span>
@@ -460,7 +460,7 @@ export function PropuestasCompra({
                           </div>
 
                           {sim.alquiler > 0 && (
-                            <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 12 }}>
+                            <p style={{ fontSize: 14, color: '#6e7781', marginBottom: 12 }}>
                               {esPT ? 'Como se paga essa parcela:' : 'Cómo se paga esta cuota:'}{' '}
                               <strong style={{ color: COLOR_ALQUILER }}>
                                 {esPT ? 'aluguel' : 'alquiler'} {p.moneda ?? ''} {sim.alquiler.toLocaleString()}
@@ -487,12 +487,12 @@ export function PropuestasCompra({
 
       {propuestas.length >= 2 && (
         <div style={{ marginTop: 20 }}>
-          <p style={{ fontSize: 13, color: '#6e7781', marginBottom: 8 }}>
+          <p style={{ fontSize: 15, color: '#6e7781', marginBottom: 8 }}>
             {esPT ? 'Escolha quais opções comparar:' : 'Elegí qué opciones comparar:'}
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
             {propuestas.map((p) => (
-              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151' }}>
+              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, color: '#374151' }}>
                 <input
                   type="checkbox"
                   checked={!idsExcluidosComparador.has(p.id)}
@@ -638,12 +638,12 @@ function TablaTranspuesta({
 }) {
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: 6, textAlign: 'left' }} />
+            <th style={{ padding: 8, textAlign: 'left' }} />
             {columnas.map((c) => (
-              <th key={c.id} style={{ padding: 6, textAlign: 'right', color: '#1f3a5f' }}>
+              <th key={c.id} style={{ padding: 8, textAlign: 'right', color: '#1f3a5f' }}>
                 {c.titulo}
               </th>
             ))}
@@ -652,9 +652,9 @@ function TablaTranspuesta({
         <tbody>
           {filas.map((f, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: 6, color: '#6e7781', whiteSpace: 'nowrap' }}>{f.etiqueta}</td>
+              <td style={{ padding: 8, color: '#6e7781', whiteSpace: 'nowrap' }}>{f.etiqueta}</td>
               {columnas.map((c) => (
-                <td key={c.id} style={{ padding: 6, textAlign: 'right', fontWeight: 700, color: f.color ?? '#1f2937' }}>
+                <td key={c.id} style={{ padding: 8, textAlign: 'right', fontWeight: 700, color: f.color ?? '#1f2937' }}>
                   {f.valores[c.id] ?? '—'}
                 </td>
               ))}
@@ -668,7 +668,7 @@ function TablaTranspuesta({
 
 function CampoSim({ etiqueta, valor, onChange }: { etiqueta: string; valor: number; onChange: (v: number) => void }) {
   return (
-    <label style={{ fontSize: 12, color: '#6e7781', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <label style={{ fontSize: 14, color: '#6e7781', display: 'flex', flexDirection: 'column', gap: 4 }}>
       {etiqueta}
       <input
         type="number"
@@ -799,7 +799,7 @@ function ComparadorTabla({
           Santinho vs. Casa Ingleses"): cada propiedad es una columna
           más de la tabla — si mañana aparece una tercera opción, es
           solo una columna nueva, no hay que tocar nada de este texto. */}
-      <h3 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Método de compra' : 'Método de compra'}</h3>
+      <h3 style={{ color: '#1f3a5f', fontSize: 18, marginBottom: 4 }}>{esPT ? 'Método de compra' : 'Método de compra'}</h3>
 
       {/* Una columna por propiedad, con el nombre en la cabecera y las
           mismas etiquetas a la izquierda una sola vez (no una tarjeta
@@ -828,7 +828,7 @@ function ComparadorTabla({
         ]}
       />
 
-      <h4 style={{ color: '#1f3a5f', fontSize: 14, marginTop: 20, marginBottom: 4 }}>
+      <h4 style={{ color: '#1f3a5f', fontSize: 16, marginTop: 20, marginBottom: 4 }}>
         {esPT ? 'Comparar financiamento (mesmas condições para todas)' : 'Comparar financiamiento (mismas condiciones para todas)'}
       </h4>
 
@@ -855,7 +855,7 @@ function ComparadorTabla({
         />
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', marginBottom: 8 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, color: '#374151', marginBottom: 8 }}>
         <input
           type="checkbox"
           checked={usarCotizacionSistema}
@@ -863,7 +863,7 @@ function ComparadorTabla({
         />
         {esPT ? 'Usar cotação do sistema' : 'Usar cotización del sistema'}
         {usarCotizacionSistema && tasasSistema.USD === null && tasasSistema.BRL === null && (
-          <span style={{ color: '#b91c1c', fontSize: 12 }}>
+          <span style={{ color: '#b91c1c', fontSize: 14 }}>
             ({esPT ? 'ainda não disponível' : 'todavía no disponible'})
           </span>
         )}
@@ -886,7 +886,7 @@ function ComparadorTabla({
 
       {conFinanciamiento.some((c) => c.resultado) ? (
         <>
-          <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 8 }}>
+          <p style={{ fontSize: 14, color: '#6e7781', marginBottom: 8 }}>
             {esPT
               ? 'Como se paga cada parcela: uma parte com o aluguel, o resto é o financiamento argentino (papais) — convertido a pesos com a cotação escolhida acima.'
               : 'Cómo se paga cada cuota: una parte con el alquiler, el resto es el financiamiento argentino (papis) — convertido a pesos con la cotización elegida arriba.'}
@@ -977,7 +977,7 @@ function ComparadorTabla({
           />
         </>
       ) : (
-        <p style={{ fontSize: 13, color: '#6e7781' }}>
+        <p style={{ fontSize: 15, color: '#6e7781' }}>
           {esPT ? 'Carregue o preço de pelo menos uma propriedade para comparar.' : 'Cargá el precio de al menos una propiedad para comparar.'}
         </p>
       )}
@@ -1038,7 +1038,7 @@ const estilosLocales = {
     padding: '8px 10px',
     borderRadius: 8,
     border: '1px solid #d1d5db',
-    fontSize: 14,
+    fontSize: 16,
   },
   botonPrincipal: (color: string) => ({
     background: color,
@@ -1057,6 +1057,6 @@ const estilosLocales = {
     padding: '8px 14px',
     fontWeight: 700,
     cursor: 'pointer',
-    fontSize: 13,
+    fontSize: 15,
   }),
 } as const;

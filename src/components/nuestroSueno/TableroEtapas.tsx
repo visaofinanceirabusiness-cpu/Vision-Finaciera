@@ -55,7 +55,7 @@ export function TableroEtapas({
         <span style={{ fontWeight: 700, color: colorAcento }}>
           {completas}/{ETAPAS_SUENO.length} {esPT ? 'etapas' : 'etapas'}
         </span>
-        <span style={{ fontSize: 13, color: '#6e7781' }}>{progreso}%</span>
+        <span style={{ fontSize: 14, color: '#6e7781' }}>{progreso}%</span>
       </div>
 
       <div style={{ height: 8, background: '#e5e7eb', borderRadius: 4, marginBottom: 20, overflow: 'hidden' }}>
@@ -100,7 +100,7 @@ export function TableroEtapas({
                 </div>
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     textAlign: 'center',
                     color: completada ? colorAcento : '#6e7781',
                     fontWeight: completada ? 700 : 400,
