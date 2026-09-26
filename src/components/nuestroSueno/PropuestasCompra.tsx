@@ -94,6 +94,11 @@ export function PropuestasCompra({
   const [errorExtraccionEdicion, setErrorExtraccionEdicion] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [parametrosComparador, setParametrosComparador] = useState<ParametrosSim>(SIM_DEFAULT);
+  // Con solo 2 propuestas da igual, pero apenas haya varias comparar
+  // TODAS a la vez en la misma tabla deja de ser legible — por eso se
+  // puede destildar cuáles entran a la comparación. Vacío = entran
+  // todas (nada excluido).
+  const [idsExcluidosComparador, setIdsExcluidosComparador] = useState<Set<string>>(new Set());
   const [tasasSistema, setTasasSistema] = useState<TasasARS>({ USD: null, BRL: null });
   const [usarCotizacionSistema, setUsarCotizacionSistema] = useState(true);
   const [tasasManual, setTasasManual] = useState<TasasARS>({ USD: null, BRL: null });
@@ -474,8 +479,35 @@ export function PropuestasCompra({
       </div>
 
       {propuestas.length >= 2 && (
+        <div style={{ marginTop: 20 }}>
+          <p style={{ fontSize: 13, color: '#6e7781', marginBottom: 8 }}>
+            {esPT ? 'Escolha quais opções comparar:' : 'Elegí qué opciones comparar:'}
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+            {propuestas.map((p) => (
+              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151' }}>
+                <input
+                  type="checkbox"
+                  checked={!idsExcluidosComparador.has(p.id)}
+                  onChange={(e) =>
+                    setIdsExcluidosComparador((actual) => {
+                      const nuevo = new Set(actual);
+                      if (e.target.checked) nuevo.delete(p.id);
+                      else nuevo.add(p.id);
+                      return nuevo;
+                    })
+                  }
+                />
+                {p.titulo || '—'}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {propuestas.filter((p) => !idsExcluidosComparador.has(p.id)).length >= 2 && (
         <ComparadorTabla
-          propuestas={propuestas}
+          propuestas={propuestas.filter((p) => !idsExcluidosComparador.has(p.id))}
           esPT={esPT}
           colorAcento={colorAcento}
           parametros={parametrosComparador}
@@ -582,23 +614,46 @@ function CamposPropuestaForm({
   );
 }
 
-// Una fila "etiqueta: valor" — el bloque mínimo de las tarjetas de
-// comparación verticales (ver ComparadorTabla), en vez de columnas de
-// una tabla ancha que en el celular obligan a desplazar para el costado.
-function FilaDato({ etiqueta, valor, color, sinBorde }: { etiqueta: string; valor: string; color?: string; sinBorde?: boolean }) {
+// Tabla "transpuesta": las etiquetas (Precio, Cuota mensual, etc.) van
+// UNA sola vez en la columna izquierda, y cada propiedad es una
+// columna con sus valores — así se lee cada fila de un vistazo en vez
+// de repetir las mismas etiquetas en una tarjeta por propiedad. Con
+// pocas opciones (2-3) entra sin desplazar; si en el futuro hay
+// muchas más, el checklist de arriba (ver PropuestasCompra) deja
+// elegir cuáles entran a esta tabla.
+function TablaTranspuesta({
+  columnas,
+  filas,
+}: {
+  columnas: { id: string; titulo: string }[];
+  filas: { etiqueta: string; color?: string; valores: Record<string, string> }[];
+}) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        gap: 12,
-        padding: '4px 0',
-        borderBottom: sinBorde ? 'none' : '1px solid #f1f5f9',
-        fontSize: 13,
-      }}
-    >
-      <span style={{ color: '#6e7781' }}>{etiqueta}</span>
-      <span style={{ fontWeight: 700, color: color ?? '#1f2937', textAlign: 'right' }}>{valor}</span>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+            <th style={{ padding: 6, textAlign: 'left' }} />
+            {columnas.map((c) => (
+              <th key={c.id} style={{ padding: 6, textAlign: 'right', color: '#1f3a5f' }}>
+                {c.titulo}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f, i) => (
+            <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <td style={{ padding: 6, color: '#6e7781', whiteSpace: 'nowrap' }}>{f.etiqueta}</td>
+              {columnas.map((c) => (
+                <td key={c.id} style={{ padding: 6, textAlign: 'right', fontWeight: 700, color: f.color ?? '#1f2937' }}>
+                  {f.valores[c.id] ?? '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -713,35 +768,52 @@ function ComparadorTabla({
       : null;
 
     const restoACargo = resultado ? resultado.cuotaMensual - parametros.alquiler : null;
-    const restoEnPesos = restoACargo !== null ? convertirAPesos(restoACargo, p.moneda, tasasEfectivas) : null;
+    // Las propuestas cargadas antes de que existiera el selector de
+    // moneda quedaron sin ese dato — se asume BRL (la moneda con la
+    // que se trabaja en este proyecto) en vez de no poder convertir
+    // nunca. Una propuesta nueva con moneda elegida a mano siempre usa
+    // esa, no este valor por defecto.
+    const restoEnPesos = restoACargo !== null ? convertirAPesos(restoACargo, p.moneda ?? 'BRL', tasasEfectivas) : null;
 
     return { propuesta: p, resultado, restoACargo, restoEnPesos };
   });
 
   return (
     <div style={{ marginTop: 20 }}>
-      <h3 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Comparador' : 'Comparador'}</h3>
+      {/* Título genérico a propósito ("Método de compra", no "Terreno
+          Santinho vs. Casa Ingleses"): cada propiedad es una columna
+          más de la tabla — si mañana aparece una tercera opción, es
+          solo una columna nueva, no hay que tocar nada de este texto. */}
+      <h3 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Método de compra' : 'Método de compra'}</h3>
 
-      {/* Una tarjeta por propiedad, apilada hacia abajo — en vez de una
-          tabla ancha que obliga a desplazar horizontalmente en el
-          celular, cada dato queda en su propia fila legible. */}
-      <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
-        {propuestas.map((p) => (
-          <div key={p.id} style={estilosLocales.tarjetaComparador}>
-            <strong style={{ color: '#1f3a5f', display: 'block', marginBottom: 6 }}>{p.titulo || '—'}</strong>
-            <FilaDato etiqueta={esPT ? 'Preço' : 'Precio'} valor={p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'} />
-            <FilaDato etiqueta="m²" valor={p.m2?.toString() ?? '—'} />
-            <FilaDato
-              etiqueta={esPT ? 'Preço/m²' : 'Precio/m²'}
-              valor={p.precio && p.m2 ? `${p.moneda ?? ''} ${Math.round(p.precio / p.m2).toLocaleString()}` : '—'}
-            />
-            <FilaDato etiqueta={esPT ? 'Quartos' : 'Cuartos'} valor={p.cuartos?.toString() ?? '—'} />
-            <FilaDato etiqueta={esPT ? 'Estado' : 'Estado'} valor={ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta ?? '—'} sinBorde />
-          </div>
-        ))}
-      </div>
+      {/* Una columna por propiedad, con el nombre en la cabecera y las
+          mismas etiquetas a la izquierda una sola vez (no una tarjeta
+          repetida por propiedad) — para comparar de un vistazo, en vez
+          de tener que recordar el dato mientras se busca la misma fila
+          en otra tarjeta más abajo. */}
+      <TablaTranspuesta
+        columnas={propuestas.map((p) => ({ id: p.id, titulo: p.titulo || '—' }))}
+        filas={[
+          {
+            etiqueta: esPT ? 'Preço' : 'Precio',
+            valores: Object.fromEntries(propuestas.map((p) => [p.id, p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'])),
+          },
+          { etiqueta: 'm²', valores: Object.fromEntries(propuestas.map((p) => [p.id, p.m2?.toString() ?? '—'])) },
+          {
+            etiqueta: esPT ? 'Preço/m²' : 'Precio/m²',
+            valores: Object.fromEntries(
+              propuestas.map((p) => [p.id, p.precio && p.m2 ? `${p.moneda ?? ''} ${Math.round(p.precio / p.m2).toLocaleString()}` : '—'])
+            ),
+          },
+          { etiqueta: esPT ? 'Quartos' : 'Cuartos', valores: Object.fromEntries(propuestas.map((p) => [p.id, p.cuartos?.toString() ?? '—'])) },
+          {
+            etiqueta: esPT ? 'Estado' : 'Estado',
+            valores: Object.fromEntries(propuestas.map((p) => [p.id, ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta ?? '—'])),
+          },
+        ]}
+      />
 
-      <h4 style={{ color: '#1f3a5f', fontSize: 14, marginBottom: 4 }}>
+      <h4 style={{ color: '#1f3a5f', fontSize: 14, marginTop: 20, marginBottom: 4 }}>
         {esPT ? 'Comparar financiamento (mesmas condições para todas)' : 'Comparar financiamiento (mismas condiciones para todas)'}
       </h4>
 
@@ -805,41 +877,59 @@ function ComparadorTabla({
               : 'Cómo se paga cada cuota: una parte con el alquiler, el resto es el financiamiento argentino (papis) — convertido a pesos con la cotización elegida arriba.'}
           </p>
 
-          <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-            {conFinanciamiento.map(({ propuesta: p, resultado: r, restoACargo, restoEnPesos }) => (
-              <div key={p.id} style={estilosLocales.tarjetaComparador}>
-                <strong style={{ color: '#1f3a5f', display: 'block', marginBottom: 6 }}>{p.titulo || '—'}</strong>
-                {!r ? (
-                  <p style={{ fontSize: 13, color: '#6e7781', margin: 0 }}>{esPT ? 'sem preço carregado' : 'sin precio cargado'}</p>
-                ) : (
-                  <>
-                    <FilaDato etiqueta={esPT ? 'Entrada' : 'Entrada'} valor={`${p.moneda ?? ''} ${r.entradaMonto.toLocaleString()}`} />
-                    <FilaDato etiqueta={esPT ? 'Parcela mensal' : 'Cuota mensual'} valor={`${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}`} />
-                    <FilaDato
-                      etiqueta={esPT ? 'Aporte aluguel' : 'Aporte alquiler'}
-                      valor={parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—'}
-                      color={COLOR_ALQUILER}
-                    />
-                    <FilaDato
-                      etiqueta={etiquetaFinanciamientoArg(esPT)}
-                      valor={restoACargo !== null ? `${p.moneda ?? ''} ${restoACargo.toLocaleString()}` : '—'}
-                      color={colorAcento}
-                    />
-                    <FilaDato
-                      etiqueta={`${etiquetaFinanciamientoArg(esPT)} en $ARS`}
-                      valor={restoEnPesos !== null ? `$ ${restoEnPesos.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización')}
-                      color={colorAcento}
-                    />
-                    <FilaDato
-                      etiqueta={esPT ? 'Total de juros' : 'Total de intereses'}
-                      valor={`${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}`}
-                      sinBorde
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+          <TablaTranspuesta
+            columnas={conFinanciamiento.map(({ propuesta: p }) => ({ id: p.id, titulo: p.titulo || '—' }))}
+            filas={[
+              {
+                etiqueta: esPT ? 'Entrada' : 'Entrada',
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [
+                    p.id,
+                    r ? `${p.moneda ?? ''} ${r.entradaMonto.toLocaleString()}` : (esPT ? 'sem preço' : 'sin precio'),
+                  ])
+                ),
+              },
+              {
+                etiqueta: esPT ? 'Parcela mensal' : 'Cuota mensual',
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [p.id, r ? `${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}` : '—'])
+                ),
+              },
+              {
+                etiqueta: esPT ? 'Aporte aluguel' : 'Aporte alquiler',
+                color: COLOR_ALQUILER,
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [
+                    p.id,
+                    r && parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—',
+                  ])
+                ),
+              },
+              {
+                etiqueta: etiquetaFinanciamientoArg(esPT),
+                color: colorAcento,
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, restoACargo }) => [p.id, restoACargo !== null ? `${p.moneda ?? ''} ${restoACargo.toLocaleString()}` : '—'])
+                ),
+              },
+              {
+                etiqueta: `${etiquetaFinanciamientoArg(esPT)} en $ARS`,
+                color: colorAcento,
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, restoEnPesos }) => [
+                    p.id,
+                    restoEnPesos !== null ? `$ ${restoEnPesos.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización'),
+                  ])
+                ),
+              },
+              {
+                etiqueta: esPT ? 'Total de juros' : 'Total de intereses',
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [p.id, r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'])
+                ),
+              },
+            ]}
+          />
 
           <GraficoComparacionCuotas
             datos={conFinanciamiento
@@ -905,12 +995,6 @@ const estilosLocales = {
     border: '1px solid #e5e7eb',
     borderRadius: 10,
     padding: 14,
-  },
-  tarjetaComparador: {
-    background: '#f8fafc',
-    border: '1px solid #e5e7eb',
-    borderRadius: 10,
-    padding: 12,
   },
   input: {
     padding: '8px 10px',
