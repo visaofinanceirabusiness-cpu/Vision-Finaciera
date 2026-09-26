@@ -223,11 +223,15 @@ export type SuenoPropuesta = {
   servicios: string | null;
   estado: EstadoPropuesta;
   notas: string | null;
+  // Costo de construir (0 en una propiedad ya habitable) — se suma al
+  // precio de compra para calcular el financiamiento, ver
+  // components/nuestroSueno/PropuestasCompra.tsx.
+  construccion: number;
   creado_en: string;
 };
 
 const CAMPOS_PROPUESTA =
-  'id, link, titulo, precio, moneda, m2, cuartos, banos, direccion, lat, lng, imagen_url, servicios, estado, notas, creado_en';
+  'id, link, titulo, precio, moneda, m2, cuartos, banos, direccion, lat, lng, imagen_url, servicios, estado, notas, construccion, creado_en';
 
 export async function listarPropuestas(parejaId: string): Promise<SuenoPropuesta[]> {
   const { data, error } = await supabase
@@ -254,6 +258,7 @@ export type DatosPropuesta = {
   imagen_url: string | null;
   servicios: string | null;
   notas: string | null;
+  construccion: number;
 };
 
 export async function crearPropuesta(parejaId: string, perfilId: string, datos: DatosPropuesta) {
