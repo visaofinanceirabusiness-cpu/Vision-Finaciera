@@ -14,7 +14,7 @@
 // francés, ver lib/simuladorCompra.ts) trabajan sobre los datos reales
 // que ya haya en las tarjetas.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   listarPropuestas,
   crearPropuesta,
@@ -66,6 +66,11 @@ export function PropuestasCompra({
   const [guardando, setGuardando] = useState(false);
   const [parametrosSim, setParametrosSim] = useState<Record<string, ParametrosSim>>({});
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [borradorEdicion, setBorradorEdicion] = useState<DatosPropuesta>(BORRADOR_VACIO);
+  const [extrayendoEdicion, setExtrayendoEdicion] = useState(false);
+  const [errorExtraccionEdicion, setErrorExtraccionEdicion] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   async function cargar() {
     const datos = await listarPropuestas(parejaId);
@@ -78,27 +83,37 @@ export function PropuestasCompra({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parejaId]);
 
-  async function extraerDelLink() {
-    if (!borrador.link) return;
-    setExtrayendo(true);
-    setErrorExtraccion('');
+  // Compartida entre "nueva propuesta" y "editar propuesta" — pegar (o
+  // re-pegar) el link siempre puede volver a traer datos, por si la
+  // primera extracción vino incompleta (el portal puede tardar en
+  // exponer todo, o algunos campos solo aparecen en Open Graph y otros
+  // solo en JSON-LD).
+  async function extraerHacia(
+    link: string | null | undefined,
+    setBorradorDestino: Dispatch<SetStateAction<DatosPropuesta>>,
+    setExtrayendoDestino: (v: boolean) => void,
+    setErrorDestino: (v: string) => void
+  ) {
+    if (!link) return;
+    setExtrayendoDestino(true);
+    setErrorDestino('');
 
     try {
       const respuesta = await fetch('/api/nuestro-sueno/extraer-propiedad', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link: borrador.link }),
+        body: JSON.stringify({ link }),
       });
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        setErrorExtraccion(resultado.error || (esPT ? 'Não foi possível extrair dados.' : 'No se pudo extraer datos.'));
-        setExtrayendo(false);
+        setErrorDestino(resultado.error || (esPT ? 'Não foi possível extrair dados.' : 'No se pudo extraer datos.'));
+        setExtrayendoDestino(false);
         return;
       }
 
       const d = resultado.datos;
-      setBorrador((actual) => ({
+      setBorradorDestino((actual) => ({
         ...actual,
         titulo: d.titulo ?? actual.titulo,
         precio: d.precio ?? actual.precio,
@@ -112,10 +127,10 @@ export function PropuestasCompra({
         imagen_url: d.imagenUrl ?? actual.imagen_url,
       }));
     } catch {
-      setErrorExtraccion(esPT ? 'Não foi possível acessar o link.' : 'No se pudo acceder al link.');
+      setErrorDestino(esPT ? 'Não foi possível acessar o link.' : 'No se pudo acceder al link.');
     }
 
-    setExtrayendo(false);
+    setExtrayendoDestino(false);
   }
 
   async function guardarTarjeta() {
@@ -127,6 +142,38 @@ export function PropuestasCompra({
       await cargar();
     } finally {
       setGuardando(false);
+    }
+  }
+
+  function iniciarEdicion(p: SuenoPropuesta) {
+    setEditandoId(p.id);
+    setErrorExtraccionEdicion('');
+    setBorradorEdicion({
+      link: p.link,
+      titulo: p.titulo,
+      precio: p.precio,
+      moneda: p.moneda,
+      m2: p.m2,
+      cuartos: p.cuartos,
+      banos: p.banos,
+      direccion: p.direccion,
+      lat: p.lat,
+      lng: p.lng,
+      imagen_url: p.imagen_url,
+      servicios: p.servicios,
+      notas: p.notas,
+    });
+  }
+
+  async function guardarEdicion() {
+    if (!editandoId) return;
+    setGuardandoEdicion(true);
+    try {
+      await actualizarPropuesta(editandoId, borradorEdicion);
+      setEditandoId(null);
+      await cargar();
+    } finally {
+      setGuardandoEdicion(false);
     }
   }
 
@@ -175,76 +222,18 @@ export function PropuestasCompra({
               placeholder={esPT ? 'Link do anúncio' : 'Link de la publicación'}
               style={{ ...estilosLocales.input, flex: 1 }}
             />
-            <button onClick={extraerDelLink} disabled={extrayendo || !borrador.link} style={estilosLocales.botonSecundario(colorAcento)}>
+            <button
+              onClick={() => extraerHacia(borrador.link, setBorrador, setExtrayendo, setErrorExtraccion)}
+              disabled={extrayendo || !borrador.link}
+              style={estilosLocales.botonSecundario(colorAcento)}
+            >
               {extrayendo ? '...' : esPT ? 'Extrair dados' : 'Extraer datos'}
             </button>
           </div>
 
           {errorExtraccion && <p style={{ color: '#b91c1c', fontSize: 13 }}>{errorExtraccion}</p>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <input
-              value={borrador.titulo ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, titulo: e.target.value }))}
-              placeholder={esPT ? 'Título' : 'Título'}
-              style={estilosLocales.input}
-            />
-            <input
-              value={borrador.direccion ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, direccion: e.target.value }))}
-              placeholder={esPT ? 'Endereço / zona' : 'Dirección / zona'}
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.precio ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, precio: e.target.value ? Number(e.target.value) : null }))}
-              placeholder={esPT ? 'Preço' : 'Precio'}
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.m2 ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, m2: e.target.value ? Number(e.target.value) : null }))}
-              placeholder="m²"
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.cuartos ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, cuartos: e.target.value ? Number(e.target.value) : null }))}
-              placeholder={esPT ? 'Quartos' : 'Cuartos'}
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.banos ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, banos: e.target.value ? Number(e.target.value) : null }))}
-              placeholder={esPT ? 'Banheiros' : 'Baños'}
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.lat ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, lat: e.target.value ? Number(e.target.value) : null }))}
-              placeholder={esPT ? 'Latitude (opcional)' : 'Latitud (opcional)'}
-              style={estilosLocales.input}
-            />
-            <input
-              type="number"
-              value={borrador.lng ?? ''}
-              onChange={(e) => setBorrador((b) => ({ ...b, lng: e.target.value ? Number(e.target.value) : null }))}
-              placeholder={esPT ? 'Longitude (opcional)' : 'Longitud (opcional)'}
-              style={estilosLocales.input}
-            />
-          </div>
-
-          <textarea
-            value={borrador.notas ?? ''}
-            onChange={(e) => setBorrador((b) => ({ ...b, notas: e.target.value }))}
-            placeholder={esPT ? 'Notas' : 'Notas'}
-            style={{ ...estilosLocales.input, width: '100%', minHeight: 60, marginBottom: 12 }}
-          />
+          <CamposPropuestaForm valores={borrador} onChange={setBorrador} esPT={esPT} />
 
           <button onClick={guardarTarjeta} disabled={guardando} style={estilosLocales.botonPrincipal(colorAcento)}>
             {guardando ? '...' : esPT ? 'Salvar proposta' : 'Guardar propuesta'}
@@ -269,6 +258,43 @@ export function PropuestasCompra({
           const resultado: ResultadoFinanciamiento | null = p.precio
             ? calcularFinanciamiento({ precio: p.precio, entradaPorcentaje: sim.entrada, tasaAnualPorcentaje: sim.tasa, plazoMeses: sim.plazo })
             : null;
+
+          if (editandoId === p.id) {
+            return (
+              <div key={p.id} style={estilosLocales.tarjetaPropuesta}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input
+                    value={borradorEdicion.link ?? ''}
+                    onChange={(e) => setBorradorEdicion((b) => ({ ...b, link: e.target.value }))}
+                    placeholder={esPT ? 'Link do anúncio' : 'Link de la publicación'}
+                    style={{ ...estilosLocales.input, flex: 1 }}
+                  />
+                  <button
+                    onClick={() =>
+                      extraerHacia(borradorEdicion.link, setBorradorEdicion, setExtrayendoEdicion, setErrorExtraccionEdicion)
+                    }
+                    disabled={extrayendoEdicion || !borradorEdicion.link}
+                    style={estilosLocales.botonSecundario(colorAcento)}
+                  >
+                    {extrayendoEdicion ? '...' : esPT ? 'Extrair dados' : 'Extraer datos'}
+                  </button>
+                </div>
+
+                {errorExtraccionEdicion && <p style={{ color: '#b91c1c', fontSize: 13 }}>{errorExtraccionEdicion}</p>}
+
+                <CamposPropuestaForm valores={borradorEdicion} onChange={setBorradorEdicion} esPT={esPT} />
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={guardarEdicion} disabled={guardandoEdicion} style={estilosLocales.botonPrincipal(colorAcento)}>
+                    {guardandoEdicion ? '...' : esPT ? 'Salvar alterações' : 'Guardar cambios'}
+                  </button>
+                  <button onClick={() => setEditandoId(null)} style={estilosLocales.botonSecundario(colorAcento)}>
+                    {esPT ? 'Cancelar' : 'Cancelar'}
+                  </button>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={p.id} style={estilosLocales.tarjetaPropuesta}>
@@ -320,6 +346,12 @@ export function PropuestasCompra({
                       style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 13 }}
                     >
                       {expandido === p.id ? (esPT ? 'Fechar simulador' : 'Cerrar simulador') : esPT ? 'Simular financiamento' : 'Simular financiamiento'}
+                    </button>
+                    <button
+                      onClick={() => iniciarEdicion(p)}
+                      style={{ background: 'none', border: 'none', color: colorAcento, cursor: 'pointer', padding: 0, fontSize: 13 }}
+                    >
+                      {esPT ? 'Editar' : 'Editar'}
                     </button>
                     <button onClick={() => borrar(p.id)} style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: 0, fontSize: 13 }}>
                       {esPT ? 'Excluir' : 'Eliminar'}
@@ -382,6 +414,86 @@ export function PropuestasCompra({
 
       {propuestas.length >= 2 && <ComparadorTabla propuestas={propuestas} esPT={esPT} />}
     </div>
+  );
+}
+
+// Grilla de campos de una propuesta — compartida entre "nueva
+// propuesta" y "editar propuesta" para no duplicar los inputs.
+function CamposPropuestaForm({
+  valores,
+  onChange,
+  esPT,
+}: {
+  valores: DatosPropuesta;
+  onChange: Dispatch<SetStateAction<DatosPropuesta>>;
+  esPT: boolean;
+}) {
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+        <input
+          value={valores.titulo ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, titulo: e.target.value }))}
+          placeholder={esPT ? 'Título' : 'Título'}
+          style={estilosLocales.input}
+        />
+        <input
+          value={valores.direccion ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, direccion: e.target.value }))}
+          placeholder={esPT ? 'Endereço / zona' : 'Dirección / zona'}
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.precio ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, precio: e.target.value ? Number(e.target.value) : null }))}
+          placeholder={esPT ? 'Preço' : 'Precio'}
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.m2 ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, m2: e.target.value ? Number(e.target.value) : null }))}
+          placeholder="m²"
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.cuartos ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, cuartos: e.target.value ? Number(e.target.value) : null }))}
+          placeholder={esPT ? 'Quartos' : 'Cuartos'}
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.banos ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, banos: e.target.value ? Number(e.target.value) : null }))}
+          placeholder={esPT ? 'Banheiros' : 'Baños'}
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.lat ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, lat: e.target.value ? Number(e.target.value) : null }))}
+          placeholder={esPT ? 'Latitude (opcional)' : 'Latitud (opcional)'}
+          style={estilosLocales.input}
+        />
+        <input
+          type="number"
+          value={valores.lng ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, lng: e.target.value ? Number(e.target.value) : null }))}
+          placeholder={esPT ? 'Longitude (opcional)' : 'Longitud (opcional)'}
+          style={estilosLocales.input}
+        />
+      </div>
+
+      <textarea
+        value={valores.notas ?? ''}
+        onChange={(e) => onChange((b) => ({ ...b, notas: e.target.value }))}
+        placeholder={esPT ? 'Notas' : 'Notas'}
+        style={{ ...estilosLocales.input, width: '100%', minHeight: 60, marginBottom: 12 }}
+      />
+    </>
   );
 }
 
