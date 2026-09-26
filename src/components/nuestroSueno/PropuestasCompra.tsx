@@ -49,7 +49,10 @@ const BORRADOR_VACIO: DatosPropuesta = {
   imagen_url: null,
   servicios: null,
   notas: '',
+  construccion: 0,
 };
+
+const COLOR_CONSTRUCCION = '#7c3aed';
 
 // alquiler: un ingreso fijo mensual ya comprometido para aportar a la
 // cuota (ej. alquilar una parte de la propiedad). NO cambia el monto
@@ -216,6 +219,7 @@ export function PropuestasCompra({
       imagen_url: p.imagen_url,
       servicios: p.servicios,
       notas: p.notas,
+      construccion: p.construccion,
     });
   }
 
@@ -252,6 +256,17 @@ export function PropuestasCompra({
 
   const referencia = propuestas[0];
 
+  // Sugerencia (no obligatoria) de cuánto cargar en "Construcción":
+  // para que un terreno baldío quede en pie de igualdad con la opción
+  // más cara ya construida, el precio + construcción debería alcanzar
+  // al menos ese precio más alto — la diferencia entre ambas opciones.
+  function sugerirMinimoConstruccion(precioActual: number | null, excluirId?: string): number {
+    const otrasConPrecio = propuestas.filter((p) => p.id !== excluirId && p.precio !== null);
+    if (!precioActual || otrasConPrecio.length === 0) return 0;
+    const precioMasAlto = Math.max(...otrasConPrecio.map((p) => p.precio as number));
+    return Math.max(0, precioMasAlto - precioActual);
+  }
+
   if (cargando) return null;
 
   return (
@@ -287,7 +302,12 @@ export function PropuestasCompra({
 
           {errorExtraccion && <p style={{ color: '#b91c1c', fontSize: 15 }}>{errorExtraccion}</p>}
 
-          <CamposPropuestaForm valores={borrador} onChange={setBorrador} esPT={esPT} />
+          <CamposPropuestaForm
+            valores={borrador}
+            onChange={setBorrador}
+            esPT={esPT}
+            sugerenciaMinimaConstruccion={sugerirMinimoConstruccion(borrador.precio)}
+          />
 
           <button onClick={guardarTarjeta} disabled={guardando} style={estilosLocales.botonPrincipal(colorAcento)}>
             {guardando ? '...' : esPT ? 'Salvar proposta' : 'Guardar propuesta'}
@@ -336,7 +356,12 @@ export function PropuestasCompra({
 
                 {errorExtraccionEdicion && <p style={{ color: '#b91c1c', fontSize: 15 }}>{errorExtraccionEdicion}</p>}
 
-                <CamposPropuestaForm valores={borradorEdicion} onChange={setBorradorEdicion} esPT={esPT} />
+                <CamposPropuestaForm
+                  valores={borradorEdicion}
+                  onChange={setBorradorEdicion}
+                  esPT={esPT}
+                  sugerenciaMinimaConstruccion={sugerirMinimoConstruccion(borradorEdicion.precio, editandoId ?? undefined)}
+                />
 
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={guardarEdicion} disabled={guardandoEdicion} style={estilosLocales.botonPrincipal(colorAcento)}>
@@ -381,6 +406,11 @@ export function PropuestasCompra({
                     {precioM2 !== null && <span>({p.moneda ?? ''} {precioM2.toLocaleString()}/m²)</span>}
                     {p.cuartos !== null && <span>🛏️ {p.cuartos}</span>}
                     {p.banos !== null && <span>🛁 {p.banos}</span>}
+                    {p.construccion > 0 && (
+                      <span style={{ color: COLOR_CONSTRUCCION }}>
+                        🏗️ {p.moneda ?? ''} {p.construccion.toLocaleString()}
+                      </span>
+                    )}
                     {dist !== null && <span>📍 {dist} km {esPT ? 'da referência' : 'de referencia'}</span>}
                   </div>
 
@@ -538,10 +568,14 @@ function CamposPropuestaForm({
   valores,
   onChange,
   esPT,
+  sugerenciaMinimaConstruccion,
 }: {
   valores: DatosPropuesta;
   onChange: Dispatch<SetStateAction<DatosPropuesta>>;
   esPT: boolean;
+  // Piso sugerido (no forzado) para que un terreno baldío + su
+  // construcción quede parejo con la opción más cara ya construida.
+  sugerenciaMinimaConstruccion: number;
 }) {
   return (
     <>
@@ -610,6 +644,22 @@ function CamposPropuestaForm({
           placeholder={esPT ? 'Longitude (opcional)' : 'Longitud (opcional)'}
           style={estilosLocales.input}
         />
+        <div>
+          <input
+            type="number"
+            value={valores.construccion || ''}
+            onChange={(e) => onChange((b) => ({ ...b, construccion: e.target.value ? Number(e.target.value) : 0 }))}
+            placeholder={esPT ? 'Construção (0 se já é habitável)' : 'Construcción (0 si ya es habitable)'}
+            style={{ ...estilosLocales.input, width: '100%' }}
+          />
+          {sugerenciaMinimaConstruccion > 0 && (
+            <p style={{ fontSize: 12, color: COLOR_CONSTRUCCION, margin: '4px 0 0' }}>
+              {esPT
+                ? `Sugerido: pelo menos ${sugerenciaMinimaConstruccion.toLocaleString()} (diferença com a opção mais cara)`
+                : `Sugerido: al menos ${sugerenciaMinimaConstruccion.toLocaleString()} (diferencia con la opción más cara)`}
+            </p>
+          )}
+        </div>
       </div>
 
       <textarea
@@ -768,9 +818,14 @@ function ComparadorTabla({
   ahorroActual: number | null;
 }) {
   const conFinanciamiento = propuestas.map((p) => {
-    const resultado = p.precio
+    // El financiamiento se calcula sobre precio + construcción — un
+    // terreno baldío no se termina pagando solo con lo que cuesta
+    // comprarlo, hay que sumarle lo que va a costar construirlo.
+    const precioTotal = p.precio !== null ? p.precio + (p.construccion || 0) : null;
+
+    const resultado = precioTotal
       ? calcularFinanciamiento({
-          precio: p.precio,
+          precio: precioTotal,
           entradaPorcentaje: parametros.entrada,
           tasaAnualPorcentaje: parametros.tasa,
           plazoMeses: parametros.plazo,
@@ -790,7 +845,7 @@ function ComparadorTabla({
     // negativo (o cero) significa que el ahorro ya alcanza y sobra.
     const faltaParaEntrada = resultado && ahorroActual !== null ? resultado.entradaMonto - ahorroActual : null;
 
-    return { propuesta: p, resultado, restoACargo, restoEnPesos, restoEnPesosPorMitad, faltaParaEntrada };
+    return { propuesta: p, precioTotal, resultado, restoACargo, restoEnPesos, restoEnPesosPorMitad, faltaParaEntrada };
   });
 
   return (
@@ -896,6 +951,16 @@ function ComparadorTabla({
             columnas={conFinanciamiento.map(({ propuesta: p }) => ({ id: p.id, titulo: p.titulo || '—' }))}
             filas={[
               {
+                etiqueta: esPT ? 'Preço total (compra + construção)' : 'Precio total (compra + construcción)',
+                color: COLOR_CONSTRUCCION,
+                valores: Object.fromEntries(
+                  conFinanciamiento.map(({ propuesta: p, precioTotal }) => [
+                    p.id,
+                    precioTotal !== null ? `${p.moneda ?? ''} ${precioTotal.toLocaleString()}` : '—',
+                  ])
+                ),
+              },
+              {
                 etiqueta: esPT ? 'Entrada' : 'Entrada',
                 valores: Object.fromEntries(
                   conFinanciamiento.map(({ propuesta: p, resultado: r }) => [
@@ -980,6 +1045,34 @@ function ComparadorTabla({
         <p style={{ fontSize: 15, color: '#6e7781' }}>
           {esPT ? 'Carregue o preço de pelo menos uma propriedade para comparar.' : 'Cargá el precio de al menos una propiedad para comparar.'}
         </p>
+      )}
+
+      {/* A propósito SEPARADO del análisis de "Método de compra" y del
+          financiamiento de arriba — esto compara un dato distinto (lo
+          que cuesta construir vs. lo que ya está construido), no las
+          condiciones de compra de cada opción. Mezclarlo en la misma
+          tabla confundiría ambas cosas. */}
+      {propuestas.some((p) => p.construccion > 0) && (
+        <div style={{ marginTop: 28 }}>
+          <h4 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Construção' : 'Construcción'}</h4>
+          <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 8 }}>
+            {esPT
+              ? 'O que já está construído em cada opção vs. o que falta investir para construir.'
+              : 'Lo que ya está construido en cada opción vs. lo que falta invertir para construir.'}
+          </p>
+          <TablaTranspuesta
+            columnas={propuestas.map((p) => ({ id: p.id, titulo: p.titulo || '—' }))}
+            filas={[
+              {
+                etiqueta: esPT ? 'Construção' : 'Construcción',
+                color: COLOR_CONSTRUCCION,
+                valores: Object.fromEntries(
+                  propuestas.map((p) => [p.id, `${p.moneda ?? ''} ${p.construccion.toLocaleString()}`])
+                ),
+              },
+            ]}
+          />
+        </div>
       )}
     </div>
   );
