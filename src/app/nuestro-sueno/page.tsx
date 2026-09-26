@@ -246,7 +246,7 @@ export default function NuestroSuenoPage() {
   return (
     <main style={estilos.main}>
       <div style={estilos.contenedor}>
-        <Link href="/" style={{ color: COLORES.gris, fontSize: 14, textDecoration: 'none' }}>
+        <Link href="/" style={{ color: COLORES.gris, fontSize: 15, textDecoration: 'none' }}>
           {esPT ? '← Voltar ao início' : '← Volver al inicio'}
         </Link>
         <h1 style={{ color: COLORES.rosa, marginBottom: 4 }}>💞 Nuestro Sueño</h1>
@@ -302,7 +302,7 @@ export default function NuestroSuenoPage() {
                 ? 'Envie pela mensageria que vocês já usam. A outra pessoa entra nele em Nosso Sonho para se juntar.'
                 : 'Mandalo por la mensajería que ya usan. La otra persona lo entra en Nuestro Sueño para unirse.'}
             </p>
-            <p style={{ color: COLORES.gris, fontSize: 13 }}>
+            <p style={{ color: COLORES.gris, fontSize: 14 }}>
               {esPT
                 ? 'Esta tela atualiza sozinha assim que a outra pessoa entrar o código.'
                 : 'Esta pantalla se actualiza sola apenas la otra persona entre el código.'}
@@ -348,10 +348,10 @@ export default function NuestroSuenoPage() {
 
               {CAMPOS_SUENO.map((campo) => (
                 <div key={campo.clave} style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', color: COLORES.gris, fontSize: 13, marginBottom: 4 }}>
+                  <label style={{ display: 'block', color: COLORES.gris, fontSize: 14, marginBottom: 4 }}>
                     {campo.etiqueta}
                     {campos[campo.clave]?.actualizado_en && (
-                      <span style={{ marginLeft: 8, fontSize: 11 }}>
+                      <span style={{ marginLeft: 8, fontSize: 12 }}>
                         ({esPT ? 'atualizado' : 'actualizado'} {new Date(campos[campo.clave].actualizado_en).toLocaleDateString()})
                       </span>
                     )}
@@ -406,7 +406,7 @@ export default function NuestroSuenoPage() {
                       >
                         {m.texto}
                       </span>
-                      <div style={{ fontSize: 11, color: COLORES.gris }}>
+                      <div style={{ fontSize: 12, color: COLORES.gris }}>
                         {new Date(m.creado_en).toLocaleString()}
                       </div>
                     </div>
@@ -441,7 +441,7 @@ const estilos = {
     padding: 20,
   },
   contenedor: {
-    maxWidth: 640,
+    maxWidth: 1200,
     margin: '0 auto',
   },
   tarjeta: {
