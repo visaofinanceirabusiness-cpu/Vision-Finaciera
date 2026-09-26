@@ -25,7 +25,15 @@ import {
   type DatosPropuesta,
   type EstadoPropuesta,
 } from '@/lib/nuestroSueno';
-import { calcularFinanciamiento, distanciaKm, urlGoogleMaps, type ResultadoFinanciamiento } from '@/lib/simuladorCompra';
+import {
+  calcularFinanciamiento,
+  distanciaKm,
+  urlGoogleMaps,
+  convertirAPesos,
+  type ResultadoFinanciamiento,
+  type TasasARS,
+} from '@/lib/simuladorCompra';
+import { obtenerCotizacionesActuales } from '@/lib/cotizaciones';
 
 const BORRADOR_VACIO: DatosPropuesta = {
   link: '',
@@ -43,8 +51,14 @@ const BORRADOR_VACIO: DatosPropuesta = {
   notas: '',
 };
 
-type ParametrosSim = { entrada: number; tasa: number; plazo: number };
-const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240 };
+// alquiler: un ingreso fijo mensual ya comprometido para aportar a la
+// cuota (ej. alquilar una parte de la propiedad). NO cambia el monto
+// de la cuota — es una explicación de CÓMO se paga: una parte la cubre
+// ese aporte, el resto sale del bolsillo de la pareja.
+type ParametrosSim = { entrada: number; tasa: number; plazo: number; alquiler: number };
+const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240, alquiler: 0 };
+
+const COLOR_ALQUILER = '#0891b2';
 
 export function PropuestasCompra({
   parejaId,
@@ -72,6 +86,9 @@ export function PropuestasCompra({
   const [errorExtraccionEdicion, setErrorExtraccionEdicion] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [parametrosComparador, setParametrosComparador] = useState<ParametrosSim>(SIM_DEFAULT);
+  const [tasasSistema, setTasasSistema] = useState<TasasARS>({ USD: null, BRL: null });
+  const [usarCotizacionSistema, setUsarCotizacionSistema] = useState(true);
+  const [tasasManual, setTasasManual] = useState<TasasARS>({ USD: null, BRL: null });
 
   async function cargar() {
     const datos = await listarPropuestas(parejaId);
@@ -83,6 +100,22 @@ export function PropuestasCompra({
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parejaId]);
+
+  useEffect(() => {
+    obtenerCotizacionesActuales()
+      .then((cotizaciones) => {
+        const usdArs = cotizaciones.find((c) => c.par === 'USD_ARS')?.valor ?? null;
+        const brlArs = cotizaciones.find((c) => c.par === 'ARS_BRL')?.valor ?? null;
+        setTasasSistema({ USD: usdArs, BRL: brlArs });
+      })
+      .catch(() => {
+        // Sin cotización del sistema disponible — el comparador sigue
+        // funcionando, solo no puede convertir a pesos hasta que se
+        // carguen tasas manuales.
+      });
+  }, []);
+
+  const tasasEfectivas: TasasARS = usarCotizacionSistema ? tasasSistema : tasasManual;
 
   // Compartida entre "nueva propuesta" y "editar propuesta" — pegar (o
   // re-pegar) el link siempre puede volver a traer datos, por si la
@@ -385,21 +418,40 @@ export function PropuestasCompra({
                           valor={sim.plazo}
                           onChange={(v) => actualizarSim(p.id, 'plazo', v)}
                         />
+                        <CampoSim
+                          etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
+                          valor={sim.alquiler}
+                          onChange={(v) => actualizarSim(p.id, 'alquiler', v)}
+                        />
                       </div>
 
                       {resultado && (
                         <>
-                          <div style={{ display: 'flex', gap: 24, marginBottom: 12, fontSize: 13 }}>
+                          <div style={{ display: 'flex', gap: 24, marginBottom: 12, fontSize: 13, flexWrap: 'wrap' }}>
                             <span>
                               {esPT ? 'Entrada' : 'Entrada'}: <strong>{p.moneda ?? ''} {resultado.entradaMonto.toLocaleString()}</strong>
                             </span>
                             <span>
-                              {esPT ? 'Parcela mensal' : 'Cuota mensual'}: <strong style={{ color: colorAcento }}>{p.moneda ?? ''} {resultado.cuotaMensual.toLocaleString()}</strong>
+                              {esPT ? 'Parcela mensal' : 'Cuota mensual'}: <strong>{p.moneda ?? ''} {resultado.cuotaMensual.toLocaleString()}</strong>
                             </span>
                             <span>
                               {esPT ? 'Total de juros' : 'Total de intereses'}: <strong>{p.moneda ?? ''} {resultado.totalIntereses.toLocaleString()}</strong>
                             </span>
                           </div>
+
+                          {sim.alquiler > 0 && (
+                            <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 12 }}>
+                              {esPT ? 'Como se paga essa parcela:' : 'Cómo se paga esta cuota:'}{' '}
+                              <strong style={{ color: COLOR_ALQUILER }}>
+                                {esPT ? 'aluguel' : 'alquiler'} {p.moneda ?? ''} {sim.alquiler.toLocaleString()}
+                              </strong>
+                              {' + '}
+                              <strong style={{ color: colorAcento }}>
+                                {esPT ? 'resto a cargo' : 'resto a cargo'} {p.moneda ?? ''}{' '}
+                                {(resultado.cuotaMensual - sim.alquiler).toLocaleString()}
+                              </strong>
+                            </p>
+                          )}
 
                           <GraficoAmortizacion detalle={resultado.detalle} colorAcento={colorAcento} />
                         </>
@@ -420,6 +472,12 @@ export function PropuestasCompra({
           colorAcento={colorAcento}
           parametros={parametrosComparador}
           onCambiarParametros={setParametrosComparador}
+          tasasSistema={tasasSistema}
+          usarCotizacionSistema={usarCotizacionSistema}
+          onCambiarUsarCotizacionSistema={setUsarCotizacionSistema}
+          tasasManual={tasasManual}
+          onCambiarTasasManual={setTasasManual}
+          tasasEfectivas={tasasEfectivas}
         />
       )}
     </div>
@@ -586,24 +644,40 @@ function ComparadorTabla({
   colorAcento,
   parametros,
   onCambiarParametros,
+  tasasSistema,
+  usarCotizacionSistema,
+  onCambiarUsarCotizacionSistema,
+  tasasManual,
+  onCambiarTasasManual,
+  tasasEfectivas,
 }: {
   propuestas: SuenoPropuesta[];
   esPT: boolean;
   colorAcento: string;
   parametros: ParametrosSim;
   onCambiarParametros: Dispatch<SetStateAction<ParametrosSim>>;
+  tasasSistema: TasasARS;
+  usarCotizacionSistema: boolean;
+  onCambiarUsarCotizacionSistema: Dispatch<SetStateAction<boolean>>;
+  tasasManual: TasasARS;
+  onCambiarTasasManual: Dispatch<SetStateAction<TasasARS>>;
+  tasasEfectivas: TasasARS;
 }) {
-  const conFinanciamiento = propuestas.map((p) => ({
-    propuesta: p,
-    resultado: p.precio
+  const conFinanciamiento = propuestas.map((p) => {
+    const resultado = p.precio
       ? calcularFinanciamiento({
           precio: p.precio,
           entradaPorcentaje: parametros.entrada,
           tasaAnualPorcentaje: parametros.tasa,
           plazoMeses: parametros.plazo,
         })
-      : null,
-  }));
+      : null;
+
+    const restoACargo = resultado ? resultado.cuotaMensual - parametros.alquiler : null;
+    const restoEnPesos = restoACargo !== null ? convertirAPesos(restoACargo, p.moneda, tasasEfectivas) : null;
+
+    return { propuesta: p, resultado, restoACargo, restoEnPesos };
+  });
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -656,27 +730,77 @@ function ComparadorTabla({
           valor={parametros.plazo}
           onChange={(v) => onCambiarParametros((actual) => ({ ...actual, plazo: v }))}
         />
+        <CampoSim
+          etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
+          valor={parametros.alquiler}
+          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, alquiler: v }))}
+        />
       </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', marginBottom: 8 }}>
+        <input
+          type="checkbox"
+          checked={usarCotizacionSistema}
+          onChange={(e) => onCambiarUsarCotizacionSistema(e.target.checked)}
+        />
+        {esPT ? 'Usar cotação do sistema' : 'Usar cotización del sistema'}
+        {usarCotizacionSistema && tasasSistema.USD === null && tasasSistema.BRL === null && (
+          <span style={{ color: '#b91c1c', fontSize: 12 }}>
+            ({esPT ? 'ainda não disponível' : 'todavía no disponible'})
+          </span>
+        )}
+      </label>
+
+      {!usarCotizacionSistema && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <CampoSim
+            etiqueta={esPT ? '1 USD = quantos ARS' : '1 USD = cuántos ARS'}
+            valor={tasasManual.USD ?? 0}
+            onChange={(v) => onCambiarTasasManual((actual) => ({ ...actual, USD: v }))}
+          />
+          <CampoSim
+            etiqueta={esPT ? '1 BRL = quantos ARS' : '1 BRL = cuántos ARS'}
+            valor={tasasManual.BRL ?? 0}
+            onChange={(v) => onCambiarTasasManual((actual) => ({ ...actual, BRL: v }))}
+          />
+        </div>
+      )}
 
       {conFinanciamiento.some((c) => c.resultado) ? (
         <>
+          <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 8 }}>
+            {esPT
+              ? 'Como se paga cada parcela: uma parte com o aluguel, o resto sai do bolso do casal (convertido a pesos com a cotação escolhida acima).'
+              : 'Cómo se paga cada cuota: una parte con el alquiler, el resto sale del bolsillo de la pareja (convertido a pesos con la cotización elegida arriba).'}
+          </p>
+
           <div style={{ overflowX: 'auto', marginBottom: 16 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
                   <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
-                  <th style={{ padding: 6 }}>{esPT ? 'Entrada' : 'Entrada'}</th>
                   <th style={{ padding: 6 }}>{esPT ? 'Parcela mensal' : 'Cuota mensual'}</th>
+                  <th style={{ padding: 6, color: COLOR_ALQUILER }}>{esPT ? 'Aporte aluguel' : 'Aporte alquiler'}</th>
+                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto a cargo' : 'Resto a cargo'}</th>
+                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto em $ARS' : 'Resto en $ARS'}</th>
                   <th style={{ padding: 6 }}>{esPT ? 'Total de juros' : 'Total de intereses'}</th>
                 </tr>
               </thead>
               <tbody>
-                {conFinanciamiento.map(({ propuesta: p, resultado: r }) => (
+                {conFinanciamiento.map(({ propuesta: p, resultado: r, restoACargo, restoEnPesos }) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
-                    <td style={{ padding: 6 }}>{r ? `${p.moneda ?? ''} ${r.entradaMonto.toLocaleString()}` : '—'}</td>
-                    <td style={{ padding: 6, fontWeight: 700, color: colorAcento }}>
+                    <td style={{ padding: 6, fontWeight: 700 }}>
                       {r ? `${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}` : (esPT ? 'sem preço' : 'sin precio')}
+                    </td>
+                    <td style={{ padding: 6, color: COLOR_ALQUILER }}>
+                      {r && parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—'}
+                    </td>
+                    <td style={{ padding: 6, fontWeight: 700, color: colorAcento }}>
+                      {restoACargo !== null ? `${p.moneda ?? ''} ${restoACargo.toLocaleString()}` : '—'}
+                    </td>
+                    <td style={{ padding: 6, color: colorAcento }}>
+                      {restoEnPesos !== null ? `$ ${restoEnPesos.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización')}
                     </td>
                     <td style={{ padding: 6 }}>{r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'}</td>
                   </tr>
