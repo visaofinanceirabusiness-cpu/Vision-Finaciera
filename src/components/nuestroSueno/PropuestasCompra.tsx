@@ -60,6 +60,14 @@ const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240, alquiler
 
 const COLOR_ALQUILER = '#0891b2';
 
+// El "resto a cargo" de la cuota (después de descontar el aporte de
+// alquiler) lo termina poniendo la familia en Argentina — se lo llama
+// así en vez de un genérico "resto a cargo" porque es quién realmente
+// pone esa plata cada mes.
+function etiquetaFinanciamientoArg(esPT: boolean): string {
+  return esPT ? 'financiamento argentino (papais)' : 'financiamiento argentino (papis)';
+}
+
 export function PropuestasCompra({
   parejaId,
   perfilId,
@@ -447,7 +455,7 @@ export function PropuestasCompra({
                               </strong>
                               {' + '}
                               <strong style={{ color: colorAcento }}>
-                                {esPT ? 'resto a cargo' : 'resto a cargo'} {p.moneda ?? ''}{' '}
+                                {etiquetaFinanciamientoArg(esPT)} {p.moneda ?? ''}{' '}
                                 {(resultado.cuotaMensual - sim.alquiler).toLocaleString()}
                               </strong>
                             </p>
@@ -517,6 +525,16 @@ function CamposPropuestaForm({
           placeholder={esPT ? 'Preço' : 'Precio'}
           style={estilosLocales.input}
         />
+        <select
+          value={valores.moneda ?? ''}
+          onChange={(e) => onChange((b) => ({ ...b, moneda: e.target.value || null }))}
+          style={estilosLocales.input}
+        >
+          <option value="">{esPT ? 'Moeda…' : 'Moneda…'}</option>
+          <option value="BRL">R$ (BRL)</option>
+          <option value="ARS">$ (ARS)</option>
+          <option value="USD">U$S (USD)</option>
+        </select>
         <input
           type="number"
           value={valores.m2 ?? ''}
@@ -770,8 +788,8 @@ function ComparadorTabla({
         <>
           <p style={{ fontSize: 12, color: '#6e7781', marginBottom: 8 }}>
             {esPT
-              ? 'Como se paga cada parcela: uma parte com o aluguel, o resto sai do bolso do casal (convertido a pesos com a cotação escolhida acima).'
-              : 'Cómo se paga cada cuota: una parte con el alquiler, el resto sale del bolsillo de la pareja (convertido a pesos con la cotización elegida arriba).'}
+              ? 'Como se paga cada parcela: uma parte com o aluguel, o resto é o financiamento argentino (papais) — convertido a pesos com a cotação escolhida acima.'
+              : 'Cómo se paga cada cuota: una parte con el alquiler, el resto es el financiamiento argentino (papis) — convertido a pesos con la cotización elegida arriba.'}
           </p>
 
           <div style={{ overflowX: 'auto', marginBottom: 16 }}>
@@ -781,8 +799,8 @@ function ComparadorTabla({
                   <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
                   <th style={{ padding: 6 }}>{esPT ? 'Parcela mensal' : 'Cuota mensual'}</th>
                   <th style={{ padding: 6, color: COLOR_ALQUILER }}>{esPT ? 'Aporte aluguel' : 'Aporte alquiler'}</th>
-                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto a cargo' : 'Resto a cargo'}</th>
-                  <th style={{ padding: 6, color: colorAcento }}>{esPT ? 'Resto em $ARS' : 'Resto en $ARS'}</th>
+                  <th style={{ padding: 6, color: colorAcento }}>{etiquetaFinanciamientoArg(esPT)}</th>
+                  <th style={{ padding: 6, color: colorAcento }}>{etiquetaFinanciamientoArg(esPT)} en $ARS</th>
                   <th style={{ padding: 6 }}>{esPT ? 'Total de juros' : 'Total de intereses'}</th>
                 </tr>
               </thead>
