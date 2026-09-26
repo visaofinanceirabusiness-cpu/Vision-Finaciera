@@ -71,6 +71,7 @@ export function PropuestasCompra({
   const [extrayendoEdicion, setExtrayendoEdicion] = useState(false);
   const [errorExtraccionEdicion, setErrorExtraccionEdicion] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [parametrosComparador, setParametrosComparador] = useState<ParametrosSim>(SIM_DEFAULT);
 
   async function cargar() {
     const datos = await listarPropuestas(parejaId);
@@ -412,7 +413,15 @@ export function PropuestasCompra({
         })}
       </div>
 
-      {propuestas.length >= 2 && <ComparadorTabla propuestas={propuestas} esPT={esPT} />}
+      {propuestas.length >= 2 && (
+        <ComparadorTabla
+          propuestas={propuestas}
+          esPT={esPT}
+          colorAcento={colorAcento}
+          parametros={parametrosComparador}
+          onCambiarParametros={setParametrosComparador}
+        />
+      )}
     </div>
   );
 }
@@ -523,7 +532,15 @@ function GraficoAmortizacion({
   detalle: { numero: number; capital: number; interes: number }[];
   colorAcento: string;
 }) {
-  const puntos = detalle.filter((_, i) => i % 12 === 0 || i === detalle.length - 1);
+  // Un punto por año: el ÚLTIMO mes de cada año ((i+1) % 12 === 0), más
+  // el último mes del préstamo si el plazo no es múltiplo exacto de 12
+  // (ej. un plazo de 200 meses tiene un "año 17" incompleto de 8
+  // meses). Antes se tomaba el PRIMER mes de cada año (i % 12 === 0) Y
+  // por separado el último mes del array — con un plazo múltiplo de 12
+  // (ej. 240 meses) ambos criterios caían en años distintos que se
+  // redondeaban al mismo número de año visualmente, mostrando el
+  // último año dos veces seguidas.
+  const puntos = detalle.filter((_, i) => (i + 1) % 12 === 0 || i === detalle.length - 1);
   const maxCuota = Math.max(...puntos.map((p) => p.capital + p.interes));
   const ancho = 320;
   const alto = 120;
@@ -557,35 +574,166 @@ function esNumeroDeAnio(numeroMes: number): string {
   return `A${anio}`;
 }
 
-function ComparadorTabla({ propuestas, esPT }: { propuestas: SuenoPropuesta[]; esPT: boolean }) {
+// Compara TODAS las propuestas bajo los MISMOS supuestos de
+// financiamiento (una sola entrada/tasa/plazo para todas) — comparar
+// cada tarjeta con su propio simulador individual no serviría para
+// decidir entre ellas, porque no se sabría si una cuota más baja es
+// porque la propiedad es más barata o porque alguien le puso otro
+// plazo.
+function ComparadorTabla({
+  propuestas,
+  esPT,
+  colorAcento,
+  parametros,
+  onCambiarParametros,
+}: {
+  propuestas: SuenoPropuesta[];
+  esPT: boolean;
+  colorAcento: string;
+  parametros: ParametrosSim;
+  onCambiarParametros: Dispatch<SetStateAction<ParametrosSim>>;
+}) {
+  const conFinanciamiento = propuestas.map((p) => ({
+    propuesta: p,
+    resultado: p.precio
+      ? calcularFinanciamiento({
+          precio: p.precio,
+          entradaPorcentaje: parametros.entrada,
+          tasaAnualPorcentaje: parametros.tasa,
+          plazoMeses: parametros.plazo,
+        })
+      : null,
+  }));
+
   return (
-    <div style={{ marginTop: 20, overflowX: 'auto' }}>
-      <h3 style={{ color: '#1f3a5f', fontSize: 16 }}>{esPT ? 'Comparador' : 'Comparador'}</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
-            <th style={{ padding: 6 }}>{esPT ? 'Preço' : 'Precio'}</th>
-            <th style={{ padding: 6 }}>m²</th>
-            <th style={{ padding: 6 }}>{esPT ? 'Preço/m²' : 'Precio/m²'}</th>
-            <th style={{ padding: 6 }}>{esPT ? 'Quartos' : 'Cuartos'}</th>
-            <th style={{ padding: 6 }}>{esPT ? 'Estado' : 'Estado'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {propuestas.map((p) => (
-            <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
-              <td style={{ padding: 6 }}>{p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'}</td>
-              <td style={{ padding: 6 }}>{p.m2 ?? '—'}</td>
-              <td style={{ padding: 6 }}>{p.precio && p.m2 ? Math.round(p.precio / p.m2).toLocaleString() : '—'}</td>
-              <td style={{ padding: 6 }}>{p.cuartos ?? '—'}</td>
-              <td style={{ padding: 6 }}>{ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta}</td>
+    <div style={{ marginTop: 20 }}>
+      <h3 style={{ color: '#1f3a5f', fontSize: 16, marginBottom: 4 }}>{esPT ? 'Comparador' : 'Comparador'}</h3>
+
+      <div style={{ overflowX: 'auto', marginBottom: 20 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
+              <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
+              <th style={{ padding: 6 }}>{esPT ? 'Preço' : 'Precio'}</th>
+              <th style={{ padding: 6 }}>m²</th>
+              <th style={{ padding: 6 }}>{esPT ? 'Preço/m²' : 'Precio/m²'}</th>
+              <th style={{ padding: 6 }}>{esPT ? 'Quartos' : 'Cuartos'}</th>
+              <th style={{ padding: 6 }}>{esPT ? 'Estado' : 'Estado'}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {propuestas.map((p) => (
+              <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
+                <td style={{ padding: 6 }}>{p.precio ? `${p.moneda ?? ''} ${p.precio.toLocaleString()}` : '—'}</td>
+                <td style={{ padding: 6 }}>{p.m2 ?? '—'}</td>
+                <td style={{ padding: 6 }}>{p.precio && p.m2 ? Math.round(p.precio / p.m2).toLocaleString() : '—'}</td>
+                <td style={{ padding: 6 }}>{p.cuartos ?? '—'}</td>
+                <td style={{ padding: 6 }}>{ESTADOS_PROPUESTA.find((e) => e.valor === p.estado)?.etiqueta}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style={{ color: '#1f3a5f', fontSize: 14, marginBottom: 4 }}>
+        {esPT ? 'Comparar financiamento (mesmas condições para todas)' : 'Comparar financiamiento (mismas condiciones para todas)'}
+      </h4>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+        <CampoSim
+          etiqueta={esPT ? 'Entrada (%)' : 'Entrada (%)'}
+          valor={parametros.entrada}
+          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, entrada: v }))}
+        />
+        <CampoSim
+          etiqueta={esPT ? 'Taxa anual (%)' : 'Tasa anual (%)'}
+          valor={parametros.tasa}
+          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, tasa: v }))}
+        />
+        <CampoSim
+          etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
+          valor={parametros.plazo}
+          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, plazo: v }))}
+        />
+      </div>
+
+      {conFinanciamiento.some((c) => c.resultado) ? (
+        <>
+          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>
+                  <th style={{ padding: 6 }}>{esPT ? 'Título' : 'Título'}</th>
+                  <th style={{ padding: 6 }}>{esPT ? 'Entrada' : 'Entrada'}</th>
+                  <th style={{ padding: 6 }}>{esPT ? 'Parcela mensal' : 'Cuota mensual'}</th>
+                  <th style={{ padding: 6 }}>{esPT ? 'Total de juros' : 'Total de intereses'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conFinanciamiento.map(({ propuesta: p, resultado: r }) => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: 6 }}>{p.titulo || '—'}</td>
+                    <td style={{ padding: 6 }}>{r ? `${p.moneda ?? ''} ${r.entradaMonto.toLocaleString()}` : '—'}</td>
+                    <td style={{ padding: 6, fontWeight: 700, color: colorAcento }}>
+                      {r ? `${p.moneda ?? ''} ${r.cuotaMensual.toLocaleString()}` : (esPT ? 'sem preço' : 'sin precio')}
+                    </td>
+                    <td style={{ padding: 6 }}>{r ? `${p.moneda ?? ''} ${r.totalIntereses.toLocaleString()}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <GraficoComparacionCuotas
+            datos={conFinanciamiento
+              .filter((c) => c.resultado)
+              .map((c) => ({ etiqueta: c.propuesta.titulo || '—', cuota: c.resultado!.cuotaMensual }))}
+            colorAcento={colorAcento}
+          />
+        </>
+      ) : (
+        <p style={{ fontSize: 13, color: '#6e7781' }}>
+          {esPT ? 'Carregue o preço de pelo menos uma propriedade para comparar.' : 'Cargá el precio de al menos una propiedad para comparar.'}
+        </p>
+      )}
     </div>
+  );
+}
+
+// Barras horizontales con la cuota mensual de cada propuesta, bajo las
+// mismas condiciones de financiamiento — la forma más directa de ver
+// cuál sale más cara por mes.
+function GraficoComparacionCuotas({
+  datos,
+  colorAcento,
+}: {
+  datos: { etiqueta: string; cuota: number }[];
+  colorAcento: string;
+}) {
+  const maxCuota = Math.max(...datos.map((d) => d.cuota));
+  const alto = datos.length * 32 + 8;
+  const anchoDisponible = 100; // porcentaje
+
+  return (
+    <svg width="100%" viewBox={`0 0 320 ${alto}`} role="img" aria-label="Comparación de cuota mensual entre propiedades">
+      {datos.map((d, i) => {
+        const y = i * 32;
+        const anchoBarra = maxCuota > 0 ? (d.cuota / maxCuota) * anchoDisponible * 1.6 : 0;
+
+        return (
+          <g key={d.etiqueta + i}>
+            <text x={0} y={y + 10} fontSize="11" fill="#374151">
+              {d.etiqueta.length > 22 ? `${d.etiqueta.slice(0, 22)}…` : d.etiqueta}
+            </text>
+            <rect x={0} y={y + 14} width={Math.max(2, anchoBarra)} height={12} fill={colorAcento} rx={2} />
+            <text x={Math.max(2, anchoBarra) + 6} y={y + 24} fontSize="10" fill="#6e7781">
+              {d.cuota.toLocaleString()}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
