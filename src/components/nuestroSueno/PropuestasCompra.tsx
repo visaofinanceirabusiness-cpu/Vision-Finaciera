@@ -107,7 +107,6 @@ export function PropuestasCompra({
   const [extrayendoEdicion, setExtrayendoEdicion] = useState(false);
   const [errorExtraccionEdicion, setErrorExtraccionEdicion] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
-  const [parametrosComparador, setParametrosComparador] = useState<ParametrosSim>(SIM_DEFAULT);
   // Con solo 2 propuestas da igual, pero apenas haya varias comparar
   // TODAS a la vez en la misma tabla deja de ser legible — por eso se
   // puede destildar cuáles entran a la comparación. Vacío = entran
@@ -553,8 +552,8 @@ export function PropuestasCompra({
           propuestas={propuestas.filter((p) => !idsExcluidosComparador.has(p.id))}
           esPT={esPT}
           colorAcento={colorAcento}
-          parametros={parametrosComparador}
-          onCambiarParametros={setParametrosComparador}
+          parametrosSim={parametrosSim}
+          onCambiarSim={actualizarSim}
           tasasSistema={tasasSistema}
           usarCotizacionSistema={usarCotizacionSistema}
           onCambiarUsarCotizacionSistema={setUsarCotizacionSistema}
@@ -845,8 +844,8 @@ function ComparadorTabla({
   propuestas,
   esPT,
   colorAcento,
-  parametros,
-  onCambiarParametros,
+  parametrosSim,
+  onCambiarSim,
   tasasSistema,
   usarCotizacionSistema,
   onCambiarUsarCotizacionSistema,
@@ -858,8 +857,12 @@ function ComparadorTabla({
   propuestas: SuenoPropuesta[];
   esPT: boolean;
   colorAcento: string;
-  parametros: ParametrosSim;
-  onCambiarParametros: Dispatch<SetStateAction<ParametrosSim>>;
+  // Cada propuesta tiene sus PROPIAS condiciones de financiamiento
+  // (entrada/tasa/plazo/alquiler) — antes había un solo juego de
+  // condiciones aplicado a todas a la vez, sin forma de ajustar una
+  // opción sin mover también la otra.
+  parametrosSim: Record<string, ParametrosSim>;
+  onCambiarSim: (id: string, campo: keyof ParametrosSim, valor: number) => void;
   tasasSistema: TasasARS;
   usarCotizacionSistema: boolean;
   onCambiarUsarCotizacionSistema: Dispatch<SetStateAction<boolean>>;
@@ -868,7 +871,13 @@ function ComparadorTabla({
   tasasEfectivas: TasasARS;
   ahorroActual: number | null;
 }) {
+  const [idEditando, setIdEditando] = useState<string | null>(null);
+  const idSeleccionado = idEditando && propuestas.some((p) => p.id === idEditando) ? idEditando : propuestas[0]?.id;
+  const paramsSeleccionado = (idSeleccionado && parametrosSim[idSeleccionado]) || SIM_DEFAULT;
+
   const conFinanciamiento = propuestas.map((p) => {
+    const paramsProp = parametrosSim[p.id] ?? SIM_DEFAULT;
+
     // El financiamiento se calcula sobre precio + construcción — un
     // terreno baldío no se termina pagando solo con lo que cuesta
     // comprarlo, hay que sumarle lo que va a costar construirlo.
@@ -877,13 +886,13 @@ function ComparadorTabla({
     const resultado = precioTotal
       ? calcularFinanciamiento({
           precio: precioTotal,
-          entradaPorcentaje: parametros.entrada,
-          tasaAnualPorcentaje: parametros.tasa,
-          plazoMeses: parametros.plazo,
+          entradaPorcentaje: paramsProp.entrada,
+          tasaAnualPorcentaje: paramsProp.tasa,
+          plazoMeses: paramsProp.plazo,
         })
       : null;
 
-    const restoACargo = resultado ? resultado.cuotaMensual - parametros.alquiler : null;
+    const restoACargo = resultado ? resultado.cuotaMensual - paramsProp.alquiler : null;
     // Las propuestas cargadas antes de que existiera el selector de
     // moneda quedaron sin ese dato — se asume BRL (la moneda con la
     // que se trabaja en este proyecto) en vez de no poder convertir
@@ -896,7 +905,7 @@ function ComparadorTabla({
     // negativo (o cero) significa que el ahorro ya alcanza y sobra.
     const faltaParaEntrada = resultado && ahorroActual !== null ? resultado.entradaMonto - ahorroActual : null;
 
-    return { propuesta: p, precioTotal, resultado, restoACargo, restoEnPesos, restoEnPesosPorMitad, faltaParaEntrada };
+    return { propuesta: p, paramsProp, precioTotal, resultado, restoACargo, restoEnPesos, restoEnPesosPorMitad, faltaParaEntrada };
   });
 
   return (
@@ -935,33 +944,63 @@ function ComparadorTabla({
       />
 
       <h4 style={{ color: '#1f3a5f', fontSize: 16, marginTop: 20, marginBottom: 4 }}>
-        {esPT ? 'Comparar financiamento (mesmas condições para todas)' : 'Comparar financiamiento (mismas condiciones para todas)'}
+        {esPT ? 'Comparar financiamento (condições independentes por opção)' : 'Comparar financiamiento (condiciones independientes por opción)'}
       </h4>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-        <CampoSim
-          etiqueta={esPT ? 'Entrada (%)' : 'Entrada (%)'}
-          valor={parametros.entrada}
-          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, entrada: v }))}
-        />
-        <CampoSim
-          etiqueta={esPT ? 'Taxa anual (%)' : 'Tasa anual (%)'}
-          valor={parametros.tasa}
-          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, tasa: v }))}
-        />
-        <CampoSim
-          etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
-          valor={parametros.plazo}
-          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, plazo: v }))}
-          min={PLAZO_MIN_MESES}
-          max={PLAZO_MAX_MESES}
-        />
-        <CampoSim
-          etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
-          valor={parametros.alquiler}
-          onChange={(v) => onCambiarParametros((actual) => ({ ...actual, alquiler: v }))}
-        />
+      <p style={{ fontSize: 13, color: '#6e7781', marginBottom: 8 }}>
+        {esPT
+          ? 'Marque a opção que quer ajustar — cada uma guarda suas próprias condições.'
+          : 'Tildá la opción que querés ajustar — cada una guarda sus propias condiciones.'}
+      </p>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {propuestas.map((p) => (
+          <label
+            key={p.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 14,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: `1px solid ${p.id === idSeleccionado ? colorAcento : '#d1d5db'}`,
+              background: p.id === idSeleccionado ? `${colorAcento}15` : '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            <input type="radio" checked={p.id === idSeleccionado} onChange={() => setIdEditando(p.id)} />
+            {p.titulo || '—'}
+          </label>
+        ))}
       </div>
+
+      {idSeleccionado && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <CampoSim
+            etiqueta={esPT ? 'Entrada (%)' : 'Entrada (%)'}
+            valor={paramsSeleccionado.entrada}
+            onChange={(v) => onCambiarSim(idSeleccionado, 'entrada', v)}
+          />
+          <CampoSim
+            etiqueta={esPT ? 'Taxa anual (%)' : 'Tasa anual (%)'}
+            valor={paramsSeleccionado.tasa}
+            onChange={(v) => onCambiarSim(idSeleccionado, 'tasa', v)}
+          />
+          <CampoSim
+            etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
+            valor={paramsSeleccionado.plazo}
+            onChange={(v) => onCambiarSim(idSeleccionado, 'plazo', v)}
+            min={PLAZO_MIN_MESES}
+            max={PLAZO_MAX_MESES}
+          />
+          <CampoSim
+            etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
+            valor={paramsSeleccionado.alquiler}
+            onChange={(v) => onCambiarSim(idSeleccionado, 'alquiler', v)}
+          />
+        </div>
+      )}
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, color: '#374151', marginBottom: 8 }}>
         <input
@@ -1051,9 +1090,9 @@ function ComparadorTabla({
                 etiqueta: esPT ? 'Aporte aluguel' : 'Aporte alquiler',
                 color: COLOR_ALQUILER,
                 valores: Object.fromEntries(
-                  conFinanciamiento.map(({ propuesta: p, resultado: r }) => [
+                  conFinanciamiento.map(({ propuesta: p, resultado: r, paramsProp }) => [
                     p.id,
-                    r && parametros.alquiler > 0 ? `${p.moneda ?? ''} ${parametros.alquiler.toLocaleString()}` : '—',
+                    r && paramsProp.alquiler > 0 ? `${p.moneda ?? ''} ${paramsProp.alquiler.toLocaleString()}` : '—',
                   ])
                 ),
               },
@@ -1083,6 +1122,22 @@ function ComparadorTabla({
                     restoEnPesosPorMitad !== null ? `$ ${restoEnPesosPorMitad.toLocaleString()}` : (esPT ? 'sem cotação' : 'sin cotización'),
                   ])
                 ),
+              },
+              // Filas finales: las CONDICIONES usadas para calcular todo
+              // lo de arriba, no otro resultado — separadas al final para
+              // poder ver de un vistazo con qué supuesto se armó cada
+              // columna (cada opción puede tener las suyas propias).
+              {
+                etiqueta: esPT ? 'Entrada usada (%)' : 'Entrada usada (%)',
+                valores: Object.fromEntries(conFinanciamiento.map(({ propuesta: p, paramsProp }) => [p.id, `${paramsProp.entrada}%`])),
+              },
+              {
+                etiqueta: esPT ? 'Taxa usada (% a.a.)' : 'Tasa usada (% anual)',
+                valores: Object.fromEntries(conFinanciamiento.map(({ propuesta: p, paramsProp }) => [p.id, `${paramsProp.tasa}%`])),
+              },
+              {
+                etiqueta: esPT ? 'Prazo usado (meses)' : 'Plazo usado (meses)',
+                valores: Object.fromEntries(conFinanciamiento.map(({ propuesta: p, paramsProp }) => [p.id, `${paramsProp.plazo}`])),
               },
             ]}
           />
