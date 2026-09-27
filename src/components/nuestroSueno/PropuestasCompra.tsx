@@ -59,7 +59,11 @@ const COLOR_CONSTRUCCION = '#7c3aed';
 // de la cuota — es una explicación de CÓMO se paga: una parte la cubre
 // ese aporte, el resto sale del bolsillo de la pareja.
 type ParametrosSim = { entrada: number; tasa: number; plazo: number; alquiler: number };
-const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 240, alquiler: 0 };
+// Plazo acotado a lo que realmente se va a usar: de 1 a 5 años (12 a
+// 60 cuotas), no el plazo completo de una hipoteca de 20-30 años.
+const PLAZO_MIN_MESES = 12;
+const PLAZO_MAX_MESES = 60;
+const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: PLAZO_MAX_MESES, alquiler: 0 };
 
 const COLOR_ALQUILER = '#0891b2';
 const COLOR_FALTA_AHORRO = '#d97706';
@@ -467,6 +471,8 @@ export function PropuestasCompra({
                           etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
                           valor={sim.plazo}
                           onChange={(v) => actualizarSim(p.id, 'plazo', v)}
+                          min={PLAZO_MIN_MESES}
+                          max={PLAZO_MAX_MESES}
                         />
                         <CampoSim
                           etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
@@ -716,14 +722,35 @@ function TablaTranspuesta({
   );
 }
 
-function CampoSim({ etiqueta, valor, onChange }: { etiqueta: string; valor: number; onChange: (v: number) => void }) {
+function CampoSim({
+  etiqueta,
+  valor,
+  onChange,
+  min,
+  max,
+}: {
+  etiqueta: string;
+  valor: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  function manejarCambio(v: number) {
+    let acotado = v;
+    if (min !== undefined) acotado = Math.max(min, acotado);
+    if (max !== undefined) acotado = Math.min(max, acotado);
+    onChange(acotado);
+  }
+
   return (
     <label style={{ fontSize: 14, color: '#6e7781', display: 'flex', flexDirection: 'column', gap: 4 }}>
       {etiqueta}
       <input
         type="number"
         value={valor}
-        onChange={(e) => onChange(Number(e.target.value))}
+        min={min}
+        max={max}
+        onChange={(e) => manejarCambio(Number(e.target.value))}
         style={{ ...estilosLocales.input, width: 90 }}
       />
     </label>
@@ -926,6 +953,8 @@ function ComparadorTabla({
           etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
           valor={parametros.plazo}
           onChange={(v) => onCambiarParametros((actual) => ({ ...actual, plazo: v }))}
+          min={PLAZO_MIN_MESES}
+          max={PLAZO_MAX_MESES}
         />
         <CampoSim
           etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
