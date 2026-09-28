@@ -661,14 +661,12 @@ export default function MiNegocioPage() {
             })()}
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 16,
-              marginTop: 16,
-            }}
-          >
+          {/* El Activo va en su propia fila, a todo el ancho — con
+              muchas cuentas (Providencia, Super Caixinha, Muebles...)
+              la lista de referencias no entra al lado de la torta si
+              comparte columna con Pasivo y Patrimonio, y termina
+              apilada debajo en vez de al costado. */}
+          <div style={{ marginTop: 16 }}>
             <DistribucionPieChart
               datos={indicadores?.composicionActivo ?? []}
               simbolo={simbolo}
@@ -676,8 +674,18 @@ export default function MiNegocioPage() {
               titulo={t('tituloComposicionActivo')}
               subtitulo={t('subtituloComposicionActivo')}
               mensajeVacio={t('vacioComposicionActivo')}
+              grande
             />
+          </div>
 
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: 16,
+              marginTop: 16,
+            }}
+          >
             <DistribucionPieChart
               datos={indicadores?.composicionPasivo ?? []}
               simbolo={simbolo}
@@ -685,6 +693,7 @@ export default function MiNegocioPage() {
               titulo={t('tituloComposicionPasivo')}
               subtitulo={t('subtituloComposicionPasivo')}
               mensajeVacio={t('vacioComposicionPasivo')}
+              grande
             />
 
             <DistribucionPieChart
@@ -694,6 +703,7 @@ export default function MiNegocioPage() {
               titulo={t('tituloComposicionPatrimonio')}
               subtitulo={t('subtituloComposicionPatrimonio')}
               mensajeVacio={t('vacioComposicionPatrimonio')}
+              grande
             />
           </div>
         </section>
