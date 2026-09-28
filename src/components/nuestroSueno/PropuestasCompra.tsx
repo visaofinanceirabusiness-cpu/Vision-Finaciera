@@ -61,9 +61,11 @@ const COLOR_CONSTRUCCION = '#7c3aed';
 type ParametrosSim = { entrada: number; tasa: number; plazo: number; alquiler: number };
 // Plazo acotado a lo que realmente se va a usar: de 1 a 5 años (12 a
 // 60 cuotas), no el plazo completo de una hipoteca de 20-30 años.
-const PLAZO_MIN_MESES = 12;
-const PLAZO_MAX_MESES = 60;
-const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: PLAZO_MAX_MESES, alquiler: 0 };
+// Opciones fijas — no un número libre para escribir, para evitar
+// valores raros a mitad de tipear (y porque el horizonte real que se
+// va a usar son estos 4 plazos, ni uno más).
+const PLAZOS_DISPONIBLES = [24, 36, 48, 60];
+const SIM_DEFAULT: ParametrosSim = { entrada: 20, tasa: 12, plazo: 60, alquiler: 0 };
 
 const COLOR_ALQUILER = '#0891b2';
 const COLOR_FALTA_AHORRO = '#d97706';
@@ -119,6 +121,18 @@ export function PropuestasCompra({
   async function cargar() {
     const datos = await listarPropuestas(parejaId);
     setPropuestas(datos);
+    // Las condiciones de financiamiento de cada propuesta vienen de la
+    // base (columnas entrada_porcentaje/tasa_anual/plazo_meses/
+    // aporte_alquiler) — antes solo vivían en este estado del
+    // navegador y se perdían al recargar la página.
+    setParametrosSim(
+      Object.fromEntries(
+        datos.map((p) => [
+          p.id,
+          { entrada: p.entrada_porcentaje, tasa: p.tasa_anual, plazo: p.plazo_meses, alquiler: p.aporte_alquiler },
+        ])
+      )
+    );
     setCargando(false);
   }
 
@@ -254,7 +268,20 @@ export function PropuestasCompra({
   }
 
   function actualizarSim(id: string, campo: keyof ParametrosSim, valor: number) {
-    setParametrosSim((actual) => ({ ...actual, [id]: { ...simParaTarjeta(id), [campo]: valor } }));
+    const actualizado = { ...simParaTarjeta(id), [campo]: valor };
+    setParametrosSim((actual) => ({ ...actual, [id]: actualizado }));
+
+    // Se guarda en la base al toque — antes esto vivía solo en el
+    // estado del navegador y se perdía al salir y volver a entrar.
+    actualizarPropuesta(id, {
+      entrada_porcentaje: actualizado.entrada,
+      tasa_anual: actualizado.tasa,
+      plazo_meses: actualizado.plazo,
+      aporte_alquiler: actualizado.alquiler,
+    }).catch(() => {
+      // Si falla el guardado, el valor sigue reflejado en pantalla —
+      // no vale la pena bloquear la simulación por esto.
+    });
   }
 
   const referencia = propuestas[0];
@@ -466,12 +493,10 @@ export function PropuestasCompra({
                           valor={sim.tasa}
                           onChange={(v) => actualizarSim(p.id, 'tasa', v)}
                         />
-                        <CampoSim
+                        <SelectorPlazo
                           etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
                           valor={sim.plazo}
                           onChange={(v) => actualizarSim(p.id, 'plazo', v)}
-                          min={PLAZO_MIN_MESES}
-                          max={PLAZO_MAX_MESES}
                         />
                         <CampoSim
                           etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}
@@ -721,37 +746,34 @@ function TablaTranspuesta({
   );
 }
 
-function CampoSim({
-  etiqueta,
-  valor,
-  onChange,
-  min,
-  max,
-}: {
-  etiqueta: string;
-  valor: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-}) {
-  function manejarCambio(v: number) {
-    let acotado = v;
-    if (min !== undefined) acotado = Math.max(min, acotado);
-    if (max !== undefined) acotado = Math.min(max, acotado);
-    onChange(acotado);
-  }
-
+function CampoSim({ etiqueta, valor, onChange }: { etiqueta: string; valor: number; onChange: (v: number) => void }) {
   return (
     <label style={{ fontSize: 14, color: '#6e7781', display: 'flex', flexDirection: 'column', gap: 4 }}>
       {etiqueta}
       <input
         type="number"
         value={valor}
-        min={min}
-        max={max}
-        onChange={(e) => manejarCambio(Number(e.target.value))}
+        onChange={(e) => onChange(Number(e.target.value))}
         style={{ ...estilosLocales.input, width: 90 }}
       />
+    </label>
+  );
+}
+
+// Plazo de una lista fija (24/36/48/60 meses) en vez de un número
+// libre — evita el problema de "no me deja escribir" de un <input
+// type=number> con mín/máx que se recorta en cada tecla.
+function SelectorPlazo({ etiqueta, valor, onChange }: { etiqueta: string; valor: number; onChange: (v: number) => void }) {
+  return (
+    <label style={{ fontSize: 14, color: '#6e7781', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {etiqueta}
+      <select value={valor} onChange={(e) => onChange(Number(e.target.value))} style={{ ...estilosLocales.input, width: 100 }}>
+        {PLAZOS_DISPONIBLES.map((meses) => (
+          <option key={meses} value={meses}>
+            {meses} ({Math.round(meses / 12)} {meses === 12 ? 'año' : 'años'})
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -987,12 +1009,10 @@ function ComparadorTabla({
             valor={paramsSeleccionado.tasa}
             onChange={(v) => onCambiarSim(idSeleccionado, 'tasa', v)}
           />
-          <CampoSim
+          <SelectorPlazo
             etiqueta={esPT ? 'Prazo (meses)' : 'Plazo (meses)'}
             valor={paramsSeleccionado.plazo}
             onChange={(v) => onCambiarSim(idSeleccionado, 'plazo', v)}
-            min={PLAZO_MIN_MESES}
-            max={PLAZO_MAX_MESES}
           />
           <CampoSim
             etiqueta={esPT ? 'Aporte de aluguel' : 'Aporte de alquiler'}

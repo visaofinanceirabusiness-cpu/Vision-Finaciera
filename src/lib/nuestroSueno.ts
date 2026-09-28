@@ -227,11 +227,19 @@ export type SuenoPropuesta = {
   // precio de compra para calcular el financiamiento, ver
   // components/nuestroSueno/PropuestasCompra.tsx.
   construccion: number;
+  // Condiciones de financiamiento de ESTA propuesta — cada una tiene
+  // las suyas, independientes de las demás (ver ComparadorTabla en
+  // PropuestasCompra.tsx). Se guardan acá para no perderlas al salir
+  // y volver a entrar.
+  entrada_porcentaje: number;
+  tasa_anual: number;
+  plazo_meses: number;
+  aporte_alquiler: number;
   creado_en: string;
 };
 
 const CAMPOS_PROPUESTA =
-  'id, link, titulo, precio, moneda, m2, cuartos, banos, direccion, lat, lng, imagen_url, servicios, estado, notas, construccion, creado_en';
+  'id, link, titulo, precio, moneda, m2, cuartos, banos, direccion, lat, lng, imagen_url, servicios, estado, notas, construccion, entrada_porcentaje, tasa_anual, plazo_meses, aporte_alquiler, creado_en';
 
 export async function listarPropuestas(parejaId: string): Promise<SuenoPropuesta[]> {
   const { data, error } = await supabase
@@ -266,7 +274,17 @@ export async function crearPropuesta(parejaId: string, perfilId: string, datos: 
   if (error) throw error;
 }
 
-export async function actualizarPropuesta(id: string, datos: Partial<DatosPropuesta & { estado: EstadoPropuesta }>) {
+export type CondicionesFinanciamiento = {
+  entrada_porcentaje: number;
+  tasa_anual: number;
+  plazo_meses: number;
+  aporte_alquiler: number;
+};
+
+export async function actualizarPropuesta(
+  id: string,
+  datos: Partial<DatosPropuesta & { estado: EstadoPropuesta } & CondicionesFinanciamiento>
+) {
   const { error } = await supabase
     .from('sueno_propuestas')
     .update({ ...datos, actualizado_en: new Date().toISOString() })
