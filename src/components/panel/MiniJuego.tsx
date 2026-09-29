@@ -12,7 +12,7 @@
 // lógica contable nueva: cero riesgo de que un asiento salga mal por
 // este camino que no salga también por los otros dos.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
 import {
   obtenerCategoriasJuego,
@@ -25,7 +25,7 @@ import {
   type ProductoJuego,
 } from '@/lib/miniJuego';
 import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
-import { iconoOperacion, iconoParaTexto, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
+import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldoEnTransferencia } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
@@ -458,6 +458,14 @@ export function MiniJuego({
   const contactosFiltrados = contactos.filter(coincide);
   const productosFiltrados = productosDeCategoria.filter((p) => coincide(p.nombre));
 
+  // Se calcula sobre la lista COMPLETA (no la filtrada por el
+  // buscador) para que el ícono de cada categoría/forma de pago no
+  // cambie mientras se escribe en el buscador, y para que la
+  // asignación "sin repetidos" considere todas las opciones reales,
+  // no solo las que matchean la búsqueda del momento.
+  const iconosCategorias = useMemo(() => asignarIconos(categorias.map((c) => c.nombre)), [categorias]);
+  const iconosFormasPago = useMemo(() => asignarIconos(formasPago), [formasPago]);
+
   const buscador = (
     <input
       type="text"
@@ -648,7 +656,9 @@ export function MiniJuego({
                   </p>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                    {categoriasFiltradas.map((cat) => tarjeta(iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre))}
+                    {categoriasFiltradas.map((cat) =>
+                      tarjeta(iconosCategorias[cat.nombre] ?? iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre)
+                    )}
                   </div>
                 )}
               </>
@@ -675,7 +685,7 @@ export function MiniJuego({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
                     {formasPagoFiltradas.map((fp) =>
                       tarjeta(
-                        iconoParaTexto(fp),
+                        iconosFormasPago[fp] ?? iconoParaTexto(fp),
                         fp,
                         () => elegirFormaPago(fp),
                         fp,
@@ -899,7 +909,7 @@ export function MiniJuego({
                 color: 'rgba(255,255,255,0.75)',
               }}
             >
-              {iconoOperacion(operacion)} {nombreOperacionDisplay(idioma, operacion, esFamiliar)} · {iconoParaTexto(categoria)} {categoria} · {iconoParaTexto(formaPago)} {formaPago}
+              {iconoOperacion(operacion)} {nombreOperacionDisplay(idioma, operacion, esFamiliar)} · {iconosCategorias[categoria] ?? iconoParaTexto(categoria)} {categoria} · {iconosFormasPago[formaPago] ?? iconoParaTexto(formaPago)} {formaPago}
               {tablaContacto && clienteProveedor && (
                 <>
                   {' '}· 👤 {clienteProveedor}
