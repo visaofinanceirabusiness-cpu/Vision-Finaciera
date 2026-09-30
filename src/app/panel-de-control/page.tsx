@@ -12,6 +12,7 @@ import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChar
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
+import { ObjetivosEscalonados } from '@/components/panel/ObjetivosEscalonados';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
@@ -363,6 +364,181 @@ export default function MiNegocioPage() {
     ? t('todosLosPeriodos')
     : formatearPeriodo(periodoSeleccionado, idioma);
 
+  // Se arma una sola vez acá y se renderiza en dos lugares posibles:
+  // arriba de todo para Familia (a pedido — "objetivos familiares" es
+  // lo primero que quieren ver) o en su posición original para el
+  // resto de los perfiles.
+  const bloqueObjetivos = configuracion?.mostrar_objetivos &&
+    !esTodosLosPeriodos && (
+      <section
+        style={{
+          background: colores.blanco,
+          borderRadius: 24,
+          padding: 24,
+          marginBottom: 20,
+          border: '1px solid #e5e7eb',
+          boxShadow:
+            '0 10px 28px rgba(31,58,95,0.06)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+            marginBottom: 18,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                marginBottom: 5,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 1.3,
+                color: colores.verde,
+              }}
+            >
+              {t('eyebrowGestion')}
+            </div>
+
+            <h2
+              style={{
+                margin: 0,
+                color: colores.azul,
+                fontSize: 22,
+              }}
+            >
+              {esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')}
+            </h2>
+
+            <p
+              style={{
+                margin: '5px 0 0',
+                fontSize: 12,
+                color: COLORES_BASE.gris,
+                textTransform: 'capitalize',
+              }}
+            >
+              {periodoTexto}
+            </p>
+          </div>
+
+          <div
+            style={{
+              padding: '8px 12px',
+              borderRadius: 999,
+              background: `${colores.verde}14`,
+              color: colores.verde,
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            {t('objetivosAcordados')}
+          </div>
+        </div>
+
+        {esFamiliar && gamificacion && (
+          <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} idioma={idioma} />
+        )}
+
+        {esFamiliar && gamificacion && perfil?.empresa_id && (
+          <ObjetivosEscalonados
+            empresaId={perfil.empresa_id}
+            nivel={gamificacion.nivel}
+            operacionesMin={gamificacion.operacionesMin}
+            idioma={idioma}
+            colores={colores}
+          />
+        )}
+
+        {categoriasOrden(t).map(({ categoria, titulo, emoji }) => {
+          const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
+
+          // En Familia, los objetivos Contables y Financieros
+          // (Ventas +10%, Rentabilidad, Fondo de Emergencia...)
+          // no tienen sentido todavía en nivel 1 — recién
+          // aparecen desde nivel 2, cuando ya hay historial de
+          // meses para comparar. "Primeros pasos" es lo único
+          // que corresponde mientras el usuario recién arranca.
+          if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO') && (gamificacion?.nivel ?? 1) < 2) {
+            return null;
+          }
+
+          if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
+            return (
+              <div key={categoria} style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
+                  {emoji} {titulo}
+                </div>
+
+                <div
+                  style={{
+                    padding: 20,
+                    border: '1px dashed #d6dee5',
+                    borderRadius: 14,
+                    textAlign: 'center',
+                    color: COLORES_BASE.gris,
+                    fontSize: 13,
+                  }}
+                >
+                  {t('proximamenteMarketing')}
+                </div>
+              </div>
+            );
+          }
+
+          if (deLaCategoria.length === 0) {
+            return null;
+          }
+
+          return (
+            <div key={categoria} style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
+                {emoji} {titulo}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                {deLaCategoria.map((objetivo) => (
+                  <ObjetivoCard
+                    key={objetivo.id}
+                    objetivo={objetivo}
+                    colorPrimario={colores.azul}
+                    colorSecundario={colores.verde}
+                    colorAcento={colores.acento}
+                    idioma={idioma}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {!objetivos.length && (
+          <div
+            style={{
+              padding: 24,
+              border: '1px dashed #d6dee5',
+              borderRadius: 14,
+              textAlign: 'center',
+              color: COLORES_BASE.gris,
+              fontSize: 13,
+            }}
+          >
+            {t('sinObjetivos')}
+          </div>
+        )}
+      </section>
+    );
+
   return (
     <main
       style={{
@@ -521,6 +697,13 @@ export default function MiNegocioPage() {
             )}
           </div>
         )}
+
+        {/* =================================================
+            OBJETIVOS FAMILIARES — arriba de todo, a pedido: es lo
+            primero que quiere ver una empresa Familia al entrar.
+        ================================================== */}
+
+        {esFamiliar && bloqueObjetivos}
 
         {/* =================================================
             SITUACIÓN A LA FECHA
@@ -1109,169 +1292,12 @@ export default function MiNegocioPage() {
         )}
 
         {/* =================================================
-            OBJETIVOS
+            OBJETIVOS — para el resto de los perfiles queda acá, en su
+            posición original. Para Familia se muestra arriba de todo
+            (ver bloqueObjetivos más arriba en el componente).
         ================================================== */}
 
-        {configuracion?.mostrar_objetivos &&
-          !esTodosLosPeriodos && (
-            <section
-              style={{
-                background: colores.blanco,
-                borderRadius: 24,
-                padding: 24,
-                marginBottom: 20,
-                border: '1px solid #e5e7eb',
-                boxShadow:
-                  '0 10px 28px rgba(31,58,95,0.06)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 16,
-                  flexWrap: 'wrap',
-                  marginBottom: 18,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      marginBottom: 5,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: 1.3,
-                      color: colores.verde,
-                    }}
-                  >
-                    {t('eyebrowGestion')}
-                  </div>
-
-                  <h2
-                    style={{
-                      margin: 0,
-                      color: colores.azul,
-                      fontSize: 22,
-                    }}
-                  >
-                    {esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')}
-                  </h2>
-
-                  <p
-                    style={{
-                      margin: '5px 0 0',
-                      fontSize: 12,
-                      color: COLORES_BASE.gris,
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {periodoTexto}
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    background: `${colores.verde}14`,
-                    color: colores.verde,
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}
-                >
-                  {t('objetivosAcordados')}
-                </div>
-              </div>
-
-              {esFamiliar && gamificacion && (
-                <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} idioma={idioma} />
-              )}
-
-              {categoriasOrden(t).map(({ categoria, titulo, emoji }) => {
-                const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
-
-                // En Familia, los objetivos Contables y Financieros
-                // (Ventas +10%, Rentabilidad, Fondo de Emergencia...)
-                // no tienen sentido todavía en nivel 1 — recién
-                // aparecen desde nivel 2, cuando ya hay historial de
-                // meses para comparar. "Primeros pasos" es lo único
-                // que corresponde mientras el usuario recién arranca.
-                if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO') && (gamificacion?.nivel ?? 1) < 2) {
-                  return null;
-                }
-
-                if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
-                  return (
-                    <div key={categoria} style={{ marginBottom: 22 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
-                        {emoji} {titulo}
-                      </div>
-
-                      <div
-                        style={{
-                          padding: 20,
-                          border: '1px dashed #d6dee5',
-                          borderRadius: 14,
-                          textAlign: 'center',
-                          color: COLORES_BASE.gris,
-                          fontSize: 13,
-                        }}
-                      >
-                        {t('proximamenteMarketing')}
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (deLaCategoria.length === 0) {
-                  return null;
-                }
-
-                return (
-                  <div key={categoria} style={{ marginBottom: 22 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
-                      {emoji} {titulo}
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                        gap: 14,
-                      }}
-                    >
-                      {deLaCategoria.map((objetivo) => (
-                        <ObjetivoCard
-                          key={objetivo.id}
-                          objetivo={objetivo}
-                          colorPrimario={colores.azul}
-                          colorSecundario={colores.verde}
-                          colorAcento={colores.acento}
-                          idioma={idioma}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {!objetivos.length && (
-                <div
-                  style={{
-                    padding: 24,
-                    border: '1px dashed #d6dee5',
-                    borderRadius: 14,
-                    textAlign: 'center',
-                    color: COLORES_BASE.gris,
-                    fontSize: 13,
-                  }}
-                >
-                  {t('sinObjetivos')}
-                </div>
-              )}
-            </section>
-          )}
+        {!esFamiliar && bloqueObjetivos}
 
         {/* =================================================
             TODOS LOS PERIODOS
