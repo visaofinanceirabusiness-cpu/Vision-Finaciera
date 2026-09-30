@@ -368,8 +368,14 @@ export default function MiNegocioPage() {
   // arriba de todo para Familia (a pedido — "objetivos familiares" es
   // lo primero que quieren ver) o en su posición original para el
   // resto de los perfiles.
+  //
+  // En Familia queda independiente del período elegido: el nivel, los
+  // Objetivos Escalonados y Primeros Pasos son acumulados/de nivel,
+  // no "del mes" — no tiene sentido que desaparezcan al elegir "Todos
+  // los períodos". El resto de los perfiles mantiene el comportamiento
+  // de siempre (objetivos del mes, se ocultan en "Todos los períodos").
   const bloqueObjetivos = configuracion?.mostrar_objetivos &&
-    !esTodosLosPeriodos && (
+    (esFamiliar || !esTodosLosPeriodos) && (
       <section
         style={{
           background: colores.blanco,
@@ -455,17 +461,18 @@ export default function MiNegocioPage() {
         )}
 
         {categoriasOrden(t).map(({ categoria, titulo, emoji }) => {
-          const deLaCategoria = objetivos.filter((o) => o.categoria === categoria);
-
-          // En Familia, los objetivos Contables y Financieros
-          // (Ventas +10%, Rentabilidad, Fondo de Emergencia...)
-          // no tienen sentido todavía en nivel 1 — recién
-          // aparecen desde nivel 2, cuando ya hay historial de
-          // meses para comparar. "Primeros pasos" es lo único
-          // que corresponde mientras el usuario recién arranca.
-          if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO') && (gamificacion?.nivel ?? 1) < 2) {
+          // En Familia, Contables/Financieros/Marketing quedan afuera
+          // de esta sección — los Objetivos Escalonados (arriba) ya
+          // cumplen ese rol de "hacia dónde crecer". Metas Familiares
+          // y Primeros Pasos siguen.
+          if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO' || categoria === 'MARKETING')) {
             return null;
           }
+
+          const deLaCategoria =
+            categoria === 'ACTIVIDAD'
+              ? objetivos.filter((o) => o.categoria === categoria && !o.cumplido)
+              : objetivos.filter((o) => o.categoria === categoria);
 
           if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
             return (
