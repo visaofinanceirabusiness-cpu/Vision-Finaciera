@@ -67,27 +67,31 @@ export function ObjetivosEscalonados({
     let activo = true;
     yaCargado.current = false;
 
-    obtenerObjetivosEscalonados(empresaId, nivel, operacionesMin).then((datos) => {
-      if (!activo) return;
-      setObjetivos(datos);
+    obtenerObjetivosEscalonados(empresaId, nivel, operacionesMin)
+      .then((datos) => {
+        if (!activo) return;
+        setObjetivos(datos);
 
-      // Detecta checkpoints recién cumplidos (que todavía no se
-      // vieron en este dispositivo) para festejarlos, del más chico
-      // al más grande — si se cargaron varios de una, se encadenan.
-      if (!yaCargado.current) {
-        yaCargado.current = true;
+        // Detecta checkpoints recién cumplidos (que todavía no se
+        // vieron en este dispositivo) para festejarlos, del más chico
+        // al más grande — si se cargaron varios de una, se encadenan.
+        if (!yaCargado.current) {
+          yaCargado.current = true;
 
-        for (const objetivo of datos) {
-          for (let indice = 0; indice < objetivo.checkpointsCumplidos; indice++) {
-            const clave = claveVisto(empresaId, nivel, objetivo.tipo, indice);
-            if (!yaVisto(clave)) {
-              setFestejo({ tipo: objetivo.tipo, indice });
-              return;
+          for (const objetivo of datos) {
+            for (let indice = 0; indice < objetivo.checkpointsCumplidos; indice++) {
+              const clave = claveVisto(empresaId, nivel, objetivo.tipo, indice);
+              if (!yaVisto(clave)) {
+                setFestejo({ tipo: objetivo.tipo, indice });
+                return;
+              }
             }
           }
         }
-      }
-    });
+      })
+      .catch((errorEscalonados) => {
+        console.warn('No se pudieron calcular los objetivos escalonados:', errorEscalonados);
+      });
 
     return () => {
       activo = false;

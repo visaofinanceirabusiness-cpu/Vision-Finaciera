@@ -33,6 +33,9 @@ export function VitrinaTrofeos({
       .then((datos) => {
         if (activo) setProgreso(datos);
       })
+      .catch((errorTrofeos) => {
+        console.warn('No se pudo calcular el progreso de trofeos:', errorTrofeos);
+      })
       .finally(() => {
         if (activo) setCargado(true);
       });
