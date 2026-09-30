@@ -63,8 +63,22 @@ type Empresa = {
   perfil_empresa_id: string | null;
   idioma: string;
   moneda: string | null;
-  perfiles_empresa?: { codigo: string }[] | null;
+  // Belongs-to (empresas.perfil_empresa_id -> perfiles_empresa.id): el
+  // tipo inferido de Supabase lo da como array, pero en runtime suele
+  // venir como objeto único — ver codigoDePerfil() más abajo, que
+  // soporta las dos formas sin asumir cuál es.
+  perfiles_empresa?: { codigo: string }[] | { codigo: string } | null;
 };
+
+// Soporta que perfiles_empresa venga embebido como objeto único o como
+// array de un elemento (según cómo Supabase resuelva la relación) sin
+// tener que adivinar cuál es — evita el bug de asumir [0] cuando en
+// realidad es un objeto (o al revés), que dejaba esFamiliar siempre en
+// false.
+function codigoDePerfil(valor: Empresa['perfiles_empresa']): string | undefined {
+  if (!valor) return undefined;
+  return Array.isArray(valor) ? valor[0]?.codigo : valor.codigo;
+}
 
 type ConfiguracionDashboard = {
   color_primario: string;
@@ -327,7 +341,7 @@ export default function InicioPage() {
       }
 
       // Trofeos — solo perfil Familia por ahora (ver lib/trofeos.ts).
-      if (empresaData?.perfiles_empresa?.[0]?.codigo === 'FAMILIAR') {
+      if (codigoDePerfil(empresaData?.perfiles_empresa) === 'FAMILIAR') {
         try {
           setTrofeoActual(await obtenerTrofeoPendiente(perfilData.empresa_id));
         } catch (errorTrofeo) {
@@ -431,7 +445,7 @@ export default function InicioPage() {
   }, [perfil?.empresa_id, empresa?.idioma, empresa?.moneda]);
 
   const idioma = empresa?.idioma ?? 'ES';
-  const esFamiliar = empresa?.perfiles_empresa?.[0]?.codigo === 'FAMILIAR';
+  const esFamiliar = codigoDePerfil(empresa?.perfiles_empresa) === 'FAMILIAR';
   const t = crearTraductor(diccionarioInicio, idioma);
 
   if (cargando) {
