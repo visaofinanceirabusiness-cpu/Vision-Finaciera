@@ -17,6 +17,9 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, obtenerHitoPendiente, marcarHitoVisto, type HitoPendiente } from '@/lib/gamificacion';
 import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal';
+import { obtenerTrofeoPendiente, marcarTrofeoVisto, CATALOGO_TROFEOS, type TrofeoPendiente } from '@/lib/trofeos';
+import { FestejoModal } from '@/components/panel/FestejoModal';
+import { VitrinaTrofeos } from '@/components/panel/VitrinaTrofeos';
 import {
   empresaManejaMercaderia,
   empresaTieneModulo,
@@ -123,6 +126,7 @@ export default function InicioPage() {
   const [gamificacion, setGamificacion] =
     useState<ProgresoGamificacion | null>(null);
   const [hitoActual, setHitoActual] = useState<HitoPendiente | null>(null);
+  const [trofeoActual, setTrofeoActual] = useState<TrofeoPendiente | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [modulos, setModulos] = useState<string[]>([]);
   const [manejaMercaderia, setManejaMercaderia] = useState(true);
@@ -319,6 +323,15 @@ export default function InicioPage() {
           setHitoActual(await obtenerHitoPendiente(perfilData.empresa_id));
         } catch (errorHito) {
           console.warn('No se pudo calcular el hito de gamificación pendiente:', errorHito);
+        }
+      }
+
+      // Trofeos — solo perfil Familia por ahora (ver lib/trofeos.ts).
+      if (empresaData?.perfiles_empresa?.[0]?.codigo === 'FAMILIAR') {
+        try {
+          setTrofeoActual(await obtenerTrofeoPendiente(perfilData.empresa_id));
+        } catch (errorTrofeo) {
+          console.warn('No se pudo calcular el trofeo pendiente:', errorTrofeo);
         }
       }
 
@@ -581,6 +594,27 @@ export default function InicioPage() {
     }
   }
 
+  // Mismo patrón que cerrarHitoActual: marca el trofeo como visto (se
+  // guarda para siempre, ver trofeos_empresa) y encadena el siguiente
+  // si un lote grande de operaciones cruzó varios de una vez.
+  async function cerrarTrofeoActual() {
+    if (!trofeoActual || !perfil?.empresa_id) {
+      setTrofeoActual(null);
+      return;
+    }
+
+    const empresaId = perfil.empresa_id;
+    const trofeoQueSeCierra = trofeoActual;
+    setTrofeoActual(null);
+
+    try {
+      await marcarTrofeoVisto(empresaId, trofeoQueSeCierra.tipo, trofeoQueSeCierra.tier);
+      setTrofeoActual(await obtenerTrofeoPendiente(empresaId));
+    } catch (errorTrofeo) {
+      console.warn('No se pudo marcar el trofeo como visto:', errorTrofeo);
+    }
+  }
+
   return (
     <main
       style={{
@@ -777,6 +811,20 @@ export default function InicioPage() {
           <GamificacionHitoModal hito={hitoActual} idioma={idioma} onCerrar={cerrarHitoActual} />
         )}
 
+        {trofeoActual && (
+          <FestejoModal
+            tipo={trofeoActual.tier}
+            claveAnimacion={`${trofeoActual.tipo}-${trofeoActual.tier}`}
+            emoji={CATALOGO_TROFEOS[trofeoActual.tipo].emoji}
+            idioma={idioma}
+            tituloEs="¡Nuevo Trofeo!"
+            tituloPt="Novo Troféu!"
+            subtituloEs={`Ganaste el trofeo ${CATALOGO_TROFEOS[trofeoActual.tipo].nombre} — seguí así.`}
+            subtituloPt={`Você ganhou o troféu ${CATALOGO_TROFEOS[trofeoActual.tipo].nombrePT} — continue assim.`}
+            onCerrar={cerrarTrofeoActual}
+          />
+        )}
+
         {/* =================================================
             SABIO BOT — protagonista del lobby.
             Reemplaza al Sabio chiquito de siempre + al flotante en
@@ -801,6 +849,10 @@ export default function InicioPage() {
             colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
             alerta={alertaSabio}
           />
+        )}
+
+        {esFamiliar && perfil && (
+          <VitrinaTrofeos empresaId={perfil.empresa_id} idioma={idioma} colores={colores} />
         )}
 
         {miniJuegoAbierto && perfil && (

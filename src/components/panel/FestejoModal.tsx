@@ -1,60 +1,53 @@
 'use client';
 
-// MODAL DE FESTEJO — medallas Bronce/Plata/Oro dentro de cada nivel
-// (25/50/75 operaciones) y el level-up que coincide con el Oro.
-//
-// Se abre una sola vez por hito (lib/gamificacion.ts se encarga de no
-// repetirlo, vía gamificacion_hitos_vistos) y, si hay más de uno
-// pendiente (ej. un lote grande de operaciones cruzó varias medallas
-// de una), el que lo abre vuelve a pedir el siguiente al cerrar este.
-//
-// Los tres hitos comparten el mismo tipo de festejo (confetti +
-// estrellas + fuegos + sonido), pero escalado en intensidad: Bronce
-// es el más chico, Oro (que siempre coincide con subir de nivel) es
-// el más grande — copa gigante en vez de medalla, tarjeta más grande
-// y brillo dorado.
+// FESTEJO MODAL — versión genérica de GamificacionHitoModal, para
+// festejar cualquier logro que use la misma escala Bronce/Plata/Oro
+// (confetti + estrellas + fuegos + sonido) pero con su propio texto:
+// hoy se usa para los checkpoints de Objetivos Escalonados y para los
+// Trofeos, sin repetir el nivel de gamificación.
 
 import { useEffect, useState } from 'react';
-import type { HitoPendiente, TipoHito } from '@/lib/gamificacion';
+import type { TipoFestejo } from '@/lib/festejoVisual';
 import { CONFIG_FESTEJO, POSICIONES_FUEGOS_FESTEJO, reproducirSonidoFestejo } from '@/lib/festejoVisual';
 
-const TITULOS_HITO: Record<TipoHito, { es: string; pt: string }> = {
-  BRONCE: { es: '¡Medalla de Bronce!', pt: 'Medalha de Bronze!' },
-  PLATA: { es: '¡Medalla de Plata!', pt: 'Medalha de Prata!' },
-  ORO: { es: '¡MEDALLA DE ORO!', pt: 'MEDALHA DE OURO!' },
-};
-
-const POSICIONES_FUEGOS = POSICIONES_FUEGOS_FESTEJO;
-const reproducirSonidoHito = reproducirSonidoFestejo;
-
-export function GamificacionHitoModal({
-  hito,
+export function FestejoModal({
+  tipo,
+  claveAnimacion,
+  emoji,
+  tituloEs,
+  tituloPt,
+  subtituloEs,
+  subtituloPt,
   idioma,
   onCerrar,
 }: {
-  hito: HitoPendiente;
+  tipo: TipoFestejo;
+  // Cambia entre festejos consecutivos para reiniciar la animación y
+  // el sonido, aunque el padre reutilice el mismo componente montado.
+  claveAnimacion: string;
+  // Ícono a mostrar en vez del emoji de medalla/copa por defecto (ej.
+  // el emoji del tipo de operación o del trofeo) — opcional.
+  emoji?: string;
+  tituloEs: string;
+  tituloPt: string;
+  subtituloEs: string;
+  subtituloPt: string;
   idioma?: string | null;
   onCerrar: () => void;
 }) {
   const esPT = idioma === 'PT';
-  const config = CONFIG_FESTEJO[hito.tipo];
-  const titulo = TITULOS_HITO[hito.tipo];
-  const subioDeNivel = hito.tipo === 'ORO' && Boolean(hito.nombreNivelNuevo);
-  const esOro = hito.tipo === 'ORO';
+  const config = CONFIG_FESTEJO[tipo];
+  const esOro = tipo === 'ORO';
 
-  // Entrada con un pequeño "pop" — arranca en escala 0 y anima a 1.
-  // Depende de hito.nivel/tipo para volver a jugar la animación (y el
-  // sonido) si el padre reutiliza el mismo componente para encadenar
-  // varios hitos seguidos sin desmontarlo.
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     setVisible(false);
     const id = requestAnimationFrame(() => setVisible(true));
-    reproducirSonidoHito(config.notasSonido);
+    reproducirSonidoFestejo(config.notasSonido);
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hito.nivel, hito.tipo]);
+  }, [claveAnimacion]);
 
   return (
     <div
@@ -72,42 +65,41 @@ export function GamificacionHitoModal({
       }}
     >
       <style>{`
-        @keyframes hitoCaePieza {
+        @keyframes festejoCaePieza {
           0% { transform: translateY(-40px) rotate(0deg); opacity: 0; }
           15% { opacity: 1; }
           100% { transform: translateY(260px) rotate(360deg); opacity: 0; }
         }
-        @keyframes hitoPop {
+        @keyframes festejoPop {
           0% { transform: scale(0.6); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
         }
-        @keyframes hitoCopaBounce {
+        @keyframes festejoBounce {
           0% { transform: scale(0) rotate(-20deg); opacity: 0; }
           55% { transform: scale(1.25) rotate(8deg); opacity: 1; }
           75% { transform: scale(0.95) rotate(-4deg); }
           100% { transform: scale(1) rotate(0deg); }
         }
-        @keyframes hitoCopaGlow {
+        @keyframes festejoGlow {
           0%, 100% { filter: drop-shadow(0 0 10px currentColor); }
           50% { filter: drop-shadow(0 0 28px currentColor); }
         }
-        @keyframes hitoEstrellaTitila {
+        @keyframes festejoEstrellaTitila {
           0%, 100% { opacity: 0.25; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.15); }
         }
-        @keyframes hitoFuego {
+        @keyframes festejoFuego {
           0% { transform: scale(0); opacity: 1; }
           70% { opacity: 0.9; }
           100% { transform: scale(1); opacity: 0; }
         }
-        @keyframes hitoTitulo {
+        @keyframes festejoTitulo {
           0%, 100% { letter-spacing: 0.5px; }
           50% { letter-spacing: 2px; }
         }
       `}</style>
 
-      {/* Fuegos artificiales — cantidad según el hito (0 en Bronce). */}
-      {POSICIONES_FUEGOS.slice(0, config.cantFuegos).map((fuego, i) => (
+      {POSICIONES_FUEGOS_FESTEJO.slice(0, config.cantFuegos).map((fuego, i) => (
         <div
           key={i}
           style={{
@@ -120,12 +112,11 @@ export function GamificacionHitoModal({
             pointerEvents: 'none',
             background: `repeating-conic-gradient(from 0deg, ${config.color} 0deg 12deg, transparent 12deg 30deg)`,
             opacity: 0.85,
-            animation: `hitoFuego 1.6s ease-out ${fuego.delay}s infinite`,
+            animation: `festejoFuego 1.6s ease-out ${fuego.delay}s infinite`,
           }}
         />
       ))}
 
-      {/* Estrellas titilando de fondo — cantidad según el hito. */}
       {Array.from({ length: config.cantEstrellas }).map((_, i) => (
         <span
           key={i}
@@ -134,7 +125,7 @@ export function GamificacionHitoModal({
             left: `${(i * 37 + 5) % 100}%`,
             top: `${(i * 53 + 8) % 100}%`,
             fontSize: 14 + (i % 3) * 6,
-            animation: `hitoEstrellaTitila ${1.2 + (i % 4) * 0.3}s ease-in-out ${i * 0.15}s infinite`,
+            animation: `festejoEstrellaTitila ${1.2 + (i % 4) * 0.3}s ease-in-out ${i * 0.15}s infinite`,
           }}
         >
           ⭐
@@ -159,7 +150,6 @@ export function GamificacionHitoModal({
           transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease',
         }}
       >
-        {/* Confetti — cantidad y paleta según el hito. */}
         {Array.from({ length: config.piezasConfetti }).map((_, i) => (
           <span
             key={i}
@@ -171,7 +161,7 @@ export function GamificacionHitoModal({
               height: esOro ? 9 : 7,
               borderRadius: i % 2 === 0 ? '50%' : 2,
               background: config.paletaConfetti[i % config.paletaConfetti.length],
-              animation: `hitoCaePieza ${1.4 + (i % 5) * 0.2}s ease-in ${i * 0.05}s infinite`,
+              animation: `festejoCaePieza ${1.4 + (i % 5) * 0.2}s ease-in ${i * 0.05}s infinite`,
             }}
           />
         ))}
@@ -182,11 +172,11 @@ export function GamificacionHitoModal({
             lineHeight: 1,
             color: config.color,
             animation: esOro
-              ? 'hitoCopaBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), hitoCopaGlow 1.6s ease-in-out 0.7s infinite'
-              : 'hitoPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), hitoCopaGlow 1.8s ease-in-out 0.5s infinite',
+              ? 'festejoBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), festejoGlow 1.6s ease-in-out 0.7s infinite'
+              : 'festejoPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), festejoGlow 1.8s ease-in-out 0.5s infinite',
           }}
         >
-          {config.emoji}
+          {emoji ?? config.emoji}
         </div>
 
         <h2
@@ -195,25 +185,15 @@ export function GamificacionHitoModal({
             fontSize: esOro ? 28 : 22,
             color: config.color,
             fontWeight: 900,
-            animation: config.tituloAnimado ? 'hitoTitulo 1.2s ease-in-out infinite' : undefined,
+            animation: esOro ? 'festejoTitulo 1.2s ease-in-out infinite' : undefined,
           }}
         >
-          {esPT ? titulo.pt : titulo.es}
+          {esPT ? tituloPt : tituloEs}
         </h2>
 
-        {subioDeNivel ? (
-          <p style={{ margin: '10px 0 0', fontSize: esOro ? 17 : 15, color: '#1f2937', fontWeight: 700 }}>
-            {esPT
-              ? `Subiste de nível: agora você é ${hito.nombreNivelNuevo}!`
-              : `Subiste de nivel: ¡ahora sos ${hito.nombreNivelNuevo}!`}
-          </p>
-        ) : (
-          <p style={{ margin: '10px 0 0', fontSize: 14, color: '#6e7781' }}>
-            {esPT
-              ? 'Continue registrando as operações do seu negócio — falta pouco para a próxima.'
-              : 'Seguí registrando las operaciones de tu negocio — falta poco para la próxima.'}
-          </p>
-        )}
+        <p style={{ margin: '10px 0 0', fontSize: esOro ? 17 : 15, color: '#1f2937', fontWeight: 700 }}>
+          {esPT ? subtituloPt : subtituloEs}
+        </p>
 
         <button
           type="button"
