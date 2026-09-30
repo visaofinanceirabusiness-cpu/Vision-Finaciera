@@ -551,7 +551,7 @@ export default function MiNegocioPage() {
       style={{
         minHeight: '100vh',
         background:
-          'radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9',
+          'var(--fondo-app, radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9)',
         padding: 24,
       }}
     >

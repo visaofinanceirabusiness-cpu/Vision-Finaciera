@@ -23,10 +23,13 @@ import { supabase } from '@/lib/supabase';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioMensajes, type ClaveMensajes } from './i18n';
 
+// Colores personalizables por empresa (CONFIGURAÇÕES → Apariencia):
+// var(--x, <default>) resuelve a la variable si TemaGlobal la seteó,
+// y si no, usa el mismo valor de siempre — ver lib/apariencia.ts.
 const COLORES = {
-  azul: '#1f3a5f',
-  verde: '#2e8b57',
-  gris: '#6e7781',
+  azul: 'var(--color-primario, #1f3a5f)',
+  verde: 'var(--color-secundario, #2e8b57)',
+  gris: 'var(--color-acento, #6e7781)',
   blanco: '#ffffff',
   fondo: '#f5f7f9',
 };
@@ -273,7 +276,7 @@ export default function MensajesPage() {
       style={{
         minHeight: '100vh',
         background:
-          'radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9',
+          'var(--fondo-app, radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9)',
         padding: 24,
       }}
     >
