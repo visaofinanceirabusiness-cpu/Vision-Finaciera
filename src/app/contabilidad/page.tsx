@@ -87,10 +87,13 @@ const EsFamiliarContext = createContext(false);
 
 const IdiomaContext = createContext<string | null>(null);
 
+// Colores personalizables por empresa (CONFIGURAÇÕES → Apariencia):
+// var(--x, <default>) resuelve a la variable si TemaGlobal la seteó,
+// y si no, usa el mismo valor de siempre — ver lib/apariencia.ts.
 const COLORES = {
-  azul: '#1f3a5f',
-  verde: '#2e8b57',
-  gris: '#6e7781',
+  azul: 'var(--color-primario, #1f3a5f)',
+  verde: 'var(--color-secundario, #2e8b57)',
+  gris: 'var(--color-acento, #6e7781)',
   blanco: '#ffffff',
 };
 
@@ -3663,7 +3666,7 @@ function EditarRegistrosTab() {
 
 const fondo: React.CSSProperties = {
   minHeight: '100vh',
-  background: 'radial-gradient(circle at top left, #e7f1ed 0%, transparent 34%), #f4f7f8',
+  background: 'var(--fondo-app, radial-gradient(circle at top left, #e7f1ed 0%, transparent 34%), #f4f7f8)',
   padding: '28px 24px 48px',
 };
 
