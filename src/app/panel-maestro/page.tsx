@@ -1914,10 +1914,10 @@ function ProbarFormularioBienvenida({ onError }: { onError: (mensaje: string) =>
       {abierta && (
         <div style={{ marginTop: 18 }}>
           <p style={{ fontSize: 13, color: COLORES_BASE.gris, marginTop: 0, marginBottom: 16 }}>
-            Crea una empresa de prueba (nombrada "Prueba — ...") con el perfil que elijas acá abajo, con su
+            Crea una empresa de prueba (nombrada &quot;Prueba — ...&quot;) con el perfil que elijas acá abajo, con su
             plan de cuentas ya armado, y te entra directo al formulario de Configuração inicial tal como lo
             vería un cliente nuevo con ese perfil — sin tener que pasar por Criar conta y aprobar una
-            solicitud. Cuando termines de probar, borrala desde "Empresas activas" (🗑️) como cualquier otra.
+            solicitud. Cuando termines de probar, borrala desde &quot;Empresas activas&quot; (🗑️) como cualquier otra.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
