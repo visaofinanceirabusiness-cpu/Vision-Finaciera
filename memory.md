@@ -21,9 +21,19 @@ el paso de crear el PR — el usuario decidió dejarla así por ahora
 `MisIngresos.tsx` (la de `api/cotizaciones/actualizar/route.ts` NO era
 duplicado real — corre server-side con su propio offset UTC-3 a
 propósito, no tocar). Los 5 `any` de `mercaderia/page.tsx` tipados como
-`Clave` (ya existía el tipo, solo faltaba exportarlo). Quedan
-pendientes las Fases 2-4 del informe — antes de tocar código "para
-mejorarlo" sin pedido puntual del usuario, mirar ese plan primero.
+`Clave` (ya existía el tipo, solo faltaba exportarlo).
+
+**Fase 2 del informe de octubre — en progreso (01/10/2026):**
+`MisDatosSeccion`, `PersonalizacionColoresSeccion` y
+`GestionAsistentes` se movieron de `configuracoes/page.tsx` a
+`src/components/configuracoes/` (junto con un `estilosCompartidos.ts`
+nuevo para los estilos que esas 3 secciones comparten con el resto de
+la pantalla). `configuracoes/page.tsx`: 4005 → 3232 líneas, mismo
+comportamiento. Falta el mismo tratamiento para las tabs de
+`contabilidad/page.tsx` — no tocar esa pantalla "de pasada" sin
+avisar, es la otra mitad de la Fase 2. Quedan las Fases 3-4 del
+informe completas — antes de tocar código "para mejorarlo" sin pedido
+puntual del usuario, mirar ese plan primero.
 
 ## Empresas de referencia (para probar features)
 - **Buenaventura** y **Ocaña** — perfil Familia, las más usadas para
