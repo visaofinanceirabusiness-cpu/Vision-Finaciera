@@ -8,14 +8,22 @@ necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
 ## Mantenimiento mensual
-Día 1 de cada mes corre la skill `mantenimiento` (Routine programada)
-— análisis de salud del código + plan de mejoras, guardado en
-`mantenimiento/<AAAA-MM>.md`. Primer informe: `mantenimiento/2026-10.md`
-(archivos grandes en `configuracoes/page.tsx`/`contabilidad/page.tsx`,
-sin tests/linter, `fechaLocalHoy()` duplicada 4 veces, Next/React dos
-versiones atrás). Antes de tocar código "para mejorarlo" sin que el
-usuario lo haya pedido puntualmente, mirar si ya está en el plan de
-ese informe — evita proponer lo mismo dos veces.
+Día 1 de cada mes corre la skill `mantenimiento` (Routine programada,
+sin conectores MCP — ver nota abajo) — análisis de salud del código +
+plan de mejoras, guardado en `mantenimiento/<AAAA-MM>.md`. Primer
+informe: `mantenimiento/2026-10.md`. La Routine no tiene conectores de
+GitHub/Supabase pasados, así que cuando dispare sola puede trabarse en
+el paso de crear el PR — el usuario decidió dejarla así por ahora
+(01/10/2026), no recrearla desde la UI de claude.ai todavía.
+
+**Fase 1 del informe de octubre — completada (01/10/2026):**
+`fechaLocalHoy()` desduplicada en `MisVencimientos.tsx`/
+`MisIngresos.tsx` (la de `api/cotizaciones/actualizar/route.ts` NO era
+duplicado real — corre server-side con su propio offset UTC-3 a
+propósito, no tocar). Los 5 `any` de `mercaderia/page.tsx` tipados como
+`Clave` (ya existía el tipo, solo faltaba exportarlo). Quedan
+pendientes las Fases 2-4 del informe — antes de tocar código "para
+mejorarlo" sin pedido puntual del usuario, mirar ese plan primero.
 
 ## Empresas de referencia (para probar features)
 - **Buenaventura** y **Ocaña** — perfil Familia, las más usadas para

@@ -34,6 +34,7 @@ import {
   contadorProductos,
   contadorMovimientos,
   frasesSabioMercaderia,
+  type Clave,
 } from './i18n';
 
 // Colores personalizables por empresa (CONFIGURAÇÕES → Apariencia):
@@ -112,14 +113,14 @@ const FORMULARIO_VACIO: Formulario = {
   codigo_barras: '',
 };
 
-function opcionesTipo(t: (clave: any) => string) {
+function opcionesTipo(t: (clave: Clave) => string) {
   return [
     { value: 'TERMINADO', label: t('opcionTerminado') },
     { value: 'INSUMO', label: t('opcionInsumo') },
   ];
 }
 
-function opcionesUnidad(t: (clave: any) => string) {
+function opcionesUnidad(t: (clave: Clave) => string) {
   return [
     { value: '', label: t('opcionSinEspecificar') },
     { value: 'UNIDAD', label: t('opcionUnidad') },
@@ -129,7 +130,7 @@ function opcionesUnidad(t: (clave: any) => string) {
   ];
 }
 
-function etiquetaUnidad(codigo: string | null, t: (clave: any) => string): string {
+function etiquetaUnidad(codigo: string | null, t: (clave: Clave) => string): string {
   if (!codigo) return '—';
   return opcionesUnidad(t).find((opcion) => opcion.value === codigo)?.label ?? codigo;
 }
@@ -1346,7 +1347,7 @@ function GraficoTortaCategorias({
   datos: { nombre: string; cantidad: number; valor: number }[];
   simbolo: string;
   idioma: string | null;
-  t: (clave: any) => string;
+  t: (clave: Clave) => string;
 }) {
   const [modo, setModo] = useState<'cantidad' | 'valor'>('cantidad');
   const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
@@ -1514,7 +1515,7 @@ function SeccionProductos({
   eliminandoId: string | null;
   simbolo: string;
   idioma: string | null;
-  t: (clave: any) => string;
+  t: (clave: Clave) => string;
 }) {
   const totalUnidades = productos.reduce((total, producto) => total + producto.saldo, 0);
   const totalInventario = productos.reduce((total, producto) => total + producto.valorInventario, 0);
