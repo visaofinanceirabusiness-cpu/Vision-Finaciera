@@ -724,9 +724,9 @@ export default function SegurancaDadosPage() {
           {/* PREGUNTA GUÍA */}
           <div style={{ background: '#eef4f1', borderRadius: 16, padding: '18px 22px', marginBottom: 32 }}>
             <p style={{ margin: 0, fontSize: 14.5, fontStyle: 'italic', color: COLORES.azul }}>
-              "Si mañana entraran 100 usuarios nuevos a Visão Financeira, ¿qué información les estamos
+              &quot;Si mañana entraran 100 usuarios nuevos a Visão Financeira, ¿qué información les estamos
               pidiendo, dónde termina esa información y quién podría acceder a ella? ¿Qué cosas podrían hacer
-              que una persona desconfíe de nosotros?"
+              que una persona desconfíe de nosotros?&quot;
             </p>
           </div>
 

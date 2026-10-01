@@ -23,17 +23,57 @@ duplicado real — corre server-side con su propio offset UTC-3 a
 propósito, no tocar). Los 5 `any` de `mercaderia/page.tsx` tipados como
 `Clave` (ya existía el tipo, solo faltaba exportarlo).
 
-**Fase 2 del informe de octubre — en progreso (01/10/2026):**
+**Fase 2 del informe de octubre — completada (01/10/2026):**
 `MisDatosSeccion`, `PersonalizacionColoresSeccion` y
 `GestionAsistentes` se movieron de `configuracoes/page.tsx` a
 `src/components/configuracoes/` (junto con un `estilosCompartidos.ts`
 nuevo para los estilos que esas 3 secciones comparten con el resto de
 la pantalla). `configuracoes/page.tsx`: 4005 → 3232 líneas, mismo
-comportamiento (PR #323, mergeado). Falta el mismo tratamiento para las
-tabs de `contabilidad/page.tsx` — no tocar esa pantalla "de pasada" sin
-avisar, es la otra mitad de la Fase 2. Quedan las Fases 3-4 del
-informe completas — antes de tocar código "para mejorarlo" sin pedido
-puntual del usuario, mirar ese plan primero.
+comportamiento (PR #323, mergeado).
+
+Mismo tratamiento para `contabilidad/page.tsx` (PR #325, mergeado):
+las 4 pestañas (Central de Lançamentos, Registro de Operaciones, Libro
+Diario, Editar Registros) y sus helpers privados se movieron a
+`src/components/contabilidad/`, con `compartido.ts` (contextos,
+`COLORES`, `OPERACIONES_EDITABLES`, tipos `ValoresIniciales`/
+`LineaFormulario`/`Registro`, `construirValoresEdicion`) y
+`estilosCompartidos.ts` para lo que comparten las 4 pestañas, más un
+`celdas.tsx` para `Th`/`Td`/`Estado` (usados tanto por Registro de
+Operaciones como por Libro Diario). `contabilidad/page.tsx`: 3927 →
+279 líneas, mismo comportamiento.
+
+**Fase 3 del informe de octubre — completada parcialmente (01/10/2026):**
+ESLint configurado (`next/core-web-vitals`, `npm run lint`) — se
+corrigieron los 4 errores reales que tenía el repo (comillas sin
+escapar en JSX, en `panel-maestro/page.tsx` y
+`panel-maestro/seguranca-dados/page.tsx`); quedan solo warnings de
+`react-hooks/exhaustive-deps` preexistentes en varias pantallas, no
+tocados a propósito (cambiar esos arrays de dependencias puede
+cambiar el timing de efectos ya probados en producción — no se tocan
+sin pedido puntual). Vitest configurado (`npm test`,
+`vitest.config.ts`, env dummy de Supabase para que los módulos que
+importan `lib/supabase.ts` no revienten al cargarse).
+
+Tests unitarios: solo se pudo cubrir `generarCodigo`
+(`lib/categorias.ts`) — es la ÚNICA función realmente pura de
+`categorias.ts`; todo el resto de `categorias.ts` y **absolutamente
+todo** `lib/motor.ts` son funciones `async` que hablan con Supabase en
+el medio de la lógica (no hay una capa de "decisión pura" separada de
+la I/O). El informe de octubre asumía que eran "en su mayoría puras"
+— no es así. Para testear `motor.ts` de verdad hacen falta, en orden
+de preferencia: (a) mockear el cliente de Supabase completo
+(`vi.mock('@/lib/supabase')`) — factible pero son muchas llamadas
+encadenadas (`.from().select().eq()...`) distintas por función, mock
+grande y frágil de mantener; o (b) separar la lógica de resolución de
+roles/cuentas de la I/O dentro de `motor.ts` — un cambio real al
+motor contable, ALTO RIESGO, requiere pedido explícito antes de
+tocarlo. Ninguna de las dos se hizo todavía — queda como el próximo
+paso si se quiere seguir profundizando la Fase 3, pero es trabajo
+grande aparte, no algo para colar de pasada.
+
+Queda la Fase 4 del informe completa (upgrade Next/React) — antes de
+tocar código "para mejorarlo" sin pedido puntual del usuario, mirar
+ese plan primero.
 
 Además (01/10/2026, no parte del plan de octubre): se eliminó de
 Configurações el link `🦉 Sabio (beta)` (`/sabio-bot`) de la barra de
