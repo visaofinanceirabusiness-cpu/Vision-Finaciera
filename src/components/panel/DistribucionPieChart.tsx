@@ -107,7 +107,7 @@ export function DistribucionPieChart({
       >
         <svg
           viewBox={`0 0 ${tamano} ${tamano}`}
-          style={{ width: grande ? '100%' : tamano, maxWidth: tamano, height: 'auto', flexShrink: 0 }}
+          style={{ width: grande ? '100%' : `min(100%, ${tamano}px)`, maxWidth: tamano, height: 'auto', flexShrink: 0 }}
         >
           {porciones.map((porcion) => (
             <path key={porcion.nombre} d={porcion.path} fill={porcion.color} stroke="#ffffff" strokeWidth={grande ? 3 : 2} />
@@ -124,7 +124,7 @@ export function DistribucionPieChart({
           </text>
         </svg>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: grande ? 14 : 10, flex: 1, minWidth: 260, maxWidth: grande ? 480 : undefined }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: grande ? 14 : 10, flex: '1 1 200px', minWidth: 160, maxWidth: grande ? 480 : undefined }}>
           {porciones.map((porcion) => (
             <div key={porcion.nombre} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
