@@ -23,17 +23,26 @@ duplicado real — corre server-side con su propio offset UTC-3 a
 propósito, no tocar). Los 5 `any` de `mercaderia/page.tsx` tipados como
 `Clave` (ya existía el tipo, solo faltaba exportarlo).
 
-**Fase 2 del informe de octubre — en progreso (01/10/2026):**
+**Fase 2 del informe de octubre — completada (01/10/2026):**
 `MisDatosSeccion`, `PersonalizacionColoresSeccion` y
 `GestionAsistentes` se movieron de `configuracoes/page.tsx` a
 `src/components/configuracoes/` (junto con un `estilosCompartidos.ts`
 nuevo para los estilos que esas 3 secciones comparten con el resto de
 la pantalla). `configuracoes/page.tsx`: 4005 → 3232 líneas, mismo
-comportamiento (PR #323, mergeado). Falta el mismo tratamiento para las
-tabs de `contabilidad/page.tsx` — no tocar esa pantalla "de pasada" sin
-avisar, es la otra mitad de la Fase 2. Quedan las Fases 3-4 del
-informe completas — antes de tocar código "para mejorarlo" sin pedido
-puntual del usuario, mirar ese plan primero.
+comportamiento (PR #323, mergeado).
+
+Mismo tratamiento para `contabilidad/page.tsx` (PR #325, mergeado):
+las 4 pestañas (Central de Lançamentos, Registro de Operaciones, Libro
+Diario, Editar Registros) y sus helpers privados se movieron a
+`src/components/contabilidad/`, con `compartido.ts` (contextos,
+`COLORES`, `OPERACIONES_EDITABLES`, tipos `ValoresIniciales`/
+`LineaFormulario`/`Registro`, `construirValoresEdicion`) y
+`estilosCompartidos.ts` para lo que comparten las 4 pestañas, más un
+`celdas.tsx` para `Th`/`Td`/`Estado` (usados tanto por Registro de
+Operaciones como por Libro Diario). `contabilidad/page.tsx`: 3927 →
+279 líneas, mismo comportamiento. Quedan las Fases 3-4 del informe
+completas — antes de tocar código "para mejorarlo" sin pedido puntual
+del usuario, mirar ese plan primero.
 
 Además (01/10/2026, no parte del plan de octubre): se eliminó de
 Configurações el link `🦉 Sabio (beta)` (`/sabio-bot`) de la barra de
