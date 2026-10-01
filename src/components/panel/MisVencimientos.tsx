@@ -160,6 +160,32 @@ export function MisVencimientos({
 
   return (
     <div>
+      {/* En celular, cada fila (Pasivos/Gastos Recurrentes/Plantillas)
+          dependía de scroll horizontal para ver el monto y los
+          botones — difícil de notar y de usar con el dedo. Estas
+          reglas, solo por debajo de 560px, apilan el texto arriba y
+          el monto/acciones abajo en vez de scrollear al costado. */}
+      <style>{`
+        @media (max-width: 560px) {
+          .mv-fila {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            overflow-x: visible !important;
+          }
+          .mv-texto {
+            white-space: normal !important;
+            width: 100%;
+          }
+          .mv-derecha {
+            position: static !important;
+            width: 100%;
+            justify-content: space-between !important;
+            padding-left: 0 !important;
+            margin-top: 4px;
+          }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
           <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
@@ -246,6 +272,7 @@ export function MisVencimientos({
                     return (
                       <div
                         key={cuota.id}
+                        className="mv-fila"
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -261,7 +288,7 @@ export function MisVencimientos({
                           opacity: esFutura ? 0.7 : 1,
                         }}
                       >
-                        <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
+                        <span className="mv-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                           {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
                           {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
                           {esFutura && (
@@ -271,6 +298,7 @@ export function MisVencimientos({
                           )}
                         </span>
                         <span
+                          className="mv-derecha"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -309,6 +337,7 @@ export function MisVencimientos({
                 {cuotasPagadas.map((cuota) => (
                   <div
                     key={cuota.id}
+                    className="mv-fila"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -323,10 +352,11 @@ export function MisVencimientos({
                       overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                    <span className="mv-texto" style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       ✓ {cuota.forma_pago_nombre} {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_pago ?? cuota.fecha_vencimiento}
                     </span>
                     <strong
+                      className="mv-derecha"
                       style={{
                         fontSize: 12.5,
                         color: '#16a34a',
@@ -371,6 +401,7 @@ export function MisVencimientos({
                 return (
                   <div
                     key={recordatorio.id}
+                    className="mv-fila"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -385,7 +416,7 @@ export function MisVencimientos({
                       overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
+                    <span className="mv-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                       {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                       {vencido && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
                       {tienePagoParcial && (
@@ -397,6 +428,7 @@ export function MisVencimientos({
                       )}
                     </span>
                     <span
+                      className="mv-derecha"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -441,6 +473,7 @@ export function MisVencimientos({
                   return (
                     <div
                       key={recordatorio.id}
+                      className="mv-fila"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -455,7 +488,7 @@ export function MisVencimientos({
                         overflowX: 'auto',
                       }}
                     >
-                      <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                      <span className="mv-texto" style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
                         ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                         {deMas > 0.01 && (
                           <div style={{ fontSize: 11, color: '#b45309' }}>
@@ -466,6 +499,7 @@ export function MisVencimientos({
                         )}
                       </span>
                       <strong
+                        className="mv-derecha"
                         style={{
                           fontSize: 12.5,
                           color: '#16a34a',
@@ -501,6 +535,7 @@ export function MisVencimientos({
                     return (
                     <div
                       key={plantilla.id}
+                      className="mv-fila"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -515,7 +550,7 @@ export function MisVencimientos({
                         overflowX: 'auto',
                       }}
                     >
-                      <span style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781', whiteSpace: 'nowrap' }}>
+                      <span className="mv-texto" style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781', whiteSpace: 'nowrap' }}>
                         {plantilla.nombre}
                         <span style={{ fontWeight: 400, color: '#6e7781' }}>
                           {' '}
@@ -524,6 +559,7 @@ export function MisVencimientos({
                       </span>
 
                       <span
+                        className="mv-derecha"
                         style={{
                           display: 'flex',
                           alignItems: 'center',
