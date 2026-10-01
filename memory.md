@@ -7,6 +7,16 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Mantenimiento mensual
+Día 1 de cada mes corre la skill `mantenimiento` (Routine programada)
+— análisis de salud del código + plan de mejoras, guardado en
+`mantenimiento/<AAAA-MM>.md`. Primer informe: `mantenimiento/2026-10.md`
+(archivos grandes en `configuracoes/page.tsx`/`contabilidad/page.tsx`,
+sin tests/linter, `fechaLocalHoy()` duplicada 4 veces, Next/React dos
+versiones atrás). Antes de tocar código "para mejorarlo" sin que el
+usuario lo haya pedido puntualmente, mirar si ya está en el plan de
+ese informe — evita proponer lo mismo dos veces.
+
 ## Empresas de referencia (para probar features)
 - **Buenaventura** y **Ocaña** — perfil Familia, las más usadas para
   probar gamificación/objetivos/trofeos
