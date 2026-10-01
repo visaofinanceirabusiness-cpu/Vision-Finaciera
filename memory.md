@@ -71,9 +71,59 @@ tocarlo. Ninguna de las dos se hizo todavía — queda como el próximo
 paso si se quiere seguir profundizando la Fase 3, pero es trabajo
 grande aparte, no algo para colar de pasada.
 
-Queda la Fase 4 del informe completa (upgrade Next/React) — antes de
-tocar código "para mejorarlo" sin pedido puntual del usuario, mirar
-ese plan primero.
+**Fase 4 del informe de octubre — hecha en rama separada
+`upgrade-next-react` (01/10/2026):** upgrade Next 14.2.5 → 16.3.8 y
+React 18.3.1 → 19.3.0, de a un salto por vez (14→15, React 18→19,
+15→16), con codemods oficiales en cada paso
+(`@next/codemod next-async-request-api`,
+`types-react-codemod preset-19` — ninguno de los dos modificó código,
+esta app no usaba los patrones deprecados que corrigen). Verificado en
+cada paso con `tsc --noEmit`, `npm test`, `next build` completo (con
+`.env.local` apuntando al proyecto real de Supabase vía MCP — las
+claves públicas, no hace falta pedirle nada al usuario) y, con
+Playwright temporal, screenshots + chequeo de consola del navegador en
+~10 pantallas clave (login, contabilidad, panel-de-control,
+configuracoes, informes, mercaderia, recursos-humanos, producción,
+nuestro-sueno) — cero errores/warnings de consola y cero diferencia
+visual en todo el proceso. **Limitación de esta verificación**: no
+había credenciales reales para loguearse, así que no se probaron
+flujos autenticados de punta a punta (cargar una operación, etc.) —
+eso lo tiene que probar el usuario en el preview de Vercel antes de
+confirmar el merge.
+
+Hallazgos del upgrade, documentados para la próxima vez:
+- **`next lint` ya no existe en Next 16** — se cambió `npm run lint` a
+  `eslint . --ext .ts,.tsx` directo (mismo `.eslintrc.json`, mismo
+  resultado). Ver nota en `CLAUDE.md`.
+- **Next 16 + Turbopack exige `"jsx": "react-jsx"`** en `tsconfig.json`
+  (antes `"preserve"`) — a diferencia del resto del ruido que agrega
+  `next build` en `include`/`plugins` (que no aporta nada y se
+  revierte), este cambio sí hace falta y se dejó aplicado a mano,
+  sin el reformateo del resto del archivo.
+- **Next 16 agrega automáticamente un bloque a `CLAUDE.md`** en cada
+  `next dev` (su propia guía para agentes de IA, entre marcadores
+  `<!-- BEGIN/END:nextjs-agent-rules -->`). Se sacó y se desactivó
+  con `next.config.js` → `{ agentRules: false }`, para que
+  `CLAUDE.md` siga siendo 100% curado por el equipo.
+- Hubo un 404 real y transitorio del registry de npm en
+  `baseline-browser-mapping@2.11.27` (una dependencia transitiva de
+  Next 16) — se fijó la versión a `2.11.26` con `overrides` en
+  `package.json`. Si en el futuro se nota que ya no hace falta
+  (porque el registry ya sirve bien esa versión), se puede probar a
+  sacarlo.
+- `eslint-config-next` quedó en `14.2.5` (no en `16.x`) porque la
+  versión que acompaña a Next 16 pide ESLint ≥9 con flat config
+  (`eslint.config.js`), y este repo sigue en ESLint 8 con
+  `.eslintrc.json` clásico — migrar eso es una tarea aparte, no
+  bloqueante (el lint de hoy sigue andando igual).
+- Warning aparte, no relacionado a este upgrade: `@zxing/library`
+  pide Node ≥24 y acá hay Node 22 — sigue funcionando, es solo un
+  `EBADENGINE` warning de npm, no se tocó.
+
+Falta: abrir PR de `upgrade-next-react` contra `main`, esperar CI, y
+que el usuario revise el preview de Vercel (sobre todo un flujo
+logueado real) antes de mergear — no se mergea solo por haber pasado
+los chequeos automáticos, dado el alcance del cambio.
 
 Además (01/10/2026, no parte del plan de octubre): se eliminó de
 Configurações el link `🦉 Sabio (beta)` (`/sabio-bot`) de la barra de
