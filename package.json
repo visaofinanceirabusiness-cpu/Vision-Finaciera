@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run"
   },
   "dependencies": {
@@ -26,7 +26,6 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.5",
-    "playwright": "^1.63.0",
     "typescript": "^5.5.4",
     "vitest": "^2.1.9"
   },

@@ -13,12 +13,13 @@ sesión a sesión.
 - `npm run dev` — levantar en local
 - `npm run build` — build de producción
 - `npx tsc --noEmit` — typecheck (correr siempre antes de pushear)
-- `npm run lint` — ESLint (`next/core-web-vitals`). OJO: tanto `next
-  lint` como `next build` reescriben `tsconfig.json` solos (agregan
-  `.next/types/**/*.ts` a `include` y `{name: "next"}` a `plugins`) —
-  este repo no usa typed routes, así que no aporta nada; revertir con
-  `git checkout -- tsconfig.json` después de correrlos si no se lo
-  pidió el usuario explícitamente.
+- `npm run lint` — ESLint directo (`next lint` ya no existe desde
+  Next 16). OJO: `next build` (no así `eslint` corrido directo)
+  reescribe `tsconfig.json` solo (agrega `.next/types/**/*.ts` a
+  `include` y `{name: "next"}` a `plugins`) — este repo no usa typed
+  routes, así que no aporta nada; revertir con `git checkout --
+  tsconfig.json` después de buildear si no se lo pidió el usuario
+  explícitamente.
 - `npm test` — tests unitarios (Vitest). Hoy solo cubren funciones
   puras (`generarCodigo` en `lib/categorias.ts`) — ver `memory.md`
   para el estado de testear `lib/motor.ts`.
