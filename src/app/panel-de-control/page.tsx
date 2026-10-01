@@ -555,6 +555,19 @@ export default function MiNegocioPage() {
         padding: 24,
       }}
     >
+      {/* Las grillas de 2 columnas (ej. Endeudamiento/Fondo de
+          Respaldo) usan minmax(360px, 1fr) — en un celular angosto
+          (<390px de ancho real) eso fuerza una columna más ancha que
+          la pantalla, y las barras de progreso de adentro se salían
+          de la tarjeta blanca. Por debajo de 480px, una sola columna. */}
+      <style>{`
+        @media (max-width: 480px) {
+          .grilla-responsiva {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         {/* =================================================
             ENCABEZADO — mismo estilo que el resto de las
@@ -869,6 +882,7 @@ export default function MiNegocioPage() {
           </div>
 
           <div
+            className="grilla-responsiva"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
@@ -900,6 +914,7 @@ export default function MiNegocioPage() {
 
         {perfil?.empresa_id && (
           <div
+            className="grilla-responsiva"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
@@ -1268,6 +1283,7 @@ export default function MiNegocioPage() {
 
         {esFamiliar && configuracion?.mostrar_graficos && (
           <section
+            className="grilla-responsiva"
             style={{
               background: colores.blanco,
               borderRadius: 24,
