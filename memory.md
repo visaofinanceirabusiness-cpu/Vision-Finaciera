@@ -29,11 +29,16 @@ propósito, no tocar). Los 5 `any` de `mercaderia/page.tsx` tipados como
 `src/components/configuracoes/` (junto con un `estilosCompartidos.ts`
 nuevo para los estilos que esas 3 secciones comparten con el resto de
 la pantalla). `configuracoes/page.tsx`: 4005 → 3232 líneas, mismo
-comportamiento. Falta el mismo tratamiento para las tabs de
-`contabilidad/page.tsx` — no tocar esa pantalla "de pasada" sin
+comportamiento (PR #323, mergeado). Falta el mismo tratamiento para las
+tabs de `contabilidad/page.tsx` — no tocar esa pantalla "de pasada" sin
 avisar, es la otra mitad de la Fase 2. Quedan las Fases 3-4 del
 informe completas — antes de tocar código "para mejorarlo" sin pedido
 puntual del usuario, mirar ese plan primero.
+
+Además (01/10/2026, no parte del plan de octubre): se eliminó de
+Configurações el link `🦉 Sabio (beta)` (`/sabio-bot`) de la barra de
+tabs — era un acceso de prueba a un prototipo, no un feature terminado
+(PR #324, mergeado).
 
 ## Empresas de referencia (para probar features)
 - **Buenaventura** y **Ocaña** — perfil Familia, las más usadas para
