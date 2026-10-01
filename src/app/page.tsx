@@ -31,6 +31,7 @@ import { SabioHero } from '@/components/panel/SabioHero';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
+import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
@@ -854,6 +855,8 @@ export default function InicioPage() {
             jugada cargada.
         ================================================== */}
 
+        {perfil && <PanelControlLobby idioma={idioma} />}
+
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
         {perfil && (
@@ -925,13 +928,6 @@ export default function InicioPage() {
               gap: 12,
             }}
           >
-            <BotonAcceso
-              href="/panel-de-control"
-              titulo={t('herramientaPanelControl')}
-              colorPrincipal={colores.verde}
-              destacado
-            />
-
             <BotonAcceso
               href="/contabilidad"
               titulo={t('herramientaContabilidad')}
