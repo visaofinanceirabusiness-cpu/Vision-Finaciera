@@ -497,6 +497,119 @@ export async function crearCategoriaActivo(empresaId: string, nombre: string) {
 }
 
 // =====================================================
+// LIQUIDAR UNA CUENTA POR COBRAR/PAGAR
+// =====================================================
+//
+// Una Cuenta por Cobrar/Pagar nace como FORMA DE PAGO (habilitada para
+// Venta/Cobro o Compra/Pago) — eso alcanza para generar la deuda (ej.
+// una Venta a crédito: débito Cuenta por Cobrar, crédito la venta).
+// Pero no había ningún camino para LIQUIDARLA después: la única regla
+// de Cobro siempre acreditaba "Ingreso" (inflando la cuenta por cobrar
+// y encima duplicando el ingreso, en vez de bajar la deuda), y del
+// lado de Pago, una Cuenta por Pagar creada desde "+Crear cuenta
+// nueva" nunca quedaba habilitada como categoría (solo como forma de
+// pago), así que tampoco podía pagarse por el camino correcto.
+//
+// La solución: la MISMA cuenta contable que ya tiene la Cuenta por
+// Cobrar/Pagar (como forma de pago) se habilita TAMBIÉN como
+// CATEGORÍA, con el rol invertido — así se puede elegir en un Cobro/
+// Pago para reducirla contra un medio financiero real, en vez de
+// seguir aumentándola. Mismo patrón que ya usa Compra con Activo Fijo
+// (ACTIVO_CATEGORIA/MEDIO_FINANCIERO) — los roles son constantes para
+// este tipo, no dependen del perfil de la empresa.
+async function habilitarCategoriaDeLiquidacion(
+  empresaId: string,
+  operacion: 'COBRO' | 'PAGO',
+  tipo: 'ACTIVO' | 'PASIVO',
+  cuentaId: string,
+  nombreCuenta: string
+) {
+  const nombreLimpio = nombreCuenta.trim();
+
+  const { data: existentes, error: errorExistentes } = await supabase
+    .from('categorias_operacion')
+    .select('id, codigo, nombre')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', operacion);
+
+  if (errorExistentes) {
+    throw errorExistentes;
+  }
+
+  // Idempotente: si esta cuenta ya se habilitó para liquidarse (ej. se
+  // vuelve a correr sobre una empresa ya corregida), no duplica nada.
+  if ((existentes ?? []).some((c) => c.nombre === nombreLimpio)) {
+    return;
+  }
+
+  const codigo = generarCodigo(nombreLimpio, (existentes ?? []).map((c) => c.codigo));
+
+  const { data: categoriaCreada, error: errorCategoria } = await supabase
+    .from('categorias_operacion')
+    .insert({
+      empresa_id: empresaId,
+      operacion,
+      codigo,
+      nombre: nombreLimpio,
+      tipo,
+      activo: true,
+    })
+    .select('id')
+    .single();
+
+  if (errorCategoria) {
+    throw errorCategoria;
+  }
+
+  const { error: errorVinculo } = await supabase.from('categorias_operacion_cuentas').insert({
+    empresa_id: empresaId,
+    categoria_operacion_id: categoriaCreada.id,
+    cuenta_id: cuentaId,
+    rol: tipo,
+    activo: true,
+  });
+
+  if (errorVinculo) {
+    throw errorVinculo;
+  }
+
+  const [rolDebito, rolCredito, motor] =
+    operacion === 'COBRO'
+      ? (['MEDIO_FINANCIERO', 'ACTIVO_CATEGORIA', 'ACTIVO'] as const)
+      : (['PASIVO_CATEGORIA', 'MEDIO_FINANCIERO', 'PASIVOS'] as const);
+
+  const { error: errorRegla } = await supabase.from('reglas_contables').insert({
+    empresa_id: empresaId,
+    operacion,
+    categoria_codigo: codigo,
+    categoria_nombre: nombreLimpio,
+    rol_debito: rolDebito,
+    rol_credito: rolCredito,
+    stock: 'NO',
+    libro: 'SI',
+    cmv: 'NO',
+    motor,
+  });
+
+  if (errorRegla) {
+    throw errorRegla;
+  }
+}
+
+// Cuenta por Cobrar: habilita COBRARLA — débito el medio financiero
+// real elegido, crédito la Cuenta por Cobrar (la reduce). La cuenta ya
+// tiene que existir (se crea junto con la forma de pago).
+export async function habilitarLiquidacionCuentaCobrar(empresaId: string, cuentaId: string, nombreCuenta: string) {
+  return habilitarCategoriaDeLiquidacion(empresaId, 'COBRO', 'ACTIVO', cuentaId, nombreCuenta);
+}
+
+// Cuenta por Pagar: habilita PAGARLA — débito la Cuenta por Pagar (la
+// reduce), crédito el medio financiero real elegido.
+export async function habilitarLiquidacionCuentaPagar(empresaId: string, cuentaId: string, nombreCuenta: string) {
+  return habilitarCategoriaDeLiquidacion(empresaId, 'PAGO', 'PASIVO', cuentaId, nombreCuenta);
+}
+
+// =====================================================
 // CATEGORÍA DE SERVICIO / INGRESO (sin stock)
 //
 // Sirve para dos casos que son estructuralmente iguales: una venta
@@ -694,7 +807,14 @@ export async function crearPasivo(empresaId: string, nombre: string) {
   // Un Pasivo nuevo sirve, ante todo, para pagar/comprar a crédito —
   // se habilita directo en esas dos operaciones, igual que ya pasa
   // con Tarjeta y Préstamo Personal.
-  return crearFormaPago(empresaId, nombreLimpio, cuentaId, ['COMPRA', 'PAGO']);
+  const resultado = await crearFormaPago(empresaId, nombreLimpio, cuentaId, ['COMPRA', 'PAGO']);
+
+  // Y también para PAGARLO después (ver habilitarLiquidacionCuentaPagar)
+  // — sin esto, la única forma de "pagarlo" sería seguir aumentando la
+  // deuda en vez de cancelarla.
+  await habilitarLiquidacionCuentaPagar(empresaId, cuentaId, nombreLimpio);
+
+  return resultado;
 }
 
 export async function crearFormaPago(

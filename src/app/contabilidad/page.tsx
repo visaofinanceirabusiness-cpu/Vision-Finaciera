@@ -22,7 +22,7 @@ import {
   generarMatrizOperaciones,
   LineaOperacion,
 } from '@/lib/motor';
-import { crearCuentaParaMedioPago, crearFormaPago, crearPasivo } from '@/lib/categorias';
+import { crearCuentaParaMedioPago, crearFormaPago, crearPasivo, habilitarLiquidacionCuentaCobrar } from '@/lib/categorias';
 import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
@@ -584,6 +584,11 @@ function CentralDeLanzamientosTab({
         // CONTENEDOR_MEDIO_PAGO y se habilita para Venta/Cobro.
         const cuentaId = await crearCuentaParaMedioPago(empresaId, nombre, 'ACTIVO');
         await crearFormaPago(empresaId, nombre, cuentaId, ['VENTA', 'COBRO']);
+
+        // Y también para COBRARLA después (ver
+        // habilitarLiquidacionCuentaCobrar) — sin esto, la única forma
+        // de "cobrarla" sería seguir aumentándola en vez de cancelarla.
+        await habilitarLiquidacionCuentaCobrar(empresaId, cuentaId, nombre);
       } else {
         // Cuenta a pagar (Pasivo): crearCuentaParaMedioPago siempre
         // cuelga de CONTENEDOR_MEDIO_PAGO, que es de Activo — para un
