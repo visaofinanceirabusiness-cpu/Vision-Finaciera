@@ -44,6 +44,34 @@ tenían esto activo. **No se corrigieron registros históricos** (ej. el
 cobro a Brenda en Buenaventura sigue tal cual estaba) — si el usuario
 pide corregir uno puntual, se hace a mano desde Contabilidad.
 
+## Lobby — Panel de Control con tarjeta propia
+Panel de Control salió de la grilla de "Tus Herramientas" y tiene su
+propia tarjeta destacada arriba de Sabio del Azar
+(`components/panel/PanelControlLobby.tsx`), con ilustración propia en
+`public/sabio/sabio-panel-control.png` y borde grueso con degradado
+metálico. Mismo modelo visual que `SabioAzarLobby`/`SabioBotLobby`.
+
+## Overflow horizontal en celular (varias correcciones)
+Patrón recurrente: grillas con `minmax(Npx, 1fr)` y filas con
+`flexWrap: nowrap` + scroll horizontal se rompían en celulares
+angostos (<480px) — contenido o barras saliéndose de la tarjeta.
+Corregido en:
+- `MisVencimientos.tsx` (Pasivos/Gastos Recurrentes/Plantillas): clases
+  `mv-fila`/`mv-texto`/`mv-derecha` + `@media (max-width: 560px)` que
+  apila en vez de scrollear.
+- `panel-de-control/page.tsx`: clase `grilla-responsiva` +
+  `@media (max-width: 480px)` en las grillas de Endeudamiento/Fondo de
+  Respaldo, Mis Ingresos/Vencimientos y Composición del Patrimonio.
+- `DistribucionPieChart.tsx`: el SVG tenía ancho fijo (220px) y la
+  leyenda un `minWidth: 260` — ninguno se achicaba lo suficiente ni
+  siquiera dentro de una sola columna. Ahora `width: min(100%, 220px)`
+  en el SVG y `minWidth: 160` en la leyenda.
+
+Si aparece otro caso de "se sale de la pantalla en celular", es casi
+seguro el mismo patrón (ancho mínimo fijo que no cede) — buscar
+`minmax(`, `nowrap` o `minWidth` grandes en el componente afectado
+antes de inventar algo nuevo.
+
 ## Pendientes / ideas no implementadas
 - Fondos de Apariencia con fotos reales (ver arriba) — pendiente de
   que el usuario las suba, o de que el entorno tenga salida a
