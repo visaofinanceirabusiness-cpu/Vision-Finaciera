@@ -31,13 +31,9 @@ import {
 import { SabioRegistrarIngresoModal } from './SabioRegistrarIngresoModal';
 import { VincularCobroModal } from './VincularCobroModal';
 import { AcordeonSeccion } from './AcordeonSeccion';
+import { fechaLocalHoy } from '@/lib/fecha';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
-
-function fechaLocalHoy(): string {
-  const hoy = new Date();
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-}
 
 export function MisIngresos({
   empresaId,

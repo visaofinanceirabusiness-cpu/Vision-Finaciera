@@ -1,6 +1,6 @@
 import type { Diccionario } from '@/lib/i18n';
 
-type Clave =
+export type Clave =
   | 'volver'
   | 'eyebrow'
   | 'titulo'
