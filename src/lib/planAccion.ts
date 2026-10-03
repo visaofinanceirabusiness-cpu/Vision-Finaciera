@@ -10,6 +10,7 @@
 // el anterior.
 
 import { supabase } from './supabase';
+import { fechaLocalHoy, diasEntre } from './fecha';
 
 export type EstadoDia = 'BLOQUEADO' | 'DISPONIBLE' | 'COMPLETADO' | 'NO_COMPLETADO';
 
@@ -29,6 +30,42 @@ export type DiaPlanAccion = {
   notas: string | null;
   fecha_completado: string | null;
 };
+
+// Cada vez que un día pasa a DISPONIBLE se le crea un evento en el
+// Calendário Organizador (eventos_calendario) fechado HOY — no en una
+// fecha fija asumida de antemano — y se guarda su id en
+// plan_accion_dias.evento_calendario_id para poder reprogramarlo (ver
+// api/plan-accion/resumen-diario, que lo pospone un día más cada vez
+// que el cron diario lo encuentra sin completar) o cerrarlo cuando se
+// complete. Se inserta directo acá (no vía lib/calendario.ts) porque
+// no hace falta nada de la UI manual (repetición, etc.), es un
+// insert simple sistema → sistema.
+async function crearEventoDia(
+  empresaId: string,
+  dia: { dia_numero: number; objetivo: string; resultado_esperado: string }
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('eventos_calendario')
+    .insert({
+      empresa_id: empresaId,
+      creado_por: null,
+      titulo: `Día ${dia.dia_numero} — ${dia.objetivo}`,
+      categoria: 'COMERCIAL',
+      fecha: fechaLocalHoy(),
+      hora: null,
+      notas: dia.resultado_esperado,
+      notificar: false,
+      antelacion_minutos: 0,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'No se pudo crear el evento del Plan de Acción en el calendario.');
+  }
+
+  return data.id as string;
+}
 
 export type TareaPlanAccion = {
   id: string;
@@ -103,7 +140,20 @@ export async function guardarMetricasDia(
 // Cierra el día actual (COMPLETADO) y habilita el siguiente
 // (BLOQUEADO → DISPONIBLE) en la misma operación. Si no hay día
 // siguiente (dia_numero === 30), el ciclo completo queda cerrado.
+//
+// Además mantiene sincronizado el Calendário: deja registrado en el
+// evento del día recién completado cuántos días tardó (0 si se cerró
+// el mismo día que se habilitó) y crea el evento del día siguiente
+// fechado HOY, nunca en una fecha fija asumida de antemano — así el
+// Calendário siempre refleja el progreso real del plan, no un
+// cronograma ideal que se desincroniza apenas hay un atraso.
 export async function completarDia(empresaId: string, diaId: string, diaNumero: number): Promise<void> {
+  const { data: diaActual } = await supabase
+    .from('plan_accion_dias')
+    .select('objetivo, evento_calendario_id, fecha_iniciado')
+    .eq('id', diaId)
+    .maybeSingle();
+
   const { error: errorCompletar } = await supabase
     .from('plan_accion_dias')
     .update({ estado: 'COMPLETADO', fecha_completado: new Date().toISOString() })
@@ -113,12 +163,38 @@ export async function completarDia(empresaId: string, diaId: string, diaNumero: 
     throw new Error(errorCompletar.message);
   }
 
-  const { error: errorDesbloquear } = await supabase
+  if (diaActual?.evento_calendario_id) {
+    const atraso = diaActual.fecha_iniciado ? diasEntre(diaActual.fecha_iniciado) : 0;
+    const marca = atraso > 0 ? ` (✅ completado con ${atraso} día${atraso === 1 ? '' : 's'} de atraso)` : ' (✅ completado en el día)';
+
+    await supabase
+      .from('eventos_calendario')
+      .update({ titulo: `Día ${diaNumero} — ${diaActual.objetivo}${marca}` })
+      .eq('id', diaActual.evento_calendario_id);
+  }
+
+  const { data: diaSiguiente, error: errorBuscar } = await supabase
     .from('plan_accion_dias')
-    .update({ estado: 'DISPONIBLE' })
+    .select('id, dia_numero, objetivo, resultado_esperado')
     .eq('empresa_id', empresaId)
     .eq('dia_numero', diaNumero + 1)
-    .eq('estado', 'BLOQUEADO');
+    .eq('estado', 'BLOQUEADO')
+    .maybeSingle();
+
+  if (errorBuscar) {
+    throw new Error(errorBuscar.message);
+  }
+
+  if (!diaSiguiente) {
+    return;
+  }
+
+  const eventoId = await crearEventoDia(empresaId, diaSiguiente);
+
+  const { error: errorDesbloquear } = await supabase
+    .from('plan_accion_dias')
+    .update({ estado: 'DISPONIBLE', fecha_iniciado: new Date().toISOString(), evento_calendario_id: eventoId })
+    .eq('id', diaSiguiente.id);
 
   if (errorDesbloquear) {
     throw new Error(errorDesbloquear.message);

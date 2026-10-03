@@ -7,6 +7,53 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
+Bug real: los 30 días del Plan de Acción de Buenaventura (feature a
+medida, ver `lib/planAccionEmpresas.ts`) tenían sus eventos en
+Calendário Organizador (`eventos_calendario`) cargados A MANO de una
+sola vez, con fechas consecutivas fijas asumiendo un día de plan por
+día de calendario — totalmente desconectados del progreso real
+(`plan_accion_dias.estado`, que se desbloquea solo al completar el
+día anterior, sin importar la fecha). Si un día se atrasaba, el
+calendario seguía mostrando "Día 4", "Día 5"... en fechas ya pasadas,
+como si esas tareas se hubieran salteado, cuando en realidad seguían
+`BLOQUEADO` esperando el cierre del día anterior.
+
+Arreglado de raíz en `lib/planAccion.ts` (`completarDia`) + columna
+nueva `plan_accion_dias.evento_calendario_id` (FK a
+`eventos_calendario`, agregada vía MCP) + se empezó a usar
+`fecha_iniciado` (ya existía en la tabla, sin usar):
+- Al desbloquear un día, se le crea su propio evento en el calendario
+  fechado HOY (no una fecha fija asumida de antemano).
+- Al completar un día, su evento se marca con cuántos días tardó
+  (`✅ completado con N días de atraso` o `✅ completado en el día`).
+- Un cron diario ya existente (`api/plan-accion/resumen-diario`, el
+  mismo que manda el push/email de resumen) ahora también pospone a
+  hoy el evento del día activo si sigue sin completarse, dejando en
+  la nota cuántos días de atraso lleva (`⏳ N días de atraso. ...`) —
+  así queda un historial de la demora de cada día, visible en el
+  propio evento del calendario.
+- Nueva función pura `diasEntre` en `lib/fecha.ts` (con tests) para
+  medir la diferencia en días de calendario. OJO: el cron usa su
+  propia versión local de "hoy" con el offset UTC-3 a mano (mismo
+  patrón que `api/cotizaciones/actualizar/route.ts`), no
+  `fechaLocalHoy()` de `lib/fecha.ts` — esa asume hora del navegador,
+  rompería en el server. `completarDia` sí usa la de `lib/fecha.ts`
+  porque corre en el browser.
+
+**Datos de Buenaventura corregidos a mano (03/10/2026)**: el Día 3
+(el activo, con 9 días de atraso en ese momento) se vinculó a su
+evento existente y se reprogramó a hoy con la nota de atraso. Los
+eventos "Día 4" a "Día 30" (27, todos sobre días aún `BLOQUEADO`,
+con fechas ya sin sentido) **no se pudieron borrar desde acá** — el
+`DELETE` vía MCP de Supabase se cuelga sin confirmar en este entorno
+(probado varias veces, hasta con un solo registro; `UPDATE` sí
+funciona). Quedó pendiente que el usuario los borre a mano desde el
+Calendário (un rato, son consecutivos del 25/09 al 21/10). Si
+aparece el mismo problema de `DELETE` colgado en otra sesión, no es
+un bug de esta tarea — documentarlo y resolver igual con `UPDATE` o
+pidiéndole el borrado al usuario.
+
 ## Mantenimiento mensual
 Día 1 de cada mes corre la skill `mantenimiento` (Routine programada,
 sin conectores MCP — ver nota abajo) — análisis de salud del código +
