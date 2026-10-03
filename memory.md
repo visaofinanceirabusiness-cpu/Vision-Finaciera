@@ -99,6 +99,35 @@ festejo simple (texto con emojis, no el modal de confetti real):
 Con esto el feature "Análisis Mensual Automático" (Fases A+B+C) queda
 completo.
 
+## Mis Vencimientos — selector de período (03/10/2026)
+Antes mezclaba implícitamente "este mes" con "próximo mes" (atenuado
+en gris, "no suma en el total") en una sola vista, sin poder elegir
+qué mes mirar — confuso de interpretar. Ahora `MisVencimientos.tsx`
+tiene un selector de período (mismo concepto que el de Ingresos/Gastos
+del período en Panel de Controle, pero construido localmente en este
+componente, bilingüe, sin opción "Todos" — mezclar todo era justo el
+problema anterior):
+- Los períodos disponibles se arman a partir de los meses de
+  `fecha_vencimiento` (Pasivos) + `periodo` (Gastos Recurrentes), más
+  siempre el mes actual y el siguiente aunque estén vacíos (para poder
+  adelantarse).
+- Al elegir un período, se filtran AMBOS bloques (Pasivos y Gastos
+  Recurrentes) a lo que vence ese mes — mostrando pagado y pendiente
+  juntos (ya no hace falta el botón "⋯" para destapar lo pagado, se ve
+  directo). El total general y los subtotales solo suman lo pendiente.
+- Se eliminó la heurística vieja de "próxima cuota pendiente = período
+  actual, el resto son futuras" (`esProximoPeriodo`) — ahora el
+  período lo elige el usuario explícitamente, mirando directo
+  `fecha_vencimiento`/`periodo`.
+- El botón "⋯" quedó solo para gestionar plantillas de Gastos
+  Recurrentes (crear/editar/activar/eliminar), que no depende de
+  período.
+- OJO si se toca de nuevo: para un gasto recurrente, elegir el mes que
+  viene puede mostrar "sin pendientes" aunque el usuario espere ver
+  algo — es esperado, `generarRecordatoriosPendientes` no arma el
+  recordatorio del período siguiente hasta que el actual se resuelve
+  (ver `lib/gastosRecurrentes.ts`), no es un bug de este cambio.
+
 ## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
 Bug real: los 30 días del Plan de Acción de Buenaventura (feature a
 medida, ver `lib/planAccionEmpresas.ts`) tenían sus eventos en

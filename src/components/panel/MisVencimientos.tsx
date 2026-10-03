@@ -38,6 +38,21 @@ import { fechaLocalHoy } from '@/lib/fecha';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
+// Selector de período (igual idea que el de Panel de Controle para
+// Ingresos/Gastos del período): "YYYY-MM-01" + N meses, clampeado
+// (no hace falta clampear el día porque siempre es 01).
+function sumarMesesPeriodo(periodo: string, meses: number): string {
+  const [anio, mes] = periodo.split('-').map(Number);
+  const fecha = new Date(anio, mes - 1 + meses, 1);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function formatearPeriodoMV(valor: string, esPT: boolean): string {
+  const [anio, mes] = valor.split('-').map(Number);
+  if (!anio || !mes) return valor;
+  return new Date(anio, mes - 1, 1).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { month: 'long', year: 'numeric' });
+}
+
 export function MisVencimientos({
   empresaId,
   idioma,
@@ -62,14 +77,11 @@ export function MisVencimientos({
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
-  // Un solo interruptor general para todo lo "extra" (ya pagadas de
-  // ambos bloques + gestión de plantillas) — antes eran 3 botones
-  // sueltos repartidos entre los dos acordeones, que ocupaban mucho
-  // espacio para algo que se usa poco.
-  const [mostrarExtra, setMostrarExtra] = useState(false);
-  const mostrarPagados = mostrarExtra;
-  const mostrarPasivosPagados = mostrarExtra;
-  const mostrarPlantillas = mostrarExtra;
+  // Antes el interruptor "⋯" destapaba también lo ya pagado de ambos
+  // bloques — ahora que el selector de período ya separa todo, lo ya
+  // pagado del período elegido se ve siempre; el interruptor queda
+  // solo para gestionar las plantillas de Gastos Recurrentes.
+  const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
 
   async function recargar() {
     try {
@@ -116,24 +128,30 @@ export function MisVencimientos({
   }, [empresaId]);
 
   const hoy = fechaLocalHoy();
+  const periodoActual = `${hoy.slice(0, 7)}-01`;
+  const periodoSiguiente = sumarMesesPeriodo(periodoActual, 1);
 
-  const cuotasPendientes = cuotas.filter((c) => !c.pagada);
-  const cuotasPagadas = cuotas.filter((c) => c.pagada);
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(periodoActual);
 
-  // De cada plan de cuotas (mismo id_operacion) solo la que vence
-  // primero es la que corresponde a este período — el resto ya están
-  // ahí para referencia, pero no hay que sumarlas al total de hoy
-  // porque todavía no llegó su vencimiento.
-  const proximaVencimientoPorOperacion = new Map<string, string>();
-  for (const cuota of cuotasPendientes) {
-    const actual = proximaVencimientoPorOperacion.get(cuota.id_operacion);
-    if (!actual || cuota.fecha_vencimiento < actual) {
-      proximaVencimientoPorOperacion.set(cuota.id_operacion, cuota.fecha_vencimiento);
-    }
+  // Períodos para elegir: siempre este mes y el que viene (aunque
+  // todavía no tengan nada cargado, para poder "adelantarse"), más
+  // cualquier otro mes que ya tenga una cuota o un recordatorio.
+  const periodosDisponiblesSet = new Set<string>([periodoActual, periodoSiguiente]);
+  for (const cuota of cuotas) {
+    periodosDisponiblesSet.add(`${cuota.fecha_vencimiento.slice(0, 7)}-01`);
   }
-  function esProximoPeriodo(cuota: CuotaPasivo): boolean {
-    return proximaVencimientoPorOperacion.get(cuota.id_operacion) === cuota.fecha_vencimiento;
+  for (const recordatorio of recordatorios) {
+    periodosDisponiblesSet.add(recordatorio.periodo);
   }
+  const periodosDisponibles = Array.from(periodosDisponiblesSet)
+    .sort((a, b) => a.localeCompare(b))
+    .map((valor) => ({ valor, etiqueta: formatearPeriodoMV(valor, esPT) }));
+
+  // Todo lo que vence en el período elegido — pagado y pendiente, se
+  // muestran los dos; el total solo suma lo pendiente.
+  const cuotasDelPeriodo = cuotas.filter((c) => `${c.fecha_vencimiento.slice(0, 7)}-01` === periodoSeleccionado);
+  const cuotasPendientes = cuotasDelPeriodo.filter((c) => !c.pagada);
+  const cuotasPagadas = cuotasDelPeriodo.filter((c) => c.pagada);
 
   const gruposPasivo = new Map<string, CuotaPasivo[]>();
   for (const cuota of cuotasPendientes) {
@@ -142,30 +160,14 @@ export function MisVencimientos({
     gruposPasivo.set(cuota.forma_pago_nombre, lista);
   }
 
-  // listarRecordatoriosConHistorial ordena por fecha_vencimiento
-  // descendente (para que "ya pagados" muestre el más reciente
-  // primero) — para pendientes conviene al revés, el que vence antes
-  // arriba, sobre todo ahora que se distingue visualmente "este mes"
-  // de "próximo mes" (ver esProximoPeriodoRecordatorio más abajo).
-  const recordatoriosPendientes = recordatorios
+  const recordatoriosDelPeriodo = recordatorios.filter((r) => r.periodo === periodoSeleccionado);
+  const recordatoriosPendientes = recordatoriosDelPeriodo
     .filter((r) => !r.registrado)
     .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento));
-  const recordatoriosPagados = recordatorios.filter((r) => r.registrado);
+  const recordatoriosPagados = recordatoriosDelPeriodo.filter((r) => r.registrado);
 
-  // Igual que con los Pasivos: si un gasto recurrente se registró
-  // adelantado, generarRecordatoriosPendientes ya arma el recordatorio
-  // del mes siguiente (ver lib/gastosRecurrentes.ts) — sin esto, ese
-  // recordatorio "futuro" se sumaba al total de hoy como si venciera
-  // en el período actual.
-  const periodoActual = `${hoy.slice(0, 7)}-01`;
-  function esProximoPeriodoRecordatorio(recordatorio: RecordatorioGastoRecurrente): boolean {
-    return recordatorio.periodo > periodoActual;
-  }
-
-  const totalPasivos = cuotasPendientes.filter(esProximoPeriodo).reduce((suma, cuota) => suma + cuota.monto, 0);
-  const totalGastosRecurrentes = recordatoriosPendientes
-    .filter((r) => !esProximoPeriodoRecordatorio(r))
-    .reduce((suma, r) => suma + saldoPendiente(r), 0);
+  const totalPasivos = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalGastosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendiente(r), 0);
   const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
   async function pagarCuota(cuotaId: string) {
@@ -217,7 +219,7 @@ export function MisVencimientos({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
+          {!cargando && (cuotasDelPeriodo.length > 0 || recordatoriosDelPeriodo.length > 0) && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
                 {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
@@ -228,18 +230,44 @@ export function MisVencimientos({
             </div>
           )}
 
-          {!cargando && (cuotasPagadas.length > 0 || recordatoriosPagados.length > 0 || plantillas.length > 0) && (
+          {!cargando && (
             <button
               type="button"
-              onClick={() => setMostrarExtra((m) => !m)}
-              title={esPT ? 'Ver pagas e gerenciar modelos' : 'Ver pagadas y gestionar plantillas'}
+              onClick={() => setMostrarPlantillas((m) => !m)}
+              title={esPT ? 'Gerenciar modelos de despesa recorrente' : 'Gestionar plantillas de gasto recurrente'}
               style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '5px 10px', fontSize: 15, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
             >
-              {mostrarExtra ? '✕' : '⋯'}
+              {mostrarPlantillas ? '✕' : '⋯'}
             </button>
           )}
         </div>
       </div>
+
+      {!cargando && (
+        <div style={{ background: '#f8fafc', borderRadius: 14, padding: '12px 16px', marginBottom: 16, border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde, marginBottom: 4 }}>
+              {esPT ? 'PERÍODO' : 'PERÍODO'}
+            </div>
+            <div style={{ fontSize: 12.5, color: '#6e7781' }}>
+              {esPT
+                ? 'Mostra tudo do mês escolhido — pago e pendente — mas só soma o que ainda falta pagar.'
+                : 'Muestra todo lo del mes elegido — pagado y pendiente — pero solo suma lo que todavía falta pagar.'}
+            </div>
+          </div>
+          <select
+            value={periodoSeleccionado}
+            onChange={(e) => setPeriodoSeleccionado(e.target.value)}
+            style={{ minWidth: 190, padding: '10px 14px', borderRadius: 12, border: `1px solid ${colores.acento}`, background: '#fff', color: colores.azul, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+          >
+            {periodosDisponibles.map((periodo) => (
+              <option key={periodo.valor} value={periodo.valor}>
+                {periodo.etiqueta}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
@@ -266,11 +294,11 @@ export function MisVencimientos({
           >
             {gruposPasivo.size === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
-                {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
+                {esPT ? 'Sem parcelas pendentes neste período.' : 'Sin cuotas pendientes en este período.'}
               </p>
             ) : (
               Array.from(gruposPasivo.entries()).map(([nombrePasivo, cuotasDelPasivo]) => {
-                const subtotalPasivo = cuotasDelPasivo.filter(esProximoPeriodo).reduce((suma, cuota) => suma + cuota.monto, 0);
+                const subtotalPasivo = cuotasDelPasivo.reduce((suma, cuota) => suma + cuota.monto, 0);
 
                 return (
                 <div key={nombrePasivo} style={{ marginBottom: 10 }}>
@@ -283,7 +311,6 @@ export function MisVencimientos({
                   </div>
                   {cuotasDelPasivo.map((cuota) => {
                     const vencida = cuota.fecha_vencimiento < hoy;
-                    const esFutura = !esProximoPeriodo(cuota);
                     return (
                       <div
                         key={cuota.id}
@@ -294,23 +321,17 @@ export function MisVencimientos({
                           justifyContent: 'space-between',
                           padding: '8px 12px',
                           borderRadius: 10,
-                          background: esFutura ? '#f3f4f6' : '#f8fafc',
+                          background: '#f8fafc',
                           border: '1px solid #e5e7eb',
                           marginBottom: 6,
                           gap: 10,
                           flexWrap: 'nowrap',
                           overflowX: 'auto',
-                          opacity: esFutura ? 0.7 : 1,
                         }}
                       >
                         <span className="mv-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                           {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
                           {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
-                          {esFutura && (
-                            <span style={{ color: '#9ca3af', marginLeft: 6, fontWeight: 600 }}>
-                              {esPT ? '(período futuro, não soma no total)' : '(período futuro, no suma en el total)'}
-                            </span>
-                          )}
                         </span>
                         <span
                           className="mv-derecha"
@@ -321,11 +342,11 @@ export function MisVencimientos({
                             flexShrink: 0,
                             position: 'sticky',
                             right: 0,
-                            background: esFutura ? '#f3f4f6' : '#f8fafc',
+                            background: '#f8fafc',
                             paddingLeft: 10,
                           }}
                         >
-                          <strong style={{ fontSize: 12.5, color: esFutura ? '#9ca3af' : '#c2410c', whiteSpace: 'nowrap' }}>
+                          <strong style={{ fontSize: 12.5, color: '#c2410c', whiteSpace: 'nowrap' }}>
                             {simbolo} {cuota.monto.toFixed(2)}
                           </strong>
                           <button
@@ -344,7 +365,7 @@ export function MisVencimientos({
               })
             )}
 
-            {mostrarPasivosPagados && cuotasPagadas.length > 0 && (
+            {cuotasPagadas.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                   {esPT ? 'JÁ PAGAS' : 'YA PAGADAS'}
@@ -406,15 +427,13 @@ export function MisVencimientos({
           >
             {recordatoriosPendientes.length === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
-                {esPT ? 'Sem despesas fixas pendentes.' : 'Sin gastos fijos pendientes.'}
+                {esPT ? 'Sem despesas fixas pendentes neste período.' : 'Sin gastos fijos pendientes en este período.'}
               </p>
             ) : (
               recordatoriosPendientes.map((recordatorio) => {
                 const vencido = recordatorio.fecha_vencimiento < hoy;
                 const saldo = saldoPendiente(recordatorio);
                 const tienePagoParcial = recordatorio.monto_pagado > 0;
-                const esFuturo = esProximoPeriodoRecordatorio(recordatorio);
-                const fondoFila = esFuturo ? '#f3f4f6' : '#f8fafc';
                 return (
                   <div
                     key={recordatorio.id}
@@ -425,23 +444,17 @@ export function MisVencimientos({
                       justifyContent: 'space-between',
                       padding: '8px 12px',
                       borderRadius: 10,
-                      background: fondoFila,
+                      background: '#f8fafc',
                       border: '1px solid #e5e7eb',
                       marginBottom: 6,
                       gap: 10,
                       flexWrap: 'nowrap',
                       overflowX: 'auto',
-                      opacity: esFuturo ? 0.7 : 1,
                     }}
                   >
                     <span className="mv-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                       {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                       {vencido && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
-                      {esFuturo && (
-                        <span style={{ color: '#9ca3af', marginLeft: 6, fontWeight: 600 }}>
-                          {esPT ? '(próximo mês, não soma no total)' : '(próximo mes, no suma en el total)'}
-                        </span>
-                      )}
                       {tienePagoParcial && (
                         <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
                           {esPT ? 'Pago' : 'Pagado'} {simbolo} {recordatorio.monto_pagado.toFixed(2)}{' '}
@@ -459,11 +472,11 @@ export function MisVencimientos({
                         flexShrink: 0,
                         position: 'sticky',
                         right: 0,
-                        background: fondoFila,
+                        background: '#f8fafc',
                         paddingLeft: 10,
                       }}
                     >
-                      <span style={{ fontSize: 12, color: esFuturo ? '#9ca3af' : '#6e7781', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
                         {tienePagoParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                       </span>
                       <button
@@ -486,7 +499,7 @@ export function MisVencimientos({
               })
             )}
 
-            {mostrarPagados && recordatoriosPagados.length > 0 && (
+            {recordatoriosPagados.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                   {esPT ? 'JÁ PAGOS' : 'YA PAGADOS'}
