@@ -23,6 +23,24 @@ function esPT(idioma: string | null | undefined) {
   return idioma === 'PT';
 }
 
+// Mensajes financieros sin leer (ver app/mensajes) — se antepone a
+// cualquier alerta de vencimiento: es contenido nuevo (recomendaciones
+// de Sabio), no algo que vaya perdiendo relevancia con los días, así
+// que siempre que haya al menos uno se muestra primero.
+export function fraseAlertaMensajes(idioma: string | null | undefined, cantidad: number): string | null {
+  if (cantidad <= 0) return null;
+
+  if (esPT(idioma)) {
+    return cantidad === 1
+      ? '📬 Você tem 1 mensagem nova — entre em Mensagens para ver minhas recomendações'
+      : `📬 Você tem ${cantidad} mensagens novas — entre em Mensagens para ver minhas recomendações`;
+  }
+
+  return cantidad === 1
+    ? '📬 Tenés 1 mensaje nuevo — entrá a Mensajes para ver mis recomendaciones'
+    : `📬 Tenés ${cantidad} mensajes nuevos — entrá a Mensajes para ver mis recomendaciones`;
+}
+
 export async function obtenerAlertasFinancieras(
   empresaId: string,
   idioma: string | null | undefined,
