@@ -38,31 +38,20 @@ import { fechaLocalHoy } from '@/lib/fecha';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
-// Selector de período (igual idea que el de Panel de Controle para
-// Ingresos/Gastos del período): "YYYY-MM-01" + N meses, clampeado
-// (no hace falta clampear el día porque siempre es 01).
-function sumarMesesPeriodo(periodo: string, meses: number): string {
-  const [anio, mes] = periodo.split('-').map(Number);
-  const fecha = new Date(anio, mes - 1 + meses, 1);
-  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01`;
-}
-
-function formatearPeriodoMV(valor: string, esPT: boolean): string {
-  const [anio, mes] = valor.split('-').map(Number);
-  if (!anio || !mes) return valor;
-  return new Date(anio, mes - 1, 1).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { month: 'long', year: 'numeric' });
-}
-
 export function MisVencimientos({
   empresaId,
   idioma,
   simbolo,
   colores,
+  periodoSeleccionado,
 }: {
   empresaId: string;
   idioma: string;
   simbolo: string;
   colores: Colores;
+  // Controlado desde Panel de Controle — mismo período que Mis
+  // Ingresos y Salud de Caja, elegido una sola vez arriba de los tres.
+  periodoSeleccionado: string;
 }) {
   const esPT = idioma === 'PT';
 
@@ -128,24 +117,6 @@ export function MisVencimientos({
   }, [empresaId]);
 
   const hoy = fechaLocalHoy();
-  const periodoActual = `${hoy.slice(0, 7)}-01`;
-  const periodoSiguiente = sumarMesesPeriodo(periodoActual, 1);
-
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(periodoActual);
-
-  // Períodos para elegir: siempre este mes y el que viene (aunque
-  // todavía no tengan nada cargado, para poder "adelantarse"), más
-  // cualquier otro mes que ya tenga una cuota o un recordatorio.
-  const periodosDisponiblesSet = new Set<string>([periodoActual, periodoSiguiente]);
-  for (const cuota of cuotas) {
-    periodosDisponiblesSet.add(`${cuota.fecha_vencimiento.slice(0, 7)}-01`);
-  }
-  for (const recordatorio of recordatorios) {
-    periodosDisponiblesSet.add(recordatorio.periodo);
-  }
-  const periodosDisponibles = Array.from(periodosDisponiblesSet)
-    .sort((a, b) => a.localeCompare(b))
-    .map((valor) => ({ valor, etiqueta: formatearPeriodoMV(valor, esPT) }));
 
   // Todo lo que vence en el período elegido — pagado y pendiente, se
   // muestran los dos; el total solo suma lo pendiente.
@@ -242,32 +213,6 @@ export function MisVencimientos({
           )}
         </div>
       </div>
-
-      {!cargando && (
-        <div style={{ background: '#f8fafc', borderRadius: 14, padding: '12px 16px', marginBottom: 16, border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde, marginBottom: 4 }}>
-              {esPT ? 'PERÍODO' : 'PERÍODO'}
-            </div>
-            <div style={{ fontSize: 12.5, color: '#6e7781' }}>
-              {esPT
-                ? 'Mostra tudo do mês escolhido — pago e pendente — mas só soma o que ainda falta pagar.'
-                : 'Muestra todo lo del mes elegido — pagado y pendiente — pero solo suma lo que todavía falta pagar.'}
-            </div>
-          </div>
-          <select
-            value={periodoSeleccionado}
-            onChange={(e) => setPeriodoSeleccionado(e.target.value)}
-            style={{ minWidth: 190, padding: '10px 14px', borderRadius: 12, border: `1px solid ${colores.acento}`, background: '#fff', color: colores.azul, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-          >
-            {periodosDisponibles.map((periodo) => (
-              <option key={periodo.valor} value={periodo.valor}>
-                {periodo.etiqueta}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>

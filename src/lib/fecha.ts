@@ -28,3 +28,32 @@ export function diasEntre(fechaIsoInicio: string, fechaIsoFin?: string): number 
   const msPorDia = 24 * 60 * 60 * 1000;
   return Math.round((soloFecha(fin) - soloFecha(inicio)) / msPorDia);
 }
+
+// Selector de período compartido (Mis Ingresos, Mis Vencimientos,
+// Salud de Caja) — "YYYY-MM-01" + N meses. No hace falta clampear el
+// día porque siempre es 01.
+export function sumarMesesPeriodo(periodo: string, meses: number): string {
+  const [anio, mes] = periodo.split('-').map(Number);
+  const fecha = new Date(anio, mes - 1 + meses, 1);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+export function formatearPeriodo(valor: string, esPT: boolean): string {
+  const [anio, mes] = valor.split('-').map(Number);
+  if (!anio || !mes) return valor;
+  return new Date(anio, mes - 1, 1).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { month: 'long', year: 'numeric' });
+}
+
+// Rango fijo de períodos para elegir en el selector compartido: desde
+// 2 meses atrás (por si queda algo atrasado sin resolver) hasta 3
+// meses adelante (para poder planificar) — no depende de qué datos
+// ya estén cargados, así los tres paneles (Ingresos/Vencimientos/
+// Salud de Caja) siempre ofrecen exactamente las mismas opciones.
+export function periodosDisponibles(hoy: string, esPT: boolean): { valor: string; etiqueta: string }[] {
+  const periodoActual = `${hoy.slice(0, 7)}-01`;
+  const valores: string[] = [];
+  for (let i = -2; i <= 3; i++) {
+    valores.push(sumarMesesPeriodo(periodoActual, i));
+  }
+  return valores.map((valor) => ({ valor, etiqueta: formatearPeriodo(valor, esPT) }));
+}

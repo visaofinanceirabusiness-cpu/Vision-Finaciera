@@ -40,11 +40,16 @@ export function MisIngresos({
   idioma,
   simbolo,
   colores,
+  periodoSeleccionado,
 }: {
   empresaId: string;
   idioma: string;
   simbolo: string;
   colores: Colores;
+  // Controlado desde Panel de Controle — mismo período que Mis
+  // Vencimientos y Salud de Caja, elegido una sola vez arriba de los
+  // tres.
+  periodoSeleccionado: string;
 }) {
   const esPT = idioma === 'PT';
 
@@ -59,13 +64,12 @@ export function MisIngresos({
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioIngresoRecurrente | null>(null);
-  // Un solo interruptor general para todo lo "extra" (ya cobradas de
-  // ambos bloques + gestión de plantillas) — antes eran 3 botones
-  // sueltos que ocupaban mucho espacio para algo que se usa poco.
-  const [mostrarExtra, setMostrarExtra] = useState(false);
-  const mostrarCobrados = mostrarExtra;
-  const mostrarCuentasCobrarCobradas = mostrarExtra;
-  const mostrarPlantillas = mostrarExtra;
+  // Antes el interruptor "⋯" destapaba también lo ya cobrado de ambos
+  // bloques — ahora que el selector de período (Panel de Controle) ya
+  // separa todo, lo ya cobrado del período elegido se ve siempre; el
+  // interruptor queda solo para gestionar las plantillas de Ingresos
+  // Recurrentes. Mismo cambio que se hizo en Mis Vencimientos.
+  const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
 
   async function recargar() {
     try {
@@ -113,8 +117,12 @@ export function MisIngresos({
 
   const hoy = fechaLocalHoy();
 
-  const cuotasPendientes = cuotas.filter((c) => !c.cobrada);
-  const cuotasCobradas = cuotas.filter((c) => c.cobrada);
+  // Todo lo que vence en el período elegido — cobrado y pendiente, se
+  // muestran los dos; el total solo suma lo pendiente. Mismo criterio
+  // que Mis Vencimientos (ver memory.md).
+  const cuotasDelPeriodo = cuotas.filter((c) => `${c.fecha_vencimiento.slice(0, 7)}-01` === periodoSeleccionado);
+  const cuotasPendientes = cuotasDelPeriodo.filter((c) => !c.cobrada);
+  const cuotasCobradas = cuotasDelPeriodo.filter((c) => c.cobrada);
 
   const gruposCuentaPorCobrar = new Map<string, CuotaCobro[]>();
   for (const cuota of cuotasPendientes) {
@@ -123,8 +131,11 @@ export function MisIngresos({
     gruposCuentaPorCobrar.set(cuota.forma_pago_nombre, lista);
   }
 
-  const recordatoriosPendientes = recordatorios.filter((r) => !r.registrado);
-  const recordatoriosCobrados = recordatorios.filter((r) => r.registrado);
+  const recordatoriosDelPeriodo = recordatorios.filter((r) => r.periodo === periodoSeleccionado);
+  const recordatoriosPendientes = recordatoriosDelPeriodo
+    .filter((r) => !r.registrado)
+    .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento));
+  const recordatoriosCobrados = recordatoriosDelPeriodo.filter((r) => r.registrado);
 
   const totalCuentasPorCobrar = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
   const totalIngresosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
@@ -151,7 +162,7 @@ export function MisIngresos({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          {!cargando && (cuotas.length > 0 || recordatorios.length > 0) && (
+          {!cargando && (cuotasDelPeriodo.length > 0 || recordatoriosDelPeriodo.length > 0) && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
                 {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
@@ -162,14 +173,14 @@ export function MisIngresos({
             </div>
           )}
 
-          {!cargando && (cuotasCobradas.length > 0 || recordatoriosCobrados.length > 0 || plantillas.length > 0) && (
+          {!cargando && (
             <button
               type="button"
-              onClick={() => setMostrarExtra((m) => !m)}
-              title={esPT ? 'Ver recebidas e gerenciar modelos' : 'Ver cobradas y gestionar plantillas'}
+              onClick={() => setMostrarPlantillas((m) => !m)}
+              title={esPT ? 'Gerenciar modelos de receita recorrente' : 'Gestionar plantillas de ingreso recurrente'}
               style={{ border: `1px solid ${colores.acento}`, background: 'transparent', color: colores.azul, borderRadius: 8, padding: '5px 10px', fontSize: 15, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
             >
-              {mostrarExtra ? '✕' : '⋯'}
+              {mostrarPlantillas ? '✕' : '⋯'}
             </button>
           )}
         </div>
@@ -200,7 +211,7 @@ export function MisIngresos({
           >
             {gruposCuentaPorCobrar.size === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6e7781' }}>
-                {esPT ? 'Sem parcelas pendentes.' : 'Sin cuotas pendientes.'}
+                {esPT ? 'Sem parcelas pendentes neste período.' : 'Sin cuotas pendientes en este período.'}
               </p>
             ) : (
               Array.from(gruposCuentaPorCobrar.entries()).map(([nombreCuenta, cuotasDeLaCuenta]) => {
@@ -269,7 +280,7 @@ export function MisIngresos({
               })
             )}
 
-            {mostrarCuentasCobrarCobradas && cuotasCobradas.length > 0 && (
+            {cuotasCobradas.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                   {esPT ? 'JÁ RECEBIDAS' : 'YA COBRADAS'}
@@ -329,7 +340,7 @@ export function MisIngresos({
           >
             {recordatoriosPendientes.length === 0 ? (
             <p style={{ fontSize: 12.5, color: '#6e7781' }}>
-              {esPT ? 'Sem receitas recorrentes pendentes.' : 'Sin ingresos recurrentes pendientes.'}
+              {esPT ? 'Sem receitas recorrentes pendentes neste período.' : 'Sin ingresos recurrentes pendientes en este período.'}
             </p>
           ) : (
             recordatoriosPendientes.map((recordatorio) => {
@@ -399,7 +410,7 @@ export function MisIngresos({
             })
           )}
 
-          {mostrarCobrados && recordatoriosCobrados.length > 0 && (
+          {recordatoriosCobrados.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#6e7781', marginBottom: 6, letterSpacing: 0.4 }}>
                 {esPT ? 'JÁ RECEBIDOS' : 'YA COBRADOS'}
