@@ -38,7 +38,7 @@ import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganiz
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
 import { simboloMoneda } from '@/lib/moneda';
-import { obtenerAlertasFinancieras } from '@/lib/alertasSabio';
+import { obtenerAlertasFinancieras, fraseAlertaMensajes } from '@/lib/alertasSabio';
 import { generarRecordatoriosPendientes } from '@/lib/gastosRecurrentes';
 import { generarRecordatoriosIngresosPendientes } from '@/lib/ingresosRecurrentes';
 
@@ -425,12 +425,20 @@ export default function InicioPage() {
   // complementa, no reemplaza, el aviso push del Calendário. Primero
   // se asegura de que existan los recordatorios de este período (por
   // si el cron diario todavía no corrió) y después arma la frase más
-  // urgente para mostrar en el banner de Sabio.
+  // urgente para mostrar en el banner de Sabio. Un mensaje financiero
+  // sin leer (ver app/mensajes) tiene prioridad sobre cualquier
+  // vencimiento — es contenido nuevo, no algo que pueda esperar.
   useEffect(() => {
     if (!perfil?.empresa_id) return;
 
     const idiomaEmpresa = empresa?.idioma ?? 'ES';
     const simbolo = simboloMoneda(empresa?.moneda ?? null);
+
+    const fraseMensajes = fraseAlertaMensajes(idiomaEmpresa, mensajesSinLeer);
+    if (fraseMensajes) {
+      setAlertaSabio(fraseMensajes);
+      return;
+    }
 
     Promise.all([
       generarRecordatoriosPendientes(perfil.empresa_id, idiomaEmpresa).catch((e) =>
@@ -443,7 +451,7 @@ export default function InicioPage() {
       .then(() => obtenerAlertasFinancieras(perfil.empresa_id, idiomaEmpresa, simbolo))
       .then((alertas) => setAlertaSabio(alertas[0] ?? null))
       .catch((e) => console.warn('No se pudieron cargar las alertas financieras:', e));
-  }, [perfil?.empresa_id, empresa?.idioma, empresa?.moneda]);
+  }, [perfil?.empresa_id, empresa?.idioma, empresa?.moneda, mensajesSinLeer]);
 
   const idioma = empresa?.idioma ?? 'ES';
   const esFamiliar = codigoDePerfil(empresa?.perfiles_empresa) === 'FAMILIAR';
