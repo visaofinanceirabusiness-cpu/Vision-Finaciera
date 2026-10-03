@@ -4,6 +4,22 @@ import { createClient } from '@supabase/supabase-js';
 import { enviarEmail } from '@/lib/email';
 import { EMPRESAS_CON_PLAN_ACCION } from '@/lib/planAccionEmpresas';
 
+// Igual que en api/cotizaciones/actualizar/route.ts: el server de
+// Vercel corre en UTC, no en la hora local de Argentina/Brasil
+// (UTC-3) — "hoy" calculado con new Date() a secas queda adelantado
+// pasada cierta hora de la tarde/noche. Se resta el offset a mano acá
+// en vez de importar fechaLocalHoy() de lib/fecha.ts, que asume
+// horario del navegador.
+function fechaLocalHoy(): string {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function diasDeAtraso(fechaIsoInicio: string): number {
+  const inicio = new Date(new Date(fechaIsoInicio).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const msPorDia = 24 * 60 * 60 * 1000;
+  return Math.round((new Date(fechaLocalHoy()).getTime() - new Date(inicio).getTime()) / msPorDia);
+}
+
 // Lo dispara un Vercel Cron Job (ver vercel.json), una vez por día.
 // Para cada empresa con Plan de Acción de 30 Días (hoy solo
 // Buenaventura, ver EMPRESAS_CON_PLAN_ACCION), busca el día
@@ -102,7 +118,7 @@ export async function GET(request: NextRequest) {
   for (const empresaId of EMPRESAS_CON_PLAN_ACCION) {
     const { data: dia, error: errorDia } = await admin
       .from('plan_accion_dias')
-      .select('id, dia_numero, fase, objetivo')
+      .select('id, dia_numero, fase, objetivo, resultado_esperado, evento_calendario_id, fecha_iniciado')
       .eq('empresa_id', empresaId)
       .eq('estado', 'DISPONIBLE')
       .maybeSingle();
@@ -115,6 +131,24 @@ export async function GET(request: NextRequest) {
     if (!dia) {
       resultados[empresaId] = 'sin día disponible (ciclo no iniciado o ya completado)';
       continue;
+    }
+
+    // Si el día activo lleva más de hoy sin completarse, se pospone
+    // su evento en el Calendário a hoy, dejando en la nota cuántos
+    // días de atraso lleva — así el Calendário nunca muestra una
+    // fecha pasada para algo que sigue pendiente, y queda un
+    // historial de la demora para poder revisarlo después.
+    if (dia.evento_calendario_id && dia.fecha_iniciado) {
+      const atraso = diasDeAtraso(dia.fecha_iniciado);
+      if (atraso > 0) {
+        await admin
+          .from('eventos_calendario')
+          .update({
+            fecha: fechaLocalHoy(),
+            notas: `⏳ ${atraso} día${atraso === 1 ? '' : 's'} de atraso. ${dia.resultado_esperado}`,
+          })
+          .eq('id', dia.evento_calendario_id);
+      }
     }
 
     const { data: tareas } = await admin

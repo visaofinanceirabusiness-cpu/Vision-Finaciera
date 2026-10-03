@@ -15,3 +15,16 @@ export function fechaLocalHoy(): string {
   const dia = String(hoy.getDate()).padStart(2, '0');
   return `${anio}-${mes}-${dia}`;
 }
+
+// Diferencia en días de calendario completos entre dos fechas/horas
+// ISO — ignora la hora, solo cuenta el cambio de día. Si no se pasa
+// `fechaIsoFin`, se compara contra el momento actual. Se usa para
+// medir atraso (ver lib/planAccion.ts: cuántos días lleva sin
+// completarse el día activo del Plan de Acción).
+export function diasEntre(fechaIsoInicio: string, fechaIsoFin?: string): number {
+  const inicio = new Date(fechaIsoInicio);
+  const fin = fechaIsoFin ? new Date(fechaIsoFin) : new Date();
+  const soloFecha = (f: Date) => new Date(f.getFullYear(), f.getMonth(), f.getDate()).getTime();
+  const msPorDia = 24 * 60 * 60 * 1000;
+  return Math.round((soloFecha(fin) - soloFecha(inicio)) / msPorDia);
+}
