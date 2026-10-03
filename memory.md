@@ -7,6 +7,61 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Análisis Mensual Automático — Fase A (03/10/2026)
+Antes se mandaba a mano por Mensajes (ver mensajes_financieros) un
+"Análisis a fondo" del mes — se hizo manualmente para Buenaventura y
+Ocaña (septiembre). Ahora es automático, el día 1 de cada mes, para
+cualquier empresa:
+
+- `lib/analisisMensual.ts`: función PURA (sin Supabase) que arma el
+  mensaje a partir de las operaciones del mes — ingresos
+  (COBRO/VENTA) vs egresos (PAGO/COMPRA), aportes (INVERSION) y
+  extracciones aparte, top categorías, actividad en el sistema. Sirve
+  para cualquier perfil de empresa, no solo Familia. Con menos de 10
+  operaciones o menos de 5 días con actividad en el mes
+  (`MINIMO_OPERACIONES_PARA_ANALISIS_COMPLETO`/
+  `MINIMO_DIAS_CON_ACTIVIDAD...`), en vez de un desglose pobre manda
+  un mensaje corto motivador + invitación a hablar con un asesor.
+  Tiene tests (`analisisMensual.test.ts`).
+- `api/analisis-mensual/generar`: cron nuevo (`vercel.json`, día 1 a
+  las 6am UTC), protegido con `CRON_SECRET` igual que
+  `plan-accion/resumen-diario`. Recorre empresas con `activo`,
+  `onboarding_completado` y `analisis_mensual_habilitado` en true,
+  calcula el mes recién cerrado (con el mismo ajuste UTC-3 a mano que
+  ya usa `cotizaciones/actualizar` — el server de Vercel corre en
+  UTC) y guarda el mensaje. Es idempotente: si ya existe un mensaje
+  para esa empresa+período con título que arranca "📊", no duplica.
+  **Ojo real que casi se me escapa**: `registro_operaciones.total` es
+  `numeric` en Postgres y Supabase lo devuelve como *string* — sin
+  convertir con `Number()` antes de sumarlo, la suma hubiera sido
+  concatenación de texto. Si se toca este archivo o se arma otro
+  parecido, no asumir que un campo numeric ya viene number.
+- `empresas.analisis_mensual_habilitado` (columna nueva, default
+  `true`) — toggle visible en Panel de Control
+  (`AnalisisMensualToggle.tsx`, autocontenido, mismo patrón que
+  `PersonalizacionColoresSeccion.tsx`), bloqueado para Asistente
+  (la política RLS `e3_bloquear_edicion_empresa` ya lo impide a nivel
+  de base, el toggle solo lo refleja en la UI).
+
+**No se pudo probar en vivo contra Supabase real** (el cron necesita
+`SUPABASE_SERVICE_ROLE_KEY`, que no está disponible desde este
+entorno a propósito) — se validó con tests unitarios de la función
+pura, `tsc`, `lint` y `next build` (la ruta compila y aparece como
+dinámica). Si algo falla la primera vez que corra en producción (día
+1 de noviembre), revisar primero el formato de `total` como string —
+ver el comentario de arriba — antes de asumir otra causa.
+
+**Pendiente (Fases B y C del plan, no empezadas)**:
+- Fase B: vista en Panel Maestro con el estado de cada empresa
+  (enviado completo / motivacional / deshabilitado) y resaltado de
+  las que tuvieron pocos o cero movimientos ese mes — a modo
+  indicativo, no bloquea nada.
+- Fase C: segundo mensaje de agradecimiento/felicitación para las
+  empresas a las que sí se les mandó el análisis — falta decidir si
+  es solo texto festivo o dispara el modal de confetti real
+  (`lib/festejoVisual.ts`/`FestejoModal.tsx`, ya existe para
+  gamificación) y si va el mismo día o unos días después.
+
 ## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
 Bug real: los 30 días del Plan de Acción de Buenaventura (feature a
 medida, ver `lib/planAccionEmpresas.ts`) tenían sus eventos en
