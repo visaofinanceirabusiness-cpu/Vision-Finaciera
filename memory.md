@@ -51,16 +51,33 @@ dinámica). Si algo falla la primera vez que corra en producción (día
 1 de noviembre), revisar primero el formato de `total` como string —
 ver el comentario de arriba — antes de asumir otra causa.
 
-**Pendiente (Fases B y C del plan, no empezadas)**:
-- Fase B: vista en Panel Maestro con el estado de cada empresa
-  (enviado completo / motivacional / deshabilitado) y resaltado de
-  las que tuvieron pocos o cero movimientos ese mes — a modo
-  indicativo, no bloquea nada.
-- Fase C: segundo mensaje de agradecimiento/felicitación para las
-  empresas a las que sí se les mandó el análisis — falta decidir si
-  es solo texto festivo o dispara el modal de confetti real
-  (`lib/festejoVisual.ts`/`FestejoModal.tsx`, ya existe para
-  gamificación) y si va el mismo día o unos días después.
+**Decisiones ya confirmadas por el usuario (03/10/2026) para B/C:**
+1. Umbral de "pocos movimientos" queda como está (10 operaciones / 5
+   días).
+2. Fase C arranca con festejo simple (texto festivo), no el modal de
+   confetti real — se puede sumar después.
+3. El segundo mensaje (Fase C) va **5 días después** del primero, por
+   empresa (no una fecha global) — aplica a todas. Buenaventura y
+   Ocaña ya tienen su primer mensaje (mandado a mano el 03/10), así
+   que cuando se implemente Fase C hay que calcular su "5 días
+   después" desde esa fecha real, no asumir que arrancan desde cero.
+
+**Fase B — hecha (03/10/2026):** `panel-maestro/analisis-mensual`
+(nueva pantalla, exclusiva de `es_admin_plataforma`, mismo patrón que
+`panel-maestro/auditoria`) — tabla con estado de cada empresa activa
+para "el mes que acaba de cerrar" (mismo cálculo que el cron, pero en
+hora local del navegador del admin, no hace falta el ajuste UTC-3):
+🟢 enviado completo / 🟡 enviado motivacional / ⚪ deshabilitado por
+el cliente / 🔴 todavía no se generó — con la fila completa resaltada
+en rojo si la empresa tuvo pocos o ningún movimiento ese mes (mismos
+umbrales de `lib/analisisMensual.ts`, importados de ahí para no
+duplicar el criterio). Acceso nuevo en Panel Maestro → Herramientas →
+Análisis. No se pudo probar logueado como admin real (sin
+credenciales desde este entorno) — validado con `tsc`, `lint`,
+`next build` (la ruta aparece como página estática nueva).
+
+**Pendiente: Fase C** (segundo mensaje de agradecimiento con festejo
+simple, 5 días después del primero por empresa) — no empezada.
 
 ## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
 Bug real: los 30 días del Plan de Acción de Buenaventura (feature a

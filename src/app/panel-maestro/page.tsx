@@ -658,6 +658,13 @@ export default function PanelMaestroPage() {
               titulo="Auditoría de Actividad"
               color="#7c3aed"
             />
+
+            <TarjetaHerramientaMaestro
+              href="/panel-maestro/analisis-mensual"
+              emoji="📊"
+              titulo="Análisis Mensual Automático"
+              color="#0891b2"
+            />
           </div>
         </section>
 
