@@ -7,17 +7,31 @@
 //
 // Es una función PURA a propósito — no importa lib/supabase ni toca
 // la base. Quien la llama (api/analisis-mensual/generar) ya le trae
-// las operaciones del período; así se puede testear con datos de
-// ejemplo sin mockear nada, y sirve para cualquier perfil de empresa:
-// COBRO/VENTA cuentan como ingreso, PAGO/COMPRA como egreso — el
-// resto de las operaciones (INVERSION, EXTRACCION) son aparte,
-// porque no son parte del ritmo regular del negocio/familia.
+// las operaciones del período con su `tipo` real (de
+// categorias_operacion), así se puede testear con datos de ejemplo
+// sin mockear nada, y sirve para cualquier perfil de empresa.
+//
+// OJO (bug ya encontrado en producción, ver memory.md): ingreso/
+// egreso se clasifican por `tipo` (INGRESO/GASTO/COSTO), NO por el
+// nombre de la operación (COBRO/VENTA/PAGO/COMPRA) — mismo criterio
+// que usa el DRE real (lib/contabilidad.ts). Un COBRO puede estar
+// liquidando una Cuenta a Cobrar ya facturada (tipo ACTIVO, no
+// INGRESO) y un PAGO puede estar pagando una deuda o Tarjeta (tipo
+// PASIVO, no GASTO) o comprando un bien que se activa (tipo ACTIVO,
+// no GASTO) — mirar solo el nombre de la operación los contaba como
+// resultado del mes cuando en realidad son movimientos de balance.
+// Aportes (INVERSION) y Extracciones (EXTRACCION) sí se identifican
+// por operación — ahí no hay esa ambigüedad.
 
 import { formatearMonto } from './moneda';
 
 export type OperacionDelMes = {
   operacion: string;
   categoria: string;
+  // Tipo real de la categoría (INGRESO/GASTO/COSTO/ACTIVO/PASIVO/
+  // PATRIMONIO) — de categorias_operacion.tipo, no inferido del
+  // nombre de la operación. Ver nota de arriba.
+  tipo: string;
   total: number;
   fecha: string; // 'YYYY-MM-DD'
 };
@@ -27,9 +41,6 @@ export type AnalisisMensual = {
   texto: string;
   modo: 'completo' | 'motivacional';
 };
-
-const OPERACIONES_INGRESO = ['COBRO', 'VENTA'];
-const OPERACIONES_EGRESO = ['PAGO', 'COMPRA'];
 
 // Por debajo de este umbral, en vez de forzar un desglose pobre/vacío
 // se manda un mensaje corto motivador — ver construirAnalisisMensual.
@@ -94,8 +105,8 @@ export function construirAnalisisMensual(
     return { titulo, texto, modo: 'motivacional' };
   }
 
-  const ingresos = operaciones.filter((o) => OPERACIONES_INGRESO.includes(o.operacion));
-  const egresos = operaciones.filter((o) => OPERACIONES_EGRESO.includes(o.operacion));
+  const ingresos = operaciones.filter((o) => o.tipo === 'INGRESO');
+  const egresos = operaciones.filter((o) => o.tipo === 'GASTO' || o.tipo === 'COSTO');
   const aportes = operaciones.filter((o) => o.operacion === 'INVERSION');
   const extracciones = operaciones.filter((o) => o.operacion === 'EXTRACCION');
 
