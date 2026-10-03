@@ -15,6 +15,10 @@
     {
       "path": "/api/analisis-mensual/generar",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/analisis-mensual/agradecer",
+      "schedule": "0 7 * * *"
     }
   ]
 }
