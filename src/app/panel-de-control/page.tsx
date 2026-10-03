@@ -21,6 +21,7 @@ import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
 import { MisIngresos } from '@/components/panel/MisIngresos';
+import { SaludDeCaja } from '@/components/panel/SaludDeCaja';
 import { AnalisisMensualToggle } from '@/components/panel/AnalisisMensualToggle';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
 import { SabioRegistrarGastoModal } from '@/components/panel/SabioRegistrarGastoModal';
@@ -120,6 +121,14 @@ export default function MiNegocioPage() {
   const [recordatorioUrgente, setRecordatorioUrgente] = useState<RecordatorioGastoRecurrente | null>(null);
   const [mostrarDialogoGasto, setMostrarDialogoGasto] = useState(false);
   const [refrescarVencimientos, setRefrescarVencimientos] = useState(0);
+  // Período compartido por Mis Ingresos, Salud de Caja y Mis
+  // Vencimientos — un solo selector (en Salud de Caja, al medio de
+  // los otros dos) en vez de tres sueltos que podrían quedar
+  // desincronizados entre sí.
+  const [periodoFlujoCaja, setPeriodoFlujoCaja] = useState(() => {
+    const hoy = new Date();
+    return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -932,7 +941,32 @@ export default function MiNegocioPage() {
                 boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
               }}
             >
-              <MisIngresos empresaId={perfil.empresa_id} idioma={idioma} simbolo={simbolo} colores={colores} />
+              <MisIngresos
+                empresaId={perfil.empresa_id}
+                idioma={idioma}
+                simbolo={simbolo}
+                colores={colores}
+                periodoSeleccionado={periodoFlujoCaja}
+              />
+            </section>
+
+            <section
+              style={{
+                background: colores.blanco,
+                borderRadius: 24,
+                padding: 24,
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              }}
+            >
+              <SaludDeCaja
+                empresaId={perfil.empresa_id}
+                idioma={idioma}
+                simbolo={simbolo}
+                colores={colores}
+                periodoSeleccionado={periodoFlujoCaja}
+                onCambiarPeriodo={setPeriodoFlujoCaja}
+              />
             </section>
 
             <section
@@ -950,6 +984,7 @@ export default function MiNegocioPage() {
                 idioma={idioma}
                 simbolo={simbolo}
                 colores={colores}
+                periodoSeleccionado={periodoFlujoCaja}
               />
             </section>
           </div>

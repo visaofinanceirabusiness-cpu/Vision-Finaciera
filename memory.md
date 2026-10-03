@@ -99,34 +99,58 @@ festejo simple (texto con emojis, no el modal de confetti real):
 Con esto el feature "Análisis Mensual Automático" (Fases A+B+C) queda
 completo.
 
-## Mis Vencimientos — selector de período (03/10/2026)
-Antes mezclaba implícitamente "este mes" con "próximo mes" (atenuado
-en gris, "no suma en el total") en una sola vista, sin poder elegir
-qué mes mirar — confuso de interpretar. Ahora `MisVencimientos.tsx`
-tiene un selector de período (mismo concepto que el de Ingresos/Gastos
-del período en Panel de Controle, pero construido localmente en este
-componente, bilingüe, sin opción "Todos" — mezclar todo era justo el
-problema anterior):
-- Los períodos disponibles se arman a partir de los meses de
-  `fecha_vencimiento` (Pasivos) + `periodo` (Gastos Recurrentes), más
-  siempre el mes actual y el siguiente aunque estén vacíos (para poder
-  adelantarse).
-- Al elegir un período, se filtran AMBOS bloques (Pasivos y Gastos
-  Recurrentes) a lo que vence ese mes — mostrando pagado y pendiente
-  juntos (ya no hace falta el botón "⋯" para destapar lo pagado, se ve
-  directo). El total general y los subtotales solo suman lo pendiente.
-- Se eliminó la heurística vieja de "próxima cuota pendiente = período
-  actual, el resto son futuras" (`esProximoPeriodo`) — ahora el
-  período lo elige el usuario explícitamente, mirando directo
-  `fecha_vencimiento`/`periodo`.
-- El botón "⋯" quedó solo para gestionar plantillas de Gastos
-  Recurrentes (crear/editar/activar/eliminar), que no depende de
-  período.
-- OJO si se toca de nuevo: para un gasto recurrente, elegir el mes que
-  viene puede mostrar "sin pendientes" aunque el usuario espere ver
-  algo — es esperado, `generarRecordatoriosPendientes` no arma el
-  recordatorio del período siguiente hasta que el actual se resuelve
-  (ver `lib/gastosRecurrentes.ts`), no es un bug de este cambio.
+## Mis Ingresos / Mis Vencimientos / Salud de Caja — selector de período compartido + ♻️ Salud de Caja (03/10/2026)
+Antes Mis Vencimientos mezclaba implícitamente "este mes" con
+"próximo mes" (atenuado en gris) en una sola vista, sin poder elegir
+qué mes mirar. Primero se le agregó un selector propio a Mis
+Vencimientos; después, al pedir comparar eso contra el saldo bancario
+y los ingresos pendientes, se unificó todo: ahora el período se elige
+UNA sola vez, en el panel nuevo del medio (♻️ Salud de Caja), y se
+pasa como prop controlado a los tres:
+- `MisIngresos.tsx` y `MisVencimientos.tsx` ya NO manejan su propio
+  `periodoSeleccionado` — lo reciben por prop desde
+  `panel-de-control/page.tsx` (estado `periodoFlujoCaja`). Los dos
+  filtran igual: todo lo que vence en el período elegido se muestra
+  (pagado y pendiente juntos, ya no hace falta destapar nada con el
+  botón "⋯" — ese botón quedó solo para gestionar plantillas), pero el
+  total solo suma lo pendiente.
+- Los períodos disponibles ahora son un rango FIJO por fecha (2 meses
+  atrás a 3 meses adelante — `periodosDisponibles()` en `lib/fecha.ts`,
+  con tests), no derivado de qué datos ya estén cargados — así los
+  tres paneles siempre ofrecen las mismas opciones sin depender de que
+  cada uno haya terminado de cargar su propia data.
+- **`♻️ Salud de Caja`** (`components/panel/SaludDeCaja.tsx`, nuevo,
+  entre Mis Ingresos y Mis Vencimientos en el grid de
+  `panel-de-control/page.tsx` — por eso en el medio): círculo (SVG,
+  arco proporcional) que compara, para el período elegido:
+  - DISPONIBLE = saldo de las "cuentas de dinero" que el cliente elige
+    + lo que falta cobrar ese período (Cuentas por Cobrar + Ingresos
+    Recurrentes pendientes).
+  - NECESARIO = Pasivos + Gastos Recurrentes pendientes ese período.
+  - Diferencia: verde si sobra, naranja/rojo si falta.
+  - "Cuenta de dinero" = una Forma de Pago que resuelve a una cuenta
+    del plan de cuentas de tipo ACTIVO (Caja/Banco) — se excluyen las
+    que resuelven a PASIVO (Tarjeta de Crédito). El saldo en vivo se
+    calcula con `obtenerSaldoCuenta` (`lib/motor.ts`), el mismo cálculo
+    que ya usaba `lib/saldoCuenta.ts` para no dejar una cuenta en
+    negativo — no se inventó un cálculo de saldo nuevo.
+  - Qué cuentas se suman queda guardado en
+    `formas_pago.incluir_en_salud_caja` (columna nueva, default
+    `false`, agregada vía MCP) — fijo hasta que alguien lo cambia a
+    mano con el checkbox de cada cuenta en el propio panel. Es una
+    preferencia de la EMPRESA, no de cada usuario.
+  - Toda la lógica nueva vive en `lib/saludCaja.ts`
+    (`listarCuentasDeDinero`, `cambiarCuentaEnSaludCaja`).
+- OJO si se toca de nuevo: para un gasto/ingreso recurrente, elegir un
+  mes futuro puede mostrar "sin pendientes" aunque el usuario espere
+  ver algo — es esperado, `generarRecordatoriosPendientes`/
+  `generarRecordatoriosIngresosPendientes` no arman el recordatorio
+  del período siguiente hasta que el actual se resuelve, no es un bug
+  de este cambio.
+- No se pudo probar logueado en vivo (sin credenciales en este
+  entorno) — validado con `tsc`, `lint`, `vitest` (27/27 tests, 5
+  nuevos de `periodosDisponibles`/`formatearPeriodo`/
+  `sumarMesesPeriodo` en `lib/fecha.test.ts`) y `next build`.
 
 ## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
 Bug real: los 30 días del Plan de Acción de Buenaventura (feature a
