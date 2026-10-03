@@ -146,6 +146,7 @@ export default function ConfiguracoesPage() {
 
   const [pestana, setPestana] = useState<Pestana>('empresa');
   const [esAdmin, setEsAdmin] = useState(false);
+  const [puedeEditarObjetivos, setPuedeEditarObjetivos] = useState(false);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [idioma, setIdioma] = useState('ES');
   const [cargando, setCargando] = useState(true);
@@ -164,7 +165,7 @@ export default function ConfiguracoesPage() {
 
       const { data: perfil, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select('empresa_id, es_admin_plataforma')
+        .select('empresa_id, es_admin_plataforma, tipo_usuario')
         .eq('id', userData.user.id)
         .maybeSingle();
 
@@ -187,6 +188,15 @@ export default function ConfiguracoesPage() {
 
       setEmpresaId(perfil.empresa_id);
       setEsAdmin(Boolean(perfil.es_admin_plataforma));
+      // Los Objetivos de Panel de Control son de la empresa, no una
+      // configuración estructural del motor contable (a diferencia de
+      // Plan de Cuentas, Matriz o Facturación, que sí quedan
+      // exclusivas del admin de plataforma) — cualquier usuario de la
+      // empresa los puede editar, salvo Asistente/Soporte, igual que
+      // ya lo permite la política RLS de objetivos_empresa.
+      setPuedeEditarObjetivos(
+        Boolean(perfil.es_admin_plataforma) || (perfil.tipo_usuario !== 'ASISTENTE' && perfil.tipo_usuario !== 'SOPORTE')
+      );
       setIdioma(empresaData?.idioma ?? 'ES');
       setCargando(false);
     }
@@ -289,7 +299,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'categorias' && <CategoriasYFormasDePagoTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'plan' && <PlanDeCuentasTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
+          {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} puedeEditar={puedeEditarObjetivos} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
@@ -2723,7 +2733,7 @@ function categoriasObjetivo(t: (clave: ClaveConfiguracoes) => string): { valor: 
   ];
 }
 
-function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdmin: boolean; idioma: string }) {
+function ObjetivosTab({ empresaId, puedeEditar, idioma }: { empresaId: string; puedeEditar: boolean; idioma: string }) {
   const t = crearTraductor(diccionarioConfiguracoes, idioma);
   const [objetivos, setObjetivos] = useState<ObjetivoFila[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -2770,7 +2780,7 @@ function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdm
       {error && <div style={errorStyle}>{error}</div>}
       {mensaje && <div style={mensajeOkStyle}>{mensaje}</div>}
 
-      {!esAdmin && (
+      {!puedeEditar && (
         <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 14 }}>
           {t('soloAdminObjetivos')}
         </p>
@@ -2816,7 +2826,7 @@ function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdm
                       </span>
                     </div>
 
-                    {esAdmin ? (
+                    {puedeEditar ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button
                           type="button"
@@ -2858,13 +2868,13 @@ function ObjetivosTab({ empresaId, esAdmin, idioma }: { empresaId: string; esAdm
               </div>
             )}
 
-            {esAdmin && creandoNuevo !== valor && (
+            {puedeEditar && creandoNuevo !== valor && (
               <button type="button" style={botonGuardar} onClick={() => setCreandoNuevo(valor)}>
                 {t('botonAgregarObjetivo')}
               </button>
             )}
 
-            {esAdmin && creandoNuevo === valor && (
+            {puedeEditar && creandoNuevo === valor && (
               <FormularioObjetivo
                 categoria={valor}
                 idioma={idioma}
