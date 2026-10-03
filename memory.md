@@ -76,8 +76,28 @@ Análisis. No se pudo probar logueado como admin real (sin
 credenciales desde este entorno) — validado con `tsc`, `lint`,
 `next build` (la ruta aparece como página estática nueva).
 
-**Pendiente: Fase C** (segundo mensaje de agradecimiento con festejo
-simple, 5 días después del primero por empresa) — no empezada.
+**Fase C — hecha (03/10/2026):** segundo mensaje de agradecimiento,
+festejo simple (texto con emojis, no el modal de confetti real):
+- `lib/agradecimientoMensual.ts`: función PURA
+  `construirMensajeAgradecimiento(idioma)` — mensaje corto, título
+  "🎉 ¡Gracias por usar Visão Financeira!" / PT equivalente. Tests en
+  `agradecimientoMensual.test.ts`.
+- `api/analisis-mensual/agradecer`: cron nuevo, corre TODOS LOS DÍAS
+  (`vercel.json`, 7am UTC — a diferencia del cron de Fase A que es
+  solo el día 1, este tiene que revisar cada día porque el "5 días
+  después" cae en fechas distintas por empresa). Por cada empresa
+  activa+habilitada, busca su mensaje "📊"-análisis más reciente con
+  `creado_en` ≥ 5 días, y si no tiene ya un "🎉"-agradecimiento para
+  ese mismo `periodo`, lo inserta. Al ser por empresa (no una fecha
+  global), Buenaventura y Ocaña —que recibieron el análisis a mano el
+  03/10, antes de que existiera este cron— también les va a llegar en
+  su propio día 5 sin tratamiento especial.
+- Tampoco se pudo probar en vivo (mismo motivo: sin
+  `SUPABASE_SERVICE_ROLE_KEY` en este entorno) — validado con tests
+  unitarios, `tsc`, `lint`, `next build` (aparece como ruta dinámica).
+
+Con esto el feature "Análisis Mensual Automático" (Fases A+B+C) queda
+completo.
 
 ## Plan de Acción (Buenaventura) ↔ Calendário — sincronizados (03/10/2026)
 Bug real: los 30 días del Plan de Acción de Buenaventura (feature a
