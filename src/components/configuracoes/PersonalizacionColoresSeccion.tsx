@@ -15,7 +15,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FONDOS_DISPONIBLES, aplicarTemaGlobal } from '@/lib/apariencia';
-import { COLORES, campo, label, inputFormulario, botonGuardar, errorStyle, mensajeOkStyle, cargandoStyle } from './estilosCompartidos';
+import { COLORES, campo, label, inputFormulario, botonGuardar, botonSecundario, errorStyle, mensajeOkStyle, cargandoStyle } from './estilosCompartidos';
 
 type ColoresDashboard = {
   color_primario: string;
@@ -69,6 +69,16 @@ export function PersonalizacionColoresSeccion({ empresaId, idioma }: { empresaId
 
     cargar();
   }, [empresaId]);
+
+  function restaurarPorDefecto() {
+    setError('');
+    setColores(COLORES_DASHBOARD_POR_DEFECTO);
+    setMensaje(
+      esPt
+        ? 'Cores e fundo voltaram ao padrão — clique em "Salvar aparência" para aplicar.'
+        : 'Colores y fondo volvieron al valor por defecto — hacé clic en "Guardar apariencia" para aplicarlo.'
+    );
+  }
 
   async function guardar() {
     setGuardando(true);
@@ -208,7 +218,10 @@ export function PersonalizacionColoresSeccion({ empresaId, idioma }: { empresaId
       </div>
 
       {puedeEditar && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" style={botonSecundario} onClick={restaurarPorDefecto} disabled={guardando}>
+            {esPt ? 'Restaurar padrão' : 'Restaurar por defecto'}
+          </button>
           <button type="button" style={botonGuardar} onClick={guardar} disabled={guardando}>
             {guardando ? (esPt ? 'Salvando...' : 'Guardando...') : (esPt ? 'Salvar aparência' : 'Guardar apariencia')}
           </button>
