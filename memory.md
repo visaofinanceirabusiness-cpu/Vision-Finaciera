@@ -7,6 +7,38 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Análisis Mensual Automático — bug de clasificación ingreso/egreso (03/10/2026)
+El mensaje "Análisis a fondo" clasificaba ingreso/egreso mirando el
+NOMBRE de la operación (COBRO/VENTA = ingreso, PAGO/COMPRA = egreso),
+no el tipo real de la categoría. Un COBRO puede liquidar una Cuenta a
+Cobrar ya facturada (tipo ACTIVO) o un PAGO puede pagar una deuda/
+Tarjeta (tipo PASIVO) o comprar un bien que se activa (tipo ACTIVO) —
+nada de eso es resultado del mes, pero se contaba igual. Encontrado
+porque el usuario comparó el mensaje de Buenaventura (septiembre:
+decía resultado operativo −R$1.883) contra el DRE real (−R$747) y no
+cerraba.
+
+**Fix**: `lib/analisisMensual.ts` ahora clasifica por `tipo` de la
+categoría (`INGRESO` para ingreso, `GASTO`/`COSTO` para egreso) — el
+mismo criterio que ya usa el DRE real en `lib/contabilidad.ts`.
+`OperacionDelMes` tiene un campo `tipo` nuevo, que
+`api/analisis-mensual/generar/route.ts` completa con un join a
+`categorias_operacion` (por empresa_id+operacion+categoria). Aportes
+(`INVERSION`) y Extracciones (`EXTRACCION`) siguen identificándose por
+operación, ahí no hay esa ambigüedad. Test de regresión en
+`analisisMensual.test.ts` que reproduce exactamente el caso de
+Buenaventura.
+
+**Dato corregido a mano**: se confirmó que Ocaña NO tenía este
+problema (sus operaciones de septiembre eran todas INGRESO/GASTO
+reales). Para Buenaventura se actualizó en el lugar (no se pudo
+`DELETE`, límite ya conocido) el mensaje
+"📊 Análisis a fondo de septiembre" con el número correcto
+(−R$747,38 en vez de −R$1.883,38) y se mandó un mensaje nuevo aparte
+explicando los 4 movimientos que quedaron afuera (cobro de una cuenta
+a cobrar, compra de un mueble, pago de un préstamo y de la tarjeta de
+crédito — suman R$1.356 que no son ni ingreso ni gasto del mes).
+
 ## Análisis Mensual Automático — Fase A (03/10/2026)
 Antes se mandaba a mano por Mensajes (ver mensajes_financieros) un
 "Análisis a fondo" del mes — se hizo manualmente para Buenaventura y

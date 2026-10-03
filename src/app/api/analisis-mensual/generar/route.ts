@@ -104,17 +104,33 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const { data: operaciones, error: errorOperaciones } = await admin
-        .from('registro_operaciones')
-        .select('operacion, categoria, total, fecha')
-        .eq('empresa_id', empresa.id)
-        .gte('fecha', desde)
-        .lte('fecha', hasta);
+      const [{ data: operaciones, error: errorOperaciones }, { data: categorias, error: errorCategorias }] = await Promise.all([
+        admin
+          .from('registro_operaciones')
+          .select('operacion, categoria, total, fecha')
+          .eq('empresa_id', empresa.id)
+          .gte('fecha', desde)
+          .lte('fecha', hasta),
+        admin.from('categorias_operacion').select('operacion, nombre, tipo').eq('empresa_id', empresa.id),
+      ]);
 
       if (errorOperaciones) {
         resultados[empresa.nombre] = `error consultando operaciones: ${errorOperaciones.message}`;
         continue;
       }
+
+      if (errorCategorias) {
+        resultados[empresa.nombre] = `error consultando categorías: ${errorCategorias.message}`;
+        continue;
+      }
+
+      // El tipo real de la categoría (INGRESO/GASTO/COSTO/ACTIVO/
+      // PASIVO/PATRIMONIO) es lo que decide si una operación cuenta
+      // como resultado del mes — ver el comentario grande en
+      // lib/analisisMensual.ts sobre por qué no alcanza con mirar el
+      // nombre de la operación (COBRO/PAGO también liquidan Cuentas a
+      // Cobrar/Pagar o compran bienes, que son Activo/Pasivo).
+      const tipoPorOperacionCategoria = new Map((categorias ?? []).map((c) => [`${c.operacion}|${c.nombre}`, c.tipo]));
 
       // Supabase devuelve las columnas numeric como string — sin este
       // Number(), la suma de totales en construirAnalisisMensual sería
@@ -122,6 +138,7 @@ export async function GET(request: NextRequest) {
       const operacionesDelMes: OperacionDelMes[] = (operaciones ?? []).map((o) => ({
         operacion: o.operacion,
         categoria: o.categoria,
+        tipo: tipoPorOperacionCategoria.get(`${o.operacion}|${o.categoria}`) ?? '',
         total: Number(o.total),
         fecha: o.fecha,
       }));
