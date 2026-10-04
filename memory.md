@@ -100,8 +100,11 @@ no se tocan.
   `id_operacion` y `*_pagos`/`*_cobros` de los recordatorios),
   `components/informes/ResultadoPorNaturaleza.tsx`. Límite: lo que nunca se
   vinculó a una plantilla (pagos viejos cargados a mano) queda en DEL MES.
-  Pendiente: mismo resumen en el Resumen Ejecutivo del Panel (el usuario
-  pidió solo el Estado de Resultado por ahora).
+  También en el Resumen Ejecutivo del Panel de Control
+  (`components/panel/ResumenNaturaleza.tsx`, datos desde
+  `obtenerIndicadores().naturaleza`; se oculta si la empresa no tiene
+  ningún recurrente). Letra agrandada a pedido del usuario (la vista del
+  Informe salió chica).
 - **Fase 2D — ingresos (código hecho, 04/10/2026)**: espejo del de
   gastos (`lib/devengoIngresos.ts`, `lib/cuentaACobrar.ts`): día 1,
   Cuenta a Cobrar / Ingreso; al cobrar, Banco / Cuenta a Cobrar con la

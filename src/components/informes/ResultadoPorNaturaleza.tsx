@@ -123,10 +123,10 @@ export function ResultadoPorNaturaleza({
         return (
           <div key={tipo} style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '10px 10px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none', gap: 12 }}>
-              <strong style={{ color: COLORES.azul, fontSize: 13 }}>
+              <strong style={{ color: COLORES.azul, fontSize: 17 }}>
                 {emoji} {titulo}
               </strong>
-              <strong style={{ color, fontSize: 13, flexShrink: 0 }}>
+              <strong style={{ color, fontSize: 17, flexShrink: 0 }}>
                 {resta ? '− ' : ''}
                 {formatear(totalDe(tipo))}
               </strong>
@@ -134,22 +134,22 @@ export function ResultadoPorNaturaleza({
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
               {grupos.length === 0 ? (
-                <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
+                <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 15 }}>
                   {esPT ? 'Sem movimento neste período.' : 'Sin movimiento en este período.'}
                 </div>
               ) : (
                 grupos.map(({ naturaleza, grupo }, indice) => (
                   <div key={naturaleza} style={{ borderTop: indice === 0 ? 'none' : '1px solid #e5e7eb' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '8px 14px', background: '#fbfcfd', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: COLORES.azul }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '10px 14px', background: '#fbfcfd', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 15.5, fontWeight: 800, color: COLORES.azul }}>
                         {etiquetaGrupo[naturaleza]}
-                        <span style={{ fontWeight: 400, color: COLORES.gris, marginLeft: 8 }}>{ayudaGrupo[naturaleza]}</span>
+                        <span style={{ fontWeight: 400, color: COLORES.gris, marginLeft: 8, fontSize: 13.5 }}>{ayudaGrupo[naturaleza]}</span>
                       </span>
-                      <strong style={{ fontSize: 12.5, color }}>{formatear(grupo.total)}</strong>
+                      <strong style={{ fontSize: 16, color }}>{formatear(grupo.total)}</strong>
                     </div>
 
                     {grupo.filas.map((fila) => (
-                      <div key={fila.cuentaId} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 14px 8px 28px', fontSize: 13, gap: 16, borderTop: '1px solid #f1f5f9' }}>
+                      <div key={fila.cuentaId} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px 10px 28px', fontSize: 16, gap: 16, borderTop: '1px solid #f1f5f9' }}>
                         <span>{fila.nombre}</span>
                         <span style={{ whiteSpace: 'nowrap' }}>{formatear(fila.valor)}</span>
                       </div>
@@ -163,15 +163,15 @@ export function ResultadoPorNaturaleza({
       })}
 
       <div style={{ marginTop: 18, padding: '18px 20px', borderRadius: 16, background: resultadoTotal >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, color: COLORES.gris, marginBottom: 12 }}>
           {esPT ? 'RESULTADO' : 'RESULTADO'} — {etiquetaPeriodo}
         </div>
 
         {ORDEN_NATURALEZA.map((n) => (
-          <div key={n} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '4px 0', fontSize: 13.5 }}>
+          <div key={n} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0', fontSize: 17 }}>
             <span style={{ color: '#374151' }}>
               {etiquetaNeto[n]}
-              <span style={{ color: COLORES.gris, fontSize: 11.5, marginLeft: 8 }}>
+              <span style={{ color: COLORES.gris, fontSize: 13.5, marginLeft: 8 }}>
                 {n === 'DEL_MES'
                   ? esPT
                     ? 'o que depende do mês'
@@ -186,34 +186,34 @@ export function ResultadoPorNaturaleza({
         ))}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 8, paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.08)', alignItems: 'baseline' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: COLORES.azul }}>{esPT ? 'Resultado total' : 'Resultado total'}</span>
-          <span style={{ fontSize: 24, fontWeight: 800, color: resultadoTotal >= 0 ? COLORES.verde : COLORES.rojo }}>{formatear(resultadoTotal)}</span>
+          <span style={{ fontSize: 17, fontWeight: 700, color: COLORES.azul }}>{esPT ? 'Resultado total' : 'Resultado total'}</span>
+          <span style={{ fontSize: 32, fontWeight: 800, color: resultadoTotal >= 0 ? COLORES.verde : COLORES.rojo }}>{formatear(resultadoTotal)}</span>
         </div>
       </div>
 
       {(resumen.cobertura !== null || resumen.pesoRecurrente !== null) && (
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
           {resumen.cobertura !== null && (
-            <div style={{ flex: '1 1 220px', border: '1px solid #e5e7eb', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: COLORES.gris }}>
+            <div style={{ flex: '1 1 220px', border: '1px solid #e5e7eb', borderRadius: 14, padding: '14px 18px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.8, color: COLORES.gris }}>
                 {esPT ? 'COBERTURA DO RECORRENTE' : 'COBERTURA DE LO RECURRENTE'}
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: resumen.cobertura >= 1 ? COLORES.verde : COLORES.rojo }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: resumen.cobertura >= 1 ? COLORES.verde : COLORES.rojo }}>
                 {(resumen.cobertura * 100).toFixed(0)}%
               </div>
-              <div style={{ fontSize: 12, color: COLORES.gris, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 14, color: COLORES.gris, lineHeight: 1.45 }}>
                 {esPT ? 'Suas receitas recorrentes cobrem esta parte dos seus gastos recorrentes.' : 'Tus ingresos recurrentes cubren esta parte de tus gastos recurrentes.'}
               </div>
             </div>
           )}
 
           {resumen.pesoRecurrente !== null && (
-            <div style={{ flex: '1 1 220px', border: '1px solid #e5e7eb', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: COLORES.gris }}>
+            <div style={{ flex: '1 1 220px', border: '1px solid #e5e7eb', borderRadius: 14, padding: '14px 18px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.8, color: COLORES.gris }}>
                 {esPT ? 'PESO DO RECORRENTE' : 'PESO DE LO RECURRENTE'}
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>{(resumen.pesoRecurrente * 100).toFixed(0)}%</div>
-              <div style={{ fontSize: 12, color: COLORES.gris, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: COLORES.azul }}>{(resumen.pesoRecurrente * 100).toFixed(0)}%</div>
+              <div style={{ fontSize: 14, color: COLORES.gris, lineHeight: 1.45 }}>
                 {esPT ? 'Dos seus gastos já estava comprometido por recorrentes.' : 'De tus gastos ya estaba comprometido por recurrentes.'}
               </div>
             </div>
@@ -221,7 +221,7 @@ export function ResultadoPorNaturaleza({
         </div>
       )}
 
-      <p style={{ margin: '14px 0 0', fontSize: 11.5, color: COLORES.gris, lineHeight: 1.5 }}>
+      <p style={{ margin: '16px 0 0', fontSize: 13.5, color: COLORES.gris, lineHeight: 1.55 }}>
         {esPT
           ? 'Só conta como recorrente o que está vinculado a um gasto ou ingresso recorrente; o resto aparece em "Do mês". O total é o mesmo da visão por conta.'
           : 'Solo cuenta como recurrente lo que está vinculado a un gasto o ingreso recurrente; el resto aparece en "Del mes". El total es el mismo que en la vista por cuenta.'}
