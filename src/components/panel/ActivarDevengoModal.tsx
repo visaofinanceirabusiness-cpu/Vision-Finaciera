@@ -165,9 +165,13 @@ export function ActivarDevengoModal({
                 <br />
                 <span style={{ fontSize: 11.5, color: '#6e7781' }}>
                   {modo === 'MIGRAR'
-                    ? esPT
-                      ? 'Se só este gasto usa a conta geral, ela é renomeada com este nome (os lançamentos a acompanham). Se outros também usam, é criada uma conta nova e os lançamentos deste gasto são movidos para ela; o último gasto renomeia a geral.'
-                      : 'Si solo este gasto usa la cuenta general, se renombra con este nombre (los asientos la acompañan). Si la usan otros también, se crea una cuenta nueva y se mueven a ella los asientos de este gasto; el último gasto renombra la general.'
+                    ? lado === 'COBRAR'
+                      ? esPT
+                        ? 'Cria esta conta nova e move para ela os lançamentos já reconhecidos deste ingresso (mesmo número de operação). A conta a receber geral do plano não é alterada.'
+                        : 'Se crea esta cuenta nueva y se mueven a ella los asientos ya devengados de este ingreso (mismo número de operación). La cuenta a cobrar general del plan no se toca.'
+                      : esPT
+                        ? 'Se só este gasto usa a conta geral, ela é renomeada com este nome (os lançamentos a acompanham). Se outros também usam, é criada uma conta nova e os lançamentos deste gasto são movidos para ela; o último gasto renomeia a geral.'
+                        : 'Si solo este gasto usa la cuenta general, se renombra con este nombre (los asientos la acompañan). Si la usan otros también, se crea una cuenta nueva y se mueven a ella los asientos de este gasto; el último gasto renombra la general.'
                     : opciones.individualYaExiste
                     ? esPT
                       ? 'Já existe no seu plano de contas: será usada.'

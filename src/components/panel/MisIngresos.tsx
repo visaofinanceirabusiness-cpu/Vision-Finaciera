@@ -24,7 +24,6 @@ import {
   crearIngresoRecurrente,
   actualizarIngresoRecurrente,
   cambiarActivoIngresoRecurrente,
-  eliminarIngresoRecurrente,
   saldoPendienteCobro,
   type IngresoRecurrente,
   type RecordatorioIngresoRecurrente,
@@ -32,8 +31,18 @@ import {
 import { SabioRegistrarIngresoModal } from './SabioRegistrarIngresoModal';
 import { VincularCobroModal } from './VincularCobroModal';
 import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
+import { ActivarDevengoModal } from './ActivarDevengoModal';
+import { buscarCuentaCompromisoPorNombre, listarCuentasElegibles, listarGrupos } from '@/lib/cuentasCompromiso';
+import { nombreCuentaCompromiso } from '@/lib/cuentasCompromisoNombres';
 import { empresaTieneDevengo } from '@/lib/devengoGastos';
-import { ejecutarDevengoIngresos, activarDevengoIngreso, desactivarDevengoIngreso, confirmarDevengoIngreso } from '@/lib/devengoIngresos';
+import {
+  ejecutarDevengoIngresos,
+  activarDevengoIngreso,
+  migrarCuentaGeneralIngreso,
+  desactivarDevengoIngresoYLiberar,
+  eliminarOBajaIngresoRecurrente,
+  confirmarDevengoIngreso,
+} from '@/lib/devengoIngresos';
 import { ETIQUETA_ESTADO } from '@/lib/devengo';
 import { AcordeonSeccion } from './AcordeonSeccion';
 import { fechaLocalHoy } from '@/lib/fecha';
@@ -75,6 +84,11 @@ export function MisIngresos({
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioADevengar, setRecordatorioADevengar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [errorDevengo, setErrorDevengo] = useState('');
+  const [plantillaAActivar, setPlantillaAActivar] = useState<IngresoRecurrente | null>(null);
+  const [plantillaAMigrar, setPlantillaAMigrar] = useState<IngresoRecurrente | null>(null);
+  const [mensajeBaja, setMensajeBaja] = useState('');
+  // id de forma de pago -> nombre, para mostrar a qué cuenta apunta cada plantilla.
+  const [nombreCuentaPorId, setNombreCuentaPorId] = useState<Record<string, string>>({});
   const permiteDevengo = empresaTieneDevengo(empresaId);
   // Antes el interruptor "⋯" destapaba también lo ya cobrado de ambos
   // bloques — ahora que el selector de período (Panel de Controle) ya
@@ -112,7 +126,7 @@ export function MisIngresos({
           .eq('operacion', 'COBRO')
           .eq('tipo', 'INGRESO')
           .order('nombre'),
-        supabase.from('formas_pago').select('nombre').eq('empresa_id', empresaId).order('nombre'),
+        supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaId).order('nombre'),
       ]);
 
       setCuotas(cuotasData);
@@ -120,6 +134,7 @@ export function MisIngresos({
       setPlantillas(plantillasData);
       setCategorias((catData.data ?? []).map((c) => c.nombre));
       setFormasPago((fpData.data ?? []).map((f) => f.nombre));
+      setNombreCuentaPorId(Object.fromEntries((fpData.data ?? []).map((f) => [f.id as string, f.nombre as string])));
       setError('');
     } catch (e) {
       console.error('Error cargando Mis Ingresos:', e);
@@ -199,6 +214,12 @@ export function MisIngresos({
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
           {error}
+        </div>
+      )}
+
+      {mensajeBaja && (
+        <div style={{ fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
+          {mensajeBaja}
         </div>
       )}
 
@@ -544,6 +565,7 @@ export function MisIngresos({
                       <span style={{ fontWeight: 400, color: '#6e7781' }}>
                         {' '}
                         · {plantilla.categoria} · {plantilla.forma_pago} · {esPT ? 'dia' : 'día'} {plantilla.dia_mes}
+                        {plantilla.devengar && plantilla.cuenta_a_cobrar_forma_pago_id && nombreCuentaPorId[plantilla.cuenta_a_cobrar_forma_pago_id] && ` · ${nombreCuentaPorId[plantilla.cuenta_a_cobrar_forma_pago_id]}`}
                       </span>
                     </span>
 
@@ -572,12 +594,8 @@ export function MisIngresos({
                               setErrorDevengo('');
                               try {
                                 if (e.target.checked) {
-                                  const fijo = window.confirm(
-                                    esPT
-                                      ? `Reconhecer "${plantilla.nombre}" mês a mês.\n\nO valor é FIXO todo mês? (OK = fixo, Cancelar = varia e eu confirmo o valor de cada mês)`
-                                      : `Reconocer "${plantilla.nombre}" mes a mes.\n\n¿El monto es FIJO todos los meses? (Aceptar = fijo, Cancelar = varía y confirmo el monto de cada mes)`
-                                  );
-                                  await activarDevengoIngreso(empresaId, plantilla.id, fijo);
+                                  setPlantillaAActivar(plantilla);
+                                  return;
                                 } else if (
                                   window.confirm(
                                     esPT
@@ -585,7 +603,7 @@ export function MisIngresos({
                                       : '¿Desactivar? Se quitan los meses futuros sin asiento; lo ya devengado queda como está.'
                                   )
                                 ) {
-                                  await desactivarDevengoIngreso(plantilla.id);
+                                  await desactivarDevengoIngresoYLiberar(empresaId, plantilla.id);
                                 }
                               } catch (err) {
                                 console.error(err);
@@ -595,6 +613,17 @@ export function MisIngresos({
                             }}
                           />
                         </label>
+                      )}
+
+                      {permiteDevengo && plantilla.devengar && !plantilla.cuenta_a_cobrar_forma_pago_id && (
+                        <button
+                          type="button"
+                          onClick={() => setPlantillaAMigrar(plantilla)}
+                          title={esPT ? 'Cria uma conta a receber própria com o nome deste ingresso' : 'Crea una cuenta a cobrar propia con el nombre de este ingreso'}
+                          style={{ border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '3px 8px', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          {esPT ? 'Conta própria' : 'Cuenta propia'}
+                        </button>
                       )}
 
                       <button
@@ -621,7 +650,20 @@ export function MisIngresos({
                         type="button"
                         onClick={async () => {
                           if (window.confirm(esPT ? `Excluir "${plantilla.nombre}"?` : `¿Eliminar "${plantilla.nombre}"?`)) {
-                            await eliminarIngresoRecurrente(plantilla.id);
+                            setMensajeBaja('');
+                            try {
+                              const resultado = await eliminarOBajaIngresoRecurrente(empresaId, plantilla);
+                              if (resultado === 'BAJA') {
+                                setMensajeBaja(
+                                  esPT
+                                    ? `"${plantilla.nombre}" tem meses reconhecidos sem receber: foi dada de baixa (não gera meses novos) e o que está pendente continua podendo ser recebido.`
+                                    : `"${plantilla.nombre}" tiene meses devengados sin cobrar: se dio de baja (no genera meses nuevos) y lo pendiente se sigue pudiendo cobrar.`
+                                );
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              setErrorDevengo(err instanceof Error ? err.message : 'Error inesperado.');
+                            }
                             await recargar();
                           }
                         }}
@@ -696,6 +738,51 @@ export function MisIngresos({
             setRecordatorioAConfirmar(null);
             recargar();
           }}
+        />
+      )}
+
+      {plantillaAActivar && (
+        <ActivarDevengoModal
+          lado="COBRAR"
+          nombrePlantilla={plantillaAActivar.nombre}
+          idioma={idioma}
+          colores={colores}
+          cargarOpciones={async () => ({
+            existentes: await listarCuentasElegibles(empresaId, 'COBRAR'),
+            grupos: await listarGrupos(empresaId, 'COBRAR'),
+            individualYaExiste: Boolean(
+              await buscarCuentaCompromisoPorNombre(empresaId, nombreCuentaCompromiso(plantillaAActivar.nombre, 'COBRAR'), 'COBRAR')
+            ),
+          })}
+          onActivar={async (opciones) => {
+            setErrorDevengo('');
+            await activarDevengoIngreso(empresaId, plantillaAActivar.id, opciones);
+            setPlantillaAActivar(null);
+            await recargar();
+          }}
+          onClose={() => setPlantillaAActivar(null)}
+        />
+      )}
+
+      {plantillaAMigrar && (
+        <ActivarDevengoModal
+          modo="MIGRAR"
+          lado="COBRAR"
+          nombrePlantilla={plantillaAMigrar.nombre}
+          idioma={idioma}
+          colores={colores}
+          cargarOpciones={async () => ({
+            existentes: [],
+            grupos: await listarGrupos(empresaId, 'COBRAR'),
+            individualYaExiste: false,
+          })}
+          onActivar={async (opciones) => {
+            setErrorDevengo('');
+            await migrarCuentaGeneralIngreso(empresaId, plantillaAMigrar.id, opciones.grupo ?? null);
+            setPlantillaAMigrar(null);
+            await recargar();
+          }}
+          onClose={() => setPlantillaAMigrar(null)}
         />
       )}
 

@@ -72,12 +72,23 @@ no se tocan.
   devengados sin pagar es BAJA (se sigue pudiendo pagar). La cuenta general
   de la primera versión se convierte con el botón "Cuenta propia" de la
   plantilla (`migrarCuentaGeneral`: la RENOMBRA, no toca asientos).
-  **Pendiente**: lado ingresos (cuenta a cobrar propia + grupo "a cobrar") y
-  corregir que una cuenta a cobrar creada como forma de pago cuenta como
-  "caja disponible" en `lib/contabilidad.ts` (`nombresMedioFinanciero`) y en
-  Salud de Caja (`listarCuentasDeDinero`): hoy `Cuentas a cobrar` de
-  Buenaventura (saldo R$1.100) se está sumando a la caja — excluir las
-  cuentas con categoría de liquidación de COBRO tipo ACTIVO.
+  **Lado ingresos (hecho, 04/10/2026)**: mismo esquema con cuenta a cobrar
+  propia ("Casita a cobrar", grupo "Alquileres a cobrar" bajo el
+  corriente de Activo, `1.1.k.0.0`). La cuenta a cobrar GENERAL del plan
+  ("Cuentas a cobrar", "Costão a cobrar") no se renombra ni desactiva
+  nunca (la usa Contabilidad para ventas a crédito): el botón "Cuenta
+  propia" de un ingreso solo CREA la cuenta y MUEVE los asientos de
+  devengo con `editarOperacion` (`migrarCuentaGeneralIngreso`).
+  **Fix de caja**: una cuenta a cobrar se crea como forma de pago (igual
+  que un banco) y se sumaba a "caja disponible" (`lib/contabilidad.ts`) y
+  se ofrecía como "cuenta de dinero" en Salud de Caja
+  (`lib/saludCaja.ts`). Ahora `lib/cuentasPorCobrar.ts`
+  (`idsCuentasPorCobrar`: cuentas con categoría de COBRO de rol ACTIVO,
+  que un banco no tiene) las excluye de la caja y de Salud de Caja; siguen
+  en la distribución de liquidez. Efecto visible: baja la "caja" de
+  Buenaventura (R$1.100 de Casita), Ocaña (R$360) y Equilibra (R$1.794 de
+  "Tarjeta de Crédito a Cobrar"), que eran cuentas a cobrar contadas como
+  plata.
 - **Fase 2D — ingresos (código hecho, 04/10/2026)**: espejo del de
   gastos (`lib/devengoIngresos.ts`, `lib/cuentaACobrar.ts`): día 1,
   Cuenta a Cobrar / Ingreso; al cobrar, Banco / Cuenta a Cobrar con la
