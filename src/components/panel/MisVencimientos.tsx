@@ -36,7 +36,10 @@ import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 import { VincularPagoModal } from './VincularPagoModal';
 import { AcordeonSeccion } from './AcordeonSeccion';
 import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
-import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, desactivarDevengo, confirmarDevengo } from '@/lib/devengoGastos';
+import { ActivarDevengoModal } from './ActivarDevengoModal';
+import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, migrarCuentaGeneral, desactivarDevengoYLiberar, eliminarOBajaGastoRecurrente, confirmarDevengo } from '@/lib/devengoGastos';
+import { buscarCuentaCompromisoPorNombre, listarCuentasElegibles, listarGrupos } from '@/lib/cuentasCompromiso';
+import { nombreCuentaCompromiso } from '@/lib/cuentasCompromisoNombres';
 import { ETIQUETA_ESTADO } from '@/lib/devengo';
 import { fechaLocalHoy } from '@/lib/fecha';
 
@@ -76,6 +79,11 @@ export function MisVencimientos({
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioADevengar, setRecordatorioADevengar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [errorDevengo, setErrorDevengo] = useState('');
+  const [plantillaAActivar, setPlantillaAActivar] = useState<GastoRecurrente | null>(null);
+  const [plantillaAMigrar, setPlantillaAMigrar] = useState<GastoRecurrente | null>(null);
+  const [mensajeBaja, setMensajeBaja] = useState('');
+  // id de forma de pago -> nombre, para mostrar a qué cuenta apunta cada plantilla.
+  const [nombreCuentaPorId, setNombreCuentaPorId] = useState<Record<string, string>>({});
   const permiteDevengo = empresaTieneDevengo(empresaId);
   // Antes el interruptor "⋯" destapaba también lo ya pagado de ambos
   // bloques — ahora que el selector de período ya separa todo, lo ya
@@ -114,7 +122,7 @@ export function MisVencimientos({
           .eq('operacion', 'PAGO')
           .eq('tipo', 'GASTO')
           .order('nombre'),
-        supabase.from('formas_pago').select('nombre').eq('empresa_id', empresaId).order('nombre'),
+        supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaId).order('nombre'),
       ]);
 
       setCuotas(cuotasData);
@@ -122,6 +130,7 @@ export function MisVencimientos({
       setPlantillas(plantillasData);
       setCategorias((catData.data ?? []).map((c) => c.nombre));
       setFormasPago((fpData.data ?? []).map((f) => f.nombre));
+      setNombreCuentaPorId(Object.fromEntries((fpData.data ?? []).map((f) => [f.id as string, f.nombre as string])));
       setError('');
     } catch (e) {
       console.error('Error cargando Mis Vencimientos:', e);
@@ -228,6 +237,12 @@ export function MisVencimientos({
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
           {error}
+        </div>
+      )}
+
+      {mensajeBaja && (
+        <div style={{ fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
+          {mensajeBaja}
         </div>
       )}
 
@@ -582,6 +597,7 @@ export function MisVencimientos({
                         <span style={{ fontWeight: 400, color: '#6e7781' }}>
                           {' '}
                           · {plantilla.categoria} · {plantilla.forma_pago} · {esPT ? 'dia' : 'día'} {plantilla.dia_mes}
+                          {plantilla.devengar && plantilla.cuenta_a_pagar_forma_pago_id && nombreCuentaPorId[plantilla.cuenta_a_pagar_forma_pago_id] && ` · ${nombreCuentaPorId[plantilla.cuenta_a_pagar_forma_pago_id]}`}
                         </span>
                       </span>
 
@@ -611,12 +627,8 @@ export function MisVencimientos({
                                 setErrorDevengo('');
                                 try {
                                   if (e.target.checked) {
-                                    const fijo = window.confirm(
-                                      esPT
-                                        ? `Reconhecer "${plantilla.nombre}" mês a mês.\n\nO valor é FIXO todo mês? (OK = fixo, Cancelar = varia e eu confirmo o valor de cada mês)`
-                                        : `Reconocer "${plantilla.nombre}" mes a mes.\n\n¿El monto es FIJO todos los meses? (Aceptar = fijo, Cancelar = varía y confirmo el monto de cada mes)`
-                                    );
-                                    await activarDevengo(empresaId, plantilla.id, fijo);
+                                    setPlantillaAActivar(plantilla);
+                                    return;
                                   } else if (
                                     window.confirm(
                                       esPT
@@ -624,7 +636,7 @@ export function MisVencimientos({
                                         : '¿Desactivar? Se quitan los meses futuros sin asiento; lo ya devengado queda como está.'
                                     )
                                   ) {
-                                    await desactivarDevengo(plantilla.id);
+                                    await desactivarDevengoYLiberar(empresaId, plantilla.id);
                                   }
                                 } catch (err) {
                                   console.error(err);
@@ -634,6 +646,17 @@ export function MisVencimientos({
                               }}
                             />
                           </label>
+                        )}
+
+                        {permiteDevengo && plantilla.devengar && !plantilla.cuenta_a_pagar_forma_pago_id && (
+                          <button
+                            type="button"
+                            onClick={() => setPlantillaAMigrar(plantilla)}
+                            title={esPT ? 'Passa a conta geral para uma conta própria com o nome deste gasto' : 'Pasa la cuenta general a una cuenta propia con el nombre de este gasto'}
+                            style={{ border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '3px 8px', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            {esPT ? 'Conta própria' : 'Cuenta propia'}
+                          </button>
                         )}
 
                         <button
@@ -660,7 +683,20 @@ export function MisVencimientos({
                           type="button"
                           onClick={async () => {
                             if (window.confirm(esPT ? `Excluir "${plantilla.nombre}"?` : `¿Eliminar "${plantilla.nombre}"?`)) {
-                              await eliminarGastoRecurrente(plantilla.id);
+                              setMensajeBaja('');
+                              try {
+                                const resultado = await eliminarOBajaGastoRecurrente(empresaId, plantilla);
+                                if (resultado === 'BAJA') {
+                                  setMensajeBaja(
+                                    esPT
+                                      ? `"${plantilla.nombre}" tem meses reconhecidos sem pagar: foi dada de baixa (não gera meses novos) e o que está pendente continua podendo ser pago.`
+                                      : `"${plantilla.nombre}" tiene meses devengados sin pagar: se dio de baja (no genera meses nuevos) y lo pendiente se sigue pudiendo pagar.`
+                                  );
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                setErrorDevengo(err instanceof Error ? err.message : 'Error inesperado.');
+                              }
                               await recargar();
                             }
                           }}
@@ -735,6 +771,51 @@ export function MisVencimientos({
             setRecordatorioAConfirmar(null);
             recargar();
           }}
+        />
+      )}
+
+      {plantillaAActivar && (
+        <ActivarDevengoModal
+          lado="PAGAR"
+          nombrePlantilla={plantillaAActivar.nombre}
+          idioma={idioma}
+          colores={colores}
+          cargarOpciones={async () => ({
+            existentes: await listarCuentasElegibles(empresaId, 'PAGAR'),
+            grupos: await listarGrupos(empresaId, 'PAGAR'),
+            individualYaExiste: Boolean(
+              await buscarCuentaCompromisoPorNombre(empresaId, nombreCuentaCompromiso(plantillaAActivar.nombre, 'PAGAR'), 'PAGAR')
+            ),
+          })}
+          onActivar={async (opciones) => {
+            setErrorDevengo('');
+            await activarDevengo(empresaId, plantillaAActivar.id, opciones);
+            setPlantillaAActivar(null);
+            await recargar();
+          }}
+          onClose={() => setPlantillaAActivar(null)}
+        />
+      )}
+
+      {plantillaAMigrar && (
+        <ActivarDevengoModal
+          modo="MIGRAR"
+          lado="PAGAR"
+          nombrePlantilla={plantillaAMigrar.nombre}
+          idioma={idioma}
+          colores={colores}
+          cargarOpciones={async () => ({
+            existentes: [],
+            grupos: await listarGrupos(empresaId, 'PAGAR'),
+            individualYaExiste: false,
+          })}
+          onActivar={async (opciones) => {
+            setErrorDevengo('');
+            await migrarCuentaGeneral(empresaId, plantillaAMigrar.id, opciones.grupo ?? null);
+            setPlantillaAMigrar(null);
+            await recargar();
+          }}
+          onClose={() => setPlantillaAMigrar(null)}
         />
       )}
 

@@ -52,6 +52,32 @@ no se tocan.
   reabre la fila (igual que el flujo viejo); POR_CONFIRMAR no genera
   alerta de Sabio; devengo solo al abrir la app (no hay cron); falta
   los estados en el Panel (2E).
+- **Cuentas específicas por plantilla — gastos (código hecho, 04/10/2026)**:
+  la cuenta general "Cuentas a Pagar" se reemplaza por una cuenta propia
+  por plantilla, llamada "<nombre> a pagar" (el "a pagar/a cobrar" va al
+  FINAL; decisión del usuario), opcionalmente colgada de un GRUPO
+  ("Alquileres a pagar": cuenta contenedora bajo Pasivo Corriente con
+  `rol_contable = 'GRUPO_COMPROMISO'` y código `2.1.k.0.0`; las individuales
+  `2.1.k.0.n`). Los informes leen solo hojas, así que ven cada una por
+  separado. `lib/cuentasCompromiso.ts` (crear/buscar/resolver, grupos,
+  renombrar, desactivar), `lib/cuentasCompromisoNombres.ts` (reglas puras +
+  tests), `ActivarDevengoModal` (individual / existente del plan / grupo).
+  Se referencia por ID: `gastos_recurrentes.cuenta_a_pagar_forma_pago_id` y
+  `gastos_recurrentes_recordatorios.cuenta_devengo_forma_pago_id` (también
+  creadas en ingresos). El libro identifica cuentas por NOMBRE: nombres
+  únicos, y renombrar propaga (`renombrarCuentaPlan` + `renombrarFormaPago`),
+  por eso renombrar la plantilla renombra su cuenta automática. Nada se
+  borra: una cuenta sin uso ni deuda se DESACTIVA
+  (`liberarCuentaSiCorresponde`); eliminar una plantilla con meses
+  devengados sin pagar es BAJA (se sigue pudiendo pagar). La cuenta general
+  de la primera versión se convierte con el botón "Cuenta propia" de la
+  plantilla (`migrarCuentaGeneral`: la RENOMBRA, no toca asientos).
+  **Pendiente**: lado ingresos (cuenta a cobrar propia + grupo "a cobrar") y
+  corregir que una cuenta a cobrar creada como forma de pago cuenta como
+  "caja disponible" en `lib/contabilidad.ts` (`nombresMedioFinanciero`) y en
+  Salud de Caja (`listarCuentasDeDinero`): hoy `Cuentas a cobrar` de
+  Buenaventura (saldo R$1.100) se está sumando a la caja — excluir las
+  cuentas con categoría de liquidación de COBRO tipo ACTIVO.
 - **Fase 2D — ingresos (código hecho, 04/10/2026)**: espejo del de
   gastos (`lib/devengoIngresos.ts`, `lib/cuentaACobrar.ts`): día 1,
   Cuenta a Cobrar / Ingreso; al cobrar, Banco / Cuenta a Cobrar con la

@@ -41,7 +41,7 @@ export function generarCodigo(nombre: string, existentes: string[]): string {
   return `${base}${Date.now()}`;
 }
 
-async function buscarCuentaContenedora(empresaId: string, rolContable: string) {
+export async function buscarCuentaContenedora(empresaId: string, rolContable: string) {
   const { data, error } = await supabase
     .from('plan_cuentas')
     .select('id')
@@ -63,7 +63,7 @@ async function buscarCuentaContenedora(empresaId: string, rolContable: string) {
   return data.id as string;
 }
 
-async function siguienteCodigoDeCuenta(empresaId: string, prefijoPadreId: string) {
+export async function siguienteCodigoDeCuenta(empresaId: string, prefijoPadreId: string) {
   const { data, error } = await supabase
     .from('plan_cuentas')
     .select('codigo')
@@ -122,7 +122,7 @@ async function buscarCuentaExistentePorNombre(empresaId: string, nombre: string,
   return data?.id as string | undefined;
 }
 
-async function crearCuentaHija(
+export async function crearCuentaHija(
   empresaId: string,
   padreId: string,
   nombre: string,
@@ -750,7 +750,7 @@ export async function crearCuentaParaMedioPago(
 // tienen configurado (ej. el perfil Familiar). Sirve tanto para
 // Pasivos (mirando un Pasivo ya vinculado a alguna forma de pago,
 // como "Tarjeta") como para Inversiones (ver más abajo).
-async function buscarContenedorPorEjemploPasivo(empresaId: string): Promise<string | undefined> {
+export async function buscarContenedorPorEjemploPasivo(empresaId: string): Promise<string | undefined> {
   const { data: vinculos, error: errorVinculos } = await supabase
     .from('forma_pago_cuentas')
     .select('cuenta_id')

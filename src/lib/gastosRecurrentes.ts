@@ -16,7 +16,9 @@ import { supabase } from './supabase';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import type { EstadoDevengo } from './devengo';
-import { obtenerConfigAPagar } from './cuentaAPagar';
+import { configParaSaldar } from './cuentaAPagar';
+import { liberarCuentaSiCorresponde, resolverCuentaCompromiso, renombrarCuentaCompromiso } from './cuentasCompromiso';
+import { esCuentaNombradaComo } from './cuentasCompromisoNombres';
 
 export type GastoRecurrente = {
   id: string;
@@ -29,6 +31,8 @@ export type GastoRecurrente = {
   // Devengo mes a mes (Compromisos Fase 2, ver lib/devengoGastos.ts).
   devengar: boolean;
   monto_fijo: boolean;
+  // Cuenta a pagar propia de esta plantilla (id de forma de pago), si devenga.
+  cuenta_a_pagar_forma_pago_id: string | null;
 };
 
 export type RecordatorioGastoRecurrente = {
@@ -48,6 +52,8 @@ export type RecordatorioGastoRecurrente = {
   estado: EstadoDevengo | null;
   devengar: boolean;
   empresa_id: string;
+  // Con qué cuenta (por id) se devengó este mes; null en los de la primera versión.
+  cuenta_devengo_forma_pago_id: string | null;
 };
 
 // Lo que falta pagar de este recordatorio — puede ser menor a
@@ -107,7 +113,7 @@ export async function crearGastoRecurrente(
 export async function listarGastosRecurrentes(empresaId: string): Promise<GastoRecurrente[]> {
   const { data, error } = await supabase
     .from('gastos_recurrentes')
-    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo, devengar, monto_fijo')
+    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo, devengar, monto_fijo, cuenta_a_pagar_forma_pago_id')
     .eq('empresa_id', empresaId)
     .order('nombre');
 
@@ -139,6 +145,27 @@ export async function actualizarGastoRecurrente(
 
   if (!Number.isInteger(datos.diaMes) || datos.diaMes < 1 || datos.diaMes > 28) {
     throw new Error('El día del mes tiene que ser entre 1 y 28 (para que exista en todos los meses).');
+  }
+
+  // Si la plantilla tiene su cuenta a pagar automática ("Netflix a pagar") y se
+  // renombra, la cuenta la acompaña. Va ANTES de guardar: si el nombre nuevo
+  // choca con otra cuenta, no se cambia nada.
+  const { data: anterior, error: errorAnterior } = await supabase
+    .from('gastos_recurrentes')
+    .select('empresa_id, nombre, devengar, cuenta_a_pagar_forma_pago_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errorAnterior) {
+    throw errorAnterior;
+  }
+
+  if (anterior?.devengar && anterior.cuenta_a_pagar_forma_pago_id && anterior.nombre !== nombre) {
+    const cuenta = await resolverCuentaCompromiso(anterior.cuenta_a_pagar_forma_pago_id, 'PAGAR');
+
+    if (esCuentaNombradaComo(cuenta.cuentaNombre, anterior.nombre, 'PAGAR')) {
+      await renombrarCuentaCompromiso(anterior.empresa_id, cuenta, nombre, 'PAGAR');
+    }
   }
 
   const { error } = await supabase
@@ -329,7 +356,7 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
 }
 
 const SELECT_RECORDATORIO =
-  'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_pagado, estado, monto_devengado, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id, devengar)';
+  'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_pagado, estado, monto_devengado, cuenta_devengo_forma_pago_id, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id, devengar)';
 
 function mapearFilaRecordatorio(fila: {
   id: string;
@@ -341,6 +368,7 @@ function mapearFilaRecordatorio(fila: {
   monto_pagado: number;
   estado: EstadoDevengo | null;
   monto_devengado: number | null;
+  cuenta_devengo_forma_pago_id: string | null;
   gastos_recurrentes: unknown;
 }): RecordatorioGastoRecurrente {
   const plantilla = fila.gastos_recurrentes as unknown as {
@@ -369,6 +397,7 @@ function mapearFilaRecordatorio(fila: {
     estado: fila.estado ?? null,
     devengar: Boolean(plantilla.devengar),
     empresa_id: plantilla.empresa_id,
+    cuenta_devengo_forma_pago_id: fila.cuenta_devengo_forma_pago_id ?? null,
   };
 }
 
@@ -504,6 +533,13 @@ export async function registrarPagoParcial(
     await supabase.from('eventos_calendario').delete().eq('id', fila.evento_calendario_id);
   }
 
+  // Si era lo último que se debía en una cuenta que ya nadie usa, se desactiva.
+  if (cumplido && recordatorio.cuenta_devengo_forma_pago_id) {
+    await liberarCuentaSiCorresponde(empresaId, recordatorio.cuenta_devengo_forma_pago_id, 'PAGAR').catch((e) =>
+      console.warn('No se pudo desactivar la cuenta a pagar sin uso:', e)
+    );
+  }
+
   return { montoPagado: nuevoMontoPagado, saldoPendiente: nuevoSaldo, cumplido };
 }
 
@@ -536,10 +572,10 @@ export async function registrarPagoRecordatorio(
   }
 
   if (recordatorio.estado === 'DEVENGADA') {
-    const config = await obtenerConfigAPagar(empresaId);
+    const config = await configParaSaldar(empresaId, recordatorio.cuenta_devengo_forma_pago_id);
 
     if (!config) {
-      throw new Error('No se encontró la cuenta "Cuentas a Pagar" de esta empresa.');
+      throw new Error('No se encontró la cuenta a pagar con la que se devengó este gasto.');
     }
 
     if (monto > saldoPendiente(recordatorio) + 0.01) {
