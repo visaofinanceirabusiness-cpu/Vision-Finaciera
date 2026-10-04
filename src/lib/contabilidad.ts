@@ -29,6 +29,8 @@
 
 import { supabase } from './supabase';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
+import { cargarNaturalezaPorOperacion } from './naturalezaResultadoDatos';
+import { resultadoPorNaturaleza, resumenNaturaleza, ORDEN_NATURALEZA, type Naturaleza } from './naturalezaResultado';
 
 // Umbral fijo de stock bajo, definido con el cliente.
 const STOCK_MINIMO = 3;
@@ -44,6 +46,7 @@ type CuentaPlan = {
 };
 
 type Asiento = {
+  id_operacion?: string | null;
   fecha: string;
   debito: string | null;
   credito: string | null;
@@ -105,8 +108,20 @@ export type IndicadoresPanel = {
   gastosCategorias: PuntoGrafico[];
   ingresosCategorias: PuntoGrafico[];
 
+  // Cómo se compone el resultado del período según de dónde viene (ver
+  // lib/naturalezaResultado.ts); null si no se pudo calcular.
+  naturaleza: ResumenNaturalezaPanel | null;
+
   // Control de consistencia contable
   descuadre: number;
+};
+
+export type ResumenNaturalezaPanel = {
+  ingresos: Record<Naturaleza, number>;
+  gastos: Record<Naturaleza, number>;
+  neto: Record<Naturaleza, number>;
+  cobertura: number | null;
+  pesoRecurrente: number | null;
 };
 
 const MESES_CORTOS = [
@@ -154,6 +169,7 @@ export async function obtenerIndicadores(
     { data: movimientosData, error: errorMovimientos },
     { data: formaPagoCuentasData, error: errorFormaPagoCuentas },
     idsPorCobrar,
+    mapaNaturaleza,
   ] = await Promise.all([
     supabase
       .from('plan_cuentas')
@@ -162,12 +178,12 @@ export async function obtenerIndicadores(
 
     supabase
       .from('registro_operaciones')
-      .select('fecha, operacion, categoria, total, cuenta_debito, cuenta_credito, socio')
+      .select('id_operacion, fecha, operacion, categoria, total, cuenta_debito, cuenta_credito, socio')
       .eq('empresa_id', empresaId),
 
     supabase
       .from('registros_automaticos')
-      .select('fecha, importe, cuenta_debito, cuenta_credito')
+      .select('id_operacion, fecha, importe, cuenta_debito, cuenta_credito')
       .eq('empresa_id', empresaId),
 
     supabase
@@ -189,6 +205,13 @@ export async function obtenerIndicadores(
     // Las cuentas por cobrar también se crean como forma de pago, pero NO
     // son plata disponible (ver lib/cuentasPorCobrar.ts).
     idsCuentasPorCobrar(empresaId),
+
+    // De dónde viene cada asiento (recurrente fijo / variable / del mes); si
+    // falla, el resto del Panel sigue funcionando sin ese bloque.
+    cargarNaturalezaPorOperacion(empresaId).catch((e) => {
+      console.warn('No se pudo cargar la naturaleza de los asientos:', e);
+      return null;
+    }),
   ]);
 
   if (errorCuentas) throw errorCuentas;
@@ -231,12 +254,14 @@ export async function obtenerIndicadores(
   // ---------------------------------------------------------------
   const asientos: Asiento[] = [
     ...operaciones.map((fila) => ({
+      id_operacion: fila.id_operacion as string | null,
       fecha: String(fila.fecha ?? ''),
       debito: fila.cuenta_debito as string | null,
       credito: fila.cuenta_credito as string | null,
       importe: aNumero(fila.total),
     })),
     ...automaticos.map((fila) => ({
+      id_operacion: fila.id_operacion as string | null,
       fecha: String(fila.fecha ?? ''),
       debito: fila.cuenta_debito as string | null,
       credito: fila.cuenta_credito as string | null,
@@ -407,6 +432,32 @@ export async function obtenerIndicadores(
   const costos = totalResultado('COSTO');
   const lucro = ingresos - gastos - costos;
   const rentabilidad = ingresos !== 0 ? (lucro / ingresos) * 100 : 0;
+
+  // Lo mismo, partido por naturaleza: lo previsible (recurrentes) vs. lo que
+  // depende del mes. La suma de los grupos coincide con `lucro`.
+  let naturaleza: ResumenNaturalezaPanel | null = null;
+
+  if (mapaNaturaleza) {
+    const delPeriodo = asientos.filter((asiento) => dentroDelPeriodo(asiento.fecha));
+    const porNaturaleza = resultadoPorNaturaleza(
+      hojas,
+      delPeriodo.map((a) => ({ id_operacion: a.id_operacion ?? null, debito: a.debito, credito: a.credito, importe: a.importe })),
+      mapaNaturaleza,
+      incluirInicialEnResultado
+    );
+    const resumen = resumenNaturaleza(porNaturaleza);
+
+    const porGrupo = (tipo: 'INGRESO' | 'GASTO') =>
+      Object.fromEntries(ORDEN_NATURALEZA.map((n) => [n, redondear(porNaturaleza[tipo][n].total)])) as Record<Naturaleza, number>;
+
+    naturaleza = {
+      ingresos: porGrupo('INGRESO'),
+      gastos: porGrupo('GASTO'),
+      neto: Object.fromEntries(ORDEN_NATURALEZA.map((n) => [n, redondear(resumen.neto[n])])) as Record<Naturaleza, number>,
+      cobertura: resumen.cobertura,
+      pesoRecurrente: resumen.pesoRecurrente,
+    };
+  }
 
   // Costo de Mercadería Vendida: solo la rama "CUSTOS DAS VENDAS" (5.1.x).
   // No incluye los costos de locación (5.2.x), que no son CMV.
@@ -663,6 +714,8 @@ export async function obtenerIndicadores(
     liquidezPorCuenta,
     gastosCategorias,
     ingresosCategorias,
+
+    naturaleza,
 
     descuadre: redondear(descuadre),
   };
