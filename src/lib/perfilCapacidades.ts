@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { EMPRESAS_CON_PLAN_ACCION } from './planAccionEmpresas';
 import { EMPRESAS_CON_NUESTRO_SUENO } from './nuestroSuenoEmpresas';
+import { EMPRESAS_CON_CULTIVO } from './cultivoEmpresas';
 
 export { EMPRESAS_CON_PLAN_ACCION };
 
@@ -111,4 +112,11 @@ export function empresaTienePlanAccion(empresaId: string | null | undefined): bo
 // nuestroSuenoEmpresas.ts), mismo criterio que Plan de Acción.
 export function empresaTieneNuestroSueno(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_NUESTRO_SUENO.includes(empresaId as string);
+}
+
+// Mi Cultivo — seguimiento de producciones de tomate, a medida de
+// Buenaventura (ver cultivoEmpresas.ts), mismo criterio que Plan de
+// Acción.
+export function empresaTieneCultivo(empresaId: string | null | undefined): boolean {
+  return Boolean(empresaId) && EMPRESAS_CON_CULTIVO.includes(empresaId as string);
 }
