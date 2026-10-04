@@ -44,7 +44,10 @@ export function DistribucionPieChart({
 }) {
   const t = crearTraductor(diccionarioCharts, idioma);
   const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
-  const total = datos.reduce((suma, dato) => suma + Math.max(dato.valor, 0), 0);
+  // Las cuentas con solo centavos se mostrarían como "R$0 · 0%": se
+  // ocultan (lo que redondea a cero no aporta nada al gráfico).
+  const datosVisibles = datos.filter((dato) => dato.valor >= 0.5);
+  const total = datosVisibles.reduce((suma, dato) => suma + dato.valor, 0);
 
   if (total <= 0) {
     return (
@@ -70,8 +73,7 @@ export function DistribucionPieChart({
 
   let acumulado = 0;
 
-  const porciones = datos
-    .filter((dato) => dato.valor > 0)
+  const porciones = datosVisibles
     .map((dato, indice) => {
       const proporcion = dato.valor / total;
       const anguloInicio = acumulado * 2 * Math.PI;
