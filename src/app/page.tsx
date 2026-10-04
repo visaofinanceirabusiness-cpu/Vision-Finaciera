@@ -24,6 +24,7 @@ import {
   empresaManejaMercaderia,
   empresaTieneModulo,
   empresaTienePlanAccion,
+  empresaTieneCultivo,
   empresaTieneNuestroSueno,
 } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
@@ -982,6 +983,15 @@ export default function InicioPage() {
                 href="/plan-accion"
                 titulo="🎯 Plan de Acción"
                 colorPrincipal="#1f3a5f"
+                destacado
+              />
+            )}
+
+            {empresaTieneCultivo(perfil?.empresa_id) && (
+              <BotonAcceso
+                href="/cultivo"
+                titulo="🍅 Mi Cultivo"
+                colorPrincipal="#dc2626"
                 destacado
               />
             )}
