@@ -15,6 +15,16 @@ export type ClaveFase =
   | 'FRUTOS'
   | 'COSECHA';
 
+// `dia`: día de la fase en que arranca (1 = primer día). `cada`: si se
+// repite, cada cuántos días hasta el fin de la fase. `fin`: la tarea
+// cae en el último día de la fase (sea cual sea su duración).
+export type TareaFase = {
+  texto: string;
+  dia?: number;
+  cada?: number;
+  fin?: boolean;
+};
+
 export type DefinicionFase = {
   clave: ClaveFase;
   nombre: string;
@@ -24,7 +34,7 @@ export type DefinicionFase = {
   ambiente: string;
   riego: string;
   nutricion: string;
-  tareas: string[];
+  tareas: TareaFase[];
   pasaALaSiguiente: string;
 };
 
@@ -39,9 +49,9 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Sustrato siempre húmedo, nunca encharcado. Mejor rociar que regar con chorro.',
     nutricion: 'No hace falta abonar: la semilla trae su propia reserva.',
     tareas: [
-      'Sembrar a 0,5–1 cm de profundidad en sustrato fino y suelto',
-      'Mantener el sustrato húmedo y la temperatura estable',
-      'Tapar con film o tapa el primer par de días para conservar humedad',
+      { texto: 'Sembrar a 0,5–1 cm de profundidad en sustrato fino y suelto, y tapar para conservar la humedad', dia: 1 },
+      { texto: 'Rociar el sustrato para que se mantenga húmedo (sin encharcar)', dia: 2, cada: 1 },
+      { texto: 'Controlar si ya asoman los cotiledones; si emergieron, sacar la tapa y dar luz', dia: 5 },
     ],
     pasaALaSiguiente: 'Cuando emergen los cotiledones en la mayoría de las semillas (entre 5 y 10 días).',
   },
@@ -55,10 +65,13 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Moderado y por la mañana. El exceso de agua provoca hongos en la base del tallo (mal del talluelo).',
     nutricion: 'Desde la 2.ª o 3.ª hoja verdadera, fertilizante diluido a la mitad cada 10–15 días.',
     tareas: [
-      'Repicar (pasar a macetita individual) cuando tenga 2 o 3 hojas verdaderas',
-      'Dar vuelta las bandejas cada pocos días para que no se doblen hacia la luz',
-      'Revisar que no haya hongos ni plántulas caídas en la base',
-      'Desde la semana 3: sacar las plántulas un rato al exterior (endurecimiento)',
+      { texto: 'Ubicar las bandejas con mucha luz (6 a 8 horas) y buena ventilación', dia: 1 },
+      { texto: 'Regar moderado, por la mañana (evitar encharcar)', dia: 2, cada: 2 },
+      { texto: 'Dar vuelta las bandejas para que las plántulas no se doblen hacia la luz', dia: 3, cada: 4 },
+      { texto: 'Revisar hongos o plántulas caídas en la base del tallo', dia: 7, cada: 7 },
+      { texto: 'Repicar a maceta individual las que ya tengan 2 o 3 hojas verdaderas', dia: 10 },
+      { texto: 'Fertilizante diluido a la mitad', dia: 14, cada: 14 },
+      { texto: 'Endurecimiento: sacar las plántulas unas horas al exterior, más tiempo cada vez', dia: 22, cada: 2 },
     ],
     pasaALaSiguiente: 'Cuando mide 15–20 cm, tiene de 5 a 7 hojas verdaderas y tallo grueso como un lápiz.',
   },
@@ -72,10 +85,11 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Riego abundante apenas se trasplanta y luego cada 2–3 días, manteniendo humedad pareja.',
     nutricion: 'Preparar el suelo con compost o abono orgánico bien maduro. Se puede enterrar el tallo hasta las primeras hojas para que eche más raíces.',
     tareas: [
-      'Preparar el suelo: aflojar, agregar compost y definir el tutor o enrejado',
-      'Separar las plantas entre 40 y 60 cm (80–100 cm entre líneas)',
-      'Colocar el tutor al momento de plantar para no dañar raíces después',
-      'Cubrir el suelo con paja o mulch para conservar humedad',
+      { texto: 'Preparar el suelo: aflojar, agregar compost y definir el tutor o enrejado', dia: 1 },
+      { texto: 'Trasplantar con 40–60 cm entre plantas (mejor a la tarde o en día nublado) y colocar el tutor al plantar', dia: 2 },
+      { texto: 'Regar abundante y cubrir el suelo con paja o mulch', dia: 2 },
+      { texto: 'Regar manteniendo la humedad pareja', dia: 4, cada: 2 },
+      { texto: 'Confirmar que enraizó: hojas erguidas y brotes nuevos', fin: true },
     ],
     pasaALaSiguiente: 'Cuando la planta se ve firme, con hojas erguidas y brotes nuevos (señal de que enraizó).',
   },
@@ -89,10 +103,12 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Profundo y regular (unos 2–3 litros por planta por semana, según clima). Regar en la base, sin mojar las hojas.',
     nutricion: 'Abono rico en nitrógeno (N) y equilibrado; evitar el exceso de nitrógeno cuando se acerca la flor.',
     tareas: [
-      'Atar el tallo al tutor a medida que crece',
-      'Deschuponar: sacar los brotes que nacen en la axila entre tallo y hoja (según la variedad)',
-      'Retirar hojas bajas amarillas o que toquen el suelo',
-      'Revisar plagas (mosca blanca, pulgón, trips) una vez por semana',
+      { texto: 'Regar profundo en la base, sin mojar las hojas', dia: 1, cada: 3 },
+      { texto: 'Abono rico en nitrógeno (N)', dia: 1, cada: 14 },
+      { texto: 'Atar el tallo al tutor a medida que crece', dia: 3, cada: 4 },
+      { texto: 'Deschuponar: sacar los brotes que nacen entre el tallo y las hojas', dia: 5, cada: 7 },
+      { texto: 'Revisar plagas (mosca blanca, pulgón, trips)', dia: 7, cada: 7 },
+      { texto: 'Retirar hojas bajas amarillas o que toquen el suelo', dia: 10, cada: 7 },
     ],
     pasaALaSiguiente: 'Cuando aparece el primer racimo de flores.',
   },
@@ -106,10 +122,12 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Constante y parejo: los cambios bruscos de humedad provocan caída de flores y la "podredumbre apical".',
     nutricion: 'Bajar el nitrógeno y subir fósforo (P), potasio (K) y calcio (Ca).',
     tareas: [
-      'Sacudir suavemente los tutores o racimos para ayudar a la polinización',
-      'Mantener riego parejo, sin picos de sequía ni encharcamiento',
-      'Aplicar fertilizante con más potasio y calcio',
-      'Seguir atando y deschuponando',
+      { texto: 'Cambiar el abono: bajar nitrógeno y subir fósforo (P), potasio (K) y calcio (Ca)', dia: 1 },
+      { texto: 'Regar parejo, sin picos de sequía ni encharcamiento', dia: 2, cada: 3 },
+      { texto: 'Sacudir suavemente los tutores o racimos para ayudar a la polinización', dia: 3, cada: 3 },
+      { texto: 'Atar, deschuponar y revisar plagas', dia: 7, cada: 7 },
+      { texto: 'Segunda aplicación de potasio y calcio', dia: 14 },
+      { texto: 'Confirmar el cuajado: frutitos del tamaño de una arveja o nuez', fin: true },
     ],
     pasaALaSiguiente: 'Cuando los primeros frutos cuajados ya tienen el tamaño de una arveja o una nuez.',
   },
@@ -123,10 +141,11 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Regular, sin excesos cuando el fruto empieza a madurar (el exceso de agua los raja).',
     nutricion: 'Potasio y calcio; mantener el abono hasta que empiece la cosecha.',
     tareas: [
-      'Despuntar o limitar racimos si la planta está muy cargada (según variedad)',
-      'Retirar hojas que tapan los racimos para dar aire y luz',
-      'Vigilar tizón (manchas oscuras en hoja o fruto) y actuar rápido',
-      'Cosechar los primeros frutos apenas virar de color',
+      { texto: 'Regar regular; sin excesos cuando el fruto empieza a madurar', dia: 1, cada: 3 },
+      { texto: 'Abono con potasio y calcio', dia: 7, cada: 14 },
+      { texto: 'Retirar hojas que tapan los racimos y vigilar tizón (manchas oscuras)', dia: 7, cada: 7 },
+      { texto: 'Limitar racimos si la planta está muy cargada (según variedad)', dia: 14 },
+      { texto: 'Cosechar los frutos que ya viraron de color', dia: 28, cada: 3 },
     ],
     pasaALaSiguiente: 'Cuando el primer racimo empieza a madurar y se puede cosechar.',
   },
@@ -140,10 +159,10 @@ export const FASES_TOMATE: DefinicionFase[] = [
     riego: 'Mantener el riego regular; reducirlo hacia el final del ciclo.',
     nutricion: 'Ya no se necesita abono fuerte; un último aporte de potasio ayuda a sostener la producción.',
     tareas: [
-      'Cosechar cada 2 o 3 días los frutos bien coloreados y firmes',
-      'Retirar frutos dañados o podridos para que no contagien al resto',
-      'Registrar kilos cosechados para medir el rendimiento de la producción',
-      'Al terminar: retirar las plantas y no repetir tomate en el mismo lugar el ciclo siguiente',
+      { texto: 'Cosechar temprano a la mañana los frutos firmes y bien coloreados', dia: 1, cada: 2 },
+      { texto: 'Retirar frutos dañados o podridos y registrar los kilos cosechados', dia: 7, cada: 7 },
+      { texto: 'Último aporte de potasio para sostener la producción', dia: 14 },
+      { texto: 'Cerrar la producción: retirar las plantas y no repetir tomate en el mismo lugar', fin: true },
     ],
     pasaALaSiguiente: 'Fin de la producción: cuando la planta deja de dar frutos o se decide cerrarla.',
   },
@@ -261,4 +280,41 @@ export function estadoProduccion(calendario: FaseConFechas[], hoy: string): Esta
     porcentaje: Math.round((diaActual / diasTotales) * 100),
     diasParaSiguienteFase: diasEntreIso(hoy, faseActual.fin) + 1,
   };
+}
+
+export type TareaAgenda = {
+  id: string; // `${clave}:${indiceTarea}:${repeticion}` — clave estable para marcarla como hecha
+  clave: ClaveFase;
+  fecha: string;
+  texto: string;
+};
+
+// Arma la agenda completa de una producción: cada tarea de cada fase
+// con su fecha real (según cuándo arranca la fase), repetidas cada N
+// días hasta el fin de la fase. Ordenada por fecha.
+export function agendaTareas(calendario: FaseConFechas[]): TareaAgenda[] {
+  const agenda: TareaAgenda[] = [];
+
+  for (const fase of calendario) {
+    const def = definicionFase(fase.clave);
+    const duracion = diasEntreIso(fase.inicio, fase.fin) + 1;
+
+    def.tareas.forEach((tarea, indice) => {
+      const primerDia = tarea.fin ? duracion : (tarea.dia ?? 1);
+      const paso = tarea.cada && tarea.cada > 0 ? tarea.cada : duracion + 1;
+      let repeticion = 0;
+
+      for (let dia = primerDia; dia <= duracion; dia += paso) {
+        agenda.push({
+          id: `${fase.clave}:${indice}:${repeticion}`,
+          clave: fase.clave,
+          fecha: sumarDias(fase.inicio, dia - 1),
+          texto: tarea.texto,
+        });
+        repeticion += 1;
+      }
+    });
+  }
+
+  return agenda.sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
 }
