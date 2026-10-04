@@ -231,7 +231,7 @@ const NOMBRES_POR_PERFIL: Partial<Record<string, Partial<Record<IndicadorCodigo,
   FAMILIAR: {
     CAJA_MINIMA: 'Dinero Mínimo Disponible',
     VENTAS_10PCT: 'Ingresos +10%',
-    RENTABILIDAD: 'Tasa de Ahorro',
+    RENTABILIDAD: 'Resultado sobre Ingresos',
     VOLUMEN_VENTAS: 'Volumen de Ingresos',
     FONDO_EMERGENCIA: 'Fondo de Respaldo',
     PRIMEROS_INGRESOS: 'Primeros Ingresos Registrados',
@@ -245,7 +245,7 @@ const NOMBRES_POR_PERFIL_PT: Partial<Record<string, Partial<Record<IndicadorCodi
   FAMILIAR: {
     CAJA_MINIMA: 'Dinheiro Mínimo Disponível',
     VENTAS_10PCT: 'Receitas +10%',
-    RENTABILIDAD: 'Taxa de Poupança',
+    RENTABILIDAD: 'Resultado sobre Receitas',
     VOLUMEN_VENTAS: 'Volume de Receitas',
     FONDO_EMERGENCIA: 'Fundo de Reserva',
     PRIMEROS_INGRESOS: 'Primeiras Receitas Registradas',
