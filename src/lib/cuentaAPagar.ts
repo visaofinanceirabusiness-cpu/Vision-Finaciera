@@ -1,22 +1,19 @@
 // lib/cuentaAPagar.ts
 //
-// La cuenta de Pasivo "Cuentas a Pagar" con la que se devengan los
-// gastos recurrentes (Compromisos Fase 2). Se crea sola, una vez por
-// empresa, al activar el primer devengo — con el mismo crearPasivo que
-// usa Contabilidad para cualquier deuda nueva: cuenta bajo Pasivo
-// Corriente + forma de pago (para devengar: Gasto / Cuentas a Pagar) +
-// categoría de liquidación (para saldar: Cuentas a Pagar / Banco). El
-// nombre se guarda en empresas.forma_pago_a_pagar, porque cada empresa
-// puede llamar distinto a sus cuentas y no se busca por nombre.
+// Con qué cuenta se saldan los gastos ya devengados. La primera versión
+// del devengo usaba UNA cuenta general "Cuentas a Pagar" por empresa
+// (guardada en empresas.forma_pago_a_pagar); ahora cada plantilla tiene
+// la suya (ver cuentasCompromiso.ts) y esa general solo queda como
+// respaldo para los devengos que se hicieron con ella.
 
 import { supabase } from './supabase';
-import { crearPasivo } from './categorias';
-import { generarMatrizOperaciones } from './motor';
-
-export const NOMBRE_CUENTA_A_PAGAR = 'Cuentas a Pagar';
+import { resolverCuentaCompromiso } from './cuentasCompromiso';
 
 export type ConfigAPagar = {
-  // Forma de pago con la que se devenga (acredita Cuentas a Pagar).
+  // Id de la forma de pago (cuenta específica por compromiso); vacío en la
+  // cuenta general "Cuentas a Pagar" de la primera versión.
+  formaPagoId?: string;
+  // Forma de pago con la que se devenga (acredita la cuenta a pagar).
   formaPago: string;
   // Categoría de un PAGO que la salda (debita Cuentas a Pagar). crearPasivo
   // le pone el mismo nombre que a la forma de pago.
@@ -39,37 +36,17 @@ export async function obtenerConfigAPagar(empresaId: string): Promise<ConfigAPag
   return nombre ? { formaPago: nombre, categoriaLiquidacion: nombre } : null;
 }
 
-export async function asegurarCuentaAPagar(empresaId: string): Promise<ConfigAPagar> {
-  const existente = await obtenerConfigAPagar(empresaId);
-
-  if (existente) {
-    return existente;
+// Con qué cuenta se salda un gasto ya devengado: la que se anotó en ese mes
+// (por id, así un renombrado no importa) o, para los devengos de la primera
+// versión, la cuenta general de la empresa.
+export async function configParaSaldar(
+  empresaId: string,
+  cuentaDevengoFormaPagoId: string | null | undefined
+): Promise<ConfigAPagar | null> {
+  if (cuentaDevengoFormaPagoId) {
+    const cuenta = await resolverCuentaCompromiso(cuentaDevengoFormaPagoId, 'PAGAR');
+    return { formaPagoId: cuenta.formaPagoId, formaPago: cuenta.formaPago, categoriaLiquidacion: cuenta.categoriaLiquidacion };
   }
 
-  const { data: yaCreada, error: errorBusqueda } = await supabase
-    .from('formas_pago')
-    .select('nombre')
-    .eq('empresa_id', empresaId)
-    .eq('nombre', NOMBRE_CUENTA_A_PAGAR)
-    .maybeSingle();
-
-  if (errorBusqueda) {
-    throw errorBusqueda;
-  }
-
-  if (!yaCreada) {
-    await crearPasivo(empresaId, NOMBRE_CUENTA_A_PAGAR);
-    await generarMatrizOperaciones(empresaId);
-  }
-
-  const { error: errorGuardar } = await supabase
-    .from('empresas')
-    .update({ forma_pago_a_pagar: NOMBRE_CUENTA_A_PAGAR })
-    .eq('id', empresaId);
-
-  if (errorGuardar) {
-    throw errorGuardar;
-  }
-
-  return { formaPago: NOMBRE_CUENTA_A_PAGAR, categoriaLiquidacion: NOMBRE_CUENTA_A_PAGAR };
+  return obtenerConfigAPagar(empresaId);
 }

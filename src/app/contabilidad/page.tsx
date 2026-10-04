@@ -21,7 +21,7 @@ import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { obtenerRecordatorio, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
-import { obtenerConfigAPagar } from '@/lib/cuentaAPagar';
+import { configParaSaldar } from '@/lib/cuentaAPagar';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { diccionarioContabilidad, frasesSabioContabilidad } from './i18n';
@@ -100,7 +100,7 @@ function ContabilidadPageInterno() {
 
         // Un gasto ya devengado se paga con la categoría de liquidación de
         // Cuentas a Pagar (Cuentas a Pagar / Banco), no con la del gasto.
-        const configAPagar = recordatorio.estado === 'DEVENGADA' ? await obtenerConfigAPagar(recordatorio.empresa_id) : null;
+        const configAPagar = recordatorio.estado === 'DEVENGADA' ? await configParaSaldar(recordatorio.empresa_id, recordatorio.cuenta_devengo_forma_pago_id) : null;
 
         setRecordatorioGastoRecurrente(recordatorio);
         setValoresInicialesGasto({
