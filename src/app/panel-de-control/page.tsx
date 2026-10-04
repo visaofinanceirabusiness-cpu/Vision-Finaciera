@@ -932,14 +932,11 @@ export default function MiNegocioPage() {
               marginBottom: 20,
             }}
           >
-            <section
-              style={{
-                background: colores.blanco,
-                borderRadius: 24,
-                padding: 24,
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-              }}
+            <PanelFlujo
+              icono="💰"
+              titulo={idioma === 'PT' ? 'RECEITAS' : 'INGRESOS'}
+              subtitulo={idioma === 'PT' ? 'Tudo o que entra' : 'Todo lo que entra'}
+              fondo="linear-gradient(120deg, #1f3a5f 0%, #2e6a8e 100%)"
             >
               <MisIngresos
                 empresaId={perfil.empresa_id}
@@ -948,16 +945,14 @@ export default function MiNegocioPage() {
                 colores={colores}
                 periodoSeleccionado={periodoFlujoCaja}
               />
-            </section>
+            </PanelFlujo>
 
-            <section
-              style={{
-                background: colores.blanco,
-                borderRadius: 24,
-                padding: 24,
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-              }}
+            <PanelFlujo
+              icono="♻️"
+              titulo={idioma === 'PT' ? 'SAÚDE DE CAIXA' : 'SALUD DE CAJA'}
+              subtitulo={idioma === 'PT' ? 'Sua posição em tempo real' : 'Tu posición en tiempo real'}
+              fondo="linear-gradient(120deg, #15803d 0%, #2e8b57 100%)"
+              destacado
             >
               <SaludDeCaja
                 empresaId={perfil.empresa_id}
@@ -967,16 +962,13 @@ export default function MiNegocioPage() {
                 periodoSeleccionado={periodoFlujoCaja}
                 onCambiarPeriodo={setPeriodoFlujoCaja}
               />
-            </section>
+            </PanelFlujo>
 
-            <section
-              style={{
-                background: colores.blanco,
-                borderRadius: 24,
-                padding: 24,
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-              }}
+            <PanelFlujo
+              icono="📅"
+              titulo={idioma === 'PT' ? 'DESPESAS' : 'EGRESOS'}
+              subtitulo={idioma === 'PT' ? 'Tudo o que sai' : 'Todo lo que sale'}
+              fondo="linear-gradient(120deg, #1e3a8a 0%, #1f3a5f 100%)"
             >
               <MisVencimientos
                 key={refrescarVencimientos}
@@ -986,7 +978,7 @@ export default function MiNegocioPage() {
                 colores={colores}
                 periodoSeleccionado={periodoFlujoCaja}
               />
-            </section>
+            </PanelFlujo>
           </div>
         )}
 
@@ -2046,5 +2038,47 @@ function formatearPeriodo(valor: string, idioma?: string): string {
       month: 'long',
       year: 'numeric',
     }
+  );
+}
+
+// Tarjeta de cada columna del flujo de caja (Ingresos → Salud de Caja →
+// Egresos): banda de color con el título arriba y el contenido debajo.
+// La del medio se marca como `destacado` para que resalte.
+function PanelFlujo({
+  icono,
+  titulo,
+  subtitulo,
+  fondo,
+  destacado,
+  children,
+}: {
+  icono: string;
+  titulo: string;
+  subtitulo: string;
+  fondo: string;
+  destacado?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        background: '#ffffff',
+        borderRadius: 24,
+        overflow: 'hidden',
+        border: '1px solid #e5e7eb',
+        boxShadow: destacado ? '0 16px 40px rgba(21,128,61,0.18)' : '0 10px 28px rgba(31,58,95,0.06)',
+      }}
+    >
+      <div style={{ background: fondo, color: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+          {icono}
+        </div>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.6 }}>{titulo}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.85 }}>{subtitulo}</div>
+        </div>
+      </div>
+      <div style={{ padding: 24 }}>{children}</div>
+    </section>
   );
 }

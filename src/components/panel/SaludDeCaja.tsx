@@ -50,6 +50,8 @@ export function SaludDeCaja({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [guardandoCuentaId, setGuardandoCuentaId] = useState<string | null>(null);
+  // Cerrada de entrada: la lista de cuentas puede ser larga y empujaba todo el panel hacia abajo.
+  const [cuentasAbiertas, setCuentasAbiertas] = useState(false);
 
   async function recargar() {
     try {
@@ -127,11 +129,14 @@ export function SaludDeCaja({
 
   return (
     <div>
-      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        {esPT ? 'SAÚDE DE CAIXA' : 'SALUD DE CAJA'}
-      </div>
-      <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>♻️ {esPT ? 'Saúde de Caixa' : 'Salud de Caja'}</h2>
-      <p style={{ margin: '5px 0 16px', fontSize: 12, color: '#6e7781' }}>
+      <style>{`
+        .salud-caja-resumen { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; }
+        @media (max-width: 560px) {
+          .salud-caja-resumen { grid-template-columns: 1fr 1fr; }
+          .salud-caja-resumen .salud-caja-circulo { grid-column: 1 / -1; order: -1; }
+        }
+      `}</style>
+      <p style={{ margin: '0 0 16px', fontSize: 12, color: '#6e7781' }}>
         {esPT
           ? 'O que vai entrar (saldo guardado + a receber) contra o que vai sair (vencimentos) no período escolhido.'
           : 'Lo que va a entrar (saldo guardado + a cobrar) contra lo que va a salir (vencimientos) en el período elegido.'}
@@ -164,54 +169,65 @@ export function SaludDeCaja({
         <p style={{ fontSize: 13, color: '#6e7781' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-            <svg width="140" height="140" viewBox="0 0 140 140">
-              <circle cx="70" cy="70" r={radio} fill="none" stroke="#e5e7eb" strokeWidth="14" />
-              <circle
-                cx="70"
-                cy="70"
-                r={radio}
-                fill="none"
-                stroke={colorArco}
-                strokeWidth="14"
-                strokeLinecap="round"
-                strokeDasharray={`${circunferencia * cubierto} ${circunferencia}`}
-                transform="rotate(-90 70 70)"
-                style={{ transition: 'stroke-dasharray 300ms ease' }}
-              />
-              <text x="70" y="64" textAnchor="middle" fontSize="11" fontWeight="700" fill="#6e7781">
-                {diferencia >= 0 ? (esPT ? 'SOBRA' : 'SOBRA') : esPT ? 'FALTA' : 'FALTA'}
-              </text>
-              <text x="70" y="86" textAnchor="middle" fontSize="15" fontWeight="800" fill={colorArco}>
-                {simbolo} {Math.abs(diferencia).toFixed(0)}
-              </text>
-            </svg>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center', marginBottom: 20, gap: 10, flexWrap: 'wrap' }}>
-            <div>
+          <div className="salud-caja-resumen">
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 16, padding: '12px 10px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#6e7781' }}>
-                {esPT ? 'DISPONÍVEL' : 'DISPONIBLE'}
+                👛 {esPT ? 'DISPONÍVEL' : 'DISPONIBLE'}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#15803d' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>
                 {simbolo} {totalDisponible.toFixed(2)}
               </div>
             </div>
-            <div>
+
+            <div className="salud-caja-circulo" style={{ display: 'flex', justifyContent: 'center' }}>
+              <svg width="140" height="140" viewBox="0 0 140 140">
+                <circle cx="70" cy="70" r={radio} fill="none" stroke="#e5e7eb" strokeWidth="14" />
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radio}
+                  fill="none"
+                  stroke={colorArco}
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  strokeDasharray={`${circunferencia * cubierto} ${circunferencia}`}
+                  transform="rotate(-90 70 70)"
+                  style={{ transition: 'stroke-dasharray 300ms ease' }}
+                />
+                <text x="70" y="64" textAnchor="middle" fontSize="11" fontWeight="700" fill="#6e7781">
+                  {diferencia >= 0 ? 'SOBRA' : 'FALTA'}
+                </text>
+                <text x="70" y="86" textAnchor="middle" fontSize="15" fontWeight="800" fill={colorArco}>
+                  {simbolo} {Math.abs(diferencia).toFixed(0)}
+                </text>
+              </svg>
+            </div>
+
+            <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 16, padding: '12px 10px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#6e7781' }}>
-                {esPT ? 'NECESSÁRIO' : 'NECESARIO'}
+                🎯 {esPT ? 'NECESSÁRIO' : 'NECESARIO'}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#c2410c' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#c2410c' }}>
                 {simbolo} {totalNecesarioPeriodo.toFixed(2)}
               </div>
             </div>
           </div>
 
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: colores.azul, marginBottom: 8, letterSpacing: 0.4 }}>
-            {esPT ? 'CONTAS CONSIDERADAS' : 'CUENTAS CONSIDERADAS'}
-          </div>
+          <button
+            type="button"
+            onClick={() => setCuentasAbiertas((abierta) => !abierta)}
+            aria-expanded={cuentasAbiertas}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '11px 14px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#f8fafc', color: colores.azul, cursor: 'pointer', marginBottom: cuentasAbiertas ? 10 : 0 }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+              🏛️ {esPT ? 'Contas consideradas no cálculo' : 'Cuentas consideradas en el cálculo'}
+            </span>
+            <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
+              {cuentasIncluidas.length} de {cuentas.length} {cuentasAbiertas ? '▴' : '▾'}
+            </span>
+          </button>
 
-          {cuentas.length === 0 ? (
+          {cuentasAbiertas && (cuentas.length === 0 ? (
             <p style={{ fontSize: 12, color: '#6e7781' }}>
               {esPT
                 ? 'Nenhuma conta de dinheiro (Caixa/Banco) configurada ainda em Formas de Pagamento.'
@@ -249,7 +265,7 @@ export function SaludDeCaja({
                 </strong>
               </label>
             ))
-          )}
+          ))}
         </>
       )}
     </div>

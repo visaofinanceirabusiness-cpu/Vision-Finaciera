@@ -148,26 +148,17 @@ export function MisIngresos({
 
   return (
     <div>
+      <p style={{ margin: '0 0 14px', fontSize: 12, color: '#6e7781' }}>
+        {esPT ? 'Receitas recorrentes por cobrar, tudo em um só lugar.' : 'Ingresos recurrentes por cobrar, todo en un mismo lugar.'}
+      </p>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div>
-          <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-            {esPT ? 'RECEITAS' : 'INGRESOS'}
-          </div>
-          <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>
-            {esPT ? '💰 Minhas Receitas Futuras' : '💰 Mis Ingresos Futuros'}
-          </h2>
-          <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6e7781' }}>
-            {esPT ? 'Receitas recorrentes por cobrar, tudo em um só lugar.' : 'Ingresos recurrentes por cobrar, todo en un mismo lugar.'}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, width: '100%', justifyContent: 'space-between' }}>
           {!cargando && (cuotasDelPeriodo.length > 0 || recordatoriosDelPeriodo.length > 0) && (
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'left', flex: 1 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: '#6e7781' }}>
                 {esPT ? 'TOTAL GERAL' : 'TOTAL GENERAL'}
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d' }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: '#15803d' }}>
                 {simbolo} {totalGeneral.toFixed(2)}
               </div>
             </div>
