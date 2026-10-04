@@ -19,6 +19,7 @@ import type { EstadoDevengo } from './devengo';
 import { configParaSaldar } from './cuentaAPagar';
 import { liberarCuentaSiCorresponde, resolverCuentaCompromiso, renombrarCuentaCompromiso } from './cuentasCompromiso';
 import { esCuentaNombradaComo } from './cuentasCompromisoNombres';
+import { reprogramarVencimientosAbiertos } from './devengoVencimientos';
 
 export type GastoRecurrente = {
   id: string;
@@ -181,6 +182,13 @@ export async function actualizarGastoRecurrente(
 
   if (error) {
     throw error;
+  }
+
+  // Un recurrente que devenga mes a mes tiene su ventana de 12 meses ya armada:
+  // el nuevo día se aplica a todos los meses todavía abiertos, no solo al último.
+  if (anterior?.devengar) {
+    await reprogramarVencimientosAbiertos('GASTO', id, datos.diaMes);
+    return;
   }
 
   // Si cambia el día del mes y todavía hay un recordatorio sin
