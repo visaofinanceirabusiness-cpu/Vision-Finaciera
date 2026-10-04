@@ -10,17 +10,30 @@
 //   día 1 del mes   Cuenta a Cobrar  /  Ingreso (ej. Alquiler)   ← devengo
 //   al cobrar       Banco            /  Cuenta a Cobrar          ← saldado
 //
-// Todas las salvaguardas son las mismas: opt-in por plantilla y por
-// empresa (empresaTieneDevengo, la misma lista piloto), filas
-// reclamadas antes de registrar para no duplicar, y el cobro de un
-// ingreso devengado usa la categoría de liquidación y nunca supera lo
-// que falta (ver registrarCobroRecordatorio).
+// Cada plantilla tiene su PROPIA cuenta a cobrar ("Casita a cobrar"),
+// opcionalmente colgada de un grupo ("Alquileres a cobrar") — ver
+// cuentasCompromiso.ts. Todas las salvaguardas son las mismas que en
+// gastos: opt-in por plantilla y por empresa (empresaTieneDevengo, la
+// misma lista piloto), filas reclamadas antes de registrar para no
+// duplicar, y el cobro de un ingreso devengado usa la categoría de
+// liquidación y nunca supera lo que falta (ver registrarCobroRecordatorio).
 
 import { supabase } from './supabase';
-import { registrarOperacion } from './motor';
+import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { empresaTieneDevengo } from './devengoGastos';
-import { asegurarCuentaACobrar, obtenerConfigACobrar, type ConfigACobrar } from './cuentaACobrar';
+import { obtenerConfigACobrar, type ConfigACobrar } from './cuentaACobrar';
+import {
+  buscarCuentaCompromisoPorNombre,
+  crearCuentaIndividual,
+  crearGrupo,
+  liberarCuentaSiCorresponde,
+  reactivarCuentaCompromiso,
+  resolverCuentaCompromiso,
+  type CuentaCompromiso,
+  type OpcionesActivacion,
+} from './cuentasCompromiso';
+import { nombreCuentaCompromiso } from './cuentasCompromisoNombres';
 import {
   periodosFaltantes,
   fechaVencimientoDe,
@@ -142,6 +155,7 @@ async function devengarFilaIngreso(empresaId: string, config: ConfigACobrar, fil
         estado: 'DEVENGADA',
         monto_devengado: monto,
         id_operacion_devengo: idOperacion,
+        cuenta_devengo_forma_pago_id: config.formaPagoId ?? null,
         devengo_iniciado_en: null,
         evento_calendario_id: eventoId,
       })
@@ -223,10 +237,23 @@ export async function mantenerVentanaIngresos(empresaId: string) {
 // Devenga lo que ya llegó al día 1: monto fijo → asiento directo;
 // variable → queda "Por confirmar". Devuelve cuántos devengó.
 export async function devengarPendientesIngresos(empresaId: string): Promise<number> {
-  const config = await obtenerConfigACobrar(empresaId);
+  // Cuenta general de la primera versión (solo para devengos viejos sin
+  // cuenta propia); las plantillas nuevas traen la suya.
+  const configGeneral = await obtenerConfigACobrar(empresaId);
+  const configPorCuenta = new Map<string, ConfigACobrar>();
 
-  if (!config) {
-    return 0;
+  async function configDe(cuentaFormaPagoId: string | null): Promise<ConfigACobrar | null> {
+    if (!cuentaFormaPagoId) {
+      return configGeneral;
+    }
+
+    const guardada = configPorCuenta.get(cuentaFormaPagoId);
+    if (guardada) return guardada;
+
+    const cuenta = await resolverCuentaCompromiso(cuentaFormaPagoId, 'COBRAR');
+    const config: ConfigACobrar = { formaPagoId: cuenta.formaPagoId, formaPago: cuenta.formaPago, categoriaLiquidacion: cuenta.categoriaLiquidacion };
+    configPorCuenta.set(cuentaFormaPagoId, config);
+    return config;
   }
 
   const hoy = fechaLocalHoy();
@@ -234,7 +261,7 @@ export async function devengarPendientesIngresos(empresaId: string): Promise<num
   const { data, error } = await supabase
     .from(TABLA)
     .select(
-      'id, periodo, fecha_vencimiento, estado, devengo_iniciado_en, evento_calendario_id, ingresos_recurrentes!inner(nombre, categoria, monto_habitual, monto_fijo, devengar, activo)'
+      'id, periodo, fecha_vencimiento, estado, devengo_iniciado_en, evento_calendario_id, ingresos_recurrentes!inner(nombre, categoria, monto_habitual, monto_fijo, devengar, activo, cuenta_a_cobrar_forma_pago_id)'
     )
     .eq('empresa_id', empresaId)
     .eq('registrado', false)
@@ -255,6 +282,7 @@ export async function devengarPendientesIngresos(empresaId: string): Promise<num
       monto_fijo: boolean;
       devengar: boolean;
       activo: boolean;
+      cuenta_a_cobrar_forma_pago_id: string | null;
     };
 
     if (!plantilla.devengar || !plantilla.activo || !correspondeDevengar(fila.periodo, hoy)) {
@@ -268,6 +296,13 @@ export async function devengarPendientesIngresos(empresaId: string): Promise<num
 
     if (!plantilla.monto_fijo) {
       await supabase.from(TABLA).update({ estado: 'POR_CONFIRMAR' }).eq('id', fila.id).in('estado', ['PROGRAMADA', 'DEVENGANDO']);
+      continue;
+    }
+
+    const config = await configDe(plantilla.cuenta_a_cobrar_forma_pago_id);
+
+    if (!config) {
+      console.warn(`"${plantilla.nombre}" no tiene cuenta a cobrar: no se pudo devengar.`);
       continue;
     }
 
@@ -306,15 +341,11 @@ export async function ejecutarDevengoIngresos(empresaId: string) {
 
 // Confirma el monto real de un ingreso variable (ej. un sueldo con comisiones) y lo devenga.
 export async function confirmarDevengoIngreso(empresaId: string, recordatorioId: string, monto: number) {
-  const config = await obtenerConfigACobrar(empresaId);
-
-  if (!config) {
-    throw new Error('No se encontró la cuenta a cobrar de esta empresa.');
-  }
-
   const { data, error } = await supabase
     .from(TABLA)
-    .select('id, periodo, fecha_vencimiento, estado, devengo_iniciado_en, evento_calendario_id, ingresos_recurrentes!inner(nombre, categoria)')
+    .select(
+      'id, periodo, fecha_vencimiento, estado, devengo_iniciado_en, evento_calendario_id, ingresos_recurrentes!inner(nombre, categoria, cuenta_a_cobrar_forma_pago_id)'
+    )
     .eq('id', recordatorioId)
     .eq('empresa_id', empresaId)
     .maybeSingle();
@@ -327,7 +358,24 @@ export async function confirmarDevengoIngreso(empresaId: string, recordatorioId:
     throw new Error('Este ingreso ya no está pendiente de confirmar.');
   }
 
-  const plantilla = data.ingresos_recurrentes as unknown as { nombre: string; categoria: string };
+  const plantilla = data.ingresos_recurrentes as unknown as {
+    nombre: string;
+    categoria: string;
+    cuenta_a_cobrar_forma_pago_id: string | null;
+  };
+
+  let config: ConfigACobrar | null;
+
+  if (plantilla.cuenta_a_cobrar_forma_pago_id) {
+    const cuenta = await resolverCuentaCompromiso(plantilla.cuenta_a_cobrar_forma_pago_id, 'COBRAR');
+    config = { formaPagoId: cuenta.formaPagoId, formaPago: cuenta.formaPago, categoriaLiquidacion: cuenta.categoriaLiquidacion };
+  } else {
+    config = await obtenerConfigACobrar(empresaId);
+  }
+
+  if (!config) {
+    throw new Error('Este ingreso no tiene cuenta a cobrar: activá de nuevo "Mes a mes" para elegirla.');
+  }
 
   await devengarFilaIngreso(
     empresaId,
@@ -346,20 +394,52 @@ export async function confirmarDevengoIngreso(empresaId: string, recordatorioId:
   );
 }
 
-// Activa el devengo de una plantilla: deja lista la cuenta a cobrar
-// si falta, pasa a PROGRAMADA el recordatorio abierto (si no tiene
-// cobros cargados a mano, para no contar el ingreso dos veces), arma la
-// ventana de 12 meses y devenga ya lo que corresponda.
-export async function activarDevengoIngreso(empresaId: string, plantillaId: string, montoFijo: boolean) {
+// Activa el devengo de una plantilla: deja lista su cuenta a cobrar (la
+// busca, la crea o usa la elegida), pasa a PROGRAMADA el recordatorio abierto
+// (si no tiene pagos cargados a mano, para no contar el ingreso dos veces),
+// arma la ventana de 12 meses y devenga ya lo que corresponda.
+export async function activarDevengoIngreso(empresaId: string, plantillaId: string, opciones: OpcionesActivacion) {
   if (!empresaTieneDevengo(empresaId)) {
     throw new Error('El devengo mes a mes todavía no está habilitado para esta empresa.');
   }
 
-  await asegurarCuentaACobrar(empresaId);
+  const { data: plantilla, error: errorLeer } = await supabase
+    .from('ingresos_recurrentes')
+    .select('nombre, empresa_id')
+    .eq('id', plantillaId)
+    .eq('empresa_id', empresaId)
+    .single();
+
+  if (errorLeer) {
+    throw errorLeer;
+  }
+
+  let cuenta: CuentaCompromiso;
+
+  if (opciones.cuenta.modo === 'EXISTENTE') {
+    cuenta = await resolverCuentaCompromiso(opciones.cuenta.formaPagoId, 'COBRAR');
+  } else {
+    const existente = await buscarCuentaCompromisoPorNombre(empresaId, nombreCuentaCompromiso(plantilla.nombre, 'COBRAR'), 'COBRAR');
+
+    if (existente) {
+      if (existente.estabaInactiva) {
+        await reactivarCuentaCompromiso(existente);
+      }
+      cuenta = existente;
+    } else {
+      let grupoId: string | null = null;
+
+      if (opciones.grupo) {
+        grupoId = 'id' in opciones.grupo ? opciones.grupo.id : (await crearGrupo(empresaId, 'COBRAR', opciones.grupo.nombre)).id;
+      }
+
+      cuenta = await crearCuentaIndividual(empresaId, 'COBRAR', plantilla.nombre, grupoId);
+    }
+  }
 
   const { error: errorPlantilla } = await supabase
     .from('ingresos_recurrentes')
-    .update({ devengar: true, monto_fijo: montoFijo })
+    .update({ devengar: true, monto_fijo: opciones.montoFijo, cuenta_a_cobrar_forma_pago_id: cuenta.formaPagoId })
     .eq('id', plantillaId);
 
   if (errorPlantilla) {
@@ -414,5 +494,197 @@ export async function desactivarDevengoIngreso(plantillaId: string) {
 
   if (eventos.length > 0) {
     await supabase.from('eventos_calendario').delete().in('id', eventos);
+  }
+}
+
+// Apaga el devengo y, si su cuenta ya no la usa nadie ni queda nada sin
+// saldar, la desactiva (nunca se borra).
+export async function desactivarDevengoIngresoYLiberar(empresaId: string, plantillaId: string) {
+  const { data: plantilla } = await supabase
+    .from('ingresos_recurrentes')
+    .select('cuenta_a_cobrar_forma_pago_id')
+    .eq('id', plantillaId)
+    .maybeSingle();
+
+  await desactivarDevengoIngreso(plantillaId);
+
+  if (plantilla?.cuenta_a_cobrar_forma_pago_id) {
+    await liberarCuentaSiCorresponde(empresaId, plantilla.cuenta_a_cobrar_forma_pago_id, 'COBRAR');
+  }
+}
+
+// "Eliminar" un ingreso recurrente que devenga: si todavía hay meses devengados
+// sin cobrar, no se pierde nada — se da de BAJA (deja de generar meses nuevos y
+// lo ya devengado se sigue pudiendo cobrar). Si no queda nada pendiente, se
+// elimina como siempre. En ambos casos la cuenta no se borra: se desactiva
+// cuando queda sin uso y sin saldo (ver liberarCuentaSiCorresponde).
+export async function eliminarOBajaIngresoRecurrente(
+  empresaId: string,
+  plantilla: { id: string; devengar: boolean }
+): Promise<'ELIMINADA' | 'BAJA'> {
+  if (!plantilla.devengar) {
+    const { error } = await supabase.from('ingresos_recurrentes').delete().eq('id', plantilla.id);
+
+    if (error) {
+      throw error;
+    }
+
+    return 'ELIMINADA';
+  }
+
+  const { data: fila } = await supabase
+    .from('ingresos_recurrentes')
+    .select('cuenta_a_cobrar_forma_pago_id')
+    .eq('id', plantilla.id)
+    .maybeSingle();
+
+  const { count: sinCobrar, error: errorConteo } = await supabase
+    .from(TABLA)
+    .select('id', { count: 'exact', head: true })
+    .eq('ingreso_recurrente_id', plantilla.id)
+    .eq('estado', 'DEVENGADA')
+    .eq('registrado', false);
+
+  if (errorConteo) {
+    throw errorConteo;
+  }
+
+  await desactivarDevengoIngreso(plantilla.id);
+
+  let resultado: 'ELIMINADA' | 'BAJA';
+
+  if ((sinCobrar ?? 0) > 0) {
+    const { error } = await supabase.from('ingresos_recurrentes').update({ activo: false }).eq('id', plantilla.id);
+
+    if (error) {
+      throw error;
+    }
+
+    resultado = 'BAJA';
+  } else {
+    const { error } = await supabase.from('ingresos_recurrentes').delete().eq('id', plantilla.id);
+
+    if (error) {
+      throw error;
+    }
+
+    resultado = 'ELIMINADA';
+  }
+
+  if (fila?.cuenta_a_cobrar_forma_pago_id) {
+    await liberarCuentaSiCorresponde(empresaId, fila.cuenta_a_cobrar_forma_pago_id, 'COBRAR');
+  }
+
+  return resultado;
+}
+
+// Los ingresos que se devengaron en la primera versión usan la cuenta a cobrar
+// GENERAL de la empresa ("Cuentas a cobrar"), que es la del plan (la usa
+// Contabilidad para las ventas a crédito): esa nunca se renombra ni se
+// desactiva. Esto pasa una plantilla a su cuenta propia: se crea (con grupo
+// opcional) y se MUEVEN los asientos de devengo de sus meses sin cobrar con
+// editarOperacion (el mismo camino de "Editar Registros": mismo número de
+// operación, solo cambia la cuenta). Un mes con cobros parciales no se mueve
+// hasta terminar de cobrarlo: el cobro quedaría en una cuenta y el ingreso en otra.
+export async function migrarCuentaGeneralIngreso(
+  empresaId: string,
+  plantillaId: string,
+  grupo?: { id: string } | { nombre: string } | null
+) {
+  if (!empresaTieneDevengo(empresaId)) {
+    throw new Error('El devengo mes a mes todavía no está habilitado para esta empresa.');
+  }
+
+  const { data: plantilla, error: errorPlantilla } = await supabase
+    .from('ingresos_recurrentes')
+    .select('nombre, cuenta_a_cobrar_forma_pago_id')
+    .eq('id', plantillaId)
+    .eq('empresa_id', empresaId)
+    .single();
+
+  if (errorPlantilla) {
+    throw errorPlantilla;
+  }
+
+  if (plantilla.cuenta_a_cobrar_forma_pago_id) {
+    throw new Error('Este ingreso ya tiene su cuenta propia.');
+  }
+
+  const { data: meses, error: errorMeses } = await supabase
+    .from(TABLA)
+    .select('id, periodo, monto_cobrado, id_operacion_devengo')
+    .eq('ingreso_recurrente_id', plantillaId)
+    .eq('estado', 'DEVENGADA')
+    .eq('registrado', false)
+    .is('cuenta_devengo_forma_pago_id', null);
+
+  if (errorMeses) {
+    throw errorMeses;
+  }
+
+  if ((meses ?? []).some((mes) => Number(mes.monto_cobrado) > 0)) {
+    throw new Error('Este ingreso tiene un mes devengado con cobros parciales: terminá de cobrarlo antes de pasarlo a su cuenta propia.');
+  }
+
+  const operaciones = new Map<string, { fecha: string; categoria: string; historico: string | null; total: number; cliente_proveedor: string | null }>();
+
+  for (const mes of meses ?? []) {
+    if (!mes.id_operacion_devengo) {
+      throw new Error(`El mes ${mes.periodo.slice(0, 7)} no tiene registrado su asiento de devengo.`);
+    }
+
+    const { data: operacion, error: errorOperacion } = await supabase
+      .from('registro_operaciones')
+      .select('fecha, categoria, historico, total, cliente_proveedor')
+      .eq('empresa_id', empresaId)
+      .eq('id_operacion', mes.id_operacion_devengo)
+      .maybeSingle();
+
+    if (errorOperacion) {
+      throw errorOperacion;
+    }
+
+    if (!operacion) {
+      throw new Error(`No se encontró el asiento ${mes.id_operacion_devengo} de ${mes.periodo.slice(0, 7)}.`);
+    }
+
+    operaciones.set(mes.id, { ...operacion, total: Number(operacion.total) });
+  }
+
+  let grupoId: string | null = null;
+
+  if (grupo) {
+    grupoId = 'id' in grupo ? grupo.id : (await crearGrupo(empresaId, 'COBRAR', grupo.nombre)).id;
+  }
+
+  const nueva = await crearCuentaIndividual(empresaId, 'COBRAR', plantilla.nombre, grupoId);
+
+  for (const mes of meses ?? []) {
+    const operacion = operaciones.get(mes.id)!;
+
+    await editarOperacion(empresaId, mes.id_operacion_devengo as string, {
+      fecha: operacion.fecha,
+      operacion: 'COBRO',
+      categoria: operacion.categoria,
+      formaPago: nueva.formaPago,
+      historico: operacion.historico ?? '',
+      clienteProveedor: operacion.cliente_proveedor ?? '',
+      lineas: [{ producto: '', cantidad: 1, monto: operacion.total }],
+    });
+
+    const { error: errorMes } = await supabase.from(TABLA).update({ cuenta_devengo_forma_pago_id: nueva.formaPagoId }).eq('id', mes.id);
+
+    if (errorMes) {
+      throw errorMes;
+    }
+  }
+
+  const { error: errorApuntar } = await supabase
+    .from('ingresos_recurrentes')
+    .update({ cuenta_a_cobrar_forma_pago_id: nueva.formaPagoId })
+    .eq('id', plantillaId);
+
+  if (errorApuntar) {
+    throw errorApuntar;
   }
 }

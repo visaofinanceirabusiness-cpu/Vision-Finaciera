@@ -18,6 +18,7 @@
 
 import { supabase } from './supabase';
 import { obtenerSaldoCuenta } from './motor';
+import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 
 export type CuentaDeDinero = {
   formaPagoId: string;
@@ -61,7 +62,9 @@ export async function listarCuentasDeDinero(empresaId: string, fecha: string): P
     throw errorCuentas;
   }
 
-  const cuentaPorId = new Map((cuentas ?? []).map((c) => [c.id, c.nombre]));
+  // Una cuenta a cobrar no es plata disponible: ya entra como "a cobrar" del período.
+  const idsPorCobrar = await idsCuentasPorCobrar(empresaId);
+  const cuentaPorId = new Map((cuentas ?? []).filter((c) => !idsPorCobrar.has(c.id)).map((c) => [c.id, c.nombre]));
 
   const candidatas = (formasPago ?? [])
     .map((fp) => {

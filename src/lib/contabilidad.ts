@@ -28,6 +28,7 @@
 //    seleccionado (son cuentas de resultado).
 
 import { supabase } from './supabase';
+import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 
 // Umbral fijo de stock bajo, definido con el cliente.
 const STOCK_MINIMO = 3;
@@ -152,6 +153,7 @@ export async function obtenerIndicadores(
     { data: automaticosData, error: errorAutomaticos },
     { data: movimientosData, error: errorMovimientos },
     { data: formaPagoCuentasData, error: errorFormaPagoCuentas },
+    idsPorCobrar,
   ] = await Promise.all([
     supabase
       .from('plan_cuentas')
@@ -183,6 +185,10 @@ export async function obtenerIndicadores(
       .select('cuenta_id')
       .eq('empresa_id', empresaId)
       .eq('activo', true),
+
+    // Las cuentas por cobrar también se crean como forma de pago, pero NO
+    // son plata disponible (ver lib/cuentasPorCobrar.ts).
+    idsCuentasPorCobrar(empresaId),
   ]);
 
   if (errorCuentas) throw errorCuentas;
@@ -202,8 +208,14 @@ export async function obtenerIndicadores(
   // (ej. "Tarjeta" → "Tarjeta de Crédito a Pagar"), que no es plata
   // disponible — usarla no mueve caja, cambia deuda.
   const nombresMedioFinanciero = new Set(
-    cuentas.filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO').map((c) => c.nombre)
+    cuentas
+      .filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO' && !idsPorCobrar.has(c.id))
+      .map((c) => c.nombre)
   );
+
+  // Lo que está por cobrar no es caja, pero sí cuenta en la distribución de
+  // la liquidez (ver más abajo).
+  const nombresPorCobrar = new Set(cuentas.filter((c) => idsPorCobrar.has(c.id)).map((c) => c.nombre));
 
   // ---------------------------------------------------------------
   // 1. Cuentas hoja (las que no son encabezado de otras)
@@ -557,7 +569,12 @@ export async function obtenerIndicadores(
   // código). No incluye Stock (1.1.3.x) ni Anticipos a Proveedores
   // (1.1.4.x).
   const liquidezPorCuenta: PuntoGrafico[] = hojas
-    .filter((cuenta) => nombresMedioFinanciero.has(cuenta.nombre) || (cuenta.codigo ?? '').startsWith('1.1.2.'))
+    .filter(
+      (cuenta) =>
+        nombresMedioFinanciero.has(cuenta.nombre) ||
+        nombresPorCobrar.has(cuenta.nombre) ||
+        (cuenta.codigo ?? '').startsWith('1.1.2.')
+    )
     .map((cuenta) => ({ nombre: cuenta.nombre, valor: redondear(saldoDe(cuenta, acumuladoTotal, true)) }))
     .filter((punto) => punto.valor > 0)
     .sort((a, b) => b.valor - a.valor);
