@@ -69,11 +69,12 @@ cualquier empresa:
   concatenación de texto. Si se toca este archivo o se arma otro
   parecido, no asumir que un campo numeric ya viene number.
 - `empresas.analisis_mensual_habilitado` (columna nueva, default
-  `true`) — toggle visible en Panel de Control
-  (`AnalisisMensualToggle.tsx`, autocontenido, mismo patrón que
-  `PersonalizacionColoresSeccion.tsx`), bloqueado para Asistente
-  (la política RLS `e3_bloquear_edicion_empresa` ya lo impide a nivel
-  de base, el toggle solo lo refleja en la UI).
+  `true`) — lo prende/apaga SOLO el Desarrollador, con un switch por
+  empresa en Panel Maestro → Análisis Mensual (04/10/2026: antes era
+  un toggle visible para el cliente en su Panel de Control; se sacó).
+  A nivel de base lo garantiza el trigger
+  `empresas_proteger_analisis_mensual` (solo `es_admin_plataforma()`
+  puede cambiar esa columna; el service role y el SQL Editor pasan).
 
 **No se pudo probar en vivo contra Supabase real** (el cron necesita
 `SUPABASE_SERVICE_ROLE_KEY`, que no está disponible desde este
