@@ -27,9 +27,9 @@ describe('proyectarCompromisos', () => {
     expect(mes.neto).toBe(55);
   });
 
-  it('no proyecta las plantillas que ya devengan mes a mes (tienen filas reales)', () => {
-    const [mes] = proyectarCompromisos(ingresos, [...gastos, { monto_habitual: 1800, activo: true, devengar: true }], '2026-10-04');
-    expect(mes.porPagar).toBe(1845);
+  it('incluye las plantillas que devengan mes a mes (sus meses futuros siguen sin reconocerse)', () => {
+    const [mes] = proyectarCompromisos(ingresos, [...gastos, { monto_habitual: 1800, activo: true }], '2026-10-04');
+    expect(mes.porPagar).toBe(3645);
   });
 
   it('suma los totales de todo el horizonte', () => {

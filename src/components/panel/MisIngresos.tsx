@@ -56,6 +56,7 @@ export function MisIngresos({
   colores,
   periodoSeleccionado,
   soloLectura = false,
+  onActualizado,
 }: {
   empresaId: string;
   idioma: string;
@@ -68,6 +69,8 @@ export function MisIngresos({
   // En Panel de Control (ventana de análisis) se muestra solo la vista;
   // cargar, cobrar/pagar y gestionar plantillas se hace en Contabilidad → Compromisos.
   soloLectura?: boolean;
+  // Para que Compromisos refresque la proyección tras cada cambio.
+  onActualizado?: () => void;
 }) {
   const esPT = idioma === 'PT';
 
@@ -141,6 +144,7 @@ export function MisIngresos({
       setError(e instanceof Error ? e.message : 'Error inesperado.');
     } finally {
       setCargando(false);
+      onActualizado?.();
     }
   }
 
