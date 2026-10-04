@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion, empresaTieneCultivo } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
@@ -34,7 +34,6 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/produccion', titulo: 'Producción', emoji: '🏭', color: '#65a30d' },
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', emoji: '👥', color: '#db2777' },
   { href: '/plan-accion', titulo: 'Plan de Acción', emoji: '🎯', color: '#1f3a5f' },
-  { href: '/cultivo', titulo: 'Mi Cultivo', emoji: '🍅', color: '#dc2626' },
   { href: '/configuracoes', titulo: 'Configurações', emoji: '⚙️', color: '#475569' },
 ];
 
@@ -82,7 +81,6 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
           if (herramienta.href === '/plan-accion') return empresaTienePlanAccion(perfil.empresa_id);
-          if (herramienta.href === '/cultivo') return empresaTieneCultivo(perfil.empresa_id);
           return true;
         })
       );
