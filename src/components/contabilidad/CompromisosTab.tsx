@@ -33,6 +33,7 @@ export function CompromisosTab() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState(`${hoy.slice(0, 7)}-01`);
   const [programados, setProgramados] = useState<MesProgramado[]>([]);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     async function cargar() {
@@ -62,7 +63,7 @@ export function CompromisosTab() {
 
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [version]);
 
   if (!empresaId) {
     return <p style={{ fontSize: 13, color: '#6e7781' }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>;
@@ -98,11 +99,11 @@ export function CompromisosTab() {
         style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginBottom: 24 }}
       >
         <section style={tarjeta}>
-          <MisIngresos empresaId={empresaId} idioma={idioma} simbolo={simbolo} colores={COLORES_PANEL} periodoSeleccionado={periodo} />
+          <MisIngresos empresaId={empresaId} idioma={idioma} simbolo={simbolo} colores={COLORES_PANEL} periodoSeleccionado={periodo} onActualizado={() => setVersion((v) => v + 1)} />
         </section>
 
         <section style={tarjeta}>
-          <MisVencimientos empresaId={empresaId} idioma={idioma} simbolo={simbolo} colores={COLORES_PANEL} periodoSeleccionado={periodo} />
+          <MisVencimientos empresaId={empresaId} idioma={idioma} simbolo={simbolo} colores={COLORES_PANEL} periodoSeleccionado={periodo} onActualizado={() => setVersion((v) => v + 1)} />
         </section>
       </div>
 
