@@ -51,7 +51,19 @@ no se tocan.
   **Límites conocidos**: borrar a mano el asiento de un devengo/pago no
   reabre la fila (igual que el flujo viejo); POR_CONFIRMAR no genera
   alerta de Sabio; devengo solo al abrir la app (no hay cron); falta
-  el lado Ingresos (2D) y los estados en el Panel (2E).
+  los estados en el Panel (2E).
+- **Fase 2D — ingresos (código hecho, 04/10/2026)**: espejo del de
+  gastos (`lib/devengoIngresos.ts`, `lib/cuentaACobrar.ts`): día 1,
+  Cuenta a Cobrar / Ingreso; al cobrar, Banco / Cuenta a Cobrar con la
+  categoría de liquidación. La cuenta a cobrar NO se crea si ya hay una
+  (Buenaventura "Cuentas a cobrar", Ocaña "Costão a cobrar"): se busca
+  por forma de pago de Activo válida para COBRO y con "cobrar" en el
+  nombre, y su nombre queda en `empresas.forma_pago_a_cobrar`.
+  Esquema aditivo (MCP): `ingresos_recurrentes.devengar/monto_fijo`,
+  `ingresos_recurrentes_recordatorios.estado/monto_devengado/
+  id_operacion_devengo/devengo_iniciado_en`, `empresas.forma_pago_a_cobrar`.
+  Mismo piloto (Buenaventura) y mismo interruptor "Mes a mes" por
+  plantilla; `ConfirmarDevengoModal` sirve para los dos lados.
 - **Fase 3**: migrar plantillas y retirar lo viejo.
 
 ## Análisis Mensual Automático — bug de clasificación ingreso/egreso (03/10/2026)

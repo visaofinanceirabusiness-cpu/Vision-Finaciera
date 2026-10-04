@@ -14,6 +14,8 @@
 import { supabase } from './supabase';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
+import type { EstadoDevengo } from './devengo';
+import { obtenerConfigACobrar } from './cuentaACobrar';
 
 export type IngresoRecurrente = {
   id: string;
@@ -23,6 +25,9 @@ export type IngresoRecurrente = {
   monto_habitual: number;
   dia_mes: number;
   activo: boolean;
+  // Devengo mes a mes (Compromisos Fase 2D, ver lib/devengoIngresos.ts).
+  devengar: boolean;
+  monto_fijo: boolean;
 };
 
 export type RecordatorioIngresoRecurrente = {
@@ -35,8 +40,13 @@ export type RecordatorioIngresoRecurrente = {
   nombre: string;
   categoria: string;
   forma_pago: string;
+  // Para un ingreso devengado es lo devengado ese mes (no el habitual de
+  // la plantilla): contra eso se calcula el saldo que falta cobrar.
   monto_habitual: number;
   monto_cobrado: number;
+  estado: EstadoDevengo | null;
+  devengar: boolean;
+  empresa_id: string;
 };
 
 // Lo que falta cobrar de este recordatorio — puede ser menor a
@@ -94,7 +104,7 @@ export async function crearIngresoRecurrente(
 export async function listarIngresosRecurrentes(empresaId: string): Promise<IngresoRecurrente[]> {
   const { data, error } = await supabase
     .from('ingresos_recurrentes')
-    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo')
+    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo, devengar, monto_fijo')
     .eq('empresa_id', empresaId)
     .order('nombre');
 
@@ -200,7 +210,7 @@ export async function eliminarIngresoRecurrente(id: string) {
 export async function generarRecordatoriosIngresosPendientes(empresaId: string, idioma: string | null | undefined) {
   const { data: plantillas, error: errorPlantillas } = await supabase
     .from('ingresos_recurrentes')
-    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes')
+    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, devengar')
     .eq('empresa_id', empresaId)
     .eq('activo', true);
 
@@ -211,6 +221,12 @@ export async function generarRecordatoriosIngresosPendientes(empresaId: string, 
   const hoy = new Date();
 
   for (const plantilla of plantillas ?? []) {
+    // Las plantillas que devengan mes a mes tienen su propia ventana de 12
+    // meses (ver lib/devengoIngresos.ts): este generador de a uno no corre.
+    if (plantilla.devengar) {
+      continue;
+    }
+
     const { data: ultimo, error: errorUltimo } = await supabase
       .from('ingresos_recurrentes_recordatorios')
       .select('periodo, registrado')
@@ -293,7 +309,7 @@ export async function generarRecordatoriosIngresosPendientes(empresaId: string, 
 }
 
 const SELECT_RECORDATORIO =
-  'id, ingreso_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_cobrado, ingresos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id)';
+  'id, ingreso_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_cobrado, estado, monto_devengado, ingresos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id, devengar)';
 
 function mapearFilaRecordatorio(fila: {
   id: string;
@@ -303,6 +319,8 @@ function mapearFilaRecordatorio(fila: {
   registrado: boolean;
   id_operacion: string | null;
   monto_cobrado: number;
+  estado: EstadoDevengo | null;
+  monto_devengado: number | null;
   ingresos_recurrentes: unknown;
 }): RecordatorioIngresoRecurrente {
   const plantilla = fila.ingresos_recurrentes as unknown as {
@@ -310,7 +328,11 @@ function mapearFilaRecordatorio(fila: {
     categoria: string;
     forma_pago: string;
     monto_habitual: number;
+    devengar: boolean;
+    empresa_id: string;
   };
+
+  const devengado = (fila.estado === 'DEVENGADA' || fila.estado === 'SALDADA') && fila.monto_devengado != null;
 
   return {
     id: fila.id,
@@ -323,7 +345,10 @@ function mapearFilaRecordatorio(fila: {
     nombre: plantilla.nombre,
     categoria: plantilla.categoria,
     forma_pago: plantilla.forma_pago,
-    monto_habitual: plantilla.monto_habitual,
+    monto_habitual: devengado ? Number(fila.monto_devengado) : plantilla.monto_habitual,
+    estado: fila.estado ?? null,
+    devengar: Boolean(plantilla.devengar),
+    empresa_id: plantilla.empresa_id,
   };
 }
 
@@ -333,6 +358,9 @@ export async function listarRecordatoriosIngresosPendientes(empresaId: string): 
     .select(SELECT_RECORDATORIO)
     .eq('empresa_id', empresaId)
     .eq('registrado', false)
+    // Alertas y Sabio solo ven lo accionable: lo programado (todavía no
+    // devengado) o por confirmar no se cobra desde ahí.
+    .or('estado.is.null,estado.eq.DEVENGADA')
     .order('fecha_vencimiento', { ascending: true });
 
   if (error) {
@@ -431,7 +459,13 @@ export async function registrarCobroParcial(
 
   const { error } = await supabase
     .from('ingresos_recurrentes_recordatorios')
-    .update({ monto_cobrado: nuevoMontoCobrado, registrado: cumplido, id_operacion: idOperacion })
+    .update({
+      monto_cobrado: nuevoMontoCobrado,
+      registrado: cumplido,
+      id_operacion: idOperacion,
+      // Un ingreso devengado pasa a SALDADA cuando ya no falta nada.
+      ...(recordatorio.estado === 'DEVENGADA' ? { estado: cumplido ? 'SALDADA' : 'DEVENGADA' } : {}),
+    })
     .eq('id', recordatorio.id);
 
   if (error) {
@@ -458,10 +492,34 @@ export async function registrarCobroRecordatorio(
 
   const fecha = fechaLocalHoy();
 
+  // Un ingreso ya devengado (Cuentas a Cobrar / Ingreso) NO vuelve a pasar
+  // por la categoría del ingreso — eso lo contaría dos veces: se cobra la
+  // cuenta a cobrar (Banco / Cuentas a Cobrar) con la categoría de
+  // liquidación, y nunca por encima de lo que falta.
+  let categoria = recordatorio.categoria;
+
+  if (recordatorio.estado && recordatorio.estado !== 'DEVENGADA') {
+    throw new Error('Este ingreso todavía no se devengó: se puede cobrar recién cuando llega su mes.');
+  }
+
+  if (recordatorio.estado === 'DEVENGADA') {
+    const config = await obtenerConfigACobrar(empresaId);
+
+    if (!config) {
+      throw new Error('No se encontró la cuenta a cobrar de esta empresa.');
+    }
+
+    if (monto > saldoPendienteCobro(recordatorio) + 0.01) {
+      throw new Error('El cobro supera lo que falta cobrar de este ingreso devengado.');
+    }
+
+    categoria = config.categoriaLiquidacion;
+  }
+
   const resultado = await registrarOperacion(empresaId, {
     fecha,
     operacion: 'COBRO',
-    categoria: recordatorio.categoria,
+    categoria,
     formaPago: recordatorio.forma_pago,
     historico: recordatorio.nombre,
     clienteProveedor: '',

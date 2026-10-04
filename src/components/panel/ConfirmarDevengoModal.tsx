@@ -1,32 +1,32 @@
 'use client';
 
-// CONFIRMAR EL MONTO DE UN GASTO VARIABLE (luz, agua...)
+// CONFIRMAR EL MONTO DE UN GASTO O INGRESO VARIABLE (luz, agua, un
+// sueldo con comisiones...)
 //
-// Un gasto recurrente con monto variable que devenga mes a mes llega al
-// día 1 "Por confirmar": acá se pone el importe real de la factura y,
-// al confirmar, se reconoce el gasto (Gasto / Cuentas a Pagar). Pagarlo
-// es un paso aparte (ver registrarPagoRecordatorio).
+// Un recurrente con monto variable que devenga mes a mes llega al día 1
+// "Por confirmar": acá se pone el importe real y, al confirmar, se
+// reconoce en su mes (Gasto / Cuentas a Pagar, o Cuentas a Cobrar /
+// Ingreso). Pagarlo o cobrarlo es un paso aparte. Sirve para los dos
+// lados: quien lo usa le pasa qué hacer al confirmar (onConfirmar).
 
 import { useState } from 'react';
-import { confirmarDevengo } from '@/lib/devengoGastos';
-import type { RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 
 type Colores = { azul: string; verde: string; blanco: string };
 
 export function ConfirmarDevengoModal({
-  empresaId,
   recordatorio,
   idioma,
   simbolo,
   colores,
+  onConfirmar,
   onClose,
   onConfirmado,
 }: {
-  empresaId: string;
-  recordatorio: RecordatorioGastoRecurrente;
+  recordatorio: { nombre: string; periodo: string; monto_habitual: number };
   idioma: string;
   simbolo: string;
   colores: Colores;
+  onConfirmar: (monto: number) => Promise<void>;
   onClose: () => void;
   onConfirmado: () => void;
 }) {
@@ -47,7 +47,7 @@ export function ConfirmarDevengoModal({
     setGuardando(true);
 
     try {
-      await confirmarDevengo(empresaId, recordatorio.id, montoNumero);
+      await onConfirmar(montoNumero);
       onConfirmado();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado.');
@@ -68,8 +68,8 @@ export function ConfirmarDevengoModal({
 
         <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#6e7781', lineHeight: 1.5 }}>
           {esPT
-            ? `Confirme o valor real de ${recordatorio.periodo.slice(0, 7)}. Ao confirmar, o gasto é reconhecido nesse mês (ainda não é um pagamento).`
-            : `Confirmá el monto real de ${recordatorio.periodo.slice(0, 7)}. Al confirmar, el gasto se reconoce en ese mes (todavía no es un pago).`}
+            ? `Confirme o valor real de ${recordatorio.periodo.slice(0, 7)}. Ao confirmar, é reconhecido nesse mês (ainda não é um pagamento nem um recebimento).`
+            : `Confirmá el monto real de ${recordatorio.periodo.slice(0, 7)}. Al confirmar, se reconoce en ese mes (todavía no es un pago ni un cobro).`}
         </p>
 
         {error && (
