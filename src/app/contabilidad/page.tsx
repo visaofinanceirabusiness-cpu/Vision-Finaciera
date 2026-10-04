@@ -30,8 +30,9 @@ import { CentralDeLanzamientosTab } from '@/components/contabilidad/CentralDeLan
 import { RegistroOperacionesTab } from '@/components/contabilidad/RegistroOperacionesTab';
 import { LibroDiarioTab } from '@/components/contabilidad/LibroDiarioTab';
 import { EditarRegistrosTab } from '@/components/contabilidad/EditarRegistrosTab';
+import { CompromisosTab } from '@/components/contabilidad/CompromisosTab';
 
-type Pestana = 'lanzamientos' | 'registros' | 'libro' | 'editar';
+type Pestana = 'lanzamientos' | 'registros' | 'libro' | 'editar' | 'compromisos';
 
 export default function ContabilidadPage() {
   return (
@@ -64,11 +65,19 @@ function ContabilidadPageInterno() {
   // el recordatorio al servidor.
   const searchParams = useSearchParams();
   const recordatorioIdUrl = searchParams.get('gastoRecurrenteRecordatorioId');
+  const pestanaUrl = searchParams.get('pestana');
   const [recordatorioGastoRecurrente, setRecordatorioGastoRecurrente] = useState<RecordatorioGastoRecurrente | undefined>(undefined);
   const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
   const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl);
 
   const t = crearTraductor(diccionarioContabilidad, idioma);
+
+  // Enlaces desde el Panel de Control ("Gestionar en Contabilidad → Compromisos").
+  useEffect(() => {
+    if (pestanaUrl === 'compromisos') {
+      setPestana('compromisos');
+    }
+  }, [pestanaUrl]);
 
   useEffect(() => {
     if (!recordatorioIdUrl) {
@@ -230,6 +239,14 @@ function ContabilidadPageInterno() {
 
             <button
               type="button"
+              onClick={() => setPestana('compromisos')}
+              style={tabStyle(pestana === 'compromisos')}
+            >
+              {t('tabCompromisos')}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setPestana('libro')}
               style={tabStyle(pestana === 'libro')}
             >
@@ -252,6 +269,7 @@ function ContabilidadPageInterno() {
             />
           )}
           {pestana === 'registros' && <RegistroOperacionesTab />}
+          {pestana === 'compromisos' && <CompromisosTab />}
           {pestana === 'libro' && <LibroDiarioTab />}
           {pestana === 'editar' && <EditarRegistrosTab />}
         </main>

@@ -7,6 +7,36 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Compromisos: unificar Cobrar/Pagar + recurrentes (04/10/2026) — EN CURSO
+Problema: 4 conceptos (Cuentas a Cobrar, Pasivos, Ingresos y Gastos
+Recurrentes). Los recurrentes son solo recordatorios (no generan
+asiento ni están en el balance); Cuentas a Cobrar y Pasivos sí.
+**Decisiones del usuario**: quedan 2 conceptos (Cuentas a Cobrar /
+Cuentas a Pagar); los recurrentes pasan a ser "una forma de generar
+cuotas", programadas a **12 meses móviles** y **reconocidas mes a mes
+(devengado), el día 1** — NO se reconoce todo el año de golpe (inflaría
+ingresos/Activo de hoy). Carga y gestión en **pestaña propia
+"Compromisos" de Contabilidad**; el Panel de Control queda de solo
+lectura (análisis) y las alertas/vencimientos (Sabio, Calendário, push)
+no se tocan.
+- **Fase 1 (hecha)**: pestaña Compromisos (`CompromisosTab.tsx`, reusa
+  MisIngresos/MisVencimientos completos), `soloLectura` en esos dos
+  componentes (Panel de Control), y `lib/compromisosProgramados.ts`
+  (proyección de 12 meses a partir de las plantillas, fuera del
+  balance) mostrada en Panel (`CompromisosProgramadosResumen`) y en la
+  pestaña. Sin asientos nuevos.
+- **Fase 2 (pendiente, pedir OK antes)**: cuota con estados
+  PROGRAMADA → DEVENGADA → SALDADA; devengo automático el día 1 (monto
+  fijo solo, variable con confirmación); crear la cuenta "Cuentas a
+  Pagar" por empresa con `crearPasivo` (`categorias.ts`) — ya crea
+  cuenta + forma de pago + categoría de liquidación; el saldado debe
+  usar esa categoría de pasivo (NO "Deuda Pagada", que es un GASTO).
+  Genera asientos reales solos → tests del generador + activarlo por
+  plantilla. Hoy hay 10 plantillas activas (5 Buenaventura, 5 Ocaña).
+  Ojo: gastosRecurrentes.ts decía "no generar asientos solos" a
+  propósito; esto revierte esa decisión de forma deliberada.
+- **Fase 3**: migrar plantillas y retirar lo viejo.
+
 ## Análisis Mensual Automático — bug de clasificación ingreso/egreso (03/10/2026)
 El mensaje "Análisis a fondo" clasificaba ingreso/egreso mirando el
 NOMBRE de la operación (COBRO/VENTA = ingreso, PAGO/COMPRA = egreso),

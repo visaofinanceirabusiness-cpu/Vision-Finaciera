@@ -14,6 +14,7 @@
 // "armado contable".
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { listarTodasLasCuotasCobro, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
 import {
@@ -41,6 +42,7 @@ export function MisIngresos({
   simbolo,
   colores,
   periodoSeleccionado,
+  soloLectura = false,
 }: {
   empresaId: string;
   idioma: string;
@@ -50,6 +52,9 @@ export function MisIngresos({
   // Vencimientos y Salud de Caja, elegido una sola vez arriba de los
   // tres.
   periodoSeleccionado: string;
+  // En Panel de Control (ventana de análisis) se muestra solo la vista;
+  // cargar, cobrar/pagar y gestionar plantillas se hace en Contabilidad → Compromisos.
+  soloLectura?: boolean;
 }) {
   const esPT = idioma === 'PT';
 
@@ -164,7 +169,7 @@ export function MisIngresos({
             </div>
           )}
 
-          {!cargando && (
+          {!cargando && !soloLectura && (
             <button
               type="button"
               onClick={() => setMostrarPlantillas((m) => !m)}
@@ -255,6 +260,7 @@ export function MisIngresos({
                             <strong style={{ fontSize: 12.5, color: '#15803d', whiteSpace: 'nowrap' }}>
                               {simbolo} {cuota.monto.toFixed(2)}
                             </strong>
+                            {!soloLectura && (
                             <button
                               type="button"
                               onClick={() => cobrarCuota(cuota.id)}
@@ -262,6 +268,7 @@ export function MisIngresos({
                             >
                               ✓ {esPT ? 'Marcar recebida' : 'Marcar cobrada'}
                             </button>
+                            )}
                           </span>
                         </div>
                       );
@@ -381,6 +388,8 @@ export function MisIngresos({
                     <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       {tieneCobroParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                     </span>
+                    {!soloLectura && (
+                    <>
                     <button
                       type="button"
                       onClick={() => setRecordatorioAVincular(recordatorio)}
@@ -395,6 +404,8 @@ export function MisIngresos({
                     >
                       ✓ {esPT ? 'Registrar' : 'Registrar'}
                     </button>
+                    </>
+                    )}
                   </span>
                 </div>
               );
@@ -455,7 +466,7 @@ export function MisIngresos({
             </div>
           )}
 
-          {mostrarPlantillas && (
+          {!soloLectura && mostrarPlantillas && (
             <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: '#fbfcfd', border: '1px solid #eef2f6' }}>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: colores.azul, marginBottom: 8, letterSpacing: 0.4 }}>
                 {esPT ? 'MODELOS CADASTRADOS' : 'PLANTILLAS CARGADAS'}
@@ -579,6 +590,16 @@ export function MisIngresos({
             </div>
           )}
           </AcordeonSeccion>
+
+          {soloLectura && (
+            <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6e7781' }}>
+              {esPT ? 'Para registrar ou gerenciar, vá em ' : 'Para registrar o gestionar, andá a '}
+              <Link href="/contabilidad?pestana=compromisos" style={{ color: colores.azul, fontWeight: 700 }}>
+                Contabilidad → Compromisos
+              </Link>
+              .
+            </p>
+          )}
         </>
       )}
 
