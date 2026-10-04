@@ -258,7 +258,7 @@ export default function MiNegocioPage() {
         }));
 
       setPeriodos(listaPeriodos);
-      setPeriodoSeleccionado('TODOS');
+      setPeriodoSeleccionado(periodoActual);
       setCargando(false);
     }
 
