@@ -42,6 +42,7 @@ import { simboloMoneda } from '@/lib/moneda';
 import { obtenerAlertasFinancieras, fraseAlertaMensajes } from '@/lib/alertasSabio';
 import { generarRecordatoriosPendientes } from '@/lib/gastosRecurrentes';
 import { ejecutarDevengo } from '@/lib/devengoGastos';
+import { ejecutarDevengoIngresos } from '@/lib/devengoIngresos';
 import { generarRecordatoriosIngresosPendientes } from '@/lib/ingresosRecurrentes';
 
 const COLORES_BASE = {
@@ -438,9 +439,14 @@ export default function InicioPage() {
 
     // Devengo mes a mes de gastos recurrentes (solo empresas piloto): corre
     // solo al abrir, aunque haya mensajes sin leer.
-    const devengo = ejecutarDevengo(perfil.empresa_id).catch((e) =>
-      console.warn('No se pudo ejecutar el devengo de gastos recurrentes:', e)
-    );
+    const devengo = Promise.all([
+      ejecutarDevengo(perfil.empresa_id).catch((e) =>
+        console.warn('No se pudo ejecutar el devengo de gastos recurrentes:', e)
+      ),
+      ejecutarDevengoIngresos(perfil.empresa_id).catch((e) =>
+        console.warn('No se pudo ejecutar el devengo de ingresos recurrentes:', e)
+      ),
+    ]);
 
     const fraseMensajes = fraseAlertaMensajes(idiomaEmpresa, mensajesSinLeer);
     if (fraseMensajes) {

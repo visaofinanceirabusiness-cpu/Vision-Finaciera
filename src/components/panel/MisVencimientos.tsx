@@ -36,7 +36,7 @@ import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 import { VincularPagoModal } from './VincularPagoModal';
 import { AcordeonSeccion } from './AcordeonSeccion';
 import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
-import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, desactivarDevengo } from '@/lib/devengoGastos';
+import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, desactivarDevengo, confirmarDevengo } from '@/lib/devengoGastos';
 import { ETIQUETA_ESTADO } from '@/lib/devengo';
 import { fechaLocalHoy } from '@/lib/fecha';
 
@@ -740,8 +740,8 @@ export function MisVencimientos({
 
       {recordatorioADevengar && (
         <ConfirmarDevengoModal
-          empresaId={empresaId}
           recordatorio={recordatorioADevengar}
+          onConfirmar={(monto) => confirmarDevengo(empresaId, recordatorioADevengar.id, monto)}
           idioma={idioma}
           simbolo={simbolo}
           colores={colores}
