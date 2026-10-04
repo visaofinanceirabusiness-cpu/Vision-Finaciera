@@ -4,9 +4,8 @@ import { construirAnalisisMensual, type OperacionDelMes } from '@/lib/analisisMe
 
 // Lo dispara un Vercel Cron Job (ver vercel.json) el día 1 de cada
 // mes. Para cada empresa activa, con onboarding completo y con
-// analisis_mensual_habilitado = true (ver toggle en Panel de
-// Controle → Apariencia... pendiente Fase A/B, hoy se prende/apaga
-// solo desde Supabase), arma el "Análisis a fondo" del mes que
+// analisis_mensual_habilitado = true (lo prende/apaga solo el
+// Desarrollador desde Panel Maestro → Análisis Mensual), arma el "Análisis a fondo" del mes que
 // acaba de cerrar (ver lib/analisisMensual.ts) y lo deja como mensaje
 // en mensajes_financieros — mismo mecanismo que ya se usaba a mano.
 //

@@ -22,7 +22,6 @@ import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
 import { MisIngresos } from '@/components/panel/MisIngresos';
 import { SaludDeCaja } from '@/components/panel/SaludDeCaja';
-import { AnalisisMensualToggle } from '@/components/panel/AnalisisMensualToggle';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
 import { SabioRegistrarGastoModal } from '@/components/panel/SabioRegistrarGastoModal';
 import { listarRecordatoriosPendientes, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
@@ -994,21 +993,6 @@ export default function MiNegocioPage() {
         >
           <PanelCotizaciones idioma={idioma} colores={colores} />
         </section>
-
-        {perfil?.empresa_id && (
-          <section
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-            }}
-          >
-            <AnalisisMensualToggle empresaId={perfil.empresa_id} idioma={idioma} colores={colores} />
-          </section>
-        )}
 
         {/* =================================================
             SELECTOR GLOBAL

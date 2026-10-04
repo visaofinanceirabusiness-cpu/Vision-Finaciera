@@ -11,7 +11,9 @@
 // ninguna actividad ese mes.
 //
 // Exclusivo del Desarrollador (es_admin_plataforma), mismo patrón que
-// panel-maestro/auditoria.
+// panel-maestro/auditoria. Acá también se prende/apaga el análisis por
+// empresa (empresas.analisis_mensual_habilitado): el cliente no lo ve
+// ni lo puede cambiar (lo bloquea un trigger en la base).
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -74,6 +76,29 @@ export default function AnalisisMensualPanelMaestroPage() {
   const [error, setError] = useState('');
   const [filas, setFilas] = useState<FilaEstado[]>([]);
   const [rango] = useState(rangoMesPasado());
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+
+  async function alternarHabilitado(empresaId: string, valor: boolean) {
+    setGuardandoId(empresaId);
+    setError('');
+
+    const { error: errorGuardar } = await supabase
+      .from('empresas')
+      .update({ analisis_mensual_habilitado: valor })
+      .eq('id', empresaId);
+
+    if (errorGuardar) {
+      setError(`No se pudo guardar: ${errorGuardar.message}`);
+    } else {
+      setFilas((actuales) =>
+        actuales.map((f) =>
+          f.empresa.id === empresaId ? { ...f, empresa: { ...f.empresa, analisis_mensual_habilitado: valor } } : f
+        )
+      );
+    }
+
+    setGuardandoId(null);
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -194,6 +219,7 @@ export default function AnalisisMensualPanelMaestroPage() {
                 <Th>Estado</Th>
                 <Th align="right">Operaciones</Th>
                 <Th align="right">Días con actividad</Th>
+                <Th align="right">Habilitado</Th>
               </tr>
             </thead>
             <tbody>
@@ -216,12 +242,26 @@ export default function AnalisisMensualPanelMaestroPage() {
                   </Td>
                   <Td align="right">{fila.operaciones}</Td>
                   <Td align="right">{fila.diasConActividad}</Td>
+                  <Td align="right">
+                    <label style={{ position: 'relative', display: 'inline-block', width: 46, height: 26, cursor: guardandoId ? 'wait' : 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={fila.empresa.analisis_mensual_habilitado}
+                        disabled={guardandoId !== null}
+                        onChange={(e) => alternarHabilitado(fila.empresa.id, e.target.checked)}
+                        aria-label={`Análisis mensual de ${fila.empresa.nombre}`}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span style={{ position: 'absolute', inset: 0, borderRadius: 999, background: fila.empresa.analisis_mensual_habilitado ? COLORES.verde : '#d1d5db', transition: 'background 150ms ease' }} />
+                      <span style={{ position: 'absolute', top: 3, left: fila.empresa.analisis_mensual_habilitado ? 23 : 3, width: 20, height: 20, borderRadius: '50%', background: COLORES.blanco, boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 150ms ease' }} />
+                    </label>
+                  </Td>
                 </tr>
               ))}
 
               {filas.length === 0 && !cargando && (
                 <tr>
-                  <td colSpan={4} style={{ padding: 24, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
+                  <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
                     No hay empresas activas para mostrar.
                   </td>
                 </tr>
@@ -236,7 +276,7 @@ export default function AnalisisMensualPanelMaestroPage() {
 
 function EstadoBadge({ fila }: { fila: FilaEstado }) {
   if (!fila.empresa.analisis_mensual_habilitado) {
-    return <Badge color="#6b7280" fondo="#f3f4f6">⚪ Deshabilitado por el cliente</Badge>;
+    return <Badge color="#6b7280" fondo="#f3f4f6">⚪ Deshabilitado</Badge>;
   }
 
   if (fila.mensajeEnviado && fila.modo === 'completo') {
