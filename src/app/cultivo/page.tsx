@@ -26,9 +26,6 @@ import {
 import {
   FaseProduccion,
   FaseConFechas,
-  TareaAgenda,
-  agendaTareas,
-  sumarDias,
   calcularCalendario,
   definicionFase,
   estadoProduccion,
@@ -390,22 +387,12 @@ function DetalleProduccion({
   const faseCal = calendario.find((f) => f.clave === claveVista) as FaseConFechas;
   const esActual = estado.faseActual?.clave === claveVista;
 
-  const agenda = agendaTareas(calendario);
-  const hechas = new Set(produccion.tareas_hechas);
-  const tareasHoy = agenda.filter((t) => t.fecha === hoy);
-  const atrasadas = agenda.filter((t) => t.fecha < hoy && !hechas.has(t.id));
-  const limiteProximas = sumarDias(hoy > produccion.fecha_inicio ? hoy : produccion.fecha_inicio, 7);
-  const proximas = agenda.filter((t) => t.fecha > hoy && t.fecha <= limiteProximas && !hechas.has(t.id));
-  const tareasDeLaFase = agenda.filter((t) => t.clave === claveVista);
-
-  function alternarTarea(id: string) {
-    onGuardar({
-      tareas_hechas: hechas.has(id) ? produccion.tareas_hechas.filter((t) => t !== id) : [...produccion.tareas_hechas, id],
-    });
-  }
-
-  function marcarAtrasadasHechas() {
-    onGuardar({ tareas_hechas: [...produccion.tareas_hechas, ...atrasadas.map((t) => t.id)] });
+  function alternarTarea(indice: number) {
+    const clave = `${claveVista}:${indice}`;
+    const hechas = produccion.tareas_hechas.includes(clave)
+      ? produccion.tareas_hechas.filter((t) => t !== clave)
+      : [...produccion.tareas_hechas, clave];
+    onGuardar({ tareas_hechas: hechas });
   }
 
   const resumen =
@@ -445,49 +432,6 @@ function DetalleProduccion({
       <p style={{ margin: '0 0 8px', fontSize: 13, color: COLORES.gris }}>{resumen}</p>
       <div style={{ background: '#eef2f6', borderRadius: 999, height: 10, marginBottom: 24, overflow: 'hidden' }}>
         <div style={{ width: `${estado.porcentaje}%`, background: `linear-gradient(90deg, ${COLORES.verde}, ${COLORES.rojo})`, height: '100%', transition: 'width 0.3s ease' }} />
-      </div>
-
-      <div style={{ border: `2px solid ${COLORES.rojo}`, borderRadius: 16, padding: 20, marginBottom: 24, background: '#fffafa' }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 18, color: COLORES.rojo }}>
-          {estado.estado === 'PENDIENTE' ? '📅 Todavía no empezó' : estado.estado === 'TERMINADA' ? '🎉 Producción completa' : `📌 Qué hacer hoy — ${formatearFecha(hoy)}`}
-        </h3>
-        {estado.faseActual && (
-          <p style={{ margin: '0 0 12px', fontSize: 13, color: COLORES.gris }}>
-            Estás en {definicionFase(estado.faseActual.clave).emoji} {definicionFase(estado.faseActual.clave).nombre}, semana {estado.semanaDeLaFase} de {estado.semanasDeLaFase}.
-          </p>
-        )}
-
-        {estado.estado === 'EN_CURSO' && (
-          tareasHoy.length > 0 ? (
-            <FilasTareas tareas={tareasHoy} hechas={hechas} onTocar={alternarTarea} sinFecha />
-          ) : (
-            <p style={{ margin: '0 0 8px', fontSize: 13.5, color: COLORES.gris }}>Hoy no hay tareas puntuales: revisá las plantas y seguí con el riego habitual de la fase.</p>
-          )
-        )}
-
-        {atrasadas.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: COLORES.rojo }}>⚠️ Atrasadas ({atrasadas.length})</p>
-              <button type="button" onClick={marcarAtrasadasHechas} style={{ ...botonSecundario, padding: '6px 10px', fontSize: 12 }}>
-                Marcar todas como hechas
-              </button>
-            </div>
-            <FilasTareas tareas={atrasadas.slice(-8)} hechas={hechas} onTocar={alternarTarea} />
-            {atrasadas.length > 8 && (
-              <p style={{ margin: '6px 0 0', fontSize: 12, color: COLORES.gris }}>Mostrando las 8 más recientes de {atrasadas.length}.</p>
-            )}
-          </div>
-        )}
-
-        {proximas.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <p style={{ margin: '0 0 6px', fontWeight: 700, fontSize: 13, color: COLORES.azul }}>
-              {estado.estado === 'PENDIENTE' ? 'Primeras tareas' : 'Próximos 7 días'}
-            </p>
-            <FilasTareas tareas={proximas} hechas={hechas} onTocar={alternarTarea} />
-          </div>
-        )}
       </div>
 
       <p style={{ margin: '0 0 8px', fontWeight: 700, fontSize: 13, color: COLORES.azul }}>Línea de tiempo (tocá una fase para ver su guía)</p>
@@ -541,8 +485,21 @@ function DetalleProduccion({
         <Dato titulo="Riego" texto={faseDef.riego} />
         <Dato titulo="Nutrición" texto={faseDef.nutricion} />
 
-        <p style={{ margin: '14px 0 8px', fontWeight: 700, fontSize: 13, color: COLORES.azul }}>Tareas de la fase, día por día</p>
-        <FilasTareas tareas={tareasDeLaFase} hechas={hechas} onTocar={alternarTarea} />
+        <p style={{ margin: '14px 0 8px', fontWeight: 700, fontSize: 13, color: COLORES.azul }}>Tareas de la fase</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {faseDef.tareas.map((texto, i) => {
+            const hecha = produccion.tareas_hechas.includes(`${claveVista}:${i}`);
+            return (
+              <label
+                key={i}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', borderRadius: 10, background: hecha ? '#eaf7ee' : '#f8fafc', cursor: 'pointer', fontSize: 13.5 }}
+              >
+                <input type="checkbox" checked={hecha} onChange={() => alternarTarea(i)} style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0 }} />
+                <span style={{ textDecoration: hecha ? 'line-through' : 'none', color: hecha ? COLORES.gris : '#1f2937' }}>{texto}</span>
+              </label>
+            );
+          })}
+        </div>
 
         <Dato titulo="Cuándo pasa a la siguiente fase" texto={faseDef.pasaALaSiguiente} />
       </div>
@@ -603,38 +560,6 @@ function DetalleProduccion({
         </button>
       </div>
     </section>
-  );
-}
-
-function FilasTareas({
-  tareas,
-  hechas,
-  onTocar,
-  sinFecha,
-}: {
-  tareas: TareaAgenda[];
-  hechas: Set<string>;
-  onTocar: (id: string) => void;
-  sinFecha?: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {tareas.map((t) => {
-        const hecha = hechas.has(t.id);
-        return (
-          <label
-            key={t.id}
-            style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', borderRadius: 10, background: hecha ? '#eaf7ee' : '#f8fafc', cursor: 'pointer', fontSize: 13.5 }}
-          >
-            <input type="checkbox" checked={hecha} onChange={() => onTocar(t.id)} style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0 }} />
-            <span style={{ textDecoration: hecha ? 'line-through' : 'none', color: hecha ? COLORES.gris : '#1f2937' }}>
-              {!sinFecha && <strong style={{ color: COLORES.azul }}>{formatearFecha(t.fecha).slice(0, 5)} · </strong>}
-              {t.texto}
-            </span>
-          </label>
-        );
-      })}
-    </div>
   );
 }
 
