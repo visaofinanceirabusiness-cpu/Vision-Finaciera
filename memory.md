@@ -89,6 +89,19 @@ no se tocan.
   Buenaventura (R$1.100 de Casita), Ocaña (R$360) y Equilibra (R$1.794 de
   "Tarjeta de Crédito a Cobrar"), que eran cuentas a cobrar contadas como
   plata.
+- **Estado de resultado "por naturaleza" (hecho, 04/10/2026)**: selector
+  "Por cuenta / Por naturaleza" en Informes → Estado de Resultado. Parte
+  ingresos, costos y gastos en FIJOS (recurrentes de monto fijo),
+  RECURRENTES VARIABLES (monto variable: luz, agua) y DEL MES (todo lo
+  demás), con neto por grupo, cobertura y peso de lo recurrente. Solo es
+  una vista: la suma de los tres grupos = el resultado por cuenta.
+  `lib/naturalezaResultado.ts` (puro + tests), `naturalezaResultadoDatos.ts`
+  (qué asientos vienen de una plantilla: `id_operacion_devengo`,
+  `id_operacion` y `*_pagos`/`*_cobros` de los recordatorios),
+  `components/informes/ResultadoPorNaturaleza.tsx`. Límite: lo que nunca se
+  vinculó a una plantilla (pagos viejos cargados a mano) queda en DEL MES.
+  Pendiente: mismo resumen en el Resumen Ejecutivo del Panel (el usuario
+  pidió solo el Estado de Resultado por ahora).
 - **Fase 2D — ingresos (código hecho, 04/10/2026)**: espejo del de
   gastos (`lib/devengoIngresos.ts`, `lib/cuentaACobrar.ts`): día 1,
   Cuenta a Cobrar / Ingreso; al cobrar, Banco / Cuenta a Cobrar con la

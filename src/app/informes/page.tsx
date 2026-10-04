@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
+import { ResultadoPorNaturaleza } from '@/components/informes/ResultadoPorNaturaleza';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
@@ -325,7 +326,7 @@ export default function InformesPage() {
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} />
               )}
-              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} />}
+              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
             </>
           )}
@@ -722,12 +723,14 @@ function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[
    PESTAÑA · ESTADO DE RESULTADO
 ========================================================== */
 
-function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+function EstadoDeResultadoTab({ hojas, asientos, empresaId }: { hojas: CuentaPlan[]; asientos: Asiento[]; empresaId: string | null }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
   const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
   const [periodo, setPeriodo] = useState('TODOS');
+  // "Por cuenta" (como siempre) o "Por naturaleza": fijos / recurrentes variables / del mes.
+  const [vista, setVista] = useState<'CUENTA' | 'NATURALEZA'>('CUENTA');
 
   const esTodos = periodo === 'TODOS';
 
@@ -781,6 +784,47 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
         </select>
       </div>
 
+      {empresaId && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {(
+            [
+              ['CUENTA', idioma === 'PT' ? 'Por conta' : 'Por cuenta'],
+              ['NATURALEZA', idioma === 'PT' ? 'Por natureza (fixos / recorrentes / do mês)' : 'Por naturaleza (fijos / recurrentes / del mes)'],
+            ] as const
+          ).map(([valor, etiqueta]) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setVista(valor)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 999,
+                border: `1px solid ${vista === valor ? COLORES.verde : '#d1d5db'}`,
+                background: vista === valor ? COLORES.verde : 'transparent',
+                color: vista === valor ? '#fff' : COLORES.azul,
+                fontWeight: 700,
+                fontSize: 12.5,
+                cursor: 'pointer',
+              }}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {vista === 'NATURALEZA' && empresaId ? (
+        <ResultadoPorNaturaleza
+          empresaId={empresaId}
+          idioma={idioma}
+          simbolo={simbolo}
+          cuentas={hojas}
+          asientos={asientosDelPeriodo}
+          incluirSaldoInicial={esTodos}
+          etiquetaPeriodo={esTodos ? t('todosLosPeriodos') : formatearPeriodo(periodo, idioma)}
+        />
+      ) : (
+        <>
       <SeccionResultado titulo={t('ingresosTitulo')} emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
 
       {/* Una empresa sin cuentas de Costo (Familiar, Servicios puro)
@@ -822,6 +866,8 @@ function EstadoDeResultadoTab({ hojas, asientos }: { hojas: CuentaPlan[]; asient
           </div>
         </div>
       </div>
+        </>
+      )}
 
       <SeccionTendencia titulo={t('tendenciaResultadoTitulo')} datos={tendencia} idioma={idioma} />
     </div>
