@@ -34,6 +34,7 @@ import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { PieVisao } from '@/components/panel/PieVisao';
+import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
@@ -1022,6 +1023,25 @@ export default function InicioPage() {
             moneda={empresa.moneda}
           />
         )}
+
+        {/* =================================================
+            COTIZACIONES — antes vivía en Panel de Control; va acá,
+            debajo del Calendário.
+        ================================================== */}
+
+        <section
+          style={{
+            background: colores.blanco,
+            borderRadius: 24,
+            padding: 24,
+            marginTop: 20,
+            marginBottom: 20,
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+          }}
+        >
+          <PanelCotizaciones idioma={idioma} colores={colores} />
+        </section>
 
         {/* =================================================
             PIE — Marca Visão Financeira
