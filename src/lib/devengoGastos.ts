@@ -19,7 +19,7 @@
 // antes de registrar, así dos pestañas abiertas a la vez no duplican.
 
 import { supabase } from './supabase';
-import { registrarOperacion } from './motor';
+import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { EMPRESAS_CON_DEVENGO } from './devengoEmpresas';
 import { obtenerConfigAPagar, type ConfigAPagar } from './cuentaAPagar';
@@ -585,11 +585,20 @@ export async function eliminarOBajaGastoRecurrente(
 }
 
 // Los gastos que se devengaron en la primera versión usan UNA cuenta general
-// ("Cuentas a Pagar"). Esto la convierte en la cuenta propia de la plantilla:
-// se RENOMBRA con el nombre de la plantilla (los asientos ya cargados la
-// siguen, porque el renombrado actualiza el libro), opcionalmente se cuelga
-// de un grupo y la plantilla y sus meses ya devengados pasan a apuntar a
-// ella por id. Así no queda ninguna cuenta huérfana ni se toca ningún asiento.
+// ("Cuentas a Pagar"). Esto pasa una plantilla a su cuenta propia sin dejar
+// ninguna cuenta huérfana:
+//
+//  - Si la general la usa SOLO esta plantilla, se RENOMBRA con el nombre de la
+//    plantilla (los asientos ya cargados la siguen: el renombrado actualiza el
+//    libro) y, opcionalmente, se cuelga de un grupo.
+//  - Si la usan varias (renombrarla le cambiaría el nombre a las demás), se crea
+//    la cuenta propia de ESTA plantilla y se MUEVEN sus asientos de devengo
+//    (con editarOperacion, el mismo camino de "Editar Registros": mismo número
+//    de operación, solo cambia la cuenta). La última plantilla que quede la
+//    renombra, así la general se consume y no sobra.
+//
+// Una plantilla con pagos parciales sobre un mes devengado no se migra hasta
+// terminar de pagarlo: moverlo dejaría el pago en una cuenta y la deuda en otra.
 export async function migrarCuentaGeneral(
   empresaId: string,
   plantillaId: string,
@@ -631,9 +640,6 @@ export async function migrarCuentaGeneral(
     throw errorForma;
   }
 
-  // Si otro gasto tiene deuda sin saldar en esa misma cuenta general, renombrarla
-  // le cambiaría el nombre a ese también: se migran de a uno solo cuando la
-  // cuenta es de una sola plantilla.
   const { data: deOtros, error: errorOtros } = await supabase
     .from(TABLA)
     .select('id')
@@ -648,39 +654,117 @@ export async function migrarCuentaGeneral(
     throw errorOtros;
   }
 
-  if ((deOtros ?? []).length > 0) {
-    throw new Error('La cuenta general también la usa otro gasto con deuda sin pagar: pagalo o migralo primero.');
+  const lasUsanOtros = (deOtros ?? []).length > 0;
+
+  async function resolverGrupo(): Promise<string | null> {
+    if (!grupo) return null;
+    return 'id' in grupo ? grupo.id : (await crearGrupo(empresaId, 'PAGAR', grupo.nombre)).id;
   }
 
-  const cuenta = await resolverCuentaCompromiso(forma.id, 'PAGAR');
+  let cuentaFormaPagoId: string;
 
-  await renombrarCuentaCompromiso(empresaId, cuenta, plantilla.nombre, 'PAGAR');
+  if (!lasUsanOtros) {
+    const cuenta = await resolverCuentaCompromiso(forma.id, 'PAGAR');
 
-  if (grupo) {
-    const grupoId = 'id' in grupo ? grupo.id : (await crearGrupo(empresaId, 'PAGAR', grupo.nombre)).id;
-    await moverCuentaAGrupo(empresaId, cuenta.cuentaId, grupoId);
+    await renombrarCuentaCompromiso(empresaId, cuenta, plantilla.nombre, 'PAGAR');
+
+    const grupoId = await resolverGrupo();
+
+    if (grupoId) {
+      await moverCuentaAGrupo(empresaId, cuenta.cuentaId, grupoId);
+    }
+
+    cuentaFormaPagoId = forma.id;
+  } else {
+    const { data: meses, error: errorMeses } = await supabase
+      .from(TABLA)
+      .select('id, periodo, monto_pagado, id_operacion_devengo')
+      .eq('gasto_recurrente_id', plantillaId)
+      .eq('estado', 'DEVENGADA')
+      .eq('registrado', false)
+      .is('cuenta_devengo_forma_pago_id', null);
+
+    if (errorMeses) {
+      throw errorMeses;
+    }
+
+    if ((meses ?? []).some((mes) => Number(mes.monto_pagado) > 0)) {
+      throw new Error('Este gasto tiene un mes devengado con pagos parciales: terminá de pagarlo antes de pasarlo a su cuenta propia.');
+    }
+
+    const operaciones = new Map<string, { fecha: string; categoria: string; historico: string | null; total: number; cliente_proveedor: string | null }>();
+
+    for (const mes of meses ?? []) {
+      if (!mes.id_operacion_devengo) {
+        throw new Error(`El mes ${mes.periodo.slice(0, 7)} no tiene registrado su asiento de devengo.`);
+      }
+
+      const { data: operacion, error: errorOperacion } = await supabase
+        .from('registro_operaciones')
+        .select('fecha, categoria, historico, total, cliente_proveedor')
+        .eq('empresa_id', empresaId)
+        .eq('id_operacion', mes.id_operacion_devengo)
+        .maybeSingle();
+
+      if (errorOperacion) {
+        throw errorOperacion;
+      }
+
+      if (!operacion) {
+        throw new Error(`No se encontró el asiento ${mes.id_operacion_devengo} de ${mes.periodo.slice(0, 7)}.`);
+      }
+
+      operaciones.set(mes.id, { ...operacion, total: Number(operacion.total) });
+    }
+
+    const nueva = await crearCuentaIndividual(empresaId, 'PAGAR', plantilla.nombre, await resolverGrupo());
+
+    for (const mes of meses ?? []) {
+      const operacion = operaciones.get(mes.id)!;
+
+      await editarOperacion(empresaId, mes.id_operacion_devengo as string, {
+        fecha: operacion.fecha,
+        operacion: 'PAGO',
+        categoria: operacion.categoria,
+        formaPago: nueva.formaPago,
+        historico: operacion.historico ?? '',
+        clienteProveedor: operacion.cliente_proveedor ?? '',
+        lineas: [{ producto: '', cantidad: 1, monto: operacion.total }],
+      });
+
+      const { error: errorMes } = await supabase.from(TABLA).update({ cuenta_devengo_forma_pago_id: nueva.formaPagoId }).eq('id', mes.id);
+
+      if (errorMes) {
+        throw errorMes;
+      }
+    }
+
+    cuentaFormaPagoId = nueva.formaPagoId;
   }
 
   const { error: errorApuntar } = await supabase
     .from('gastos_recurrentes')
-    .update({ cuenta_a_pagar_forma_pago_id: forma.id })
+    .update({ cuenta_a_pagar_forma_pago_id: cuentaFormaPagoId })
     .eq('id', plantillaId);
 
   if (errorApuntar) {
     throw errorApuntar;
   }
 
-  const { error: errorMeses } = await supabase
-    .from(TABLA)
-    .update({ cuenta_devengo_forma_pago_id: forma.id })
-    .eq('gasto_recurrente_id', plantillaId)
-    .in('estado', ['DEVENGADA', 'SALDADA'])
-    .is('cuenta_devengo_forma_pago_id', null);
+  if (!lasUsanOtros) {
+    // Se renombró la general: los meses de esta plantilla ya apuntan a ella por id.
+    const { error: errorMesesApuntar } = await supabase
+      .from(TABLA)
+      .update({ cuenta_devengo_forma_pago_id: forma.id })
+      .eq('gasto_recurrente_id', plantillaId)
+      .in('estado', ['DEVENGADA', 'SALDADA'])
+      .is('cuenta_devengo_forma_pago_id', null);
 
-  if (errorMeses) {
-    throw errorMeses;
+    if (errorMesesApuntar) {
+      throw errorMesesApuntar;
+    }
+
+    // La cuenta general dejó de existir con ese nombre: ya no hay a qué volver.
+    await supabase.from('empresas').update({ forma_pago_a_pagar: null }).eq('id', empresaId);
   }
-
-  // La cuenta general dejó de existir con ese nombre: ya no hay a qué volver.
-  await supabase.from('empresas').update({ forma_pago_a_pagar: null }).eq('id', empresaId);
 }
