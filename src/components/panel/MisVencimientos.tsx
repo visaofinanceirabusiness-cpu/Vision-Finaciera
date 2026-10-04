@@ -35,6 +35,9 @@ import {
 import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 import { VincularPagoModal } from './VincularPagoModal';
 import { AcordeonSeccion } from './AcordeonSeccion';
+import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
+import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, desactivarDevengo } from '@/lib/devengoGastos';
+import { ETIQUETA_ESTADO } from '@/lib/devengo';
 import { fechaLocalHoy } from '@/lib/fecha';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
@@ -71,6 +74,9 @@ export function MisVencimientos({
   const [creando, setCreando] = useState(false);
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [recordatorioADevengar, setRecordatorioADevengar] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [errorDevengo, setErrorDevengo] = useState('');
+  const permiteDevengo = empresaTieneDevengo(empresaId);
   // Antes el interruptor "⋯" destapaba también lo ya pagado de ambos
   // bloques — ahora que el selector de período ya separa todo, lo ya
   // pagado del período elegido se ve siempre; el interruptor queda
@@ -87,6 +93,15 @@ export function MisVencimientos({
       await generarRecordatoriosPendientes(empresaId, idioma).catch((e) =>
         console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e)
       );
+
+      // Devengo mes a mes (solo empresas piloto): completa la ventana de
+      // 12 meses y reconoce lo que ya llegó al día 1. Corre solo, al abrir.
+      if (!soloLectura || permiteDevengo) {
+        await ejecutarDevengo(empresaId).catch((e) => {
+          console.warn('No se pudo ejecutar el devengo de gastos recurrentes:', e);
+          setErrorDevengo(e instanceof Error ? e.message : 'Error inesperado.');
+        });
+      }
 
       const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
         listarTodasLasCuotas(empresaId),
@@ -213,6 +228,12 @@ export function MisVencimientos({
       {error && (
         <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
           {error}
+        </div>
+      )}
+
+      {errorDevengo && (
+        <div style={{ fontSize: 12.5, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', marginBottom: 14 }}>
+          {errorDevengo}
         </div>
       )}
 
@@ -397,7 +418,12 @@ export function MisVencimientos({
                   >
                     <span className="mv-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                       {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
-                      {vencido && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
+                      {recordatorio.estado && (
+                        <span style={{ marginLeft: 6, padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, background: recordatorio.estado === 'DEVENGADA' ? '#fef3c7' : '#e0e7ff', color: recordatorio.estado === 'DEVENGADA' ? '#92400e' : '#3730a3' }}>
+                          {esPT ? ETIQUETA_ESTADO[recordatorio.estado].pt : ETIQUETA_ESTADO[recordatorio.estado].es}
+                        </span>
+                      )}
+                      {vencido && recordatorio.estado !== 'PROGRAMADA' && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencido'}</strong>}
                       {tienePagoParcial && (
                         <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
                           {esPT ? 'Pago' : 'Pagado'} {simbolo} {recordatorio.monto_pagado.toFixed(2)}{' '}
@@ -422,7 +448,7 @@ export function MisVencimientos({
                       <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
                         {tienePagoParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                       </span>
-                      {!soloLectura && (
+                      {!soloLectura && recordatorio.estado === null && (
                       <>
                       <button
                         type="button"
@@ -438,7 +464,25 @@ export function MisVencimientos({
                       >
                         ✓ {esPT ? 'Registrar' : 'Registrar'}
                       </button>
-                      </>
+                                            </>
+                      )}
+                      {!soloLectura && recordatorio.estado === 'DEVENGADA' && (
+                        <button
+                          type="button"
+                          onClick={() => setRecordatorioAConfirmar(recordatorio)}
+                          style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          ✓ {esPT ? 'Pagar' : 'Pagar'}
+                        </button>
+                      )}
+                      {!soloLectura && recordatorio.estado === 'POR_CONFIRMAR' && (
+                        <button
+                          type="button"
+                          onClick={() => setRecordatorioADevengar(recordatorio)}
+                          style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          ✓ {esPT ? 'Confirmar valor' : 'Confirmar monto'}
+                        </button>
                       )}
                     </span>
                   </div>
@@ -554,6 +598,44 @@ export function MisVencimientos({
                           paddingLeft: 10,
                         }}
                       >
+                        {permiteDevengo && (
+                          <label
+                            title={esPT ? 'Reconhece o gasto todo mês no seu período (Gasto / Contas a Pagar)' : 'Reconoce el gasto cada mes en su período (Gasto / Cuentas a Pagar)'}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6e7781', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            {esPT ? 'Mês a mês' : 'Mes a mes'}
+                            <input
+                              type="checkbox"
+                              checked={plantilla.devengar}
+                              onChange={async (e) => {
+                                setErrorDevengo('');
+                                try {
+                                  if (e.target.checked) {
+                                    const fijo = window.confirm(
+                                      esPT
+                                        ? `Reconhecer "${plantilla.nombre}" mês a mês.\n\nO valor é FIXO todo mês? (OK = fixo, Cancelar = varia e eu confirmo o valor de cada mês)`
+                                        : `Reconocer "${plantilla.nombre}" mes a mes.\n\n¿El monto es FIJO todos los meses? (Aceptar = fijo, Cancelar = varía y confirmo el monto de cada mes)`
+                                    );
+                                    await activarDevengo(empresaId, plantilla.id, fijo);
+                                  } else if (
+                                    window.confirm(
+                                      esPT
+                                        ? 'Desativar? Os meses futuros sem lançamento são removidos; o que já foi reconhecido fica.'
+                                        : '¿Desactivar? Se quitan los meses futuros sin asiento; lo ya devengado queda como está.'
+                                    )
+                                  ) {
+                                    await desactivarDevengo(plantilla.id);
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                  setErrorDevengo(err instanceof Error ? err.message : 'Error inesperado.');
+                                }
+                                await recargar();
+                              }}
+                            />
+                          </label>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => setEditando(plantilla)}
@@ -651,6 +733,21 @@ export function MisVencimientos({
           onClose={() => setRecordatorioAConfirmar(null)}
           onRegistrado={() => {
             setRecordatorioAConfirmar(null);
+            recargar();
+          }}
+        />
+      )}
+
+      {recordatorioADevengar && (
+        <ConfirmarDevengoModal
+          empresaId={empresaId}
+          recordatorio={recordatorioADevengar}
+          idioma={idioma}
+          simbolo={simbolo}
+          colores={colores}
+          onClose={() => setRecordatorioADevengar(null)}
+          onConfirmado={() => {
+            setRecordatorioADevengar(null);
             recargar();
           }}
         />

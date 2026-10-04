@@ -15,6 +15,8 @@
 import { supabase } from './supabase';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
+import type { EstadoDevengo } from './devengo';
+import { obtenerConfigAPagar } from './cuentaAPagar';
 
 export type GastoRecurrente = {
   id: string;
@@ -24,6 +26,9 @@ export type GastoRecurrente = {
   monto_habitual: number;
   dia_mes: number;
   activo: boolean;
+  // Devengo mes a mes (Compromisos Fase 2, ver lib/devengoGastos.ts).
+  devengar: boolean;
+  monto_fijo: boolean;
 };
 
 export type RecordatorioGastoRecurrente = {
@@ -36,8 +41,13 @@ export type RecordatorioGastoRecurrente = {
   nombre: string;
   categoria: string;
   forma_pago: string;
+  // Para un gasto devengado es lo devengado ese mes (no el habitual de
+  // la plantilla): contra eso se calcula el saldo que falta pagar.
   monto_habitual: number;
   monto_pagado: number;
+  estado: EstadoDevengo | null;
+  devengar: boolean;
+  empresa_id: string;
 };
 
 // Lo que falta pagar de este recordatorio — puede ser menor a
@@ -97,7 +107,7 @@ export async function crearGastoRecurrente(
 export async function listarGastosRecurrentes(empresaId: string): Promise<GastoRecurrente[]> {
   const { data, error } = await supabase
     .from('gastos_recurrentes')
-    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo')
+    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, activo, devengar, monto_fijo')
     .eq('empresa_id', empresaId)
     .order('nombre');
 
@@ -211,7 +221,7 @@ export async function eliminarGastoRecurrente(id: string) {
 export async function generarRecordatoriosPendientes(empresaId: string, idioma: string | null | undefined) {
   const { data: plantillas, error: errorPlantillas } = await supabase
     .from('gastos_recurrentes')
-    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes')
+    .select('id, nombre, categoria, forma_pago, monto_habitual, dia_mes, devengar')
     .eq('empresa_id', empresaId)
     .eq('activo', true);
 
@@ -222,6 +232,12 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
   const hoy = new Date();
 
   for (const plantilla of plantillas ?? []) {
+    // Las plantillas que devengan mes a mes tienen su propia ventana de 12
+    // meses (ver lib/devengoGastos.ts): este generador de a uno no corre.
+    if (plantilla.devengar) {
+      continue;
+    }
+
     const { data: ultimo, error: errorUltimo } = await supabase
       .from('gastos_recurrentes_recordatorios')
       .select('periodo, registrado')
@@ -313,7 +329,7 @@ export async function generarRecordatoriosPendientes(empresaId: string, idioma: 
 }
 
 const SELECT_RECORDATORIO =
-  'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_pagado, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id)';
+  'id, gasto_recurrente_id, periodo, fecha_vencimiento, registrado, id_operacion, monto_pagado, estado, monto_devengado, gastos_recurrentes!inner(nombre, categoria, forma_pago, monto_habitual, empresa_id, devengar)';
 
 function mapearFilaRecordatorio(fila: {
   id: string;
@@ -323,6 +339,8 @@ function mapearFilaRecordatorio(fila: {
   registrado: boolean;
   id_operacion: string | null;
   monto_pagado: number;
+  estado: EstadoDevengo | null;
+  monto_devengado: number | null;
   gastos_recurrentes: unknown;
 }): RecordatorioGastoRecurrente {
   const plantilla = fila.gastos_recurrentes as unknown as {
@@ -330,7 +348,11 @@ function mapearFilaRecordatorio(fila: {
     categoria: string;
     forma_pago: string;
     monto_habitual: number;
+    devengar: boolean;
+    empresa_id: string;
   };
+
+  const devengado = (fila.estado === 'DEVENGADA' || fila.estado === 'SALDADA') && fila.monto_devengado != null;
 
   return {
     id: fila.id,
@@ -343,7 +365,10 @@ function mapearFilaRecordatorio(fila: {
     nombre: plantilla.nombre,
     categoria: plantilla.categoria,
     forma_pago: plantilla.forma_pago,
-    monto_habitual: plantilla.monto_habitual,
+    monto_habitual: devengado ? Number(fila.monto_devengado) : plantilla.monto_habitual,
+    estado: fila.estado ?? null,
+    devengar: Boolean(plantilla.devengar),
+    empresa_id: plantilla.empresa_id,
   };
 }
 
@@ -353,6 +378,9 @@ export async function listarRecordatoriosPendientes(empresaId: string): Promise<
     .select(SELECT_RECORDATORIO)
     .eq('empresa_id', empresaId)
     .eq('registrado', false)
+    // Alertas y Sabio solo ven lo accionable: lo programado (todavía no
+    // devengado) o por confirmar no se paga desde ahí.
+    .or('estado.is.null,estado.eq.DEVENGADA')
     .order('fecha_vencimiento', { ascending: true });
 
   if (error) {
@@ -459,7 +487,13 @@ export async function registrarPagoParcial(
 
   const { error } = await supabase
     .from('gastos_recurrentes_recordatorios')
-    .update({ monto_pagado: nuevoMontoPagado, registrado: cumplido, id_operacion: idOperacion })
+    .update({
+      monto_pagado: nuevoMontoPagado,
+      registrado: cumplido,
+      id_operacion: idOperacion,
+      // Un gasto devengado pasa a SALDADA cuando ya no falta nada.
+      ...(recordatorio.estado === 'DEVENGADA' ? { estado: cumplido ? 'SALDADA' : 'DEVENGADA' } : {}),
+    })
     .eq('id', recordatorio.id);
 
   if (error) {
@@ -491,10 +525,34 @@ export async function registrarPagoRecordatorio(
 
   const fecha = fechaLocalHoy();
 
+  // Un gasto ya devengado (Gasto / Cuentas a Pagar) NO vuelve a pasar
+  // por la categoría del gasto — eso lo contaría dos veces: se salda la
+  // deuda (Cuentas a Pagar / Banco) con la categoría de liquidación, y
+  // nunca por encima de lo que falta.
+  let categoria = recordatorio.categoria;
+
+  if (recordatorio.estado && recordatorio.estado !== 'DEVENGADA') {
+    throw new Error('Este gasto todavía no se devengó: se puede pagar recién cuando llega su mes.');
+  }
+
+  if (recordatorio.estado === 'DEVENGADA') {
+    const config = await obtenerConfigAPagar(empresaId);
+
+    if (!config) {
+      throw new Error('No se encontró la cuenta "Cuentas a Pagar" de esta empresa.');
+    }
+
+    if (monto > saldoPendiente(recordatorio) + 0.01) {
+      throw new Error('El pago supera lo que falta pagar de este gasto devengado.');
+    }
+
+    categoria = config.categoriaLiquidacion;
+  }
+
   const resultado = await registrarOperacion(empresaId, {
     fecha,
     operacion: 'PAGO',
-    categoria: recordatorio.categoria,
+    categoria,
     formaPago: recordatorio.forma_pago,
     historico: recordatorio.nombre,
     clienteProveedor: '',

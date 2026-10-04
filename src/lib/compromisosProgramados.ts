@@ -12,6 +12,9 @@ export const MESES_HORIZONTE = 12;
 export type PlantillaProgramada = {
   monto_habitual: number | string;
   activo: boolean;
+  // Las que devengan mes a mes ya tienen sus 12 meses como filas reales
+  // (ver lib/devengoGastos.ts): no se proyectan acá, se contarían doble.
+  devengar?: boolean;
 };
 
 export type MesProgramado = {
@@ -23,7 +26,7 @@ export type MesProgramado = {
 
 function sumarMontos(plantillas: PlantillaProgramada[]): number {
   // Number() explícito: las columnas numeric de Postgres pueden llegar como string.
-  return plantillas.filter((p) => p.activo).reduce((suma, p) => suma + Number(p.monto_habitual), 0);
+  return plantillas.filter((p) => p.activo && !p.devengar).reduce((suma, p) => suma + Number(p.monto_habitual), 0);
 }
 
 export function proyectarCompromisos(

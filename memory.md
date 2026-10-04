@@ -25,16 +25,33 @@ no se tocan.
   (proyección de 12 meses a partir de las plantillas, fuera del
   balance) mostrada en Panel (`CompromisosProgramadosResumen`) y en la
   pestaña. Sin asientos nuevos.
-- **Fase 2 (pendiente, pedir OK antes)**: cuota con estados
-  PROGRAMADA → DEVENGADA → SALDADA; devengo automático el día 1 (monto
-  fijo solo, variable con confirmación); crear la cuenta "Cuentas a
-  Pagar" por empresa con `crearPasivo` (`categorias.ts`) — ya crea
-  cuenta + forma de pago + categoría de liquidación; el saldado debe
-  usar esa categoría de pasivo (NO "Deuda Pagada", que es un GASTO).
-  Genera asientos reales solos → tests del generador + activarlo por
-  plantilla. Hoy hay 10 plantillas activas (5 Buenaventura, 5 Ocaña).
-  Ojo: gastosRecurrentes.ts decía "no generar asientos solos" a
-  propósito; esto revierte esa decisión de forma deliberada.
+- **Fase 2 — gastos, piloto Buenaventura (código hecho, 04/10/2026)**:
+  devengo mes a mes (Gasto / Cuentas a Pagar el día 1; al pagar,
+  Cuentas a Pagar / Banco). Opt-in por plantilla (`gastos_recurrentes.
+  devengar`, `monto_fijo`) y por empresa (`lib/devengoEmpresas.ts`,
+  hoy solo Buenaventura). Esquema (aplicado por MCP, aditivo):
+  `gastos_recurrentes_recordatorios.estado/monto_devengado/
+  id_operacion_devengo/devengo_iniciado_en`, `empresas.
+  forma_pago_a_pagar`. Estados PROGRAMADA → (DEVENGANDO) →
+  POR_CONFIRMAR (monto variable) → DEVENGADA → SALDADA; `estado` null =
+  flujo viejo, intacto. Piezas: `lib/devengo.ts` (reglas puras +
+  tests), `lib/devengoGastos.ts` (ventana de 12 meses, devengo
+  idempotente con "reclamo" de la fila, activar/desactivar),
+  `lib/cuentaAPagar.ts` (crea sola la cuenta "Cuentas a Pagar" con
+  `crearPasivo` + matriz, una vez por empresa),
+  `ConfirmarDevengoModal`. Corre solo al abrir (lobby y Mis
+  Vencimientos). Se activa desde Compromisos → Mis Vencimientos → ⋯ →
+  interruptor "Mes a mes" de la plantilla (devenga ya el mes en curso).
+  El pago de un gasto DEVENGADO usa la categoría de liquidación de
+  Cuentas a Pagar (`registrarPagoRecordatorio`), nunca la del gasto, y
+  no puede superar lo devengado; "Ya lo pagué" no aplica. Alertas/Sabio
+  (`listarRecordatoriosPendientes`) solo ven lo accionable (estado null
+  o DEVENGADA). Las plantillas que devengan salen de la proyección de
+  Compromisos programados (ya tienen filas reales).
+  **Límites conocidos**: borrar a mano el asiento de un devengo/pago no
+  reabre la fila (igual que el flujo viejo); POR_CONFIRMAR no genera
+  alerta de Sabio; devengo solo al abrir la app (no hay cron); falta
+  el lado Ingresos (2D) y los estados en el Panel (2E).
 - **Fase 3**: migrar plantillas y retirar lo viejo.
 
 ## Análisis Mensual Automático — bug de clasificación ingreso/egreso (03/10/2026)

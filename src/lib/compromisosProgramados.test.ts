@@ -27,6 +27,11 @@ describe('proyectarCompromisos', () => {
     expect(mes.neto).toBe(55);
   });
 
+  it('no proyecta las plantillas que ya devengan mes a mes (tienen filas reales)', () => {
+    const [mes] = proyectarCompromisos(ingresos, [...gastos, { monto_habitual: 1800, activo: true, devengar: true }], '2026-10-04');
+    expect(mes.porPagar).toBe(1845);
+  });
+
   it('suma los totales de todo el horizonte', () => {
     const totales = totalesProgramados(proyectarCompromisos(ingresos, gastos, '2026-10-04'));
     expect(totales).toEqual({ porCobrar: 22800, porPagar: 22140, neto: 660 });
