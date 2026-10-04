@@ -17,6 +17,7 @@
 // Configurações), es más parecido a un recordatorio personal.
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { listarTodasLasCuotas, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
 import {
@@ -44,6 +45,7 @@ export function MisVencimientos({
   simbolo,
   colores,
   periodoSeleccionado,
+  soloLectura = false,
 }: {
   empresaId: string;
   idioma: string;
@@ -52,6 +54,9 @@ export function MisVencimientos({
   // Controlado desde Panel de Controle — mismo período que Mis
   // Ingresos y Salud de Caja, elegido una sola vez arriba de los tres.
   periodoSeleccionado: string;
+  // En Panel de Control (ventana de análisis) se muestra solo la vista;
+  // cargar, cobrar/pagar y gestionar plantillas se hace en Contabilidad → Compromisos.
+  soloLectura?: boolean;
 }) {
   const esPT = idioma === 'PT';
 
@@ -192,7 +197,7 @@ export function MisVencimientos({
             </div>
           )}
 
-          {!cargando && (
+          {!cargando && !soloLectura && (
             <button
               type="button"
               onClick={() => setMostrarPlantillas((m) => !m)}
@@ -285,6 +290,7 @@ export function MisVencimientos({
                           <strong style={{ fontSize: 12.5, color: '#c2410c', whiteSpace: 'nowrap' }}>
                             {simbolo} {cuota.monto.toFixed(2)}
                           </strong>
+                          {!soloLectura && (
                           <button
                             type="button"
                             onClick={() => pagarCuota(cuota.id)}
@@ -292,6 +298,7 @@ export function MisVencimientos({
                           >
                             ✓ {esPT ? 'Marcar paga' : 'Marcar pagada'}
                           </button>
+                          )}
                         </span>
                       </div>
                     );
@@ -415,6 +422,8 @@ export function MisVencimientos({
                       <span style={{ fontSize: 12, color: '#6e7781', whiteSpace: 'nowrap' }}>
                         {tienePagoParcial ? '' : esPT ? 'aprox.' : 'aprox.'} {simbolo} {saldo.toFixed(2)}
                       </span>
+                      {!soloLectura && (
+                      <>
                       <button
                         type="button"
                         onClick={() => setRecordatorioAVincular(recordatorio)}
@@ -429,6 +438,8 @@ export function MisVencimientos({
                       >
                         ✓ {esPT ? 'Registrar' : 'Registrar'}
                       </button>
+                      </>
+                      )}
                     </span>
                   </div>
                 );
@@ -491,7 +502,7 @@ export function MisVencimientos({
               </div>
             )}
 
-            {mostrarPlantillas && (
+            {!soloLectura && mostrarPlantillas && (
               <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: '#fbfcfd', border: '1px solid #eef2f6' }}>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: colores.azul, marginBottom: 8, letterSpacing: 0.4 }}>
                   {esPT ? 'MODELOS CADASTRADOS' : 'PLANTILLAS CARGADAS'}
@@ -617,6 +628,16 @@ export function MisVencimientos({
               </div>
             )}
           </AcordeonSeccion>
+
+          {soloLectura && (
+            <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6e7781' }}>
+              {esPT ? 'Para registrar ou gerenciar, vá em ' : 'Para registrar o gestionar, andá a '}
+              <Link href="/contabilidad?pestana=compromisos" style={{ color: colores.azul, fontWeight: 700 }}>
+                Contabilidad → Compromisos
+              </Link>
+              .
+            </p>
+          )}
         </>
       )}
 

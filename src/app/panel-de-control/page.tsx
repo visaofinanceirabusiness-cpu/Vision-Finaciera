@@ -22,6 +22,7 @@ import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
 import { MisIngresos } from '@/components/panel/MisIngresos';
 import { SaludDeCaja } from '@/components/panel/SaludDeCaja';
+import { CompromisosProgramadosResumen } from '@/components/panel/CompromisosProgramadosResumen';
 import { SabioRegistrarGastoModal } from '@/components/panel/SabioRegistrarGastoModal';
 import { listarRecordatoriosPendientes, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { diasHasta, DIAS_ANTICIPACION } from '@/lib/alertasSabio';
@@ -918,6 +919,15 @@ export default function MiNegocioPage() {
               grande
             />
           </div>
+
+          {perfil?.empresa_id && (
+            <CompromisosProgramadosResumen
+              empresaId={perfil.empresa_id}
+              idioma={idioma}
+              simbolo={simbolo}
+              colores={colores}
+            />
+          )}
         </section>
 
         {perfil?.empresa_id && (
@@ -942,6 +952,7 @@ export default function MiNegocioPage() {
                 simbolo={simbolo}
                 colores={colores}
                 periodoSeleccionado={periodoFlujoCaja}
+                soloLectura
               />
             </PanelFlujo>
 
@@ -975,6 +986,7 @@ export default function MiNegocioPage() {
                 simbolo={simbolo}
                 colores={colores}
                 periodoSeleccionado={periodoFlujoCaja}
+                soloLectura
               />
             </PanelFlujo>
           </div>
