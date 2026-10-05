@@ -449,3 +449,30 @@ export async function liberarCuentaSiCorresponde(empresaId: string, formaPagoId:
 
   return true;
 }
+
+// Cuentas internas de los compromisos (devengo): no son un medio con el que
+// se pague o cobre una operación del día a día, así que los selectores de
+// "medio" las ocultan. Se saldan desde Compromisos.
+export async function nombresCuentasCompromiso(empresaId: string): Promise<Set<string>> {
+  const [{ data: gastos }, { data: ingresos }, { data: empresa }] = await Promise.all([
+    supabase.from('gastos_recurrentes').select('cuenta_a_pagar_forma_pago_id').eq('empresa_id', empresaId),
+    supabase.from('ingresos_recurrentes').select('cuenta_a_cobrar_forma_pago_id').eq('empresa_id', empresaId),
+    supabase.from('empresas').select('forma_pago_a_pagar, forma_pago_a_cobrar').eq('id', empresaId).maybeSingle(),
+  ]);
+
+  const ids = [
+    ...(gastos ?? []).map((g) => g.cuenta_a_pagar_forma_pago_id),
+    ...(ingresos ?? []).map((i) => i.cuenta_a_cobrar_forma_pago_id),
+  ].filter((id): id is string => !!id);
+
+  const nombres = new Set<string>();
+  if (empresa?.forma_pago_a_pagar) nombres.add(empresa.forma_pago_a_pagar);
+  if (empresa?.forma_pago_a_cobrar) nombres.add(empresa.forma_pago_a_cobrar);
+
+  if (ids.length > 0) {
+    const { data: formas } = await supabase.from('formas_pago').select('nombre').in('id', ids);
+    for (const forma of formas ?? []) nombres.add(forma.nombre);
+  }
+
+  return nombres;
+}

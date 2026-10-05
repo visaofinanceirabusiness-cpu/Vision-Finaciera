@@ -46,8 +46,10 @@ no se tocan.
   Cuentas a Pagar (`registrarPagoRecordatorio`), nunca la del gasto, y
   no puede superar lo devengado; "Ya lo pagué" no aplica. Alertas/Sabio
   (`listarRecordatoriosPendientes`) solo ven lo accionable (estado null
-  o DEVENGADA). Las plantillas que devengan salen de la proyección de
-  Compromisos programados (ya tienen filas reales).
+  o DEVENGADA). La proyección de Compromisos programados suma TODAS las
+  plantillas activas (también las de "Mes a mes": sus meses futuros aún
+  no se reconocen) y se recarga vía `onActualizado` de MisIngresos/
+  MisVencimientos (antes excluía las devengar y quedaba desactualizada).
   **Límites conocidos**: borrar a mano el asiento de un devengo/pago no
   reabre la fila (igual que el flujo viejo); POR_CONFIRMAR no genera
   alerta de Sabio; devengo solo al abrir la app (no hay cron); falta
@@ -536,5 +538,11 @@ antes de inventar algo nuevo.
 - Fondos de Apariencia con fotos reales (ver arriba) — pendiente de
   que el usuario las suba, o de que el entorno tenga salida a
   internet.
+- Probar cobros parciales de alquileres devengados (la fila queda
+  DEVENGADA con saldo; sobrepago bloqueado; migrar cuenta bloqueado
+  hasta cerrar parciales). Para alquileres con ajustes, usar "Varía".
+  El usuario lo prueba y reporta.
+- Endurecer `.claude/hooks/sql_readonly_allow.py` contra `WITH … DELETE`
+  / `EXPLAIN ANALYZE` (sin respuesta del usuario).
 - Nada más pendiente a la fecha de este registro — si encontrás algo
   a medio hacer, agregalo acá antes de asumir que está completo.
