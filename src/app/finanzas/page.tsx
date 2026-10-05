@@ -19,14 +19,16 @@ import { fondo, encabezado, volver, eyebrow, panel } from '@/components/contabil
 import { CompromisosTab } from '@/components/finanzas/CompromisosTab';
 import { FlujoProyectadoTab } from '@/components/finanzas/FlujoProyectadoTab';
 import { DeudasTab } from '@/components/finanzas/DeudasTab';
+import { PresupuestoTab } from '@/components/finanzas/PresupuestoTab';
 import { diccionarioFinanzas, frasesSabioFinanzas } from './i18n';
 
-type Pestana = 'compromisos' | 'flujo' | 'deudas';
+type Pestana = 'compromisos' | 'flujo' | 'deudas' | 'presupuesto';
 
 export default function FinanzasPage() {
   const [pestana, setPestana] = useState<Pestana>('compromisos');
   const [moneda, setMoneda] = useState<string | null>(null);
   const [idioma, setIdioma] = useState<string | null>(null);
+  const [esFamiliar, setEsFamiliar] = useState(false);
 
   const t = crearTraductor(diccionarioFinanzas, idioma);
 
@@ -45,12 +47,13 @@ export default function FinanzasPage() {
 
       const { data: empresa } = await supabase
         .from('empresas')
-        .select('moneda, idioma')
+        .select('moneda, idioma, perfiles_empresa(codigo)')
         .eq('id', perfil.empresa_id)
         .maybeSingle();
 
       setMoneda(empresa?.moneda ?? null);
       setIdioma(empresa?.idioma ?? null);
+      setEsFamiliar((empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)?.perfiles_empresa?.codigo === 'FAMILIAR');
     }
 
     cargarEmpresa();
@@ -102,11 +105,15 @@ export default function FinanzasPage() {
                 <button type="button" onClick={() => setPestana('deudas')} style={tabStyle(pestana === 'deudas')}>
                   {t('tabDeudas')}
                 </button>
+                <button type="button" onClick={() => setPestana('presupuesto')} style={tabStyle(pestana === 'presupuesto')}>
+                  {t(esFamiliar ? 'tabPresupuestoFamilia' : 'tabPresupuesto')}
+                </button>
               </div>
 
               {pestana === 'compromisos' && <CompromisosTab />}
               {pestana === 'flujo' && <FlujoProyectadoTab />}
               {pestana === 'deudas' && <DeudasTab />}
+              {pestana === 'presupuesto' && <PresupuestoTab />}
             </main>
           </div>
         </div>
