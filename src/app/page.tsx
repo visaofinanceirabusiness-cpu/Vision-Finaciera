@@ -958,6 +958,13 @@ export default function InicioPage() {
               destacado
             />
 
+            <BotonAcceso
+              href="/finanzas"
+              titulo={t('herramientaFinanzas')}
+              colorPrincipal="#0d9488"
+              destacado
+            />
+
             {manejaMercaderia && (
               <BotonAcceso
                 href="/mercaderia"

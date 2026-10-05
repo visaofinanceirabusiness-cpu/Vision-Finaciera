@@ -16,9 +16,10 @@ Cuentas a Pagar); los recurrentes pasan a ser "una forma de generar
 cuotas", programadas a **12 meses móviles** y **reconocidas mes a mes
 (devengado), el día 1** — NO se reconoce todo el año de golpe (inflaría
 ingresos/Activo de hoy). Carga y gestión en **pestaña propia
-"Compromisos" de Contabilidad**; el Panel de Control queda de solo
+"Compromisos"** (desde 05/10/2026 vive en la herramienta **Finanzas**, `/finanzas`, para todos los perfiles; ya no está en Contabilidad); el Panel de Control queda de solo
 lectura (análisis) y las alertas/vencimientos (Sabio, Calendário, push)
 no se tocan.
+- **Finanzas Fase 1 (05/10/2026)**: nueva herramienta `/finanzas` (tarjeta en el lobby + `AccesosHerramientas`), primera y única pestaña Compromisos (`components/finanzas/CompromisosTab.tsx`, movido sin dejar rastro en Contabilidad). Los enlaces del Panel apuntan a `/finanzas`. **Fase 2 (pendiente)**: generalizar el devengo a todos los perfiles (revisar planes de cuentas por perfil, opt-in por plantilla, apertura en olas); luego segunda pestaña (candidata: flujo proyectado).
 - **Fase 1 (hecha)**: pestaña Compromisos (`CompromisosTab.tsx`, reusa
   MisIngresos/MisVencimientos completos), `soloLectura` en esos dos
   componentes (Panel de Control), y `lib/compromisosProgramados.ts`

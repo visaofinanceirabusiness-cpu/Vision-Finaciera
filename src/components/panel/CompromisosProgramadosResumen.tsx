@@ -77,8 +77,8 @@ export function CompromisosProgramadosResumen({
           <div style={{ fontSize: 20, fontWeight: 800, color: '#c2410c' }}>{formatear(totales.porPagar)}</div>
         </div>
 
-        <Link href="/contabilidad?pestana=compromisos" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, color: colores.azul }}>
-          {esPT ? 'Gerenciar em Contabilidade → Compromissos' : 'Gestionar en Contabilidad → Compromisos'}
+        <Link href="/finanzas" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, color: colores.azul }}>
+          {esPT ? 'Gerenciar em Finanças → Compromissos' : 'Gestionar en Finanzas → Compromisos'}
         </Link>
       </div>
     </div>

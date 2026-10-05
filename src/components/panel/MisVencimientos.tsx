@@ -62,7 +62,7 @@ export function MisVencimientos({
   // Ingresos y Salud de Caja, elegido una sola vez arriba de los tres.
   periodoSeleccionado: string;
   // En Panel de Control (ventana de análisis) se muestra solo la vista;
-  // cargar, cobrar/pagar y gestionar plantillas se hace en Contabilidad → Compromisos.
+  // cargar, cobrar/pagar y gestionar plantillas se hace en Finanzas → Compromisos.
   soloLectura?: boolean;
   // Para que Compromisos refresque la proyección tras cada cambio.
   onActualizado?: () => void;
@@ -754,8 +754,8 @@ export function MisVencimientos({
           {soloLectura && (
             <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6e7781' }}>
               {esPT ? 'Para registrar ou gerenciar, vá em ' : 'Para registrar o gestionar, andá a '}
-              <Link href="/contabilidad?pestana=compromisos" style={{ color: colores.azul, fontWeight: 700 }}>
-                Contabilidad → Compromisos
+              <Link href="/finanzas" style={{ color: colores.azul, fontWeight: 700 }}>
+                Finanzas → Compromisos
               </Link>
               .
             </p>
