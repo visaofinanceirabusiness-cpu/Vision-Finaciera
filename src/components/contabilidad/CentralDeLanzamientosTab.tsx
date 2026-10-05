@@ -8,7 +8,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { nombresCuentasCompromiso } from '@/lib/cuentasCompromiso';
+import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import {
   registrarOperacion,
   editarOperacion,
@@ -325,14 +325,7 @@ export function CentralDeLanzamientosTab({
       // deciden si es "Cuenta por Cobrar"/Pasivo) — si no, quedaría
       // creada pero invisible o sin habilitar "En cuotas" hasta
       // recargar la página.
-      const { data: formasPagoData } = await supabase
-        .from('matriz_operaciones')
-        .select('forma_pago')
-        .eq('empresa_id', empresaId)
-        .eq('operacion', operacion)
-        .eq('categoria', categoria);
-
-      const unicas = Array.from(new Set((formasPagoData ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
+      const unicas = await obtenerFormasPagoOperacion(empresaId, operacion, categoria, nombre);
       setFormasPago(unicas);
       setFormaPago(nombre);
 
@@ -739,25 +732,14 @@ export function CentralDeLanzamientosTab({
     }
 
     async function cargarFormasPago() {
-      const { data, error: errorFormas } = await supabase
-        .from('matriz_operaciones')
-        .select('forma_pago')
-        .eq('empresa_id', empresaId)
-        .eq('operacion', operacion)
-        .eq('categoria', categoria);
-
-      if (errorFormas) {
+      let unicas: string[];
+      try {
+        unicas = await obtenerFormasPagoOperacion(empresaId as string, operacion, categoria, valoresIniciales?.formaPago);
+      } catch (errorFormas) {
         console.error('ERROR CARGANDO FORMAS DE PAGO:', errorFormas);
-        setError(msgErrorFormasPago(idioma, errorFormas.message));
+        setError(msgErrorFormasPago(idioma, (errorFormas as { message?: string }).message ?? ''));
         return;
       }
-
-      // Las cuentas internas de los compromisos se saldan desde Compromisos;
-      // al editar un asiento que ya usa una, se conserva para no vaciarla.
-      const internas = await nombresCuentasCompromiso(empresaId as string);
-      const unicas = (Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[]).filter(
-        (nombre) => !internas.has(nombre) || nombre === valoresIniciales?.formaPago
-      );
 
       setFormasPago(unicas);
 
