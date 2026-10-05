@@ -29,6 +29,7 @@ type Herramienta = {
 const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/panel-de-control', titulo: 'Panel de Control', emoji: '📊', color: '#2e8b57' },
   { href: '/contabilidad', titulo: 'Contabilidad', emoji: '🧾', color: '#7c3aed' },
+  { href: '/finanzas', titulo: 'Finanzas', emoji: '💼', color: '#0d9488' },
   { href: '/mercaderia', titulo: 'Mercadería', emoji: '📦', color: '#ea580c' },
   { href: '/informes', titulo: 'Informes', emoji: '📈', color: '#0891b2' },
   { href: '/produccion', titulo: 'Producción', emoji: '🏭', color: '#65a30d' },

@@ -9,7 +9,6 @@ type Clave =
   | 'tabLanzamientos'
   | 'tabRegistros'
   | 'tabLibro'
-  | 'tabCompromisos'
   | 'cargando'
   | 'editandoOperacion'
   | 'nuevoRegistro'
@@ -108,7 +107,6 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     tabLanzamientos: '🚀 Central de Lanzamientos',
     tabRegistros: '📋 Registro de Operaciones',
     tabLibro: '📖 Libro Diario',
-    tabCompromisos: '🤝 Compromisos',
     cargando: 'Cargando...',
     editandoOperacion: 'EDITANDO OPERACIÓN',
     nuevoRegistro: 'NUEVO REGISTRO',
@@ -208,7 +206,6 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     tabLanzamientos: '🚀 Central de Lançamentos',
     tabRegistros: '📋 Registro de Operações',
     tabLibro: '📖 Livro Diário',
-    tabCompromisos: '🤝 Compromissos',
     cargando: 'Carregando...',
     editandoOperacion: 'EDITANDO OPERAÇÃO',
     nuevoRegistro: 'NOVO REGISTRO',

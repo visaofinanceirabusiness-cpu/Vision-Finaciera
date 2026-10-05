@@ -20,7 +20,7 @@ import { proyectarCompromisos, totalesProgramados, MESES_HORIZONTE, type MesProg
 import { formatearPeriodo } from '@/lib/fecha';
 import { MisIngresos } from '@/components/panel/MisIngresos';
 import { MisVencimientos } from '@/components/panel/MisVencimientos';
-import { SimboloContext, IdiomaContext, COLORES } from './compartido';
+import { SimboloContext, IdiomaContext, COLORES } from '@/components/contabilidad/compartido';
 
 const COLORES_PANEL = { azul: COLORES.azul, verde: COLORES.verde, acento: COLORES.gris, blanco: COLORES.blanco };
 

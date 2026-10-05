@@ -20,6 +20,7 @@ export type ClaveInicio =
   | 'tusHerramientas'
   | 'herramientaPanelControl'
   | 'herramientaContabilidad'
+  | 'herramientaFinanzas'
   | 'herramientaMercaderia'
   | 'herramientaInformes'
   | 'herramientaProduccion'
@@ -50,6 +51,7 @@ export const diccionarioInicio: Diccionario<ClaveInicio> = {
     tusHerramientas: 'Tus herramientas',
     herramientaPanelControl: '📊 Panel de Control',
     herramientaContabilidad: '🧾 Contabilidad',
+    herramientaFinanzas: '💼 Finanzas',
     herramientaMercaderia: '📦 Mercadería',
     herramientaInformes: '📈 Informes',
     herramientaProduccion: '🏭 Producción',
@@ -79,6 +81,7 @@ export const diccionarioInicio: Diccionario<ClaveInicio> = {
     tusHerramientas: 'Suas ferramentas',
     herramientaPanelControl: '📊 Painel de Controle',
     herramientaContabilidad: '🧾 Contabilidade',
+    herramientaFinanzas: '💼 Finanças',
     herramientaMercaderia: '📦 Mercadoria',
     herramientaInformes: '📈 Relatórios',
     herramientaProduccion: '🏭 Produção',
