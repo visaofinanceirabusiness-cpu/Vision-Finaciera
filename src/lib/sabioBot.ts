@@ -33,6 +33,7 @@
 // nombreOperacionDisplay, igual que en Contabilidad.
 
 import { supabase } from './supabase';
+import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
@@ -335,14 +336,7 @@ async function avanzarDesdeCategoria(
 ): Promise<string> {
   const esStock = datos.stockPorCategoria?.[categoria] === 'SI';
 
-  const { data: filasFormaPago } = await supabase
-    .from('matriz_operaciones')
-    .select('forma_pago')
-    .eq('empresa_id', empresaId)
-    .eq('operacion', datos.operacion ?? '')
-    .eq('categoria', categoria);
-
-  const formasPago = Array.from(new Set((filasFormaPago ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
+  const formasPago = await obtenerFormasPagoOperacion(empresaId, datos.operacion ?? '', categoria);
 
   if (formasPago.length === 0) {
     return t(

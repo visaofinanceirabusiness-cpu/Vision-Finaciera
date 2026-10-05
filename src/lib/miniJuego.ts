@@ -5,7 +5,7 @@
 // válidas para armar las tarjetas, no todo el resto del formulario.
 
 import { supabase } from './supabase';
-import { nombresCuentasCompromiso } from '@/lib/cuentasCompromiso';
+import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { fechaLocalHoy } from './fecha';
 
 export type CategoriaJuego = { nombre: string; stock: string | null };
@@ -41,20 +41,7 @@ export async function obtenerProductosJuego(empresaId: string): Promise<Producto
 }
 
 export async function obtenerFormasPagoJuego(empresaId: string, operacion: string, categoria: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('matriz_operaciones')
-    .select('forma_pago')
-    .eq('empresa_id', empresaId)
-    .eq('operacion', operacion)
-    .eq('categoria', categoria);
-
-  if (error) throw error;
-
-  const internas = await nombresCuentasCompromiso(empresaId);
-
-  return Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))).filter(
-    (nombre) => !internas.has(nombre as string)
-  ) as string[];
+  return obtenerFormasPagoOperacion(empresaId, operacion, categoria);
 }
 
 // Cliente (Venta/Cobro) o proveedor (Compra/Pago) — mismo criterio
