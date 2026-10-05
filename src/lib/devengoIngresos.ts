@@ -13,8 +13,8 @@
 // Cada plantilla tiene su PROPIA cuenta a cobrar ("Casita a cobrar"),
 // opcionalmente colgada de un grupo ("Alquileres a cobrar") — ver
 // cuentasCompromiso.ts. Todas las salvaguardas son las mismas que en
-// gastos: opt-in por plantilla y por empresa (empresaTieneDevengo, la
-// misma lista piloto), filas reclamadas antes de registrar para no
+// gastos: opt-in por plantilla (empresaTieneDevengo ya no limita por
+// empresa), filas reclamadas antes de registrar para no
 // duplicar, y el cobro de un ingreso devengado usa la categoría de
 // liquidación y nunca supera lo que falta (ver registrarCobroRecordatorio).
 
@@ -329,7 +329,7 @@ export async function devengarPendientesIngresos(empresaId: string): Promise<num
 }
 
 // Punto de entrada al abrir la app / Compromisos: completa la ventana
-// y devenga lo que corresponde. Solo corre en las empresas piloto.
+// y devenga lo que corresponde. Solo actúa sobre plantillas con devengo activado.
 export async function ejecutarDevengoIngresos(empresaId: string) {
   if (!empresaTieneDevengo(empresaId)) {
     return;

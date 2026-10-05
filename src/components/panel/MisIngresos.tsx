@@ -111,7 +111,7 @@ export function MisIngresos({
         console.warn('No se pudieron generar los recordatorios de ingresos recurrentes:', e)
       );
 
-      // Devengo mes a mes (solo empresas piloto): completa la ventana de 12
+      // Devengo mes a mes (plantillas con "Mes a mes"): completa la ventana de 12
       // meses y reconoce lo que ya llegó al día 1. Corre solo, al abrir.
       await ejecutarDevengoIngresos(empresaId).catch((e) => {
         console.warn('No se pudo ejecutar el devengo de ingresos recurrentes:', e);

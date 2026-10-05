@@ -105,7 +105,7 @@ export function MisVencimientos({
         console.warn('No se pudieron generar los recordatorios de gastos recurrentes:', e)
       );
 
-      // Devengo mes a mes (solo empresas piloto): completa la ventana de
+      // Devengo mes a mes (plantillas con "Mes a mes"): completa la ventana de
       // 12 meses y reconoce lo que ya llegó al día 1. Corre solo, al abrir.
       if (!soloLectura || permiteDevengo) {
         await ejecutarDevengo(empresaId).catch((e) => {
