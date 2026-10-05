@@ -22,6 +22,10 @@ export const SABIO_URL = '/sabio/sabio-bot.webp';
 
 const INTERVALO_FRASE_MS = 5 * 60 * 1000;
 
+// Medidas de la caja de Sabio: la caja de Accesos rápidos (nav/AccesosHerramientas)
+// ocupa exactamente lo mismo, así que las dos salen de acá.
+export const CAJA_SABIO = { ancho: 260, altoMinimo: 250 };
+
 export function SabioWidget({
   colores,
   idioma = 'ES',
@@ -116,8 +120,8 @@ export function SabioWidget({
   return (
     <div
       style={{
-        width: 260,
-        minHeight: 250,
+        width: CAJA_SABIO.ancho,
+        minHeight: CAJA_SABIO.altoMinimo,
         borderRadius: 24,
         background: 'rgba(255,255,255,0.10)',
         border: '1px solid rgba(255,255,255,0.18)',

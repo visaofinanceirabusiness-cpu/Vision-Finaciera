@@ -547,6 +547,9 @@ seguro el mismo patrón (ancho mínimo fijo que no cede) — buscar
 `minmax(`, `nowrap` o `minWidth` grandes en el componente afectado
 antes de inventar algo nuevo.
 
+## Accesos rápidos del encabezado (05/10/2026)
+`components/nav/AccesosHerramientas.tsx` ya no son íconos de 38 px con tooltip: es una caja del mismo tamaño que Sabio (`CAJA_SABIO` exportada de `SabioWidget.tsx`, 260 × 250 mín., `alignSelf: stretch`) con una grilla de 3 columnas de cuadrados grandes, ícono 26 px y nombre corto siempre visible (ES/PT según `empresas.idioma`). Para sumar una herramienta: agregarla a `TODAS_LAS_HERRAMIENTAS` con su `corto`; con más de 9 la grilla crece hacia abajo.
+
 ## Pendientes / ideas no implementadas
 - Fondos de Apariencia con fotos reales (ver arriba) — pendiente de
   que el usuario las suba, o de que el entorno tenga salida a

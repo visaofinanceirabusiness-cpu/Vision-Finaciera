@@ -17,31 +17,34 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CAJA_SABIO } from '@/components/panel/SabioWidget';
 import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
   titulo: string;
+  // Nombre corto que queda siempre a la vista debajo del ícono.
+  corto: { es: string; pt: string };
   emoji: string;
   color: string;
 };
 
 const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
-  { href: '/panel-de-control', titulo: 'Panel de Control', emoji: '📊', color: '#2e8b57' },
-  { href: '/contabilidad', titulo: 'Contabilidad', emoji: '🧾', color: '#7c3aed' },
-  { href: '/finanzas', titulo: 'Finanzas', emoji: '💼', color: '#0d9488' },
-  { href: '/mercaderia', titulo: 'Mercadería', emoji: '📦', color: '#ea580c' },
-  { href: '/informes', titulo: 'Informes', emoji: '📈', color: '#0891b2' },
-  { href: '/produccion', titulo: 'Producción', emoji: '🏭', color: '#65a30d' },
-  { href: '/recursos-humanos', titulo: 'Recursos Humanos', emoji: '👥', color: '#db2777' },
-  { href: '/plan-accion', titulo: 'Plan de Acción', emoji: '🎯', color: '#1f3a5f' },
-  { href: '/configuracoes', titulo: 'Configurações', emoji: '⚙️', color: '#475569' },
+  { href: '/panel-de-control', titulo: 'Panel de Control', corto: { es: 'Panel', pt: 'Painel' }, emoji: '📊', color: '#2e8b57' },
+  { href: '/contabilidad', titulo: 'Contabilidad', corto: { es: 'Contab.', pt: 'Contab.' }, emoji: '🧾', color: '#7c3aed' },
+  { href: '/finanzas', titulo: 'Finanzas', corto: { es: 'Finanzas', pt: 'Finanças' }, emoji: '💼', color: '#0d9488' },
+  { href: '/mercaderia', titulo: 'Mercadería', corto: { es: 'Mercad.', pt: 'Mercad.' }, emoji: '📦', color: '#ea580c' },
+  { href: '/informes', titulo: 'Informes', corto: { es: 'Informes', pt: 'Relat.' }, emoji: '📈', color: '#0891b2' },
+  { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
+  { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
+  { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
+  { href: '/configuracoes', titulo: 'Configurações', corto: { es: 'Config.', pt: 'Config.' }, emoji: '⚙️', color: '#475569' },
 ];
 
 export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscuro' | 'claro' }) {
   const pathname = usePathname();
   const [disponibles, setDisponibles] = useState<Herramienta[]>([]);
-  const [hover, setHover] = useState<string | null>(null);
+  const [esPT, setEsPT] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -60,6 +63,9 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
       if (!perfil?.empresa_id) {
         return;
       }
+
+      const { data: empresa } = await supabase.from('empresas').select('idioma').eq('id', perfil.empresa_id).maybeSingle();
+      setEsPT(empresa?.idioma === 'PT');
 
       let tieneProduccion = false;
 
@@ -95,65 +101,82 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
   }
 
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {disponibles.map((herramienta) => {
-        const activa = pathname === herramienta.href;
+    // Misma caja que Sabio (CAJA_SABIO): los accesos se acomodan adentro, en grilla.
+    <div
+      style={{
+        width: CAJA_SABIO.ancho,
+        maxWidth: '100%',
+        minHeight: CAJA_SABIO.altoMinimo,
+        alignSelf: 'stretch',
+        boxSizing: 'border-box',
+        borderRadius: 24,
+        background: variante === 'claro' ? '#f8fafc' : 'rgba(255,255,255,0.10)',
+        border: variante === 'claro' ? '1px solid #e5e7eb' : '1px solid rgba(255,255,255,0.18)',
+        padding: 12,
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridAutoRows: '1fr',
+          gap: 8,
+        }}
+      >
+        {disponibles.map((herramienta) => {
+          const activa = pathname === herramienta.href;
 
-        return (
-          <Link
-            key={herramienta.href}
-            href={herramienta.href}
-            onMouseEnter={() => setHover(herramienta.href)}
-            onMouseLeave={() => setHover(null)}
-            style={{
-              position: 'relative',
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 18,
-              textDecoration: 'none',
-              background: activa
-                ? `${herramienta.color}22`
-                : variante === 'claro'
-                  ? '#f3f4f6'
-                  : 'rgba(255,255,255,0.14)',
-              border: activa
-                ? `1px solid ${herramienta.color}`
-                : variante === 'claro'
-                  ? '1px solid #d1d5db'
-                  : '1px solid rgba(255,255,255,0.25)',
-              cursor: 'pointer',
-            }}
-          >
-            {herramienta.emoji}
-
-            {hover === herramienta.href && (
+          return (
+            <Link
+              key={herramienta.href}
+              href={herramienta.href}
+              title={herramienta.titulo}
+              style={{
+                minWidth: 0,
+                borderRadius: 14,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                padding: '6px 2px',
+                textDecoration: 'none',
+                background: activa
+                  ? `${herramienta.color}33`
+                  : variante === 'claro'
+                    ? '#f3f4f6'
+                    : 'rgba(255,255,255,0.14)',
+                border: activa
+                  ? `1.5px solid ${herramienta.color}`
+                  : variante === 'claro'
+                    ? '1px solid #d1d5db'
+                    : '1px solid rgba(255,255,255,0.25)',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 26, lineHeight: 1 }}>{herramienta.emoji}</span>
               <span
                 style={{
-                  position: 'absolute',
-                  top: '115%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: '#142a3d',
-                  color: '#ffffff',
-                  fontSize: 12,
+                  maxWidth: '100%',
+                  fontSize: 10.5,
                   fontWeight: 700,
-                  padding: '6px 10px',
-                  borderRadius: 8,
+                  lineHeight: 1.1,
+                  color: variante === 'claro' ? '#374151' : '#ffffff',
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 6px 16px rgba(0,0,0,0.25)',
-                  zIndex: 20,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
-                {herramienta.titulo}
+                {herramienta.corto[esPT ? 'pt' : 'es']}
               </span>
-            )}
-          </Link>
-        );
-      })}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
