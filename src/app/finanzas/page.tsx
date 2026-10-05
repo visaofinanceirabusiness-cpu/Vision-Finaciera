@@ -17,9 +17,10 @@ import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { SimboloContext, IdiomaContext, COLORES } from '@/components/contabilidad/compartido';
 import { fondo, encabezado, volver, eyebrow, panel } from '@/components/contabilidad/estilosCompartidos';
 import { CompromisosTab } from '@/components/finanzas/CompromisosTab';
+import { FlujoProyectadoTab } from '@/components/finanzas/FlujoProyectadoTab';
 import { diccionarioFinanzas, frasesSabioFinanzas } from './i18n';
 
-type Pestana = 'compromisos';
+type Pestana = 'compromisos' | 'flujo';
 
 export default function FinanzasPage() {
   const [pestana, setPestana] = useState<Pestana>('compromisos');
@@ -94,9 +95,13 @@ export default function FinanzasPage() {
                 <button type="button" onClick={() => setPestana('compromisos')} style={tabStyle(pestana === 'compromisos')}>
                   {t('tabCompromisos')}
                 </button>
+                <button type="button" onClick={() => setPestana('flujo')} style={tabStyle(pestana === 'flujo')}>
+                  {t('tabFlujo')}
+                </button>
               </div>
 
               {pestana === 'compromisos' && <CompromisosTab />}
+              {pestana === 'flujo' && <FlujoProyectadoTab />}
             </main>
           </div>
         </div>
