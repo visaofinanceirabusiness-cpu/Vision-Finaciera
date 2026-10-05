@@ -437,7 +437,7 @@ export default function InicioPage() {
     const idiomaEmpresa = empresa?.idioma ?? 'ES';
     const simbolo = simboloMoneda(empresa?.moneda ?? null);
 
-    // Devengo mes a mes de gastos recurrentes (solo empresas piloto): corre
+    // Devengo mes a mes de gastos recurrentes (plantillas con "Mes a mes"): corre
     // solo al abrir, aunque haya mensajes sin leer.
     const devengo = Promise.all([
       ejecutarDevengo(perfil.empresa_id).catch((e) =>

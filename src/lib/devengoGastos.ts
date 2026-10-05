@@ -14,14 +14,13 @@
 // llegaron al día 1 se devengan solos si el monto es fijo, o quedan
 // "Por confirmar" si es variable (luz, agua). Es el único lugar donde
 // el sistema crea asientos sin que alguien los cargue a mano — por eso
-// es opt-in por plantilla y por empresa (ver devengoEmpresas.ts), y
+// es opt-in por plantilla (Finanzas Fase 2 lo abrió a todas las empresas), y
 // cada paso es idempotente: la fila se "reclama" (estado DEVENGANDO)
 // antes de registrar, así dos pestañas abiertas a la vez no duplican.
 
 import { supabase } from './supabase';
 import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
-import { EMPRESAS_CON_DEVENGO } from './devengoEmpresas';
 import { obtenerConfigAPagar, type ConfigAPagar } from './cuentaAPagar';
 import {
   buscarCuentaCompromisoPorNombre,
@@ -58,8 +57,11 @@ type FilaADevengar = {
   categoria: string;
 };
 
+// Abierto a todos los perfiles (Fase 2 de Finanzas): el devengo sigue siendo
+// opt-in por plantilla, así que una empresa sin plantillas "Mes a mes" no
+// cambia en nada.
 export function empresaTieneDevengo(empresaId: string | null | undefined): boolean {
-  return Boolean(empresaId) && EMPRESAS_CON_DEVENGO.includes(empresaId as string);
+  return Boolean(empresaId);
 }
 
 // Reconoce el gasto de una fila: la reclama, registra el asiento (o
@@ -335,7 +337,7 @@ export async function devengarPendientes(empresaId: string): Promise<number> {
 }
 
 // Punto de entrada al abrir la app / Compromisos: completa la ventana
-// y devenga lo que corresponde. Solo corre en las empresas piloto.
+// y devenga lo que corresponde. Solo actúa sobre plantillas con devengo activado.
 export async function ejecutarDevengo(empresaId: string) {
   if (!empresaTieneDevengo(empresaId)) {
     return;

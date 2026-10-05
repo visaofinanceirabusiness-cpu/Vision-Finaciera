@@ -19,7 +19,7 @@ ingresos/Activo de hoy). Carga y gestión en **pestaña propia
 "Compromisos"** (desde 05/10/2026 vive en la herramienta **Finanzas**, `/finanzas`, para todos los perfiles; ya no está en Contabilidad); el Panel de Control queda de solo
 lectura (análisis) y las alertas/vencimientos (Sabio, Calendário, push)
 no se tocan.
-- **Finanzas Fase 1 (05/10/2026)**: nueva herramienta `/finanzas` (tarjeta en el lobby + `AccesosHerramientas`), primera y única pestaña Compromisos (`components/finanzas/CompromisosTab.tsx`, movido sin dejar rastro en Contabilidad). Los enlaces del Panel apuntan a `/finanzas`. **Fase 2 (pendiente)**: generalizar el devengo a todos los perfiles (revisar planes de cuentas por perfil, opt-in por plantilla, apertura en olas); luego segunda pestaña (candidata: flujo proyectado).
+- **Finanzas Fase 1 (05/10/2026)**: nueva herramienta `/finanzas` (tarjeta en el lobby + `AccesosHerramientas`), primera y única pestaña Compromisos (`components/finanzas/CompromisosTab.tsx`, movido sin dejar rastro en Contabilidad). Los enlaces del Panel apuntan a `/finanzas`. **Fase 2 (hecha 05/10/2026)**: devengo abierto a todos los perfiles (opt-in por plantilla). Pendiente: segunda pestaña (candidata: flujo proyectado).
 - **Fase 1 (hecha)**: pestaña Compromisos (`CompromisosTab.tsx`, reusa
   MisIngresos/MisVencimientos completos), `soloLectura` en esos dos
   componentes (Panel de Control), y `lib/compromisosProgramados.ts`
@@ -29,8 +29,18 @@ no se tocan.
 - **Fase 2 — gastos, piloto Buenaventura (código hecho, 04/10/2026)**:
   devengo mes a mes (Gasto / Cuentas a Pagar el día 1; al pagar,
   Cuentas a Pagar / Banco). Opt-in por plantilla (`gastos_recurrentes.
-  devengar`, `monto_fijo`) y por empresa (`lib/devengoEmpresas.ts`,
-  hoy solo Buenaventura). Esquema (aplicado por MCP, aditivo):
+  devengar`, `monto_fijo`). **Desde 05/10/2026 (Finanzas Fase 2) abierto a
+  TODOS los perfiles**: se eliminó `lib/devengoEmpresas.ts`/
+  `EMPRESAS_CON_DEVENGO`; `empresaTieneDevengo` solo exige empresa. Se
+  verificó por SQL que las 9 empresas tienen `CONTENEDOR_MEDIO_PAGO`
+  (Activo Corriente 1.1.0.0.0), un pasivo-medio de pago (padre Pasivo
+  Corriente 2.1.0.0.0) y las mismas reglas PAGO (GASTO/PASIVOS) y COBRO
+  (INGRESO/ACTIVO) en todos los perfiles. Sin plantillas "Mes a mes" no se
+  escribe nada (`mantenerVentana` sale sola); Ocaña tiene 5 gastos y 2
+  ingresos recurrentes viejos que siguen en el flujo anterior hasta que ella
+  los migre. Ingresos devengados en perfiles comerciales requieren
+  categorías de ingreso bajo COBRO (el plan base solo trae las de cuentas a
+  cobrar). Esquema (aplicado por MCP, aditivo):
   `gastos_recurrentes_recordatorios.estado/monto_devengado/
   id_operacion_devengo/devengo_iniciado_en`, `empresas.
   forma_pago_a_pagar`. Estados PROGRAMADA → (DEVENGANDO) →
