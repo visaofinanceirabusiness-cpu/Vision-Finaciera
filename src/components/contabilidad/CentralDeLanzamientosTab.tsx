@@ -8,6 +8,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { nombresCuentasCompromiso } from '@/lib/cuentasCompromiso';
 import {
   registrarOperacion,
   editarOperacion,
@@ -751,7 +752,12 @@ export function CentralDeLanzamientosTab({
         return;
       }
 
-      const unicas = Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[];
+      // Las cuentas internas de los compromisos se saldan desde Compromisos;
+      // al editar un asiento que ya usa una, se conserva para no vaciarla.
+      const internas = await nombresCuentasCompromiso(empresaId as string);
+      const unicas = (Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[]).filter(
+        (nombre) => !internas.has(nombre) || nombre === valoresIniciales?.formaPago
+      );
 
       setFormasPago(unicas);
 
