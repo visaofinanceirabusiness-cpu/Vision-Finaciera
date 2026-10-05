@@ -18,9 +18,10 @@ import { SimboloContext, IdiomaContext, COLORES } from '@/components/contabilida
 import { fondo, encabezado, volver, eyebrow, panel } from '@/components/contabilidad/estilosCompartidos';
 import { CompromisosTab } from '@/components/finanzas/CompromisosTab';
 import { FlujoProyectadoTab } from '@/components/finanzas/FlujoProyectadoTab';
+import { DeudasTab } from '@/components/finanzas/DeudasTab';
 import { diccionarioFinanzas, frasesSabioFinanzas } from './i18n';
 
-type Pestana = 'compromisos' | 'flujo';
+type Pestana = 'compromisos' | 'flujo' | 'deudas';
 
 export default function FinanzasPage() {
   const [pestana, setPestana] = useState<Pestana>('compromisos');
@@ -98,10 +99,14 @@ export default function FinanzasPage() {
                 <button type="button" onClick={() => setPestana('flujo')} style={tabStyle(pestana === 'flujo')}>
                   {t('tabFlujo')}
                 </button>
+                <button type="button" onClick={() => setPestana('deudas')} style={tabStyle(pestana === 'deudas')}>
+                  {t('tabDeudas')}
+                </button>
               </div>
 
               {pestana === 'compromisos' && <CompromisosTab />}
               {pestana === 'flujo' && <FlujoProyectadoTab />}
+              {pestana === 'deudas' && <DeudasTab />}
             </main>
           </div>
         </div>

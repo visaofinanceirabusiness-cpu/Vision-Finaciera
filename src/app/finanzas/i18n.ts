@@ -1,6 +1,6 @@
 import type { Diccionario } from '@/lib/i18n';
 
-type Clave = 'volver' | 'eyebrow' | 'titulo' | 'subtitulo' | 'tabCompromisos' | 'tabFlujo';
+type Clave = 'volver' | 'eyebrow' | 'titulo' | 'subtitulo' | 'tabCompromisos' | 'tabFlujo' | 'tabDeudas';
 
 export const diccionarioFinanzas: Diccionario<Clave> = {
   ES: {
@@ -10,6 +10,7 @@ export const diccionarioFinanzas: Diccionario<Clave> = {
     subtitulo: 'Lo que tenés por cobrar y por pagar, hoy y en los próximos meses.',
     tabCompromisos: '🤝 Compromisos',
     tabFlujo: '📈 Flujo proyectado',
+    tabDeudas: '🏦 Deudas y préstamos',
   },
   PT: {
     volver: '← Voltar para Meu Negócio',
@@ -18,6 +19,7 @@ export const diccionarioFinanzas: Diccionario<Clave> = {
     subtitulo: 'O que você tem a receber e a pagar, hoje e nos próximos meses.',
     tabCompromisos: '🤝 Compromissos',
     tabFlujo: '📈 Fluxo projetado',
+    tabDeudas: '🏦 Dívidas e empréstimos',
   },
 };
 
