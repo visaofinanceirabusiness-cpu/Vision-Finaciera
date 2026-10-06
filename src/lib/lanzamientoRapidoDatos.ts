@@ -31,13 +31,17 @@ export async function cargarTopRapido(empresaId: string): Promise<TarjetaRapida[
 
   // Se arma con margen y se validan contra la matriz actual: una categoría o
   // medio que ya no existe (o que hoy es una cuenta interna) no debe ofrecerse.
-  const candidatas = armarTop((data ?? []) as OperacionReciente[], 25);
+  const candidatas = armarTop((data ?? []) as OperacionReciente[], 16);
   const medios = new Map<string, Set<string>>();
 
-  for (const par of new Set(candidatas.map((c) => `${c.operacion}|${c.categoria}`))) {
-    const [operacion, categoria] = par.split('|');
-    medios.set(par, new Set(await obtenerFormasPagoOperacion(empresaId, operacion, categoria).catch(() => [])));
-  }
+  // En paralelo: validar de a una (cada validación son varias consultas)
+  // hacía lenta la entrada a la pantalla.
+  await Promise.all(
+    Array.from(new Set(candidatas.map((c) => `${c.operacion}|${c.categoria}`))).map(async (par) => {
+      const [operacion, categoria] = par.split('|');
+      medios.set(par, new Set(await obtenerFormasPagoOperacion(empresaId, operacion, categoria).catch(() => [])));
+    })
+  );
 
   return candidatas
     .filter((c) => medios.get(`${c.operacion}|${c.categoria}`)?.has(c.formaPago))
