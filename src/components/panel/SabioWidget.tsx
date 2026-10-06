@@ -32,6 +32,8 @@ export function SabioWidget({
   frase,
   onClickFrase,
   frases,
+  imagenUrl,
+  insignia,
 }: {
   colores: {
     azul: string;
@@ -42,6 +44,10 @@ export function SabioWidget({
   frase?: string;
   onClickFrase?: () => void;
   frases?: string[];
+  // Variantes del Sabio (ej. Lanzamiento rápido): otra imagen y/o un emoji
+  // de insignia sobre la imagen. Sin ellas se ve el Sabio de siempre.
+  imagenUrl?: string;
+  insignia?: string;
 }) {
   const t = crearTraductor(diccionarioPanel, idioma);
   const frasesSabio = frases && frases.length > 0 ? frases : FRASES_SABIO_POR_IDIOMA[idioma === 'PT' ? 'PT' : 'ES'];
@@ -203,7 +209,7 @@ export function SabioWidget({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={SABIO_URL}
+          src={imagenUrl ?? SABIO_URL}
           alt="Sabio - asistente inteligente de Visão Financeira"
           style={{
             width: 230,
@@ -214,6 +220,9 @@ export function SabioWidget({
             filter: 'drop-shadow(0 18px 18px rgba(0,0,0,0.25))',
           }}
         />
+        {insignia && (
+          <span style={{ position: 'absolute', top: 6, right: 14, fontSize: 40, pointerEvents: 'none' }}>{insignia}</span>
+        )}
       </div>
 
       <div

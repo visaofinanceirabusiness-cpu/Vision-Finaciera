@@ -26,6 +26,8 @@ import { SabioHero } from '@/components/panel/SabioHero';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
+import { empresaTieneLanzamientoRapido } from '@/lib/perfilCapacidades';
+import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobby';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { PieVisao } from '@/components/panel/PieVisao';
@@ -209,6 +211,16 @@ export default function InicioPage() {
       if (!(await empresaTieneOnboardingCompleto(perfilData.empresa_id))) {
         router.push('/bienvenida');
         return;
+      }
+
+      // "Ver todas las operaciones" de Lanzamiento rápido llega con ?jugar=1:
+      // abre el Mini-Juego y limpia el parámetro para que un refresh no lo reabra.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('jugar') === '1') {
+        setMiniJuegoAbierto(true);
+        params.delete('jugar');
+        const resto = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (resto ? `?${resto}` : ''));
       }
 
       setPerfil(perfilData);
@@ -841,6 +853,8 @@ export default function InicioPage() {
         {perfil && <PanelControlLobby idioma={idioma} />}
 
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
+
+        {perfil && empresaTieneLanzamientoRapido(perfil.empresa_id) && <LanzamientoRapidoLobby />}
 
         {perfil && (
           <SabioBotLobby
