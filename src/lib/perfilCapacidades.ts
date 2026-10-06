@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { EMPRESAS_CON_PLAN_ACCION } from './planAccionEmpresas';
 import { EMPRESAS_CON_NUESTRO_SUENO } from './nuestroSuenoEmpresas';
+import { EMPRESAS_CON_LANZAMIENTO_RAPIDO } from './lanzamientoRapidoEmpresas';
 
 export { EMPRESAS_CON_PLAN_ACCION };
 
@@ -111,4 +112,10 @@ export function empresaTienePlanAccion(empresaId: string | null | undefined): bo
 // nuestroSuenoEmpresas.ts), mismo criterio que Plan de Acción.
 export function empresaTieneNuestroSueno(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_NUESTRO_SUENO.includes(empresaId as string);
+}
+
+// Lanzamiento rápido — tarjetas con las operaciones más repetidas (ver
+// lanzamientoRapidoEmpresas.ts), mismo criterio de piloto que Plan de Acción.
+export function empresaTieneLanzamientoRapido(empresaId: string | null | undefined): boolean {
+  return Boolean(empresaId) && EMPRESAS_CON_LANZAMIENTO_RAPIDO.includes(empresaId as string);
 }
