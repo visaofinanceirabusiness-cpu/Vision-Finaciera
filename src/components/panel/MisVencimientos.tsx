@@ -36,6 +36,8 @@ import { SabioRegistrarGastoModal } from './SabioRegistrarGastoModal';
 import { VincularPagoModal } from './VincularPagoModal';
 import { AcordeonSeccion } from './AcordeonSeccion';
 import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
+import { ajustarMontoDevengado } from '@/lib/devengoAjuste';
+import { ofrecerAjustarMesesDevengados } from './ajustarMesesDevengados';
 import { ActivarDevengoModal } from './ActivarDevengoModal';
 import { empresaTieneDevengo, ejecutarDevengo, activarDevengo, migrarCuentaGeneral, desactivarDevengoYLiberar, eliminarOBajaGastoRecurrente, confirmarDevengo } from '@/lib/devengoGastos';
 import { buscarCuentaCompromisoPorNombre, listarCuentasElegibles, listarGrupos } from '@/lib/cuentasCompromiso';
@@ -81,6 +83,7 @@ export function MisVencimientos({
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioGastoRecurrente | null>(null);
   const [recordatorioADevengar, setRecordatorioADevengar] = useState<RecordatorioGastoRecurrente | null>(null);
+  const [recordatorioAAjustar, setRecordatorioAAjustar] = useState<RecordatorioGastoRecurrente | null>(null);
   const [errorDevengo, setErrorDevengo] = useState('');
   const [plantillaAActivar, setPlantillaAActivar] = useState<GastoRecurrente | null>(null);
   const [plantillaAMigrar, setPlantillaAMigrar] = useState<GastoRecurrente | null>(null);
@@ -486,13 +489,22 @@ export function MisVencimientos({
                                             </>
                       )}
                       {!soloLectura && recordatorio.estado === 'DEVENGADA' && (
-                        <button
-                          type="button"
-                          onClick={() => setRecordatorioAConfirmar(recordatorio)}
-                          style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          ✓ {esPT ? 'Pagar' : 'Pagar'}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setRecordatorioAAjustar(recordatorio)}
+                            style={{ border: 'none', background: 'transparent', color: '#6e7781', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                          >
+                            {esPT ? 'Ajustar valor' : 'Ajustar monto'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRecordatorioAConfirmar(recordatorio)}
+                            style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            ✓ {esPT ? 'Pagar' : 'Pagar'}
+                          </button>
+                        </>
                       )}
                       {!soloLectura && recordatorio.estado === 'POR_CONFIRMAR' && (
                         <button
@@ -737,7 +749,13 @@ export function MisVencimientos({
                     }}
                     onGuardar={async (datos) => {
                       if (editando) {
+                        const montoAnterior = editando.monto_habitual;
                         await actualizarGastoRecurrente(editando.id, datos);
+                        // Si el monto cambió, los meses ya devengados siguen con el viejo:
+                        // se ofrece aplicarles el nuevo.
+                        if (editando.devengar && Number(datos.montoHabitual) !== Number(montoAnterior)) {
+                          await ofrecerAjustarMesesDevengados(empresaId, 'GASTO', editando.id, datos.montoHabitual, idioma, simbolo);
+                        }
                       } else {
                         await crearGastoRecurrente(empresaId, datos);
                       }
@@ -820,6 +838,23 @@ export function MisVencimientos({
             await recargar();
           }}
           onClose={() => setPlantillaAMigrar(null)}
+        />
+      )}
+
+      {recordatorioAAjustar && (
+        <ConfirmarDevengoModal
+          modo="AJUSTAR"
+          yaMovido={recordatorioAAjustar.monto_pagado}
+          recordatorio={recordatorioAAjustar}
+          onConfirmar={(monto) => ajustarMontoDevengado(empresaId, 'GASTO', recordatorioAAjustar.id, monto)}
+          idioma={idioma}
+          simbolo={simbolo}
+          colores={colores}
+          onClose={() => setRecordatorioAAjustar(null)}
+          onConfirmado={() => {
+            setRecordatorioAAjustar(null);
+            recargar();
+          }}
         />
       )}
 

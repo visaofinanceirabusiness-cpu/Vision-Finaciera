@@ -7,6 +7,7 @@ import {
   devengoTrabado,
   estadoTrasPago,
   historicoDevengo,
+  resolverAjusteDevengo,
 } from './devengo';
 
 describe('devengo', () => {
@@ -52,5 +53,30 @@ describe('devengo', () => {
 
   it('la marca del asiento de devengo identifica nombre y mes', () => {
     expect(historicoDevengo('Alquiler Santihno', '2026-10-01')).toBe('Alquiler Santihno — devengado 2026-10');
+  });
+});
+
+describe('resolverAjusteDevengo', () => {
+  it('sin movimientos se puede subir o bajar el mes devengado', () => {
+    expect(resolverAjusteDevengo(800, 0, 1100)).toEqual({ accion: 'AJUSTAR' });
+    expect(resolverAjusteDevengo(800, 0, 500)).toEqual({ accion: 'AJUSTAR' });
+  });
+
+  it('el mismo monto no cambia nada', () => {
+    expect(resolverAjusteDevengo(800, 0, 800)).toEqual({ accion: 'SIN_CAMBIO' });
+  });
+
+  it('con un cobro parcial se puede subir (cobraron de más) mientras no sea menor a lo cobrado', () => {
+    expect(resolverAjusteDevengo(1100, 1000, 1300)).toEqual({ accion: 'AJUSTAR' });
+    expect(resolverAjusteDevengo(1100, 1000, 900)).toEqual({ accion: 'RECHAZAR', motivo: 'MENOR_A_LO_MOVIDO' });
+  });
+
+  it('si el nuevo monto es lo ya cobrado, el mes queda saldado', () => {
+    expect(resolverAjusteDevengo(1100, 1000, 1000)).toEqual({ accion: 'SALDAR' });
+  });
+
+  it('rechaza montos inválidos', () => {
+    expect(resolverAjusteDevengo(800, 0, 0)).toEqual({ accion: 'RECHAZAR', motivo: 'MONTO_INVALIDO' });
+    expect(resolverAjusteDevengo(800, 0, Number.NaN)).toEqual({ accion: 'RECHAZAR', motivo: 'MONTO_INVALIDO' });
   });
 });

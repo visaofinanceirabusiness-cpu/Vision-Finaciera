@@ -21,8 +21,14 @@ export function ConfirmarDevengoModal({
   onConfirmar,
   onClose,
   onConfirmado,
+  modo = 'CONFIRMAR',
+  yaMovido = 0,
 }: {
   recordatorio: { nombre: string; periodo: string; monto_habitual: number };
+  // AJUSTAR: corrige el monto de un mes ya devengado (ver lib/devengoAjuste.ts);
+  // `yaMovido` es lo ya cobrado/pagado, que no se toca.
+  modo?: 'CONFIRMAR' | 'AJUSTAR';
+  yaMovido?: number;
   idioma: string;
   simbolo: string;
   colores: Colores;
@@ -67,9 +73,13 @@ export function ConfirmarDevengoModal({
         <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>🔁 {recordatorio.nombre}</h3>
 
         <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#6e7781', lineHeight: 1.5 }}>
-          {esPT
-            ? `Confirme o valor real de ${recordatorio.periodo.slice(0, 7)}. Ao confirmar, é reconhecido nesse mês (ainda não é um pagamento nem um recebimento).`
-            : `Confirmá el monto real de ${recordatorio.periodo.slice(0, 7)}. Al confirmar, se reconoce en ese mes (todavía no es un pago ni un cobro).`}
+          {modo === 'AJUSTAR'
+            ? esPT
+              ? `Corrija o valor reconhecido em ${recordatorio.periodo.slice(0, 7)}.${yaMovido > 0 ? ` O que já foi movimentado (${simbolo} ${yaMovido}) não muda: o novo valor não pode ser menor.` : ''}`
+              : `Corregí el monto reconocido en ${recordatorio.periodo.slice(0, 7)}.${yaMovido > 0 ? ` Lo que ya se movió (${simbolo} ${yaMovido}) no cambia: el nuevo monto no puede ser menor.` : ''}`
+            : esPT
+              ? `Confirme o valor real de ${recordatorio.periodo.slice(0, 7)}. Ao confirmar, é reconhecido nesse mês (ainda não é um pagamento nem um recebimento).`
+              : `Confirmá el monto real de ${recordatorio.periodo.slice(0, 7)}. Al confirmar, se reconoce en ese mes (todavía no es un pago ni un cobro).`}
         </p>
 
         {error && (
@@ -100,7 +110,13 @@ export function ConfirmarDevengoModal({
             disabled={guardando}
             style={{ flex: 1, padding: '11px 14px', borderRadius: 12, border: 'none', background: colores.verde, color: '#fff', fontWeight: 800, fontSize: 14, cursor: guardando ? 'wait' : 'pointer' }}
           >
-            {guardando ? (esPT ? 'Confirmando...' : 'Confirmando...') : esPT ? 'Confirmar' : 'Confirmar'}
+            {guardando
+              ? modo === 'AJUSTAR'
+                ? esPT ? 'Ajustando...' : 'Ajustando...'
+                : 'Confirmando...'
+              : modo === 'AJUSTAR'
+                ? esPT ? 'Ajustar' : 'Ajustar'
+                : 'Confirmar'}
           </button>
           <button
             type="button"

@@ -68,3 +68,22 @@ export function estadoTrasPago(montoDevengado: number, montoPagado: number): 'DE
 export function historicoDevengo(nombre: string, periodo: string): string {
   return `${nombre} — devengado ${periodo.slice(0, 7)}`;
 }
+
+export type AjusteDevengo =
+  | { accion: 'SIN_CAMBIO' }
+  | { accion: 'AJUSTAR' }
+  // El monto nuevo es justo lo que ya se cobró/pagó: el mes queda saldado.
+  | { accion: 'SALDAR' }
+  | { accion: 'RECHAZAR'; motivo: 'MONTO_INVALIDO' | 'MENOR_A_LO_MOVIDO' };
+
+// Qué hacer cuando se corrige el monto de un mes ya devengado (la plantilla
+// subió o el monto real fue otro). Se puede ajustar mientras el nuevo monto no
+// sea menor a lo que ya se cobró/pagó: esos movimientos son asientos aparte y
+// no se tocan, solo cambia lo devengado.
+export function resolverAjusteDevengo(montoDevengado: number, montoMovido: number, nuevoMonto: number): AjusteDevengo {
+  if (!(nuevoMonto > 0)) return { accion: 'RECHAZAR', motivo: 'MONTO_INVALIDO' };
+  if (Math.abs(nuevoMonto - montoDevengado) < 0.005) return { accion: 'SIN_CAMBIO' };
+  if (nuevoMonto < montoMovido - 0.005) return { accion: 'RECHAZAR', motivo: 'MENOR_A_LO_MOVIDO' };
+  if (montoMovido > 0 && nuevoMonto <= montoMovido + 0.01) return { accion: 'SALDAR' };
+  return { accion: 'AJUSTAR' };
+}
