@@ -32,8 +32,6 @@ export function SabioHero({
   gamificacion,
   antiguedad,
   objetivos,
-  mensajesSinLeer,
-  onClickMensajes,
 }: {
   colores: {
     azul: string;
@@ -48,8 +46,6 @@ export function SabioHero({
   gamificacion?: NivelHero | null;
   antiguedad?: string | null;
   objetivos?: ObjetivoHero[];
-  mensajesSinLeer?: number;
-  onClickMensajes?: () => void;
 }) {
   const t = crearTraductor(diccionarioPanel, idioma);
 
@@ -378,89 +374,6 @@ export function SabioHero({
             que tiene el encabezado de cada pantalla).
         ========================================== */}
         <AccesosHerramientas />
-
-        {/* =========================================
-            COLUMNA 4 — acceso compacto a Mensajes. El Sabio "de
-            siempre" se mudó de acá a su propia sección grande del
-            lobby (ver SabioBotLobby en page.tsx).
-        ========================================== */}
-        <button
-          onClick={onClickMensajes}
-          style={{
-            position: 'relative',
-            flex: '0 0 auto',
-            width: 64,
-            height: 64,
-            borderRadius: 18,
-            background: 'rgba(255,255,255,0.14)',
-            border: '1px solid rgba(255,255,255,0.22)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 28,
-          }}
-          title={idioma === 'PT' ? 'Mensagens' : 'Mensajes'}
-        >
-          ✉️
-          {Boolean(mensajesSinLeer) && (
-            <>
-              {/* Anillo pulsante — antes era un punto rojo fijo, fácil
-                  de no notar. El pulso (CSS puro, sin librerías) y el
-                  número real de mensajes lo hacen mucho más visible. */}
-              <span
-                className="sabio-mensajes-pulso"
-                style={{
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  width: 22,
-                  height: 22,
-                  borderRadius: '50%',
-                  background: '#dc2626',
-                  opacity: 0.55,
-                }}
-              />
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  minWidth: 22,
-                  height: 22,
-                  padding: '0 5px',
-                  borderRadius: '50%',
-                  background: '#dc2626',
-                  border: `2px solid ${colores.azul}`,
-                  color: '#fff',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  lineHeight: 1,
-                }}
-              >
-                {mensajesSinLeer && mensajesSinLeer > 9 ? '9+' : mensajesSinLeer}
-              </span>
-              <style>{`
-                @keyframes sabio-mensajes-pulso-anim {
-                  0% { transform: scale(1); opacity: 0.55; }
-                  70% { transform: scale(1.9); opacity: 0; }
-                  100% { transform: scale(1.9); opacity: 0; }
-                }
-                .sabio-mensajes-pulso {
-                  animation: sabio-mensajes-pulso-anim 1.8s ease-out infinite;
-                }
-                @media (prefers-reduced-motion: reduce) {
-                  .sabio-mensajes-pulso {
-                    animation: none;
-                  }
-                }
-              `}</style>
-            </>
-          )}
-        </button>
       </div>
     </section>
   );

@@ -39,6 +39,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
   { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
   { href: '/nuestro-sueno', titulo: 'Nuestro Sueño', corto: { es: 'Sueño', pt: 'Sonho' }, emoji: '💞', color: '#db2777' },
+  { href: '/mensajes', titulo: 'Mensajes', corto: { es: 'Mensajes', pt: 'Mensag.' }, emoji: '✉️', color: '#2563eb' },
   { href: '/configuracoes', titulo: 'Configurações', corto: { es: 'Config.', pt: 'Config.' }, emoji: '⚙️', color: '#475569' },
 ];
 
@@ -46,6 +47,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
   const pathname = usePathname();
   const [disponibles, setDisponibles] = useState<Herramienta[]>([]);
   const [esPT, setEsPT] = useState(false);
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
 
   useEffect(() => {
     async function cargar() {
@@ -67,6 +69,15 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
 
       const { data: empresa } = await supabase.from('empresas').select('idioma').eq('id', perfil.empresa_id).maybeSingle();
       setEsPT(empresa?.idioma === 'PT');
+
+      // Aviso de mensajes nuevos sobre el acceso a Mensajes (el aislamiento entre
+      // empresas lo garantiza la política RLS, igual que en el lobby).
+      const { count } = await supabase
+        .from('mensajes_financieros')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', perfil.empresa_id)
+        .eq('leido', false);
+      setMensajesSinLeer(count ?? 0);
 
       let tieneProduccion = false;
 
@@ -122,6 +133,15 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         flexDirection: 'column',
       }}
     >
+      <style>{`
+        @keyframes accesos-mensajes-aviso-anim {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.18); }
+        }
+        .accesos-mensajes-aviso { animation: accesos-mensajes-aviso-anim 1.6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .accesos-mensajes-aviso { animation: none; } }
+      `}</style>
+
       <div
         style={{
           fontSize: 11,
@@ -178,7 +198,35 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
                 cursor: 'pointer',
               }}
             >
-              <span style={{ fontSize: 26, lineHeight: 1 }}>{herramienta.emoji}</span>
+              <span style={{ position: 'relative', fontSize: 26, lineHeight: 1 }}>
+                {herramienta.emoji}
+                {herramienta.href === '/mensajes' && mensajesSinLeer > 0 && (
+                  <span
+                    className="accesos-mensajes-aviso"
+                    style={{
+                      position: 'absolute',
+                      top: -7,
+                      right: -10,
+                      minWidth: 18,
+                      height: 18,
+                      padding: '0 4px',
+                      borderRadius: 9,
+                      background: '#dc2626',
+                      border: '2px solid #1f3a5f',
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      boxSizing: 'content-box',
+                    }}
+                  >
+                    {mensajesSinLeer > 9 ? '9+' : mensajesSinLeer}
+                  </span>
+                )}
+              </span>
               <span
                 style={{
                   maxWidth: '100%',
