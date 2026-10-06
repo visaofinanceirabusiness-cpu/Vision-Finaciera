@@ -37,7 +37,7 @@ import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
-import { saldoDeFormaDePago, saldosDeCategorias } from './saldoCuenta';
+import { saldoDeFormaDePago, saldosDeCategorias, saldosDeMedios } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarContactoPorTelefono } from './clientes';
 
@@ -360,7 +360,12 @@ async function avanzarDesdeCategoria(
     ? t(idioma, '¿Desde qué cuenta sale la plata?', 'De qual conta sai o dinheiro?')
     : t(idioma, 'Forma de pago:', 'Forma de pagamento:');
 
-  return `${tituloFormaPago}\n\n${numerarLista(formasPago)}${saldoDestino}`;
+  // Cada medio muestra su saldo al lado (como las tarjetas del mini juego).
+  const saldosMedios = await saldosDeMedios(empresaId, formasPago, fechaLocalHoy()).catch(() => ({}) as Record<string, number>);
+  const simboloMedios = datos.simbolo ?? 'R$';
+  const formasPagoConSaldo = formasPago.map((f) => (f in saldosMedios ? `${f} — ${simboloMedios} ${formatearNumeroEntero(saldosMedios[f])}` : f));
+
+  return `${tituloFormaPago}\n\n${numerarLista(formasPagoConSaldo)}${saldoDestino}`;
 }
 
 export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: string): Promise<string> {

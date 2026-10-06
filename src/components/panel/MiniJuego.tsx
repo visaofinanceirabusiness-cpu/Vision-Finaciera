@@ -27,7 +27,7 @@ import {
 import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
 import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
-import { saldoEnTransferencia, saldosDeCategorias } from '@/lib/saldoCuenta';
+import { saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 
@@ -192,18 +192,8 @@ export function MiniJuego({
 
     let cancelado = false;
 
-    Promise.all(
-      formasPago.map(async (fp) => {
-        const resultado = await saldoEnTransferencia(empresaId, fp, fecha).catch(() => null);
-        return [fp, resultado] as const;
-      })
-    ).then((pares) => {
-      if (cancelado) return;
-      const mapa: Record<string, number> = {};
-      for (const [fp, resultado] of pares) {
-        if (resultado) mapa[fp] = resultado.saldo;
-      }
-      setSaldosPorMedio(mapa);
+    saldosDeMedios(empresaId, formasPago, fecha).then((saldos) => {
+      if (!cancelado) setSaldosPorMedio(saldos);
     });
 
     return () => {
