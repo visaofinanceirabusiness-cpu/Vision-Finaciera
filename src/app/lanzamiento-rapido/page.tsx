@@ -94,8 +94,12 @@ export default function LanzamientoRapidoPage() {
       setMoneda(empresa?.moneda ?? null);
 
       try {
-        setTarjetas(await cargarTopRapido(perfil.empresa_id));
-        setVanHoy(await contarJugadasHoy(perfil.empresa_id).catch(() => null));
+        const [top, hoy] = await Promise.all([
+          cargarTopRapido(perfil.empresa_id),
+          contarJugadasHoy(perfil.empresa_id).catch(() => null),
+        ]);
+        setTarjetas(top);
+        setVanHoy(hoy);
       } catch (e) {
         setError((e as { message?: string }).message ?? 'No se pudieron cargar las tarjetas.');
       }
