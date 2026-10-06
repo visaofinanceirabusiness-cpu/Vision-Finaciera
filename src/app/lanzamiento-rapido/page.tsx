@@ -21,7 +21,19 @@ import { contarJugadasHoy } from '@/lib/miniJuego';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { montoSospechoso, parsearMonto, validarMonto, type TarjetaRapida } from '@/lib/lanzamientoRapido';
-import { cargarTopRapido, registrarLanzamiento, deshacerLanzamiento } from '@/lib/lanzamientoRapidoDatos';
+import {
+  cargarTarjetas,
+  registrarLanzamiento,
+  deshacerLanzamiento,
+  agregarFavorita,
+  quitarFavorita,
+  leerCache,
+  guardarCache,
+  invalidarCache,
+} from '@/lib/lanzamientoRapidoDatos';
+import { OPERACIONES_RAPIDAS, parsearMonto as parsearMontoFav } from '@/lib/lanzamientoRapido';
+import { obtenerCategoriasJuego } from '@/lib/miniJuego';
+import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 
 const COLORES = {
   azul: 'var(--color-primario, #1f3a5f)',
@@ -66,20 +78,28 @@ export default function LanzamientoRapidoPage() {
 
   const simbolo = simboloMoneda(moneda);
 
+  async function refrescar(empresa: string, monedaActual: string | null) {
+    const [lista, hoy] = await Promise.all([
+      cargarTarjetas(empresa),
+      contarJugadasHoy(empresa).catch(() => null),
+    ]);
+    setTarjetas(lista);
+    setVanHoy(hoy);
+    guardarCache(empresa, lista, monedaActual);
+  }
+
   useEffect(() => {
     async function iniciar() {
-      const { data: userData } = await supabase.auth.getUser();
+      // getSession lee la sesión local (getUser sería otra ida y vuelta a la red).
+      const { data: sesion } = await supabase.auth.getSession();
+      const userId = sesion.session?.user.id;
 
-      if (!userData.user) {
+      if (!userId) {
         router.push('/login');
         return;
       }
 
-      const { data: perfil } = await supabase
-        .from('perfiles')
-        .select('empresa_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
+      const { data: perfil } = await supabase.from('perfiles').select('empresa_id').eq('id', userId).maybeSingle();
 
       if (!perfil?.empresa_id || !empresaTieneLanzamientoRapido(perfil.empresa_id)) {
         setAutorizado(false);
@@ -90,16 +110,19 @@ export default function LanzamientoRapidoPage() {
       setAutorizado(true);
       setEmpresaId(perfil.empresa_id);
 
-      const { data: empresa } = await supabase.from('empresas').select('moneda').eq('id', perfil.empresa_id).maybeSingle();
-      setMoneda(empresa?.moneda ?? null);
+      const cache = leerCache(perfil.empresa_id);
+      if (cache) {
+        setTarjetas(cache.tarjetas);
+        setMoneda(cache.moneda);
+        setCargando(false);
+        contarJugadasHoy(perfil.empresa_id).then(setVanHoy).catch(() => null);
+        if (cache.fresco) return;
+      }
 
       try {
-        const [top, hoy] = await Promise.all([
-          cargarTopRapido(perfil.empresa_id),
-          contarJugadasHoy(perfil.empresa_id).catch(() => null),
-        ]);
-        setTarjetas(top);
-        setVanHoy(hoy);
+        const { data: empresa } = await supabase.from('empresas').select('moneda').eq('id', perfil.empresa_id).maybeSingle();
+        setMoneda(empresa?.moneda ?? null);
+        await refrescar(perfil.empresa_id, empresa?.moneda ?? null);
       } catch (e) {
         setError((e as { message?: string }).message ?? 'No se pudieron cargar las tarjetas.');
       }
@@ -111,7 +134,45 @@ export default function LanzamientoRapidoPage() {
     return () => {
       if (temporizador.current) clearTimeout(temporizador.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  async function alternarFavorita(t: TarjetaRapida) {
+    if (!empresaId) return;
+    setError('');
+    // Se refleja al toque; si falla se recarga el estado real.
+    setTarjetas((prev) => prev.map((x) => (x.clave === t.clave ? { ...x, favorita: !t.favorita } : x)));
+
+    try {
+      if (t.favorita) await quitarFavorita(empresaId, t);
+      else
+        await agregarFavorita(empresaId, {
+          operacion: t.operacion,
+          categoria: t.categoria,
+          forma_pago: t.formaPago,
+          historico: t.ultimoHistorico,
+          cliente_proveedor: t.ultimoProveedor,
+          valor_sugerido: t.ultimoValor,
+        });
+      await refrescar(empresaId, moneda);
+    } catch (e) {
+      setError((e as { message?: string }).message ?? 'No se pudo guardar la favorita.');
+      await refrescar(empresaId, moneda).catch(() => null);
+    }
+  }
+
+  async function guardarNuevaFavorita(f: { operacion: string; categoria: string; formaPago: string; valor: string }) {
+    if (!empresaId) return;
+    await agregarFavorita(empresaId, {
+      operacion: f.operacion,
+      categoria: f.categoria,
+      forma_pago: f.formaPago,
+      historico: f.categoria,
+      cliente_proveedor: '',
+      valor_sugerido: Number.isFinite(parsearMontoFav(f.valor)) ? Math.max(0, parsearMontoFav(f.valor)) : 0,
+    });
+    await refrescar(empresaId, moneda);
+  }
 
   function abrirTarjeta(t: TarjetaRapida) {
     if (abierta === t.clave) {
@@ -148,6 +209,7 @@ export default function LanzamientoRapidoPage() {
 
     try {
       const id = await registrarLanzamiento(empresaId, t, monto, fecha);
+      invalidarCache(empresaId);
       const resumen = `${nombreOperacionDisplay('ES', t.operacion, true)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
 
       setUltimo({ id, resumen });
@@ -174,6 +236,7 @@ export default function LanzamientoRapidoPage() {
 
     try {
       await deshacerLanzamiento(empresaId, id);
+      invalidarCache(empresaId);
       setFrase('Deshecho. Esa ola no cuenta.');
       setVanHoy(await contarJugadasHoy(empresaId).catch(() => null));
     } catch (e) {
@@ -265,12 +328,12 @@ export default function LanzamientoRapidoPage() {
           </div>
         )}
 
-        {tarjetas.length === 0 && !error ? (
+        {tarjetas.length === 0 && !error && (
           <p style={{ color: COLORES.gris, textAlign: 'center', padding: 24 }}>
-            Todavía no hay operaciones repetidas en los últimos 60 días. Cargá algunas y acá van a aparecer.
+            Todavía no hay operaciones repetidas en los últimos 60 días. Cargá algunas y acá van a aparecer, o sumá una favorita con el +.
           </p>
-        ) : (
-          <div className="lanzamiento-rapido-grilla">
+        )}
+        <div className="lanzamiento-rapido-grilla">
             {tarjetas.map((t) => {
               const estilo = ESTILO_OPERACION[t.operacion] ?? ESTILO_OPERACION.PAGO;
               const esAbierta = abierta === t.clave;
@@ -289,6 +352,15 @@ export default function LanzamientoRapidoPage() {
                 >
                   <button
                     type="button"
+                    onClick={() => alternarFavorita(t)}
+                    aria-label={t.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                    title={t.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                    style={{ float: 'right', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 20, padding: 0, lineHeight: 1 }}
+                  >
+                    {t.favorita ? '❤️' : '🤍'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => abrirTarjeta(t)}
                     style={{ all: 'unset', cursor: 'pointer', display: 'block', width: '100%' }}
                   >
@@ -299,9 +371,9 @@ export default function LanzamientoRapidoPage() {
                     <div style={{ fontWeight: 800, fontSize: 15, color: '#1f2937', margin: '2px 0' }}>{t.categoria}</div>
                     <div style={{ fontSize: 12, color: COLORES.gris }}>{t.formaPago}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: estilo.color, marginTop: 8 }}>
-                      {simbolo} {formatearNumeroEntero(t.ultimoValor)}
+                      {t.ultimoValor > 0 ? `${simbolo} ${formatearNumeroEntero(t.ultimoValor)}` : '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.usos} {t.usos === 1 ? 'uso' : 'usos'}</div>
+                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.usos > 0 ? `${t.usos} ${t.usos === 1 ? 'uso' : 'usos'}` : 'sin usos recientes'}</div>
                   </button>
 
                   {esAbierta && (
@@ -357,8 +429,8 @@ export default function LanzamientoRapidoPage() {
                 </div>
               );
             })}
-          </div>
-        )}
+            <TarjetaMas empresaId={empresaId} onGuardar={guardarNuevaFavorita} />
+        </div>
 
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Link href="/?jugar=1" style={{ color: COLORES.azul, fontWeight: 700, fontSize: 14 }}>
@@ -380,6 +452,176 @@ export default function LanzamientoRapidoPage() {
           .lanzamiento-rapido-grilla { grid-template-columns: repeat(2, 1fr); gap: 10px; }
         }
       `}</style>
+    </div>
+  );
+}
+
+
+// "+" para sumar una favorita a mano: operación → categoría → medio (+ valor
+// sugerido opcional). Las opciones salen de la matriz, así que solo se pueden
+// elegir combinaciones que el motor acepta.
+function TarjetaMas({
+  empresaId,
+  onGuardar,
+}: {
+  empresaId: string | null;
+  onGuardar: (f: { operacion: string; categoria: string; formaPago: string; valor: string }) => Promise<void>;
+}) {
+  const [abierta, setAbierta] = useState(false);
+  const [operacion, setOperacion] = useState('');
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [categoria, setCategoria] = useState('');
+  const [medios, setMedios] = useState<string[]>([]);
+  const [medio, setMedio] = useState('');
+  const [valor, setValor] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+
+  function cerrar() {
+    setAbierta(false);
+    setOperacion('');
+    setCategorias([]);
+    setCategoria('');
+    setMedios([]);
+    setMedio('');
+    setValor('');
+    setError('');
+  }
+
+  async function elegirOperacion(op: string) {
+    if (!empresaId) return;
+    setOperacion(op);
+    setCategoria('');
+    setMedio('');
+    setMedios([]);
+    setError('');
+    try {
+      setCategorias((await obtenerCategoriasJuego(empresaId, op)).map((c) => c.nombre));
+    } catch (e) {
+      setError((e as { message?: string }).message ?? 'No se pudieron cargar las categorías.');
+    }
+  }
+
+  async function elegirCategoria(cat: string) {
+    if (!empresaId) return;
+    setCategoria(cat);
+    setMedio('');
+    setError('');
+    try {
+      setMedios(await obtenerFormasPagoOperacion(empresaId, operacion, cat));
+    } catch (e) {
+      setError((e as { message?: string }).message ?? 'No se pudieron cargar los medios.');
+    }
+  }
+
+  async function guardar() {
+    setGuardando(true);
+    setError('');
+    try {
+      await onGuardar({ operacion, categoria, formaPago: medio, valor });
+      cerrar();
+    } catch (e) {
+      setError((e as { message?: string }).message ?? 'No se pudo guardar.');
+    }
+    setGuardando(false);
+  }
+
+  const chip = (activo: boolean): React.CSSProperties => ({
+    border: `1px solid ${activo ? '#1f3a5f' : '#d1d5db'}`,
+    background: activo ? '#1f3a5f' : '#fff',
+    color: activo ? '#fff' : '#1f2937',
+    borderRadius: 999,
+    padding: '6px 12px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+  });
+
+  if (!abierta) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierta(true)}
+        style={{
+          border: '2px dashed #9ca3af',
+          background: 'transparent',
+          borderRadius: 20,
+          minHeight: 150,
+          cursor: 'pointer',
+          color: '#6e7781',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+        }}
+      >
+        <span style={{ fontSize: 36, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Agregar favorita ❤️</span>
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ gridColumn: '1 / -1', background: '#fff', border: '2px solid #1f3a5f', borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <strong style={{ fontSize: 15 }}>Nueva favorita ❤️</strong>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {OPERACIONES_RAPIDAS.map((op) => (
+          <button key={op} type="button" onClick={() => elegirOperacion(op)} style={chip(operacion === op)}>
+            {nombreOperacionDisplay('ES', op, true)}
+          </button>
+        ))}
+      </div>
+
+      {categorias.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {categorias.map((c) => (
+            <button key={c} type="button" onClick={() => elegirCategoria(c)} style={chip(categoria === c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {medios.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {medios.map((m) => (
+            <button key={m} type="button" onClick={() => setMedio(m)} style={chip(medio === m)}>
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {medio && (
+        <label style={{ fontSize: 12, fontWeight: 700, color: '#6e7781' }}>
+          Valor habitual (opcional)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            style={{ display: 'block', width: '100%', maxWidth: 220, boxSizing: 'border-box', marginTop: 4, padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 16 }}
+          />
+        </label>
+      )}
+
+      {error && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{error}</p>}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={!medio || guardando}
+          style={{ background: '#1f3a5f', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontWeight: 800, cursor: !medio || guardando ? 'not-allowed' : 'pointer', opacity: !medio || guardando ? 0.5 : 1 }}
+        >
+          {guardando ? 'Guardando...' : 'Guardar favorita'}
+        </button>
+        <button type="button" onClick={cerrar} style={{ background: 'transparent', border: '1px solid #d1d5db', borderRadius: 12, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }

@@ -26,7 +26,21 @@ export type TarjetaRapida = {
   mediana: number;
   ultimoHistorico: string;
   ultimoProveedor: string;
+  favorita?: boolean;
 };
+
+export type FavoritaRapida = {
+  operacion: string;
+  categoria: string;
+  forma_pago: string;
+  historico: string;
+  cliente_proveedor: string;
+  valor_sugerido: number | string;
+};
+
+export function claveTarjeta(operacion: string, categoria: string, formaPago: string): string {
+  return `${operacion}|${categoria}|${formaPago}`;
+}
 
 // Compra/venta/pérdida llevan producto y cantidad: no caben en una tarjeta de
 // un solo valor.
@@ -57,7 +71,7 @@ export function armarTop(filas: OperacionReciente[], limite = 10): TarjetaRapida
     if (!fila.categoria || !fila.forma_pago) continue;
     if (!(Number(fila.total) > 0)) continue;
 
-    const clave = `${fila.operacion}|${fila.categoria}|${fila.forma_pago}`;
+    const clave = claveTarjeta(fila.operacion, fila.categoria, fila.forma_pago);
     const lista = grupos.get(clave) ?? [];
     lista.push(fila);
     grupos.set(clave, lista);
@@ -106,4 +120,32 @@ export function validarMonto(monto: number): string | null {
 
 export function montoSospechoso(monto: number, tarjeta: Pick<TarjetaRapida, 'usos' | 'mediana'>): boolean {
   return tarjeta.usos >= MIN_USOS_PARA_ALERTA && tarjeta.mediana > 0 && monto > tarjeta.mediana * FACTOR_ALERTA;
+}
+
+// Las favoritas van primero (con las cifras del historial si lo hay, o con el
+// valor sugerido si es nueva) y después el top automático sin repetirlas.
+export function combinarConFavoritas(
+  top: TarjetaRapida[],
+  historial: Map<string, TarjetaRapida>,
+  favoritas: FavoritaRapida[]
+): TarjetaRapida[] {
+  const fijadas: TarjetaRapida[] = favoritas.map((f) => {
+    const clave = claveTarjeta(f.operacion, f.categoria, f.forma_pago);
+    const previa = historial.get(clave);
+    if (previa) return { ...previa, favorita: true };
+    return {
+      clave,
+      operacion: f.operacion,
+      categoria: f.categoria,
+      formaPago: f.forma_pago,
+      usos: 0,
+      ultimoValor: Number(f.valor_sugerido) || 0,
+      mediana: 0,
+      ultimoHistorico: f.historico,
+      ultimoProveedor: f.cliente_proveedor,
+      favorita: true,
+    };
+  });
+  const usadas = new Set(fijadas.map((t) => t.clave));
+  return [...fijadas, ...top.filter((t) => !usadas.has(t.clave))];
 }
