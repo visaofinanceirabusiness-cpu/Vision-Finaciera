@@ -31,6 +31,8 @@ import {
 import { SabioRegistrarIngresoModal } from './SabioRegistrarIngresoModal';
 import { VincularCobroModal } from './VincularCobroModal';
 import { ConfirmarDevengoModal } from './ConfirmarDevengoModal';
+import { ajustarMontoDevengado } from '@/lib/devengoAjuste';
+import { ofrecerAjustarMesesDevengados } from './ajustarMesesDevengados';
 import { ActivarDevengoModal } from './ActivarDevengoModal';
 import { buscarCuentaCompromisoPorNombre, listarCuentasElegibles, listarGrupos } from '@/lib/cuentasCompromiso';
 import { nombreCuentaCompromiso } from '@/lib/cuentasCompromisoNombres';
@@ -86,6 +88,7 @@ export function MisIngresos({
   const [recordatorioAConfirmar, setRecordatorioAConfirmar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioAVincular, setRecordatorioAVincular] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [recordatorioADevengar, setRecordatorioADevengar] = useState<RecordatorioIngresoRecurrente | null>(null);
+  const [recordatorioAAjustar, setRecordatorioAAjustar] = useState<RecordatorioIngresoRecurrente | null>(null);
   const [errorDevengo, setErrorDevengo] = useState('');
   const [plantillaAActivar, setPlantillaAActivar] = useState<IngresoRecurrente | null>(null);
   const [plantillaAMigrar, setPlantillaAMigrar] = useState<IngresoRecurrente | null>(null);
@@ -457,13 +460,22 @@ export function MisIngresos({
                                         </>
                     )}
                     {!soloLectura && recordatorio.estado === 'DEVENGADA' && (
-                      <button
-                        type="button"
-                        onClick={() => setRecordatorioAConfirmar(recordatorio)}
-                        style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        ✓ {esPT ? 'Cobrar' : 'Cobrar'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setRecordatorioAAjustar(recordatorio)}
+                          style={{ border: 'none', background: 'transparent', color: '#6e7781', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                        >
+                          {esPT ? 'Ajustar valor' : 'Ajustar monto'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRecordatorioAConfirmar(recordatorio)}
+                          style={{ border: 'none', background: 'transparent', color: colores.verde, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          ✓ {esPT ? 'Cobrar' : 'Cobrar'}
+                        </button>
+                      </>
                     )}
                     {!soloLectura && recordatorio.estado === 'POR_CONFIRMAR' && (
                       <button
@@ -704,7 +716,13 @@ export function MisIngresos({
                   }}
                   onGuardar={async (datos) => {
                     if (editando) {
+                      const montoAnterior = editando.monto_habitual;
                       await actualizarIngresoRecurrente(editando.id, datos);
+                      // Si el monto cambió, los meses ya devengados siguen con el viejo:
+                      // se ofrece aplicarles el nuevo.
+                      if (editando.devengar && Number(datos.montoHabitual) !== Number(montoAnterior)) {
+                        await ofrecerAjustarMesesDevengados(empresaId, 'INGRESO', editando.id, datos.montoHabitual, idioma, simbolo);
+                      }
                     } else {
                       await crearIngresoRecurrente(empresaId, datos);
                     }
@@ -800,6 +818,23 @@ export function MisIngresos({
           onClose={() => setRecordatorioADevengar(null)}
           onConfirmado={() => {
             setRecordatorioADevengar(null);
+            recargar();
+          }}
+        />
+      )}
+
+      {recordatorioAAjustar && (
+        <ConfirmarDevengoModal
+          modo="AJUSTAR"
+          yaMovido={recordatorioAAjustar.monto_cobrado}
+          recordatorio={recordatorioAAjustar}
+          onConfirmar={(monto) => ajustarMontoDevengado(empresaId, 'INGRESO', recordatorioAAjustar.id, monto)}
+          idioma={idioma}
+          simbolo={simbolo}
+          colores={colores}
+          onClose={() => setRecordatorioAAjustar(null)}
+          onConfirmado={() => {
+            setRecordatorioAAjustar(null);
             recargar();
           }}
         />
