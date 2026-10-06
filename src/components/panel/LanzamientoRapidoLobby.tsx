@@ -1,13 +1,13 @@
 'use client';
 
 // LANZAMIENTO RÁPIDO — banner del lobby (debajo del Sabio del Azar) que lleva
-// a la pantalla de tarjetas con las operaciones más repetidas. Solo español:
-// es una función a medida del piloto (ver lanzamientoRapidoEmpresas.ts).
-
+// a la pantalla de tarjetas con las operaciones más repetidas.
 import Link from 'next/link';
 import { SABIO_SURFISTA_URL } from '@/lib/lanzamientoRapidoEmpresas';
 
-export function LanzamientoRapidoLobby() {
+export function LanzamientoRapidoLobby({ idioma }: { idioma: string }) {
+  const esPT = idioma === 'PT';
+
   return (
     <Link
       href="/lanzamiento-rapido"
@@ -33,13 +33,15 @@ export function LanzamientoRapidoLobby() {
 
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', color: '#7dd3fc', fontWeight: 800, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3 }}>
-          Lanzamiento rápido
+          {esPT ? 'Lançamento rápido' : 'Lanzamiento rápido'}
         </span>
         <span style={{ display: 'block', color: '#fff', fontWeight: 800, fontSize: 19, marginBottom: 4 }}>
-          ¿Surfeamos la ola del día?
+          {esPT ? 'Surfamos a onda do dia?' : '¿Surfeamos la ola del día?'}
         </span>
         <span style={{ display: 'block', color: 'rgba(255,255,255,0.85)', fontSize: 13.5 }}>
-          Tus 10 operaciones de siempre, a un toque: solo ponés el valor
+          {esPT
+            ? 'Suas 10 operações de sempre, em um toque: só coloca o valor'
+            : 'Tus 10 operaciones de siempre, a un toque: solo ponés el valor'}
         </span>
       </span>
 

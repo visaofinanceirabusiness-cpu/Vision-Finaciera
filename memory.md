@@ -581,8 +581,8 @@ Cada tipo de trofeo (Pagador 💳, Cobrador 💰, Ahorrista 🏦) pasó de 3 med
 - Nada más pendiente a la fecha de este registro — si encontrás algo
   a medio hacer, agregalo acá antes de asumir que está completo.
 
-## Lanzamiento rápido (Buenaventura, Fase 1)
-- Nuevo método de carga: `/lanzamiento-rapido` (solo empresas en `lanzamientoRapidoEmpresas.ts`, helper `empresaTieneLanzamientoRapido`). Banner `LanzamientoRapidoLobby` en el lobby, debajo de `SabioAzarLobby`.
+## Lanzamiento rápido (todas las empresas; nació como piloto de Buenaventura)
+- Nuevo método de carga: `/lanzamiento-rapido` (extendido a todas las empresas el 06/10/2026: se quitó el gating; ahora bilingüe ES/PT y con nombres de operación de Familia vía `nombreOperacionDisplay`; la caché guarda moneda/idioma/esFamiliar. `lanzamientoRapidoEmpresas.ts` solo conserva la URL del logo). Banner `LanzamientoRapidoLobby` en el lobby, debajo de `SabioAzarLobby`.
 - Top 10 automático (últimos 60 días) por operación+categoría+medio: `lib/lanzamientoRapido.ts` (puro, con tests), datos en `lanzamientoRapidoDatos.ts`. Solo PAGO/COBRO/TRANSFERENCIA/INVERSION/EXTRACCION; excluye asientos "devengado"; valida el medio con `obtenerFormasPagoOperacion`.
 - Registra con `registrarOperacion` y deshace con `eliminarOperacion` (8 s). Alerta "¿Seguro, socio?" si monto > 10× mediana con ≥3 usos.
 - "Ver todas" → `/?jugar=1` abre el Mini-Juego (el lobby limpia el parámetro).
