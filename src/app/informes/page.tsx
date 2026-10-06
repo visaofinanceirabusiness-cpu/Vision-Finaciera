@@ -87,6 +87,7 @@ export default function InformesPage() {
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
   const [nombresMedioFinanciero, setNombresMedioFinanciero] = useState<Set<string>>(new Set());
+  const [nombresPorCobrar, setNombresPorCobrar] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -189,6 +190,8 @@ export default function InformesPage() {
         console.warn('No se pudieron identificar las cuentas por cobrar:', e);
         return new Set<string>();
       });
+
+      setNombresPorCobrar(new Set((cuentasData ?? []).filter((c) => porCobrar.has(c.id)).map((c) => c.nombre)));
 
       // Solo cuentas de ACTIVO: una forma de pago puede estar vinculada
       // a un PASIVO (ej. "Tarjeta" → "Tarjeta de Crédito a Pagar"), que
@@ -333,7 +336,7 @@ export default function InformesPage() {
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
               {pestana === 'flujo' && (
-                <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} />
+                <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} />
               )}
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
@@ -1079,10 +1082,12 @@ function FlujoDeCajaTab({
   hojas,
   asientos,
   nombresMedioFinanciero,
+  nombresPorCobrar,
 }: {
   hojas: CuentaPlan[];
   asientos: Asiento[];
   nombresMedioFinanciero: Set<string>;
+  nombresPorCobrar: Set<string>;
 }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
@@ -1178,7 +1183,28 @@ function FlujoDeCajaTab({
     [asientosDelPeriodo, nombresCaja]
   );
 
-  const entradasAgrupadas = agruparPorContraparte(entradas, (a) => a.credito, idioma);
+  // Cobrar una cuenta a cobrar ("Casita a cobrar") es plata que entra por el ingreso
+  // con el que se devengó ("Alquiler Argentina"): las entradas se agrupan por ese
+  // ingreso y no por el nombre de la cuenta a cobrar. Solo cuando todos los
+  // devengos de esa cuenta fueron al mismo ingreso; si no, se deja la cuenta.
+  const ingresoDeCuentaPorCobrar = useMemo(() => {
+    const nombresIngreso = new Set(hojas.filter((c) => c.tipo_saldo === 'INGRESO').map((c) => c.nombre));
+    const ingresosPorCuenta = new Map<string, Set<string>>();
+
+    for (const a of asientos) {
+      if (a.debito && a.credito && nombresPorCobrar.has(a.debito) && nombresIngreso.has(a.credito)) {
+        ingresosPorCuenta.set(a.debito, (ingresosPorCuenta.get(a.debito) ?? new Set<string>()).add(a.credito));
+      }
+    }
+
+    const mapa = new Map<string, string>();
+    for (const [cuenta, ingresos] of ingresosPorCuenta) {
+      if (ingresos.size === 1) mapa.set(cuenta, Array.from(ingresos)[0]);
+    }
+    return mapa;
+  }, [hojas, asientos, nombresPorCobrar]);
+
+  const entradasAgrupadas = agruparPorContraparte(entradas, (a) => (a.credito && ingresoDeCuentaPorCobrar.get(a.credito)) || a.credito, idioma);
   const salidasAgrupadas = agruparPorContraparte(salidas, (a) => a.debito, idioma);
   const aportesAhorroAgrupados = agruparPorContraparte(aportesAhorro, (a) => a.debito, idioma);
   const retirosAhorroAgrupados = agruparPorContraparte(retirosAhorro, (a) => a.credito, idioma);
