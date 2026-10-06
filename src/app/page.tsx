@@ -17,7 +17,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, obtenerHitoPendiente, marcarHitoVisto, type HitoPendiente } from '@/lib/gamificacion';
 import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal';
-import { obtenerTrofeoPendiente, marcarTrofeoVisto, CATALOGO_TROFEOS, type TrofeoPendiente } from '@/lib/trofeos';
+import { obtenerTrofeoPendiente, marcarTrofeoVisto, type TrofeoPendiente } from '@/lib/trofeos';
+import { FAMILIAS_TROFEO, descripcionMedalla } from '@/lib/trofeosRangos';
 import { FestejoModal } from '@/components/panel/FestejoModal';
 import { VitrinaTrofeos } from '@/components/panel/VitrinaTrofeos';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
@@ -607,7 +608,7 @@ export default function InicioPage() {
     setTrofeoActual(null);
 
     try {
-      await marcarTrofeoVisto(empresaId, trofeoQueSeCierra.tipo, trofeoQueSeCierra.tier);
+      await marcarTrofeoVisto(empresaId, trofeoQueSeCierra.tipo, trofeoQueSeCierra.tier, trofeoQueSeCierra.rango);
       setTrofeoActual(await obtenerTrofeoPendiente(empresaId));
     } catch (errorTrofeo) {
       console.warn('No se pudo marcar el trofeo como visto:', errorTrofeo);
@@ -811,13 +812,13 @@ export default function InicioPage() {
         {trofeoActual && (
           <FestejoModal
             tipo={trofeoActual.tier}
-            claveAnimacion={`${trofeoActual.tipo}-${trofeoActual.tier}`}
-            emoji={CATALOGO_TROFEOS[trofeoActual.tipo].emoji}
+            claveAnimacion={`${trofeoActual.tipo}-${trofeoActual.rango}-${trofeoActual.tier}`}
+            emoji={FAMILIAS_TROFEO[trofeoActual.tipo].rangos[trofeoActual.rango].emblema}
             idioma={idioma}
             tituloEs="¡Nuevo Trofeo!"
             tituloPt="Novo Troféu!"
-            subtituloEs={`Ganaste el trofeo ${CATALOGO_TROFEOS[trofeoActual.tipo].nombre} — seguí así.`}
-            subtituloPt={`Você ganhou o troféu ${CATALOGO_TROFEOS[trofeoActual.tipo].nombrePT} — continue assim.`}
+            subtituloEs={`Ganaste ${descripcionMedalla(trofeoActual.tipo, trofeoActual.rango, trofeoActual.tier, false)} — seguí así.`}
+            subtituloPt={`Você ganhou ${descripcionMedalla(trofeoActual.tipo, trofeoActual.rango, trofeoActual.tier, true)} — continue assim.`}
             onCerrar={cerrarTrofeoActual}
           />
         )}
