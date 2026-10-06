@@ -40,6 +40,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { obtenerEtiquetas } from '../recursos-humanos/i18n';
 import { diccionarioBienvenida } from './i18n';
+import { configuracionPerfil, esPerfilSimulado, type PerfilSimulado } from '@/lib/tutorialSimulacion';
 import { crearContacto, crearProductoBasico } from './acciones';
 
 const COLORES = {
@@ -118,6 +119,9 @@ export default function BienvenidaPage() {
   const [guardando, setGuardando] = useState(false);
   const [progreso, setProgreso] = useState<Progreso>(PROGRESO_INICIAL);
   const [errorFinal, setErrorFinal] = useState('');
+  // Solo Desarrollador (?simulacion=PERFIL desde panel maestro → Probar
+  // tutorial): recorre el wizard con datos de mentira, sin escribir nada.
+  const [simulacion, setSimulacion] = useState<{ perfil: PerfilSimulado; idioma: string } | null>(null);
 
   const t = crearTraductor(diccionarioBienvenida, idioma);
   const etiquetasProveedor = obtenerEtiquetas('proveedores', esFamiliar, idioma);
@@ -132,6 +136,24 @@ export default function BienvenidaPage() {
       if (!userData.user) {
         router.push('/login');
         return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const perfilPedido = params.get('simulacion');
+
+      if (perfilPedido && esPerfilSimulado(perfilPedido)) {
+        const { data: admin } = await supabase.from('perfiles').select('es_admin_plataforma').eq('id', userData.user.id).maybeSingle();
+
+        if (admin?.es_admin_plataforma) {
+          const config = configuracionPerfil(perfilPedido);
+          setSimulacion({ perfil: perfilPedido, idioma: params.get('idioma') === 'PT' ? 'PT' : 'ES' });
+          setIdioma(params.get('idioma') === 'PT' ? 'PT' : 'ES');
+          setEsFamiliar(config.esFamiliar);
+          setManejaMercaderia(config.manejaMercaderia);
+          setNombreRegistrante('Prueba');
+          setCargandoInicial(false);
+          return;
+        }
       }
 
       const { data: perfil, error: errorPerfil } = await supabase
@@ -204,7 +226,7 @@ export default function BienvenidaPage() {
     : t('seccionCategoriaServicioAyuda');
 
   async function finalizar() {
-    if (!empresaId) return;
+    if (!empresaId && !simulacion) return;
 
     if (categorias.length === 0) return setErrorFinal(t('errorMinimoCategoria'));
 
@@ -222,6 +244,14 @@ export default function BienvenidaPage() {
     if (manejaMercaderia && productos.length === 0) return setErrorFinal(t('errorMinimoProducto'));
 
     setErrorFinal('');
+
+    if (simulacion) {
+      router.push(`/panel-maestro/probar-tutorial?paso=tutorial&perfil=${simulacion.perfil}&idioma=${simulacion.idioma}`);
+      return;
+    }
+
+    if (!empresaId) return;
+
     setGuardando(true);
 
     try {
@@ -318,11 +348,21 @@ export default function BienvenidaPage() {
   return (
     <div style={fondo}>
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
+        {simulacion && (
+          <div style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>
+            🧪 MODO PRUEBA ({simulacion.perfil}) — no se guarda nada
+          </div>
+        )}
+
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
               onClick={async () => {
+                if (simulacion) {
+                  router.push('/panel-maestro/probar-tutorial');
+                  return;
+                }
                 await supabase.auth.signOut();
                 router.push('/login');
               }}

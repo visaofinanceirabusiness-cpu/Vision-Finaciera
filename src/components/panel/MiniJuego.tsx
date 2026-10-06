@@ -30,6 +30,7 @@ import { fechaLocalHoy } from '@/lib/fecha';
 import { saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
+import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -83,6 +84,7 @@ export function MiniJuego({
   simbolo,
   colores,
   tutorial,
+  simulacion,
   onCompletadoTutorial,
   onCerrar,
 }: {
@@ -92,6 +94,9 @@ export function MiniJuego({
   simbolo: string;
   colores: Colores;
   tutorial?: TutorialMiniJuego;
+  // Solo Desarrollador (panel maestro → Probar tutorial): datos de ejemplo, no
+  // consulta ni escribe en la base.
+  simulacion?: DatosSimulados;
   onCompletadoTutorial?: () => void;
   onCerrar: () => void;
 }) {
@@ -126,16 +131,22 @@ export function MiniJuego({
   const [busqueda, setBusqueda] = useState('');
   const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
   const [saldosPorCategoria, setSaldosPorCategoria] = useState<Record<string, number>>({});
+  const [jugadasSimuladas, setJugadasSimuladas] = useState(0);
 
   useEffect(() => {
     if (!operacion) return;
+
+    if (simulacion) {
+      setCategorias(simulacion.categorias[operacion] ?? []);
+      return;
+    }
 
     setCargandoOpciones(true);
     obtenerCategoriasJuego(empresaId, operacion)
       .then(setCategorias)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando categorías.'))
       .finally(() => setCargandoOpciones(false));
-  }, [empresaId, operacion]);
+  }, [empresaId, operacion, simulacion]);
 
   // Si la operación tiene una única categoría posible (ej. Aporte/
   // Retiro), no tiene sentido mostrar la tarjeta para elegirla: se
@@ -151,17 +162,22 @@ export function MiniJuego({
   useEffect(() => {
     if (!operacion || !categoria) return;
 
+    if (simulacion) {
+      setFormasPago(simulacion.formasPago[operacion] ?? simulacion.formasPago.default);
+      return;
+    }
+
     setCargandoOpciones(true);
     obtenerFormasPagoJuego(empresaId, operacion, categoria)
       .then(setFormasPago)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando formas de pago.'))
       .finally(() => setCargandoOpciones(false));
-  }, [empresaId, operacion, categoria]);
+  }, [empresaId, operacion, categoria, simulacion]);
 
   // Saldo de las categorías que son una deuda (al pagar) o algo por cobrar (al
   // cobrar): se ve antes de elegir cuánto se debe, igual que en el medio.
   useEffect(() => {
-    if (!operacion || categorias.length === 0) {
+    if (simulacion || !operacion || categorias.length === 0) {
       setSaldosPorCategoria({});
       return;
     }
@@ -179,13 +195,13 @@ export function MiniJuego({
     return () => {
       cancelado = true;
     };
-  }, [empresaId, operacion, categorias, fecha]);
+  }, [empresaId, operacion, categorias, fecha, simulacion]);
 
   // Saldo de la cuenta detrás de cada medio (Activo: Caja, Banco... o
   // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
   // dónde hay plata (o deuda), no a ciegas por el nombre solo.
   useEffect(() => {
-    if (formasPago.length === 0) {
+    if (simulacion || formasPago.length === 0) {
       setSaldosPorMedio({});
       return;
     }
@@ -199,7 +215,7 @@ export function MiniJuego({
     return () => {
       cancelado = true;
     };
-  }, [empresaId, formasPago, fecha]);
+  }, [empresaId, formasPago, fecha, simulacion]);
 
   const categoriaSeleccionada = categorias.find((c) => c.nombre === categoria);
   const necesitaProducto = operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada);
@@ -210,7 +226,7 @@ export function MiniJuego({
     if (operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada)) {
       setCargandoOpciones(true);
       try {
-        if (productos.length === 0) setProductos(await obtenerProductosJuego(empresaId));
+        if (productos.length === 0) setProductos(simulacion ? simulacion.productos : await obtenerProductosJuego(empresaId));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error cargando productos.');
       } finally {
@@ -266,7 +282,7 @@ export function MiniJuego({
     if (tabla) {
       setCargandoOpciones(true);
       try {
-        setContactos(await obtenerContactosJuego(empresaId, tabla));
+        setContactos(simulacion ? simulacion.contactos[tabla] : await obtenerContactosJuego(empresaId, tabla));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error cargando contactos.');
       } finally {
@@ -304,7 +320,9 @@ export function MiniJuego({
     setError('');
 
     try {
-      const contacto = await crearOUsarContactoPorTelefono(empresaId, tabla, nombreContacto, telefonoContacto);
+      const contacto = simulacion
+        ? { nombre: nombreContacto.trim() }
+        : await crearOUsarContactoPorTelefono(empresaId, tabla, nombreContacto, telefonoContacto);
       setContactos((actual) => (actual.includes(contacto.nombre) ? actual : [...actual, contacto.nombre]));
       setNombreContacto('');
       setTelefonoContacto('');
@@ -392,7 +410,7 @@ export function MiniJuego({
       const cantidadNum = necesitaProducto ? Number(cantidad) || 1 : 1;
       const montoParaMotor = necesitaProducto ? total / cantidadNum : total;
 
-      await registrarOperacion(empresaId, {
+      if (!simulacion) await registrarOperacion(empresaId, {
         fecha,
         operacion,
         categoria,
@@ -402,7 +420,13 @@ export function MiniJuego({
         lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
 
-      const numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
+      let numeroDelDia: number;
+      if (simulacion) {
+        numeroDelDia = jugadasSimuladas + 1;
+        setJugadasSimuladas(numeroDelDia);
+      } else {
+        numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
+      }
       setCelebrando(numeroDelDia);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la jugada.');
@@ -549,6 +573,12 @@ export function MiniJuego({
         overflowY: 'auto',
       }}
     >
+      {simulacion && (
+        <div style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 10, padding: '6px 12px', fontSize: 12.5, fontWeight: 800, textAlign: 'center', marginBottom: 12 }}>
+          🧪 MODO PRUEBA — datos de ejemplo, no se guarda nada
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>🎲 {esPT ? 'Mini-Jogo' : 'Mini-Juego'}</div>
 
