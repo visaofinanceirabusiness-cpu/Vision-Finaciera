@@ -24,7 +24,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
-import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias } from '@/lib/saldoCuenta';
+import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { registrarPagoParcial, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
@@ -162,6 +162,7 @@ export function CentralDeLanzamientosTab({
 
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [saldosPorCategoria, setSaldosPorCategoria] = useState<Record<string, number>>({});
+  const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
   const [formaPago, setFormaPago] = useState(valoresIniciales?.formaPago ?? '');
   const [saldoOrigen, setSaldoOrigen] = useState<{ cuenta: string; saldo: number } | null>(null);
   const [saldoDestino, setSaldoDestino] = useState<{ cuenta: string; saldo: number } | null>(null);
@@ -781,6 +782,25 @@ export function CentralDeLanzamientosTab({
       cancelado = true;
     };
   }, [empresaId, operacion, categorias, fecha]);
+
+  // Saldo de cada medio al lado de su opción (mismo cálculo que en el mini juego
+  // y en Sabio Bot).
+  useEffect(() => {
+    if (!empresaId || formasPago.length === 0) {
+      setSaldosPorMedio({});
+      return;
+    }
+
+    let cancelado = false;
+
+    saldosDeMedios(empresaId, formasPago, fecha).then((saldos) => {
+      if (!cancelado) setSaldosPorMedio(saldos);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, formasPago, fecha]);
 
   // Saldo en vivo de la cuenta detrás de la Categoría (o "Hacia
   // Cuenta" en Transferencia) — para CUALQUIER operación, siempre que
@@ -1578,7 +1598,7 @@ export function CentralDeLanzamientosTab({
               <optgroup key={grupo.rubro} label={grupo.rubro}>
                 {grupo.categorias.map((f) => (
                   <option key={f} value={f}>
-                    {f}
+                    {f in saldosPorMedio ? `${f} — ${simbolo} ${formatearNumeroEntero(saldosPorMedio[f])}` : f}
                   </option>
                 ))}
               </optgroup>

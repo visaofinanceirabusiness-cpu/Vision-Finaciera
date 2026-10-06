@@ -123,7 +123,8 @@ export async function saldoDeCategoria(
 }
 
 // Qué categorías muestran saldo en las LISTAS de categorías (mini juego, Sabio
-// Bot y Central de Lanzamientos): al pagar, las de las cuentas de Pasivo
+// Bot y Central de Lanzamientos): en una Transferencia, todas las cuentas
+// (ver saldosDeCategorias); al pagar, las de las cuentas de Pasivo
 // ("Préstamos Santander", "Netflix a pagar"…) para ver cuánto se debe antes de
 // elegir; al cobrar, las de cuentas a cobrar. El resto de las operaciones no
 // necesita saldo en la lista.
@@ -142,8 +143,17 @@ export async function saldosDeCategorias(
   nombres: string[],
   fecha: string
 ): Promise<Record<string, number>> {
+  if (nombres.length === 0 || !fecha) return {};
+
+  // En una Transferencia la "categoría" es la cuenta DESTINO (un medio u otra
+  // cuenta de ahorro/inversión): se ve el saldo de cada una, sea cual sea su
+  // tipo de cuenta de saldo, para elegir sabiendo cuánto hay en origen y destino.
+  if (operacion === 'TRANSFERENCIA') {
+    return saldosDeMedios(empresaId, nombres, fecha);
+  }
+
   const tipo = tipoSaldoEnListaDeCategorias(operacion);
-  if (!tipo || nombres.length === 0 || !fecha) return {};
+  if (!tipo) return {};
 
   const { data: categorias } = await supabase
     .from('categorias_operacion')
@@ -183,6 +193,25 @@ export async function saldosDeCategorias(
     const nombre = nombreDeCategoria.get(vinculo.categoria_operacion_id as string);
     const saldo = saldoPorCuenta.get(vinculo.cuenta_id as string);
     if (nombre !== undefined && saldo !== undefined) saldos[nombre] = saldo;
+  }
+
+  return saldos;
+}
+
+// Saldo de varios medios de una vez (Caja, Banco, Tarjeta, Préstamo… o, en una
+// Transferencia, una cuenta de ahorro): para ver dónde hay plata (o deuda)
+// ANTES de elegir el medio, no a ciegas por el nombre. Lo usan las tres
+// formas de cargar (mini juego, Sabio Bot y Central de Lanzamientos).
+export async function saldosDeMedios(empresaId: string, nombres: string[], fecha: string): Promise<Record<string, number>> {
+  if (nombres.length === 0 || !fecha) return {};
+
+  const pares = await Promise.all(
+    nombres.map(async (nombre) => [nombre, await saldoEnTransferencia(empresaId, nombre, fecha).catch(() => null)] as const)
+  );
+
+  const saldos: Record<string, number> = {};
+  for (const [nombre, resultado] of pares) {
+    if (resultado) saldos[nombre] = resultado.saldo;
   }
 
   return saldos;
