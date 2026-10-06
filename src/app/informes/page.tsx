@@ -25,6 +25,7 @@ import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
+import { idsCuentasPorCobrar } from '@/lib/cuentasPorCobrar';
 import {
   diccionarioInformes,
   formatearPeriodo,
@@ -181,13 +182,21 @@ export default function InformesPage() {
 
       const idsCuentaMedioFinanciero = new Set((formaPagoCuentasData ?? []).map((f) => f.cuenta_id));
 
+      // Las cuentas a cobrar ("Departamento a cobrar") también se crean como forma de
+      // pago, pero NO son plata disponible: sin esto, un alquiler devengado y todavía
+      // sin cobrar aparecía como "Entrada de caja" y sumaba a la caja de hoy.
+      const porCobrar = await idsCuentasPorCobrar(perfil.empresa_id).catch((e) => {
+        console.warn('No se pudieron identificar las cuentas por cobrar:', e);
+        return new Set<string>();
+      });
+
       // Solo cuentas de ACTIVO: una forma de pago puede estar vinculada
       // a un PASIVO (ej. "Tarjeta" → "Tarjeta de Crédito a Pagar"), que
       // no es plata disponible — usarla ahí no mueve caja, cambia deuda.
       setNombresMedioFinanciero(
         new Set(
           (cuentasData ?? [])
-            .filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO')
+            .filter((c) => idsCuentaMedioFinanciero.has(c.id) && c.tipo_saldo === 'ACTIVO' && !porCobrar.has(c.id))
             .map((c) => c.nombre)
         )
       );
