@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { armarTop, mediana, montoSospechoso, parsearMonto, validarMonto, type OperacionReciente } from './lanzamientoRapido';
+import { armarTop, combinarConFavoritas, claveTarjeta, mediana, montoSospechoso, parsearMonto, validarMonto, type OperacionReciente } from './lanzamientoRapido';
 
 function fila(p: Partial<OperacionReciente>): OperacionReciente {
   return {
@@ -62,5 +62,27 @@ describe('seguridad del monto', () => {
     expect(montoSospechoso(200, { usos: 5, mediana: 15 })).toBe(true);
     expect(montoSospechoso(100, { usos: 5, mediana: 15 })).toBe(false);
     expect(montoSospechoso(2000, { usos: 2, mediana: 15 })).toBe(false);
+  });
+});
+
+describe('combinarConFavoritas', () => {
+  const historial = new Map(armarTop([fila({ total: 20 }), fila({ id_operacion: 'OP-2', categoria: 'Otra', total: 5 })]).map((t) => [t.clave, t]));
+  const top = [...historial.values()];
+
+  it('pone las favoritas primero y no repite', () => {
+    const r = combinarConFavoritas(top, historial, [
+      { operacion: 'PAGO', categoria: 'Otra', forma_pago: 'Banco', historico: '', cliente_proveedor: '', valor_sugerido: 0 },
+    ]);
+    expect(r).toHaveLength(2);
+    expect(r[0].categoria).toBe('Otra');
+    expect(r[0].favorita).toBe(true);
+    expect(r[1].favorita).toBeUndefined();
+  });
+
+  it('una favorita sin historial usa el valor sugerido', () => {
+    const r = combinarConFavoritas([], new Map(), [
+      { operacion: 'COBRO', categoria: 'X', forma_pago: 'Efectivo', historico: 'h', cliente_proveedor: 'p', valor_sugerido: '50' },
+    ]);
+    expect(r[0]).toMatchObject({ usos: 0, ultimoValor: 50, ultimoHistorico: 'h', clave: claveTarjeta('COBRO', 'X', 'Efectivo') });
   });
 });
