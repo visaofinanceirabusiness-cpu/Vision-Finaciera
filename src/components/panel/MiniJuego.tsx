@@ -27,7 +27,7 @@ import {
 import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
 import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
-import { saldoEnTransferencia } from '@/lib/saldoCuenta';
+import { saldoEnTransferencia, saldosDeCategorias } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 
@@ -125,6 +125,7 @@ export function MiniJuego({
   const [celebrando, setCelebrando] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
+  const [saldosPorCategoria, setSaldosPorCategoria] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!operacion) return;
@@ -156,6 +157,29 @@ export function MiniJuego({
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando formas de pago.'))
       .finally(() => setCargandoOpciones(false));
   }, [empresaId, operacion, categoria]);
+
+  // Saldo de las categorías que son una deuda (al pagar) o algo por cobrar (al
+  // cobrar): se ve antes de elegir cuánto se debe, igual que en el medio.
+  useEffect(() => {
+    if (!operacion || categorias.length === 0) {
+      setSaldosPorCategoria({});
+      return;
+    }
+
+    let cancelado = false;
+
+    saldosDeCategorias(empresaId, operacion, categorias.map((c) => c.nombre), fecha)
+      .then((saldos) => {
+        if (!cancelado) setSaldosPorCategoria(saldos);
+      })
+      .catch(() => {
+        if (!cancelado) setSaldosPorCategoria({});
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, operacion, categorias, fecha]);
 
   // Saldo de la cuenta detrás de cada medio (Activo: Caja, Banco... o
   // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
@@ -657,7 +681,13 @@ export function MiniJuego({
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
                     {categoriasFiltradas.map((cat) =>
-                      tarjeta(iconosCategorias[cat.nombre] ?? iconoParaTexto(cat.nombre), cat.nombre, () => elegirCategoria(cat.nombre), cat.nombre)
+                      tarjeta(
+                        iconosCategorias[cat.nombre] ?? iconoParaTexto(cat.nombre),
+                        cat.nombre,
+                        () => elegirCategoria(cat.nombre),
+                        cat.nombre,
+                        cat.nombre in saldosPorCategoria ? formatearSaldo(saldosPorCategoria[cat.nombre]) : undefined
+                      )
                     )}
                   </div>
                 )}

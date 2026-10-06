@@ -121,3 +121,69 @@ export async function saldoDeCategoria(
 
   return { cuenta: cuenta.nombre, saldo: resultado.saldo };
 }
+
+// Qué categorías muestran saldo en las LISTAS de categorías (mini juego, Sabio
+// Bot y Central de Lanzamientos): al pagar, las de las cuentas de Pasivo
+// ("Préstamos Santander", "Netflix a pagar"…) para ver cuánto se debe antes de
+// elegir; al cobrar, las de cuentas a cobrar. El resto de las operaciones no
+// necesita saldo en la lista.
+export function tipoSaldoEnListaDeCategorias(operacion: string): 'PASIVO' | 'ACTIVO' | null {
+  if (operacion === 'PAGO') return 'PASIVO';
+  if (operacion === 'COBRO') return 'ACTIVO';
+  return null;
+}
+
+// Saldo de varias categorías de una vez (una sola ronda de consultas por
+// cuenta, no una por categoría). Devuelve solo las que resuelven a una cuenta
+// del tipo pedido; el resto (gastos, ingresos…) queda fuera.
+export async function saldosDeCategorias(
+  empresaId: string,
+  operacion: string,
+  nombres: string[],
+  fecha: string
+): Promise<Record<string, number>> {
+  const tipo = tipoSaldoEnListaDeCategorias(operacion);
+  if (!tipo || nombres.length === 0 || !fecha) return {};
+
+  const { data: categorias } = await supabase
+    .from('categorias_operacion')
+    .select('id, nombre')
+    .eq('empresa_id', empresaId)
+    .eq('operacion', operacion)
+    .in('nombre', nombres);
+
+  const idsCategoria = (categorias ?? []).map((c) => c.id as string);
+  if (idsCategoria.length === 0) return {};
+
+  const { data: vinculos } = await supabase
+    .from('categorias_operacion_cuentas')
+    .select('categoria_operacion_id, cuenta_id')
+    .in('categoria_operacion_id', idsCategoria)
+    .eq('activo', true);
+
+  const idsCuenta = Array.from(new Set((vinculos ?? []).map((v) => v.cuenta_id as string)));
+  if (idsCuenta.length === 0) return {};
+
+  const { data: cuentas } = await supabase.from('plan_cuentas').select('id, nombre, tipo_saldo').in('id', idsCuenta).eq('tipo_saldo', tipo);
+
+  const nombreDeCuenta = new Map((cuentas ?? []).map((c) => [c.id as string, c.nombre as string]));
+  const saldoPorCuenta = new Map<string, number>();
+
+  await Promise.all(
+    Array.from(nombreDeCuenta.entries()).map(async ([id, nombre]) => {
+      const resultado = await obtenerSaldoCuenta(empresaId, nombre, fecha);
+      if (resultado) saldoPorCuenta.set(id, resultado.saldo);
+    })
+  );
+
+  const nombreDeCategoria = new Map((categorias ?? []).map((c) => [c.id as string, c.nombre as string]));
+  const saldos: Record<string, number> = {};
+
+  for (const vinculo of vinculos ?? []) {
+    const nombre = nombreDeCategoria.get(vinculo.categoria_operacion_id as string);
+    const saldo = saldoPorCuenta.get(vinculo.cuenta_id as string);
+    if (nombre !== undefined && saldo !== undefined) saldos[nombre] = saldo;
+  }
+
+  return saldos;
+}

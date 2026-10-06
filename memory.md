@@ -550,6 +550,9 @@ antes de inventar algo nuevo.
 ## Accesos rápidos del encabezado (05/10/2026)
 `components/nav/AccesosHerramientas.tsx` ya no son íconos de 38 px con tooltip: es una caja del mismo tamaño que Sabio (`CAJA_SABIO` exportada de `SabioWidget.tsx`, 260 × 250 mín., `alignSelf: stretch`) con una grilla de 3 columnas de cuadrados grandes, ícono 26 px y nombre corto siempre visible (ES/PT según `empresas.idioma`). Para sumar una herramienta: agregarla a `TODAS_LAS_HERRAMIENTAS` con su `corto`; con más de 9 pasa a 4 columnas para no superar la altura de Sabio. Lleva el título "Tus herramientas" arriba. **Desde 06/10/2026 el lobby ya no tiene la tarjeta aparte "Tus herramientas"**: los accesos viven en el hero (`SabioHero`, columna 3) igual que en el resto de las pantallas; **Mensajes también es un acceso más** (✉️, con el aviso rojo de no leídos que consulta el propio componente; se eliminó el botón suelto de Mensajes del hero); el componente también filtra Nuestro Sueño (`empresaTieneNuestroSueno`) e Informes para el ASISTENTE, como hacía la tarjeta.
 
+## Saldo en las listas de categorías (06/10/2026)
+Mini juego, Sabio Bot y Central de Lanzamientos muestran, al lado de cada categoría, el saldo de su cuenta cuando es una **deuda al pagar** (PAGO → cuentas de Pasivo: "Préstamos Santander", "Netflix a pagar"…) o **algo por cobrar al cobrar** (COBRO → cuentas de Activo a cobrar). Un solo cálculo compartido: `saldosDeCategorias` / `tipoSaldoEnListaDeCategorias` en `lib/saldoCuenta.ts` (una ronda de consultas por cuenta, no por categoría); las demás operaciones no muestran nada. Dato a revisar: en Buenaventura la categoría "Cuentas a Pagar" quedó apuntando a la cuenta "Facultad a pagar" (viene de la migración de la cuenta general), así que esa tarjeta muestra el saldo de Facultad.
+
 ## Pendientes / ideas no implementadas
 - Fondos de Apariencia con fotos reales (ver arriba) — pendiente de
   que el usuario las suba, o de que el entorno tenga salida a

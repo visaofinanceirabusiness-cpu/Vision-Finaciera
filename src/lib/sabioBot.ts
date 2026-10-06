@@ -37,7 +37,7 @@ import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
-import { saldoDeFormaDePago } from './saldoCuenta';
+import { saldoDeFormaDePago, saldosDeCategorias } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarContactoPorTelefono } from './clientes';
 
@@ -463,7 +463,13 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         ? t(idioma, '¿Hacia qué cuenta transferís?', 'Para qual conta você quer transferir?')
         : t(idioma, `Categoría para ${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}:`, `Categoria para ${nombreOperacionDisplay(idioma, operacion, datos.esFamiliar)}:`);
 
-    return `${titulo}\n\n${numerarLista(categorias)}`;
+    // Al pagar (deudas) o cobrar (por cobrar) cada categoría muestra su saldo
+    // al lado, igual que las tarjetas del mini juego y la Central.
+    const simboloCategorias = datos.simbolo ?? 'R$';
+    const saldos = await saldosDeCategorias(empresaId, operacion, categorias, fechaLocalHoy()).catch(() => ({}) as Record<string, number>);
+    const categoriasConSaldo = categorias.map((c) => (c in saldos ? `${c} — ${simboloCategorias} ${formatearNumeroEntero(saldos[c])}` : c));
+
+    return `${titulo}\n\n${numerarLista(categoriasConSaldo)}`;
   }
 
   // ---------------------------------------------------
