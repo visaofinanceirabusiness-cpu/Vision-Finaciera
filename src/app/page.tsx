@@ -802,8 +802,6 @@ export default function InicioPage() {
               : null
           }
           objetivos={objetivos}
-          mensajesSinLeer={mensajesSinLeer}
-          onClickMensajes={() => router.push('/mensajes')}
         />
 
         {hitoActual && (
