@@ -31,6 +31,8 @@ import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
+import { PanelNoticias } from '@/components/panel/PanelNoticias';
+import { empresaTieneNoticias } from '@/lib/noticiasEmpresas';
 import { CalendarioOrganizador } from '@/components/calendario/CalendarioOrganizador';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioInicio, type ClaveInicio } from './i18n';
@@ -916,6 +918,21 @@ export default function InicioPage() {
         >
           <PanelCotizaciones idioma={idioma} colores={colores} />
         </section>
+
+        {perfil && empresaTieneNoticias(perfil.empresa_id) && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+            }}
+          >
+            <PanelNoticias idioma={idioma} colores={colores} />
+          </section>
+        )}
 
         {/* =================================================
             PIE — Marca Visão Financeira
