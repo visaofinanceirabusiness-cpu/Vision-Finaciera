@@ -6,6 +6,8 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { supabase } from './supabase';
+import { cuentaMedioDeLiquidacion, medioNoValidoParaLiquidar } from './liquidacion';
+import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 import { notificarPendienteAlAdmin, notificarValidacionAEmpresa } from './notificarPush';
 
 // =====================================================
@@ -699,6 +701,56 @@ export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string
 }
 
 // =====================================================
+// VALIDAR EL MEDIO DE UNA LIQUIDACIÓN
+// =====================================================
+//
+// Saldar un pasivo (PAGO) o cobrar una cuenta a cobrar (COBRO) tiene que
+// mover plata de verdad: ver lib/liquidacion.ts. La UI ya no ofrece medios
+// inválidos (lib/formasPagoOperacion.ts); esto lo rechaza también si la
+// combinación llega por otro camino. Se llama antes de tocar nada (en una
+// edición, antes de borrar la versión anterior).
+
+export async function validarMedioDeLiquidacion(
+  empresaId: string,
+  regla: { operacion: string; motor?: string | null; cuenta_debito?: string | null; cuenta_credito?: string | null; categoria?: string | null; forma_pago?: string | null }
+) {
+  const cuentaMedio = cuentaMedioDeLiquidacion({
+    operacion: regla.operacion,
+    motor: regla.motor,
+    cuenta_debito: regla.cuenta_debito,
+    cuenta_credito: regla.cuenta_credito,
+  });
+
+  if (!cuentaMedio) {
+    return;
+  }
+
+  const { data: cuenta, error } = await supabase
+    .from('plan_cuentas')
+    .select('id, tipo_saldo')
+    .eq('empresa_id', empresaId)
+    .eq('nombre', cuentaMedio)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!cuenta) {
+    return;
+  }
+
+  const esPorCobrar = cuenta.tipo_saldo === 'ACTIVO' ? (await idsCuentasPorCobrar(empresaId)).has(cuenta.id) : false;
+
+  if (medioNoValidoParaLiquidar(cuenta.tipo_saldo, esPorCobrar)) {
+    const accion = regla.operacion === 'PAGO' ? 'pagar' : 'cobrar';
+    throw new Error(
+      `No se puede ${accion} "${regla.categoria ?? ''}" con "${regla.forma_pago ?? cuentaMedio}": para ${regla.operacion === 'PAGO' ? 'saldar una deuda' : 'cobrar una cuenta a cobrar'} hay que usar plata de verdad (caja, banco o billetera), no otra deuda ni otra cuenta a cobrar.`
+    );
+  }
+}
+
+// =====================================================
 // REGISTRAR OPERACIÓN
 // =====================================================
 
@@ -747,6 +799,8 @@ export async function registrarOperacion(
       `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones.`
     );
   }
+
+  await validarMedioDeLiquidacion(empresaId, regla);
 
   // ---------------------------------------------------
   // 1.b VALIDAR QUE NINGUNA CUENTA INVOLUCRADA QUEDE EN NEGATIVO
@@ -1337,6 +1391,10 @@ export async function editarOperacion(
       `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones antes de editar.`
     );
   }
+
+  // Antes de borrar la versión anterior: si el medio nuevo no es válido, la
+  // edición se rechaza sin tocar nada.
+  await validarMedioDeLiquidacion(empresaId, regla);
 
   const erroresLimpieza = await limpiarOperacion(empresaId, idOperacion);
 
