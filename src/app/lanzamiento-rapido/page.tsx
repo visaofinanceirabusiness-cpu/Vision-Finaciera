@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { empresaTieneLanzamientoRapido } from '@/lib/perfilCapacidades';
+import { SABIO_SURFISTA_URL } from '@/lib/lanzamientoRapidoEmpresas';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { nombreOperacionDisplay } from '@/lib/i18n';
@@ -223,7 +224,7 @@ export default function LanzamientoRapidoPage() {
                 <p style={{ margin: '10px 0 0', fontSize: 13, fontWeight: 700 }}>🔥 Van {vanHoy} hoy</p>
               )}
             </div>
-            <SabioWidget colores={{ azul: '#1f3a5f', verde: '#2e8b57', blanco: '#ffffff' }} frase={frase} insignia="🏄" />
+            <SabioWidget colores={{ azul: '#1f3a5f', verde: '#2e8b57', blanco: '#ffffff' }} frase={frase} imagenUrl={SABIO_SURFISTA_URL} />
             <AccesosHerramientas variante="oscuro" />
           </div>
         </header>

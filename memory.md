@@ -586,5 +586,5 @@ Cada tipo de trofeo (Pagador 💳, Cobrador 💰, Ahorrista 🏦) pasó de 3 med
 - Top 10 automático (últimos 60 días) por operación+categoría+medio: `lib/lanzamientoRapido.ts` (puro, con tests), datos en `lanzamientoRapidoDatos.ts`. Solo PAGO/COBRO/TRANSFERENCIA/INVERSION/EXTRACCION; excluye asientos "devengado"; valida el medio con `obtenerFormasPagoOperacion`.
 - Registra con `registrarOperacion` y deshace con `eliminarOperacion` (8 s). Alerta "¿Seguro, socio?" si monto > 10× mediana con ≥3 usos.
 - "Ver todas" → `/?jugar=1` abre el Mini-Juego (el lobby limpia el parámetro).
-- Sabio surfista: `SabioWidget` acepta `imagenUrl` / `insignia`; hoy usa el Sabio de siempre + 🏄. Falta que el usuario pase la imagen real.
+- Sabio surfista: `SabioWidget` acepta `imagenUrl` / `insignia`; imagen real en `public/sabio/sabio-surfista.webp` (logo del banner y Sabio de la pantalla).
 - Pendiente: Fase 2 (tabla `operaciones_rapidas_fijadas` para fijar tarjetas), Fase 3 (más frases).

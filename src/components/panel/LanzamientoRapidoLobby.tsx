@@ -5,6 +5,7 @@
 // es una función a medida del piloto (ver lanzamientoRapidoEmpresas.ts).
 
 import Link from 'next/link';
+import { SABIO_SURFISTA_URL } from '@/lib/lanzamientoRapidoEmpresas';
 
 export function LanzamientoRapidoLobby() {
   return (
@@ -23,7 +24,12 @@ export function LanzamientoRapidoLobby() {
         textDecoration: 'none',
       }}
     >
-      <span style={{ fontSize: 56, flexShrink: 0 }}>🏄</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={SABIO_SURFISTA_URL}
+        alt="Sabio Surfista"
+        style={{ width: 120, height: 120, flexShrink: 0, objectFit: 'cover', borderRadius: '50%', border: '3px solid #38bdf8', boxShadow: '0 6px 14px rgba(0,0,0,0.25)' }}
+      />
 
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', color: '#7dd3fc', fontWeight: 800, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3 }}>
