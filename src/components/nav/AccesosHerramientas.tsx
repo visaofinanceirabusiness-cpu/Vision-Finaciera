@@ -18,7 +18,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CAJA_SABIO } from '@/components/panel/SabioWidget';
-import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion, empresaTieneNuestroSueno } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
@@ -38,6 +38,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
   { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
+  { href: '/nuestro-sueno', titulo: 'Nuestro Sueño', corto: { es: 'Sueño', pt: 'Sonho' }, emoji: '💞', color: '#db2777' },
   { href: '/configuracoes', titulo: 'Configurações', corto: { es: 'Config.', pt: 'Config.' }, emoji: '⚙️', color: '#475569' },
 ];
 
@@ -56,7 +57,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
 
       const { data: perfil } = await supabase
         .from('perfiles')
-        .select('empresa_id')
+        .select('empresa_id, tipo_usuario')
         .eq('id', userData.user.id)
         .maybeSingle();
 
@@ -88,6 +89,9 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
           if (herramienta.href === '/plan-accion') return empresaTienePlanAccion(perfil.empresa_id);
+          if (herramienta.href === '/nuestro-sueno') return empresaTieneNuestroSueno(perfil.empresa_id);
+          // Igual que en el lobby: el asistente no ve Informes.
+          if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
           return true;
         })
       );
@@ -120,9 +124,25 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
     >
       <div
         style={{
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: 1.5,
+          textTransform: 'uppercase',
+          color: variante === 'claro' ? '#6b7280' : '#ffffff',
+          opacity: 0.78,
+          textAlign: 'center',
+          margin: '2px 0 8px',
+        }}
+      >
+        {esPT ? 'Suas ferramentas' : 'Tus herramientas'}
+      </div>
+
+      <div
+        style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          // Hasta 9 accesos en 3 columnas; con más, 4, para no pasar la altura de Sabio.
+          gridTemplateColumns: `repeat(${disponibles.length > 9 ? 4 : 3}, 1fr)`,
           gridAutoRows: '1fr',
           gap: 8,
         }}

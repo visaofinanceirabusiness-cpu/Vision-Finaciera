@@ -16,16 +16,6 @@ export type ClaveInicio =
   | 'gestionFinancieraDefault'
   | 'miNegocioDefault'
   | 'subtituloDefault'
-  | 'eyebrowGestion'
-  | 'tusHerramientas'
-  | 'herramientaPanelControl'
-  | 'herramientaContabilidad'
-  | 'herramientaFinanzas'
-  | 'herramientaMercaderia'
-  | 'herramientaInformes'
-  | 'herramientaProduccion'
-  | 'herramientaRecursosHumanos'
-  | 'herramientaConfiguracoes'
   | 'indicadorVentasDelMes'
   | 'indicadorComprasDelMes'
   | 'indicadorOperacionesRegistradas'
@@ -47,16 +37,6 @@ export const diccionarioInicio: Diccionario<ClaveInicio> = {
     gestionFinancieraDefault: 'Gestión financiera',
     miNegocioDefault: 'Mi Negocio',
     subtituloDefault: 'Tu negocio, tus números y tus próximos objetivos.',
-    eyebrowGestion: 'GESTIÓN',
-    tusHerramientas: 'Tus herramientas',
-    herramientaPanelControl: '📊 Panel de Control',
-    herramientaContabilidad: '🧾 Contabilidad',
-    herramientaFinanzas: '💼 Finanzas',
-    herramientaMercaderia: '📦 Mercadería',
-    herramientaInformes: '📈 Informes',
-    herramientaProduccion: '🏭 Producción',
-    herramientaRecursosHumanos: '👥 Recursos Humanos',
-    herramientaConfiguracoes: '⚙️ Configuraciones',
     indicadorVentasDelMes: 'Ventas del mes',
     indicadorComprasDelMes: 'Compras del mes',
     indicadorOperacionesRegistradas: 'Operaciones registradas',
@@ -77,16 +57,6 @@ export const diccionarioInicio: Diccionario<ClaveInicio> = {
     gestionFinancieraDefault: 'Gestão financeira',
     miNegocioDefault: 'Meu Negócio',
     subtituloDefault: 'Seu negócio, seus números e seus próximos objetivos.',
-    eyebrowGestion: 'GESTÃO',
-    tusHerramientas: 'Suas ferramentas',
-    herramientaPanelControl: '📊 Painel de Controle',
-    herramientaContabilidad: '🧾 Contabilidade',
-    herramientaFinanzas: '💼 Finanças',
-    herramientaMercaderia: '📦 Mercadoria',
-    herramientaInformes: '📈 Relatórios',
-    herramientaProduccion: '🏭 Produção',
-    herramientaRecursosHumanos: '👥 Recursos Humanos',
-    herramientaConfiguracoes: '⚙️ Configurações',
     indicadorVentasDelMes: 'Vendas do mês',
     indicadorComprasDelMes: 'Compras do mês',
     indicadorOperacionesRegistradas: 'Operações registradas',

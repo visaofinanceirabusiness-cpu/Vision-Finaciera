@@ -1,6 +1,7 @@
 'use client';
 
 import { crearTraductor } from '@/lib/i18n';
+import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { diccionarioPanel } from './i18n';
 
 type NivelHero = {
@@ -373,7 +374,13 @@ export function SabioHero({
         )}
 
         {/* =========================================
-            COLUMNA 3 — acceso compacto a Mensajes. El Sabio "de
+            COLUMNA 3 — Accesos rápidos a las herramientas (los mismos
+            que tiene el encabezado de cada pantalla).
+        ========================================== */}
+        <AccesosHerramientas />
+
+        {/* =========================================
+            COLUMNA 4 — acceso compacto a Mensajes. El Sabio "de
             siempre" se mudó de acá a su propia sección grande del
             lobby (ver SabioBotLobby en page.tsx).
         ========================================== */}

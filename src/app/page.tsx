@@ -20,12 +20,6 @@ import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal'
 import { obtenerTrofeoPendiente, marcarTrofeoVisto, CATALOGO_TROFEOS, type TrofeoPendiente } from '@/lib/trofeos';
 import { FestejoModal } from '@/components/panel/FestejoModal';
 import { VitrinaTrofeos } from '@/components/panel/VitrinaTrofeos';
-import {
-  empresaManejaMercaderia,
-  empresaTieneModulo,
-  empresaTienePlanAccion,
-  empresaTieneNuestroSueno,
-} from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
@@ -146,8 +140,6 @@ export default function InicioPage() {
   const [hitoActual, setHitoActual] = useState<HitoPendiente | null>(null);
   const [trofeoActual, setTrofeoActual] = useState<TrofeoPendiente | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
-  const [modulos, setModulos] = useState<string[]>([]);
-  const [manejaMercaderia, setManejaMercaderia] = useState(true);
   const [alertaSabio, setAlertaSabio] = useState<string | null>(null);
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
   const [cargando, setCargando] = useState(true);
@@ -253,34 +245,6 @@ export default function InicioPage() {
         console.warn('No se pudo consultar mensajes financieros:', errorMensajes);
       } else {
         setMensajesSinLeer(countMensajes ?? 0);
-      }
-
-      // Módulos habilitados según el PERFIL de la empresa.
-      try {
-        const tieneProduccion = await empresaTieneModulo(
-          perfilData.empresa_id,
-          'PRODUCCION'
-        );
-
-        setModulos(tieneProduccion ? ['PRODUCCION'] : []);
-      } catch (errorModulos) {
-        console.warn(
-          'No se pudo determinar los módulos habilitados:',
-          errorModulos
-        );
-
-        setModulos([]);
-      }
-
-      try {
-        setManejaMercaderia(
-          await empresaManejaMercaderia(perfilData.empresa_id)
-        );
-      } catch (errorMercaderia) {
-        console.warn(
-          'No se pudo determinar si la empresa maneja mercadería:',
-          errorMercaderia
-        );
       }
 
       const { data: configData, error: errorConfig } = await supabase
@@ -597,9 +561,6 @@ export default function InicioPage() {
     empresa?.logo_url?.trim()
   );
 
-  const tieneModulo = (modulo: string) =>
-    modulos.includes(modulo);
-
   const mensajeBienvenida =
     configuracion?.mensaje_bienvenida ??
     (idioma === 'PT'
@@ -907,126 +868,6 @@ export default function InicioPage() {
         )}
 
         {/* =================================================
-            HERRAMIENTAS
-        ================================================== */}
-
-        <section
-          style={{
-            background: colores.blanco,
-            borderRadius: 24,
-            padding: 24,
-            marginBottom: 20,
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                marginBottom: 4,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 1.3,
-                color: colores.verde,
-              }}
-            >
-              {t('eyebrowGestion')}
-            </div>
-
-            <h2
-              style={{
-                margin: 0,
-                color: colores.azul,
-                fontSize: 21,
-              }}
-            >
-              {t('tusHerramientas')}
-            </h2>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: 12,
-            }}
-          >
-            <BotonAcceso
-              href="/contabilidad"
-              titulo={t('herramientaContabilidad')}
-              colorPrincipal="#7c3aed"
-              destacado
-            />
-
-            <BotonAcceso
-              href="/finanzas"
-              titulo={t('herramientaFinanzas')}
-              colorPrincipal="#0d9488"
-              destacado
-            />
-
-            {manejaMercaderia && (
-              <BotonAcceso
-                href="/mercaderia"
-                titulo={t('herramientaMercaderia')}
-                colorPrincipal="#ea580c"
-                destacado
-              />
-            )}
-
-            {perfil?.tipo_usuario !== 'ASISTENTE' && (
-              <BotonAcceso
-                href="/informes"
-                titulo={t('herramientaInformes')}
-                colorPrincipal="#0891b2"
-                destacado
-              />
-            )}
-
-            {tieneModulo('PRODUCCION') && (
-              <BotonAcceso
-                href="/produccion"
-                titulo={t('herramientaProduccion')}
-                colorPrincipal="#65a30d"
-                destacado
-              />
-            )}
-
-            <BotonAcceso
-              href="/recursos-humanos"
-              titulo={t('herramientaRecursosHumanos')}
-              colorPrincipal="#db2777"
-              destacado
-            />
-
-            {empresaTienePlanAccion(perfil?.empresa_id) && (
-              <BotonAcceso
-                href="/plan-accion"
-                titulo="🎯 Plan de Acción"
-                colorPrincipal="#1f3a5f"
-                destacado
-              />
-            )}
-
-            {empresaTieneNuestroSueno(perfil?.empresa_id) && (
-              <BotonAcceso
-                href="/nuestro-sueno"
-                titulo="💞 Nuestro Sueño"
-                colorPrincipal="#db2777"
-                destacado
-              />
-            )}
-
-            <BotonAcceso
-              href="/configuracoes"
-              titulo={t('herramientaConfiguracoes')}
-              colorPrincipal="#475569"
-              destacado
-            />
-          </div>
-        </section>
-
-        {/* =================================================
             CALENDÁRIO ORGANIZADOR
             Vive directo acá en el lobby (no es una tarjeta más de
             herramientas) — cualquier usuario de la empresa puede
@@ -1074,49 +915,5 @@ export default function InicioPage() {
         />
       </div>
     </main>
-  );
-}
-
-function BotonAcceso({
-  href,
-  titulo,
-  principal = false,
-  destacado = false,
-  colorPrincipal,
-}: {
-  href: string;
-  titulo: string;
-  principal?: boolean;
-  destacado?: boolean;
-  colorPrincipal: string;
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        textDecoration: 'none',
-        background: principal
-          ? colorPrincipal
-          : destacado
-            ? `${colorPrincipal}18`
-            : '#ffffff',
-        color: principal
-          ? '#ffffff'
-          : colorPrincipal,
-        border:
-          principal || destacado
-            ? 'none'
-            : '1px solid #d1d5db',
-        borderRadius: 16,
-        padding: '17px 18px',
-        textAlign: 'center',
-        fontWeight: 700,
-        boxShadow: principal
-          ? `0 8px 20px ${colorPrincipal}33`
-          : 'none',
-      }}
-    >
-      {titulo}
-    </Link>
   );
 }
