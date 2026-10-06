@@ -5,14 +5,12 @@
 // Nuevo método de carga de operaciones: las 10 combinaciones (operación +
 // categoría + medio) más repetidas de los últimos 60 días, como tarjetas. Se
 // toca una, se ajusta valor y fecha y se registra con el motor de siempre.
-// Feature a medida del piloto (ver empresaTieneLanzamientoRapido), por eso
-// solo en español.
+// Disponible para todas las empresas (nació como piloto de Buenaventura).
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { empresaTieneLanzamientoRapido } from '@/lib/perfilCapacidades';
 import { SABIO_SURFISTA_URL } from '@/lib/lanzamientoRapidoEmpresas';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { fechaLocalHoy } from '@/lib/fecha';
@@ -30,6 +28,7 @@ import {
   leerCache,
   guardarCache,
   invalidarCache,
+  type MetaEmpresa,
 } from '@/lib/lanzamientoRapidoDatos';
 import { OPERACIONES_RAPIDAS, parsearMonto as parsearMontoFav } from '@/lib/lanzamientoRapido';
 import { obtenerCategoriasJuego } from '@/lib/miniJuego';
@@ -50,15 +49,17 @@ const ESTILO_OPERACION: Record<string, { emoji: string; color: string; fondo: st
   EXTRACCION: { emoji: '🏧', color: '#be123c', fondo: '#fff1f2' },
 };
 
-const FRASE_INICIAL = '¡Ola del día lista, socio!';
-const FRASES_OK = ['Registrado. Sigamos surfeando.', '¡Esa ola ya está cargada!', 'Listo, socio. Siguiente ola.'];
+const FRASES_OK = {
+  ES: ['Registrado. Sigamos surfeando.', '¡Esa ola ya está cargada!', 'Listo, socio. Siguiente ola.'],
+  PT: ['Registrado. Vamos continuar surfando.', 'Essa onda já está carregada!', 'Pronto, sócio. Próxima onda.'],
+};
 const SEGUNDOS_DESHACER = 8;
 
 export default function LanzamientoRapidoPage() {
   const router = useRouter();
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [moneda, setMoneda] = useState<string | null>(null);
+  const [meta, setMeta] = useState<MetaEmpresa>({ moneda: null, idioma: 'ES', esFamiliar: false });
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -71,21 +72,23 @@ export default function LanzamientoRapidoPage() {
   const [confirmarGrande, setConfirmarGrande] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  const [frase, setFrase] = useState(FRASE_INICIAL);
+  const [frase, setFrase] = useState<string | null>(null);
   const [vanHoy, setVanHoy] = useState<number | null>(null);
   const [ultimo, setUltimo] = useState<{ id: string; resumen: string } | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const simbolo = simboloMoneda(moneda);
+  const esPT = meta.idioma === 'PT';
+  const tr = (es: string, pt: string) => (esPT ? pt : es);
+  const simbolo = simboloMoneda(meta.moneda);
 
-  async function refrescar(empresa: string, monedaActual: string | null) {
+  async function refrescar(empresa: string, metaActual: MetaEmpresa) {
     const [lista, hoy] = await Promise.all([
       cargarTarjetas(empresa),
       contarJugadasHoy(empresa).catch(() => null),
     ]);
     setTarjetas(lista);
     setVanHoy(hoy);
-    guardarCache(empresa, lista, monedaActual);
+    guardarCache(empresa, lista, metaActual);
   }
 
   useEffect(() => {
@@ -101,7 +104,7 @@ export default function LanzamientoRapidoPage() {
 
       const { data: perfil } = await supabase.from('perfiles').select('empresa_id').eq('id', userId).maybeSingle();
 
-      if (!perfil?.empresa_id || !empresaTieneLanzamientoRapido(perfil.empresa_id)) {
+      if (!perfil?.empresa_id) {
         setAutorizado(false);
         setCargando(false);
         return;
@@ -113,18 +116,29 @@ export default function LanzamientoRapidoPage() {
       const cache = leerCache(perfil.empresa_id);
       if (cache) {
         setTarjetas(cache.tarjetas);
-        setMoneda(cache.moneda);
+        setMeta(cache.meta);
         setCargando(false);
         contarJugadasHoy(perfil.empresa_id).then(setVanHoy).catch(() => null);
         if (cache.fresco) return;
       }
 
       try {
-        const { data: empresa } = await supabase.from('empresas').select('moneda').eq('id', perfil.empresa_id).maybeSingle();
-        setMoneda(empresa?.moneda ?? null);
-        await refrescar(perfil.empresa_id, empresa?.moneda ?? null);
+        const { data: empresa } = await supabase
+          .from('empresas')
+          .select('moneda, idioma, perfiles_empresa(codigo)')
+          .eq('id', perfil.empresa_id)
+          .maybeSingle();
+        const relacion = empresa?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
+        const codigo = Array.isArray(relacion) ? relacion[0]?.codigo : relacion?.codigo;
+        const metaNueva: MetaEmpresa = {
+          moneda: empresa?.moneda ?? null,
+          idioma: empresa?.idioma ?? 'ES',
+          esFamiliar: codigo === 'FAMILIAR',
+        };
+        setMeta(metaNueva);
+        await refrescar(perfil.empresa_id, metaNueva);
       } catch (e) {
-        setError((e as { message?: string }).message ?? 'No se pudieron cargar las tarjetas.');
+        setError((e as { message?: string }).message ?? tr('No se pudieron cargar las tarjetas.', 'Não foi possível carregar os cartões.'));
       }
 
       setCargando(false);
@@ -154,10 +168,10 @@ export default function LanzamientoRapidoPage() {
           cliente_proveedor: t.ultimoProveedor,
           valor_sugerido: t.ultimoValor,
         });
-      await refrescar(empresaId, moneda);
+      await refrescar(empresaId, meta);
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'No se pudo guardar la favorita.');
-      await refrescar(empresaId, moneda).catch(() => null);
+      setError((e as { message?: string }).message ?? tr('No se pudo guardar la favorita.', 'Não foi possível salvar o favorito.'));
+      await refrescar(empresaId, meta).catch(() => null);
     }
   }
 
@@ -171,7 +185,7 @@ export default function LanzamientoRapidoPage() {
       cliente_proveedor: '',
       valor_sugerido: Number.isFinite(parsearMontoFav(f.valor)) ? Math.max(0, parsearMontoFav(f.valor)) : 0,
     });
-    await refrescar(empresaId, moneda);
+    await refrescar(empresaId, meta);
   }
 
   function abrirTarjeta(t: TarjetaRapida) {
@@ -190,13 +204,13 @@ export default function LanzamientoRapidoPage() {
     if (!empresaId) return;
 
     const monto = parsearMonto(valor);
-    const problema = validarMonto(monto);
+    const problema = validarMonto(monto, esPT);
     if (problema) {
       setErrorTarjeta(problema);
       return;
     }
     if (!fecha) {
-      setErrorTarjeta('Elegí la fecha.');
+      setErrorTarjeta(tr('Elegí la fecha.', 'Escolha a data.'));
       return;
     }
     if (!confirmarGrande && montoSospechoso(monto, t)) {
@@ -210,18 +224,19 @@ export default function LanzamientoRapidoPage() {
     try {
       const id = await registrarLanzamiento(empresaId, t, monto, fecha);
       invalidarCache(empresaId);
-      const resumen = `${nombreOperacionDisplay('ES', t.operacion, true)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
+      const resumen = `${nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
 
       setUltimo({ id, resumen });
       setAbierta(null);
       setConfirmarGrande(false);
-      setFrase(FRASES_OK[Math.floor(Math.random() * FRASES_OK.length)]);
+      const frasesOk = FRASES_OK[esPT ? 'PT' : 'ES'];
+      setFrase(frasesOk[Math.floor(Math.random() * frasesOk.length)]);
       setVanHoy(await contarJugadasHoy(empresaId).catch(() => null));
 
       if (temporizador.current) clearTimeout(temporizador.current);
       temporizador.current = setTimeout(() => setUltimo(null), SEGUNDOS_DESHACER * 1000);
     } catch (e) {
-      setErrorTarjeta((e as { message?: string }).message ?? 'No se pudo registrar.');
+      setErrorTarjeta((e as { message?: string }).message ?? tr('No se pudo registrar.', 'Não foi possível registrar.'));
     }
 
     setGuardando(false);
@@ -237,10 +252,10 @@ export default function LanzamientoRapidoPage() {
     try {
       await deshacerLanzamiento(empresaId, id);
       invalidarCache(empresaId);
-      setFrase('Deshecho. Esa ola no cuenta.');
+      setFrase(tr('Deshecho. Esa ola no cuenta.', 'Desfeito. Essa onda não conta.'));
       setVanHoy(await contarJugadasHoy(empresaId).catch(() => null));
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'No se pudo deshacer.');
+      setError((e as { message?: string }).message ?? tr('No se pudo deshacer.', 'Não foi possível desfazer.'));
     }
   }
 
@@ -253,7 +268,7 @@ export default function LanzamientoRapidoPage() {
   if (cargando) {
     return (
       <div style={{ ...fondo, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: COLORES.gris }}>Cargando...</p>
+        <p style={{ color: COLORES.gris }}>{tr('Cargando...', 'Carregando...')}</p>
       </div>
     );
   }
@@ -261,8 +276,8 @@ export default function LanzamientoRapidoPage() {
   if (!autorizado) {
     return (
       <div style={{ ...fondo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-        <p style={{ color: COLORES.gris }}>No encontramos esta herramienta para tu empresa.</p>
-        <Link href="/" style={{ color: COLORES.azul }}>← Volver</Link>
+        <p style={{ color: COLORES.gris }}>{tr('No pudimos abrir esta herramienta.', 'Não conseguimos abrir esta ferramenta.')}</p>
+        <Link href="/" style={{ color: COLORES.azul }}>{tr('← Volver', '← Voltar')}</Link>
       </div>
     );
   }
@@ -281,17 +296,17 @@ export default function LanzamientoRapidoPage() {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
             <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-              <Link href="/" style={{ color: '#dbe5ef', fontSize: 13, textDecoration: 'none' }}>← Volver al lobby</Link>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, opacity: 0.75, margin: '10px 0 6px' }}>CARGA EN UN TOQUE</div>
-              <h1 style={{ margin: 0, fontSize: 30 }}>Lanzamiento rápido</h1>
+              <Link href="/" style={{ color: '#dbe5ef', fontSize: 13, textDecoration: 'none' }}>{tr('← Volver al lobby', '← Voltar ao lobby')}</Link>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, opacity: 0.75, margin: '10px 0 6px' }}>{tr('CARGA EN UN TOQUE', 'REGISTRO EM UM TOQUE')}</div>
+              <h1 style={{ margin: 0, fontSize: 30 }}>{tr('Lanzamiento rápido', 'Lançamento rápido')}</h1>
               <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>
-                Tus operaciones de siempre. Tocá una, poné el valor y listo.
+                {tr('Tus operaciones de siempre. Tocá una, poné el valor y listo.', 'Suas operações de sempre. Toque em uma, coloque o valor e pronto.')}
               </p>
               {vanHoy !== null && vanHoy > 0 && (
-                <p style={{ margin: '10px 0 0', fontSize: 13, fontWeight: 700 }}>🔥 Van {vanHoy} hoy</p>
+                <p style={{ margin: '10px 0 0', fontSize: 13, fontWeight: 700 }}>🔥 {tr(`Van ${vanHoy} hoy`, `Já são ${vanHoy} hoje`)}</p>
               )}
             </div>
-            <SabioWidget colores={{ azul: '#1f3a5f', verde: '#2e8b57', blanco: '#ffffff' }} frase={frase} imagenUrl={SABIO_SURFISTA_URL} />
+            <SabioWidget colores={{ azul: '#1f3a5f', verde: '#2e8b57', blanco: '#ffffff' }} frase={frase ?? tr('¡Ola del día lista, socio!', 'Onda do dia pronta, sócio!')} imagenUrl={SABIO_SURFISTA_URL} />
             <AccesosHerramientas variante="oscuro" />
           </div>
         </header>
@@ -323,14 +338,14 @@ export default function LanzamientoRapidoPage() {
               onClick={deshacer}
               style={{ border: '1px solid #15803d', background: '#fff', color: '#15803d', borderRadius: 10, padding: '6px 14px', fontWeight: 700, cursor: 'pointer' }}
             >
-              Deshacer
+              {tr('Deshacer', 'Desfazer')}
             </button>
           </div>
         )}
 
         {tarjetas.length === 0 && !error && (
           <p style={{ color: COLORES.gris, textAlign: 'center', padding: 24 }}>
-            Todavía no hay operaciones repetidas en los últimos 60 días. Cargá algunas y acá van a aparecer, o sumá una favorita con el +.
+            {tr('Todavía no hay operaciones repetidas en los últimos 60 días. Cargá algunas y acá van a aparecer, o sumá una favorita con el +.', 'Ainda não há operações repetidas nos últimos 60 dias. Registre algumas e elas aparecerão aqui, ou adicione um favorito com o +.')}
           </p>
         )}
         <div className="lanzamiento-rapido-grilla">
@@ -353,8 +368,8 @@ export default function LanzamientoRapidoPage() {
                   <button
                     type="button"
                     onClick={() => alternarFavorita(t)}
-                    aria-label={t.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}
-                    title={t.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                    aria-label={t.favorita ? tr('Quitar de favoritas', 'Remover dos favoritos') : tr('Marcar como favorita', 'Marcar como favorito')}
+                    title={t.favorita ? tr('Quitar de favoritas', 'Remover dos favoritos') : tr('Marcar como favorita', 'Marcar como favorito')}
                     style={{ float: 'right', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 20, padding: 0, lineHeight: 1 }}
                   >
                     {t.favorita ? '❤️' : '🤍'}
@@ -366,14 +381,14 @@ export default function LanzamientoRapidoPage() {
                   >
                     <div style={{ fontSize: 28 }}>{estilo.emoji}</div>
                     <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: estilo.color, marginTop: 4 }}>
-                      {nombreOperacionDisplay('ES', t.operacion, true)}
+                      {nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)}
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 15, color: '#1f2937', margin: '2px 0' }}>{t.categoria}</div>
                     <div style={{ fontSize: 12, color: COLORES.gris }}>{t.formaPago}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: estilo.color, marginTop: 8 }}>
                       {t.ultimoValor > 0 ? `${simbolo} ${formatearNumeroEntero(t.ultimoValor)}` : '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.usos > 0 ? `${t.usos} ${t.usos === 1 ? 'uso' : 'usos'}` : 'sin usos recientes'}</div>
+                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.usos > 0 ? `${t.usos} ${t.usos === 1 ? tr('uso', 'uso') : tr('usos', 'usos')}` : tr('sin usos recientes', 'sem usos recentes')}</div>
                   </button>
 
                   {esAbierta && (
@@ -385,7 +400,7 @@ export default function LanzamientoRapidoPage() {
                       )}
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <label style={{ flex: '1 1 140px', fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
-                          Valor
+                          {tr('Valor', 'Valor')}
                           <input
                             type="text"
                             inputMode="decimal"
@@ -399,7 +414,7 @@ export default function LanzamientoRapidoPage() {
                           />
                         </label>
                         <label style={{ flex: '1 1 140px', fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
-                          Fecha
+                          {tr('Fecha', 'Data')}
                           <input
                             type="date"
                             value={fecha}
@@ -411,7 +426,7 @@ export default function LanzamientoRapidoPage() {
 
                       {confirmarGrande && (
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#b45309' }}>
-                          ¿Seguro, socio? Es mucho más de lo habitual (lo normal ronda {simbolo} {formatearNumeroEntero(t.mediana)}). Tocá otra vez para confirmar.
+                          {tr('¿Seguro, socio? Es mucho más de lo habitual', 'Certeza, sócio? É muito mais que o habitual')} ({tr('lo normal ronda', 'o normal gira em torno de')} {simbolo} {formatearNumeroEntero(t.mediana)}). {tr('Tocá otra vez para confirmar.', 'Toque novamente para confirmar.')}
                         </p>
                       )}
                       {errorTarjeta && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{errorTarjeta}</p>}
@@ -422,19 +437,19 @@ export default function LanzamientoRapidoPage() {
                         disabled={guardando}
                         style={{ background: estilo.color, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 16px', fontWeight: 800, fontSize: 15, cursor: guardando ? 'wait' : 'pointer', opacity: guardando ? 0.7 : 1 }}
                       >
-                        {guardando ? 'Registrando...' : confirmarGrande ? 'Sí, registrar' : 'Registrar'}
+                        {guardando ? tr('Registrando...', 'Registrando...') : confirmarGrande ? tr('Sí, registrar', 'Sim, registrar') : tr('Registrar', 'Registrar')}
                       </button>
                     </div>
                   )}
                 </div>
               );
             })}
-            <TarjetaMas empresaId={empresaId} onGuardar={guardarNuevaFavorita} />
+            <TarjetaMas empresaId={empresaId} idioma={meta.idioma} esFamiliar={meta.esFamiliar} onGuardar={guardarNuevaFavorita} />
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Link href="/?jugar=1" style={{ color: COLORES.azul, fontWeight: 700, fontSize: 14 }}>
-            Ver todas las operaciones →
+            {tr('Ver todas las operaciones →', 'Ver todas as operações →')}
           </Link>
         </div>
       </div>
@@ -462,11 +477,17 @@ export default function LanzamientoRapidoPage() {
 // elegir combinaciones que el motor acepta.
 function TarjetaMas({
   empresaId,
+  idioma,
+  esFamiliar,
   onGuardar,
 }: {
   empresaId: string | null;
+  idioma: string;
+  esFamiliar: boolean;
   onGuardar: (f: { operacion: string; categoria: string; formaPago: string; valor: string }) => Promise<void>;
 }) {
+  const esPT = idioma === 'PT';
+  const tr = (es: string, pt: string) => (esPT ? pt : es);
   const [abierta, setAbierta] = useState(false);
   const [operacion, setOperacion] = useState('');
   const [categorias, setCategorias] = useState<string[]>([]);
@@ -498,7 +519,7 @@ function TarjetaMas({
     try {
       setCategorias((await obtenerCategoriasJuego(empresaId, op)).map((c) => c.nombre));
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'No se pudieron cargar las categorías.');
+      setError((e as { message?: string }).message ?? tr('No se pudieron cargar las categorías.', 'Não foi possível carregar as categorias.'));
     }
   }
 
@@ -510,7 +531,7 @@ function TarjetaMas({
     try {
       setMedios(await obtenerFormasPagoOperacion(empresaId, operacion, cat));
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'No se pudieron cargar los medios.');
+      setError((e as { message?: string }).message ?? tr('No se pudieron cargar los medios.', 'Não foi possível carregar os meios.'));
     }
   }
 
@@ -521,7 +542,7 @@ function TarjetaMas({
       await onGuardar({ operacion, categoria, formaPago: medio, valor });
       cerrar();
     } catch (e) {
-      setError((e as { message?: string }).message ?? 'No se pudo guardar.');
+      setError((e as { message?: string }).message ?? tr('No se pudo guardar.', 'Não foi possível salvar.'));
     }
     setGuardando(false);
   }
@@ -557,19 +578,19 @@ function TarjetaMas({
         }}
       >
         <span style={{ fontSize: 36, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 12, fontWeight: 700 }}>Agregar favorita ❤️</span>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>{tr('Agregar favorita ❤️', 'Adicionar favorito ❤️')}</span>
       </button>
     );
   }
 
   return (
     <div style={{ gridColumn: '1 / -1', background: '#fff', border: '2px solid #1f3a5f', borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <strong style={{ fontSize: 15 }}>Nueva favorita ❤️</strong>
+      <strong style={{ fontSize: 15 }}>{tr('Nueva favorita ❤️', 'Novo favorito ❤️')}</strong>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {OPERACIONES_RAPIDAS.map((op) => (
           <button key={op} type="button" onClick={() => elegirOperacion(op)} style={chip(operacion === op)}>
-            {nombreOperacionDisplay('ES', op, true)}
+            {nombreOperacionDisplay(idioma, op, esFamiliar)}
           </button>
         ))}
       </div>
@@ -596,7 +617,7 @@ function TarjetaMas({
 
       {medio && (
         <label style={{ fontSize: 12, fontWeight: 700, color: '#6e7781' }}>
-          Valor habitual (opcional)
+          {tr('Valor habitual (opcional)', 'Valor habitual (opcional)')}
           <input
             type="text"
             inputMode="decimal"
@@ -616,10 +637,10 @@ function TarjetaMas({
           disabled={!medio || guardando}
           style={{ background: '#1f3a5f', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontWeight: 800, cursor: !medio || guardando ? 'not-allowed' : 'pointer', opacity: !medio || guardando ? 0.5 : 1 }}
         >
-          {guardando ? 'Guardando...' : 'Guardar favorita'}
+          {guardando ? tr('Guardando...', 'Salvando...') : tr('Guardar favorita', 'Salvar favorito')}
         </button>
         <button type="button" onClick={cerrar} style={{ background: 'transparent', border: '1px solid #d1d5db', borderRadius: 12, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>
-          Cancelar
+          {tr('Cancelar', 'Cancelar')}
         </button>
       </div>
     </div>

@@ -26,7 +26,6 @@ import { SabioHero } from '@/components/panel/SabioHero';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
-import { empresaTieneLanzamientoRapido } from '@/lib/perfilCapacidades';
 import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobby';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
@@ -854,7 +853,7 @@ export default function InicioPage() {
 
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
-        {perfil && empresaTieneLanzamientoRapido(perfil.empresa_id) && <LanzamientoRapidoLobby />}
+        {perfil && <LanzamientoRapidoLobby idioma={idioma} />}
 
         {perfil && (
           <SabioBotLobby

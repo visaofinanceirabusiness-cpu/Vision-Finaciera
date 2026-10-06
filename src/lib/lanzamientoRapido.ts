@@ -113,8 +113,8 @@ export function parsearMonto(texto: string): number {
   return Number(normal);
 }
 
-export function validarMonto(monto: number): string | null {
-  if (!Number.isFinite(monto) || monto <= 0) return 'Poné un valor mayor a cero.';
+export function validarMonto(monto: number, esPT = false): string | null {
+  if (!Number.isFinite(monto) || monto <= 0) return esPT ? 'Coloque um valor maior que zero.' : 'Poné un valor mayor a cero.';
   return null;
 }
 

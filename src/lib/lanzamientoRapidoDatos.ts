@@ -86,20 +86,23 @@ function claveCache(empresaId: string): string {
   return `lanzamientoRapido:${empresaId}`;
 }
 
-export function leerCache(empresaId: string): { tarjetas: TarjetaRapida[]; moneda: string | null; fresco: boolean } | null {
+export type MetaEmpresa = { moneda: string | null; idioma: string; esFamiliar: boolean };
+
+export function leerCache(empresaId: string): { tarjetas: TarjetaRapida[]; meta: MetaEmpresa; fresco: boolean } | null {
   try {
     const crudo = window.localStorage.getItem(claveCache(empresaId));
     if (!crudo) return null;
-    const { t, tarjetas, moneda } = JSON.parse(crudo);
-    return { tarjetas, moneda: moneda ?? null, fresco: Date.now() - t < MINUTOS_FRESCO * 60_000 };
+    const { t, tarjetas, meta } = JSON.parse(crudo);
+    if (!meta) return null;
+    return { tarjetas, meta: meta as MetaEmpresa, fresco: Date.now() - t < MINUTOS_FRESCO * 60_000 };
   } catch {
     return null;
   }
 }
 
-export function guardarCache(empresaId: string, tarjetas: TarjetaRapida[], moneda: string | null): void {
+export function guardarCache(empresaId: string, tarjetas: TarjetaRapida[], meta: MetaEmpresa): void {
   try {
-    window.localStorage.setItem(claveCache(empresaId), JSON.stringify({ t: Date.now(), tarjetas, moneda }));
+    window.localStorage.setItem(claveCache(empresaId), JSON.stringify({ t: Date.now(), tarjetas, meta }));
   } catch {
     // sin caché, la pantalla igual funciona
   }
