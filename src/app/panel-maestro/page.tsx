@@ -665,6 +665,13 @@ export default function PanelMaestroPage() {
               titulo="Análisis Mensual Automático"
               color="#0891b2"
             />
+
+            <TarjetaHerramientaMaestro
+              href="/panel-maestro/probar-tutorial"
+              emoji="🧪"
+              titulo="Probar tutorial de empresas nuevas"
+              color="#be185d"
+            />
           </div>
         </section>
 
