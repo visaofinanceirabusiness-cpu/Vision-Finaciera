@@ -33,6 +33,7 @@
 // nombreOperacionDisplay, igual que en Contabilidad.
 
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
+import { compromisosAbiertosDeCategoria } from './compromisosAbiertos';
 import { supabase } from './supabase';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
@@ -46,6 +47,7 @@ type Paso =
   | 'FECHA'
   | 'OPERACION'
   | 'CATEGORIA'
+  | 'AVISO_COMPROMISO'
   | 'FORMA_PAGO'
   | 'CONTACTO'
   | 'CONTACTO_TELEFONO'
@@ -77,6 +79,10 @@ type Datos = {
   // CONTACTO_TELEFONO) — solo se usa para Venta/Cobro, igual que el
   // modal "Nuevo cliente" de Contabilidad (ver avanzarAContactoNuevo).
   contactoNombreNuevo?: string;
+  // Paso AVISO_COMPROMISO: la categoría elegida y a qué categorías de
+  // liquidación se puede redirigir (opciones 1..N; la última es seguir igual).
+  categoriaOriginal?: string;
+  categoriasCompromiso?: string[];
   esStock?: boolean;
   productoId?: string;
   productoNombre?: string;
@@ -333,8 +339,40 @@ async function avanzarDesdeCategoria(
   empresaId: string,
   datos: Datos,
   categoria: string,
-  idioma: string | undefined
+  idioma: string | undefined,
+  saltearAviso = false
 ): Promise<string> {
+  // Aviso "ya lo devengaste": un cobro/pago de una categoría con compromisos
+  // devengados y con saldo se ofrece contra la cuenta del compromiso, para no
+  // contar el ingreso dos veces (ver lib/compromisosAbiertos.ts).
+  if (!saltearAviso && (datos.operacion === 'COBRO' || datos.operacion === 'PAGO')) {
+    const compromisos = await compromisosAbiertosDeCategoria(empresaId, datos.operacion, categoria).catch(() => []);
+
+    if (compromisos.length > 0) {
+      const cobro = datos.operacion === 'COBRO';
+      const simbolo = datos.simbolo ?? 'R$';
+      const categoriasCompromiso = compromisos.map((c) => c.categoriaLiquidacion);
+
+      await guardarConversacion(empresaId, 'AVISO_COMPROMISO', { ...datos, categoriaOriginal: categoria, categoriasCompromiso });
+
+      const lista = compromisos.map((c) => `• ${c.nombre} — ${simbolo} ${formatearNumeroEntero(c.saldo)}`).join('\n');
+      const opciones = [
+        ...categoriasCompromiso.map((c) => `${cobro ? t(idioma, 'Cobrar', 'Receber') : t(idioma, 'Pagar', 'Pagar')} → ${c}`),
+        t(idioma, `Es otra cosa, seguir con "${categoria}"`, `É outra coisa, continuar com "${categoria}"`),
+      ];
+
+      return `${t(
+        idioma,
+        `⚠️ Este mes ya tenés ${cobro ? 'por cobrar' : 'por pagar'}:`,
+        `⚠️ Você já tem ${cobro ? 'a receber' : 'a pagar'} neste mês:`
+      )}\n${lista}\n\n${t(
+        idioma,
+        `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, registralo contra la cuenta del compromiso para que no se cuente dos veces.`,
+        `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, registre contra a conta do compromisso para não contar duas vezes.`
+      )}\n\n${numerarLista(opciones)}`;
+    }
+  }
+
   const esStock = datos.stockPorCategoria?.[categoria] === 'SI';
 
   const formasPago = await obtenerFormasPagoOperacion(empresaId, datos.operacion ?? '', categoria);
@@ -481,6 +519,22 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   // 2. CATEGORÍA
   // ---------------------------------------------------
+  if (paso === 'AVISO_COMPROMISO') {
+    const categoriasCompromiso = datos.categoriasCompromiso ?? [];
+    const n = parseNumero(texto, categoriasCompromiso.length + 1);
+
+    if (n === null) {
+      return t(
+        idioma,
+        `No entendí. Respondé con un número del 1 al ${categoriasCompromiso.length + 1}, o "cancelar".`,
+        `Não entendi. Responda com um número de 1 a ${categoriasCompromiso.length + 1}, ou "cancelar".`
+      );
+    }
+
+    const elegida = n <= categoriasCompromiso.length ? categoriasCompromiso[n - 1] : (datos.categoriaOriginal ?? '');
+    return avanzarDesdeCategoria(empresaId, datos, elegida, idioma, true);
+  }
+
   if (paso === 'CATEGORIA') {
     const opciones = datos.opciones ?? [];
     const n = parseNumero(texto, opciones.length);
