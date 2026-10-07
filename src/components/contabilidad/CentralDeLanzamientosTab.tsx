@@ -6,6 +6,8 @@
 // en su propio archivo (Fase 2 de mantenimiento).
 
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
+import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -143,6 +145,8 @@ export function CentralDeLanzamientosTab({
 
   const [categorias, setCategorias] = useState<string[]>([]);
   const [categoria, setCategoria] = useState(valoresIniciales?.categoria ?? '');
+  // Aviso "ya lo devengaste": la categoría elegida tiene compromisos devengados con saldo.
+  const [compromisosAbiertos, setCompromisosAbiertos] = useState<CompromisoAbierto[]>([]);
 
   // Si la categoría elegida mueve stock (según la Matriz de Operações)
   // o no — una Venta/Compra/Pérdida de una categoría de servicio
@@ -404,6 +408,26 @@ export function CentralDeLanzamientosTab({
     setLineas([{ producto: '', cantidad: formularioSimple ? 1 : 0, monto: 0, unidadCarga: '' }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoria]);
+
+  useEffect(() => {
+    if (!empresaId || modoEdicion || !categoria || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
+      setCompromisosAbiertos([]);
+      return;
+    }
+
+    let cancelado = false;
+    compromisosAbiertosDeCategoria(empresaId, operacion, categoria)
+      .then((items) => {
+        if (!cancelado) setCompromisosAbiertos(items);
+      })
+      .catch(() => {
+        if (!cancelado) setCompromisosAbiertos([]);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, modoEdicion, operacion, categoria]);
 
   const etiquetaRelacionActual = etiquetaRelacion(idioma, esFamiliar, operacion);
 
@@ -1581,6 +1605,18 @@ export function CentralDeLanzamientosTab({
           )}
 
           {saldoDestino && <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />}
+
+          {compromisosAbiertos.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <AvisoCompromisosAbiertos
+                items={compromisosAbiertos}
+                operacion={operacion}
+                idioma={idioma ?? 'ES'}
+                simbolo={simbolo}
+                onElegir={(item) => setCategoria(item.categoriaLiquidacion)}
+              />
+            </div>
+          )}
         </Campo>
 
         <Campo label={esTransferencia ? t('labelDesdeCuenta') : t('labelFormaPago')}>
