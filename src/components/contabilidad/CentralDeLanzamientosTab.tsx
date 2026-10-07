@@ -5,6 +5,7 @@
 // Extraído de app/contabilidad/page.tsx — mismo comportamiento, solo
 // en su propio archivo (Fase 2 de mantenimiento).
 
+import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -1301,6 +1302,9 @@ export function CentralDeLanzamientosTab({
           console.warn('No se pudo actualizar el saldo del gasto recurrente:', errorRecordatorio);
         }
       }
+
+      // Después de la asociación explícita de arriba (así no se cuenta dos veces).
+      conciliarTrasRegistrar(empresaId);
 
       if (puedeEnCuotas && enCuotas) {
         const cantidad = Number(cantidadCuotas);
