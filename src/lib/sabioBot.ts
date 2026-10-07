@@ -32,6 +32,7 @@
 // nombre de la operación (VENTA/COBRO/etc.), vía
 // nombreOperacionDisplay, igual que en Contabilidad.
 
+import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
@@ -737,6 +738,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         socio: '',
         lineas,
       });
+      conciliarTrasRegistrar(empresaId);
 
       await borrarConversacion(empresaId);
 

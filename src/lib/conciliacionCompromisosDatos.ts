@@ -128,6 +128,15 @@ async function conciliarLado(empresaId: string, lado: Lado): Promise<number> {
   return asignaciones.length;
 }
 
+// Para llamar justo después de registrar una operación por cualquier camino:
+// si fue un cobro/pago contra una cuenta a cobrar/pagar, queda asociado al mes al
+// instante. Sin esperar y sin romper el registro si falla.
+export function conciliarTrasRegistrar(empresaId: string): void {
+  void Promise.all([conciliarCompromisos(empresaId, 'COBRAR'), conciliarCompromisos(empresaId, 'PAGAR')]).catch((e) =>
+    console.warn('No se pudo conciliar tras registrar:', e)
+  );
+}
+
 // Una sola corrida a la vez por empresa y lado (el lobby y la pantalla abierta
 // pueden pedirla al mismo tiempo y duplicarían las asociaciones).
 const enCurso = new Map<string, Promise<number>>();

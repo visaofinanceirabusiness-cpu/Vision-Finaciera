@@ -4,6 +4,7 @@
 // motor de siempre (registrarOperacion / eliminarOperacion): acá no hay
 // lógica contable nueva.
 
+import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
 import { fechaLocalHoy } from './fecha';
 import { registrarOperacion, eliminarOperacion } from './motor';
@@ -131,6 +132,8 @@ export async function registrarLanzamiento(
     clienteProveedor: tarjeta.ultimoProveedor,
     lineas: [{ producto: '', cantidad: 1, monto }],
   });
+
+  conciliarTrasRegistrar(empresaId);
 
   return resultado.idOperacion as string;
 }

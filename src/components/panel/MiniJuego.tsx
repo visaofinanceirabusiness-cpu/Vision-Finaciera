@@ -12,6 +12,7 @@
 // lógica contable nueva: cero riesgo de que un asiento salga mal por
 // este camino que no salga también por los otros dos.
 
+import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
 import {
@@ -419,6 +420,7 @@ export function MiniJuego({
         clienteProveedor: clienteProveedor.trim(),
         lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
+      if (!simulacion) conciliarTrasRegistrar(empresaId);
 
       let numeroDelDia: number;
       if (simulacion) {
