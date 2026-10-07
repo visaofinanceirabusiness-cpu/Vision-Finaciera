@@ -30,6 +30,8 @@ import {
   invalidarCache,
   type MetaEmpresa,
 } from '@/lib/lanzamientoRapidoDatos';
+import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { OPERACIONES_RAPIDAS, parsearMonto as parsearMontoFav } from '@/lib/lanzamientoRapido';
 import { obtenerCategoriasJuego } from '@/lib/miniJuego';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
@@ -71,6 +73,10 @@ export default function LanzamientoRapidoPage() {
   const [errorTarjeta, setErrorTarjeta] = useState('');
   const [confirmarGrande, setConfirmarGrande] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // Aviso "ya lo devengaste" de la tarjeta abierta, y la categoría del compromiso si se eligió.
+  const [avisos, setAvisos] = useState<CompromisoAbierto[]>([]);
+  const [categoriaAlt, setCategoriaAlt] = useState<string | null>(null);
+  const abiertaRef = useRef<string | null>(null);
 
   const [frase, setFrase] = useState<string | null>(null);
   const [vanHoy, setVanHoy] = useState<number | null>(null);
@@ -191,9 +197,20 @@ export default function LanzamientoRapidoPage() {
   function abrirTarjeta(t: TarjetaRapida) {
     if (abierta === t.clave) {
       setAbierta(null);
+      abiertaRef.current = null;
       return;
     }
     setAbierta(t.clave);
+    abiertaRef.current = t.clave;
+    setAvisos([]);
+    setCategoriaAlt(null);
+    if (empresaId && (t.operacion === 'COBRO' || t.operacion === 'PAGO')) {
+      compromisosAbiertosDeCategoria(empresaId, t.operacion, t.categoria)
+        .then((items) => {
+          if (abiertaRef.current === t.clave) setAvisos(items);
+        })
+        .catch(() => null);
+    }
     setValor(String(t.ultimoValor).replace('.', ','));
     setFecha(fechaLocalHoy());
     setErrorTarjeta('');
@@ -222,12 +239,13 @@ export default function LanzamientoRapidoPage() {
     setErrorTarjeta('');
 
     try {
-      const id = await registrarLanzamiento(empresaId, t, monto, fecha);
+      const id = await registrarLanzamiento(empresaId, categoriaAlt ? { ...t, categoria: categoriaAlt } : t, monto, fecha);
       invalidarCache(empresaId);
       const resumen = `${nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
 
       setUltimo({ id, resumen });
       setAbierta(null);
+      abiertaRef.current = null;
       setConfirmarGrande(false);
       const frasesOk = FRASES_OK[esPT ? 'PT' : 'ES'];
       setFrase(frasesOk[Math.floor(Math.random() * frasesOk.length)]);
@@ -423,6 +441,20 @@ export default function LanzamientoRapidoPage() {
                           />
                         </label>
                       </div>
+
+                      {categoriaAlt ? (
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+                          {tr('Se registra contra:', 'Será registrado contra:')} {categoriaAlt}
+                        </p>
+                      ) : (
+                        <AvisoCompromisosAbiertos
+                          items={avisos}
+                          operacion={t.operacion}
+                          idioma={meta.idioma}
+                          simbolo={simbolo}
+                          onElegir={(item) => setCategoriaAlt(item.categoriaLiquidacion)}
+                        />
+                      )}
 
                       {confirmarGrande && (
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#b45309' }}>

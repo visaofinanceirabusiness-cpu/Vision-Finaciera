@@ -32,6 +32,8 @@ import { saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 import type { DatosSimulados } from '@/lib/tutorialSimulacion';
+import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -133,6 +135,8 @@ export function MiniJuego({
   const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
   const [saldosPorCategoria, setSaldosPorCategoria] = useState<Record<string, number>>({});
   const [jugadasSimuladas, setJugadasSimuladas] = useState(0);
+  // Aviso "ya lo devengaste": la categoría tocada tiene compromisos devengados con saldo.
+  const [avisoCompromisos, setAvisoCompromisos] = useState<{ categoria: string; items: CompromisoAbierto[] } | null>(null);
 
   useEffect(() => {
     if (!operacion) return;
@@ -240,6 +244,7 @@ export function MiniJuego({
   }
 
   function elegirOperacion(op: string) {
+    setAvisoCompromisos(null);
     setOperacion(op);
     setCategoria('');
     setFormaPago('');
@@ -257,7 +262,23 @@ export function MiniJuego({
     setPaso('categoria');
   }
 
+  async function tocarCategoria(cat: string) {
+    if (simulacion || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
+      elegirCategoria(cat);
+      return;
+    }
+
+    const items = await compromisosAbiertosDeCategoria(empresaId, operacion, cat).catch(() => []);
+
+    if (items.length > 0) {
+      setAvisoCompromisos({ categoria: cat, items });
+    } else {
+      elegirCategoria(cat);
+    }
+  }
+
   function elegirCategoria(cat: string) {
+    setAvisoCompromisos(null);
     setCategoria(cat);
     setFormaPago('');
     setClienteProveedor('');
@@ -365,6 +386,7 @@ export function MiniJuego({
   }
 
   function volver() {
+    setAvisoCompromisos(null);
     setError('');
     setBusqueda('');
     setCreandoContacto(false);
@@ -695,8 +717,18 @@ export function MiniJuego({
               </p>
             ) : (
               <>
-                {categorias.length > MINIMO_PARA_BUSCADOR && buscador}
-                {categoriasFiltradas.length === 0 ? (
+                {avisoCompromisos ? (
+                  <AvisoCompromisosAbiertos
+                    items={avisoCompromisos.items}
+                    operacion={operacion}
+                    idioma={idioma}
+                    simbolo={simbolo}
+                    onElegir={(item) => elegirCategoria(item.categoriaLiquidacion)}
+                    onSeguir={() => elegirCategoria(avisoCompromisos.categoria)}
+                  />
+                ) : null}
+                {avisoCompromisos ? null : categorias.length > MINIMO_PARA_BUSCADOR && buscador}
+                {avisoCompromisos ? null : categoriasFiltradas.length === 0 ? (
                   <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
                     {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
                   </p>
@@ -706,7 +738,7 @@ export function MiniJuego({
                       tarjeta(
                         iconosCategorias[cat.nombre] ?? iconoParaTexto(cat.nombre),
                         cat.nombre,
-                        () => elegirCategoria(cat.nombre),
+                        () => tocarCategoria(cat.nombre),
                         cat.nombre,
                         cat.nombre in saldosPorCategoria ? formatearSaldo(saldosPorCategoria[cat.nombre]) : undefined
                       )
