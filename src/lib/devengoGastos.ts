@@ -18,6 +18,7 @@
 // cada paso es idempotente: la fila se "reclama" (estado DEVENGANDO)
 // antes de registrar, así dos pestañas abiertas a la vez no duplican.
 
+import { conciliarCompromisos } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
 import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
@@ -345,6 +346,8 @@ export async function ejecutarDevengo(empresaId: string) {
 
   await mantenerVentana(empresaId);
   await devengarPendientes(empresaId);
+  // Pagos cargados por otro camino (Mini-Juego, Sabio Bot...) quedan asociados al mes.
+  await conciliarCompromisos(empresaId, 'PAGAR').catch((e) => console.warn('No se pudo conciliar pagos:', e));
 }
 
 // Confirma el monto real de un gasto variable (luz, agua) y lo devenga.

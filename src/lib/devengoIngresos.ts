@@ -18,6 +18,7 @@
 // duplicar, y el cobro de un ingreso devengado usa la categoría de
 // liquidación y nunca supera lo que falta (ver registrarCobroRecordatorio).
 
+import { conciliarCompromisos } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
 import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
@@ -337,6 +338,8 @@ export async function ejecutarDevengoIngresos(empresaId: string) {
 
   await mantenerVentanaIngresos(empresaId);
   await devengarPendientesIngresos(empresaId);
+  // Cobros cargados por otro camino (Mini-Juego, Sabio Bot...) quedan asociados al mes.
+  await conciliarCompromisos(empresaId, 'COBRAR').catch((e) => console.warn('No se pudo conciliar cobros:', e));
 }
 
 // Confirma el monto real de un ingreso variable (ej. un sueldo con comisiones) y lo devenga.
