@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { ChartCard } from './ChartCard';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioCharts } from './i18nCharts';
@@ -34,8 +35,17 @@ const COLOR_GASTOS = '#dc2626';
 const COLOR_AHORRO = '#1f3a5f';
 const COLOR_DEFICIT = '#dc2626';
 
-export function EvolucionFamiliarChart({ datos, simbolo = 'R$', idioma = 'ES' }: { datos: PuntoMesFamiliar[]; simbolo?: string; idioma?: string }) {
+export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', idioma = 'ES' }: { datos: PuntoMesFamiliar[]; simbolo?: string; idioma?: string }) {
   const t = crearTraductor(diccionarioCharts, idioma);
+
+  // Filtro por año: por defecto el año en curso (si no hay datos de ese año, el
+  // último con datos). Con varios años juntos los meses quedaban muy apretados.
+  const anios = Array.from(new Set(todosLosDatos.map((d) => Number(d.clave.slice(0, 4))))).sort((a, b) => a - b);
+  const [anioElegido, setAnioElegido] = useState<number | 'TODOS' | null>(null);
+  const anioPorDefecto = anios.includes(new Date().getFullYear()) ? new Date().getFullYear() : (anios[anios.length - 1] ?? null);
+  const anioActivo = anioElegido ?? anioPorDefecto;
+  const datos = anioActivo === 'TODOS' || anioActivo === null ? todosLosDatos : todosLosDatos.filter((d) => Number(d.clave.slice(0, 4)) === anioActivo);
+
   const locale = idioma === 'PT' ? 'pt-BR' : 'es-AR';
   const ancho = 1180;
   const alto = 340;
@@ -93,6 +103,19 @@ export function EvolucionFamiliarChart({ datos, simbolo = 'R$', idioma = 'ES' }:
         <Referencia color={COLOR_GASTOS} etiqueta={t('gastos')} />
         <Referencia color={COLOR_AHORRO} etiqueta={t('ahorro')} />
       </div>
+
+      {anios.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {[...anios].reverse().map((anio) => (
+            <ChipAnio key={anio} activo={anioActivo === anio} onClick={() => setAnioElegido(anio)}>
+              {anio}
+            </ChipAnio>
+          ))}
+          <ChipAnio activo={anioActivo === 'TODOS'} onClick={() => setAnioElegido('TODOS')}>
+            Todos
+          </ChipAnio>
+        </div>
+      )}
 
       <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 340, display: 'block' }}>
         {[0, 0.25, 0.5, 0.75, 1].map((factor) => {
@@ -215,6 +238,27 @@ function EtiquetaValor({
         {texto}
       </text>
     </g>
+  );
+}
+
+function ChipAnio({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        border: `1px solid ${activo ? COLOR_AHORRO : '#d1d5db'}`,
+        background: activo ? COLOR_AHORRO : '#fff',
+        color: activo ? '#fff' : '#374151',
+        borderRadius: 999,
+        padding: '5px 14px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
