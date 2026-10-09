@@ -189,6 +189,29 @@ export function MisIngresos({
 
   return (
     <div>
+      {/* Mismo apilado en celular que Mis Vencimientos (.mv-*): sin esto cada fila
+          dependía de scroll horizontal para ver el monto y los botones. */}
+      <style>{`
+        @media (max-width: 560px) {
+          .mi-fila {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            overflow-x: visible !important;
+          }
+          .mi-texto {
+            white-space: normal !important;
+            width: 100%;
+          }
+          .mi-derecha {
+            position: static !important;
+            width: 100%;
+            justify-content: space-between !important;
+            padding-left: 0 !important;
+            margin-top: 4px;
+          }
+        }
+      `}</style>
+
       <p style={{ margin: '0 0 14px', fontSize: 12, color: '#6e7781' }}>
         {esPT ? 'Receitas recorrentes por cobrar, tudo em um só lugar.' : 'Ingresos recurrentes por cobrar, todo en un mismo lugar.'}
       </p>
@@ -275,7 +298,8 @@ export function MisIngresos({
                       return (
                         <div
                           key={cuota.id}
-                          style={{
+                          className="mi-fila"
+style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
@@ -289,11 +313,12 @@ export function MisIngresos({
                             overflowX: 'auto',
                           }}
                         >
-                          <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
+                          <span className="mi-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                             {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_vencimiento}
                             {vencida && <strong style={{ color: '#dc2626', marginLeft: 6 }}>{esPT ? 'Vencida' : 'Vencida'}</strong>}
                           </span>
                           <span
+                            className="mi-derecha"
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -334,7 +359,8 @@ export function MisIngresos({
                 {cuotasCobradas.map((cuota) => (
                   <div
                     key={cuota.id}
-                    style={{
+                    className="mi-fila"
+style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -348,10 +374,11 @@ export function MisIngresos({
                       overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                    <span className="mi-texto" style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       ✓ {cuota.forma_pago_nombre} {cuota.numero_cuota}/{cuota.total_cuotas} — {cuota.fecha_cobro ?? cuota.fecha_vencimiento}
                     </span>
                     <strong
+                      className="mi-derecha"
                       style={{
                         fontSize: 12.5,
                         color: '#16a34a',
@@ -396,7 +423,8 @@ export function MisIngresos({
               return (
                 <div
                   key={recordatorio.id}
-                  style={{
+                  className="mi-fila"
+style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -410,7 +438,7 @@ export function MisIngresos({
                     overflowX: 'auto',
                   }}
                 >
-                  <span style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
+                  <span className="mi-texto" style={{ fontSize: 12.5, color: '#1f2937', whiteSpace: 'nowrap' }}>
                     {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                     {recordatorio.estado && (
                       <span style={{ marginLeft: 6, padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, background: recordatorio.estado === 'DEVENGADA' ? '#dcfce7' : '#e0e7ff', color: recordatorio.estado === 'DEVENGADA' ? '#166534' : '#3730a3' }}>
@@ -427,6 +455,7 @@ export function MisIngresos({
                     )}
                   </span>
                   <span
+                    className="mi-derecha"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -502,7 +531,8 @@ export function MisIngresos({
                 return (
                   <div
                     key={recordatorio.id}
-                    style={{
+                    className="mi-fila"
+style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -516,7 +546,7 @@ export function MisIngresos({
                       overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
+                    <span className="mi-texto" style={{ fontSize: 12.5, color: '#6e7781', whiteSpace: 'nowrap' }}>
                       ✓ {recordatorio.nombre} — {recordatorio.fecha_vencimiento}
                       {deMas > 0.01 && (
                         <div style={{ fontSize: 11, color: '#b45309' }}>
@@ -527,6 +557,7 @@ export function MisIngresos({
                       )}
                     </span>
                     <strong
+                      className="mi-derecha"
                       style={{
                         fontSize: 12.5,
                         color: '#16a34a',
@@ -562,7 +593,8 @@ export function MisIngresos({
                   return (
                   <div
                     key={plantilla.id}
-                    style={{
+                    className="mi-fila"
+style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -576,7 +608,7 @@ export function MisIngresos({
                       overflowX: 'auto',
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781', whiteSpace: 'nowrap' }}>
+                    <span className="mi-texto" style={{ fontSize: 12, fontWeight: 700, color: plantilla.activo ? colores.azul : '#6e7781', whiteSpace: 'nowrap' }}>
                       {plantilla.nombre}
                       <span style={{ fontWeight: 400, color: '#6e7781' }}>
                         {' '}
@@ -586,6 +618,7 @@ export function MisIngresos({
                     </span>
 
                     <span
+                      className="mi-derecha"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
