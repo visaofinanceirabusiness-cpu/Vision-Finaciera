@@ -118,6 +118,8 @@ export default function MiNegocioPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [mostrarBienvenidaTutorial, setMostrarBienvenidaTutorial] = useState(false);
+  // Gráficos de composición (activo / pasivo / patrimonio): ocultos hasta que se abren.
+  const [mostrarGraficosSituacion, setMostrarGraficosSituacion] = useState(false);
   const [recordatorioUrgente, setRecordatorioUrgente] = useState<RecordatorioGastoRecurrente | null>(null);
   const [mostrarDialogoGasto, setMostrarDialogoGasto] = useState(false);
   const [refrescarVencimientos, setRefrescarVencimientos] = useState(0);
@@ -780,6 +782,14 @@ export default function MiNegocioPage() {
             </p>
           </div>
 
+          <SaldoEnCajaGrande
+            titulo={t('saldoEnCaja')}
+            valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
+            ayuda={esFamiliar ? t('ayudaSaldoEnCajaFamilia') : t('ayudaSaldoEnCaja')}
+            color={colores.azul}
+            colorSecundario={colores.verde}
+          />
+
           <div
             style={{
               display: 'grid',
@@ -855,14 +865,6 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
-                    titulo={t('saldoEnCaja')}
-                    valor={`${simbolo} ${formatearNumero(indicadores?.cajaDisponible ?? 0)}`}
-                    emoji="💵"
-                    color={colores.azul}
-                    ayuda={t('ayudaSaldoEnCaja')}
-                  />
-
-                  <ResumenEjecutivoCard
                     titulo={t('stockBajo')}
                     valor={`${indicadores?.stockBajo ?? 0} ${t('productos')}`}
                     emoji="📦"
@@ -874,6 +876,33 @@ export default function MiNegocioPage() {
             })()}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setMostrarGraficosSituacion((v) => !v)}
+            aria-expanded={mostrarGraficosSituacion}
+            style={{
+              marginTop: 16,
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              background: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              borderRadius: 14,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 800,
+              color: colores.azul,
+              cursor: 'pointer',
+            }}
+          >
+            <span>📊 {mostrarGraficosSituacion ? t('ocultarGraficos') : t('verGraficos')}</span>
+            <span aria-hidden="true">{mostrarGraficosSituacion ? '▴' : '▾'}</span>
+          </button>
+
+          {mostrarGraficosSituacion && (
+            <div>
           {/* El Activo va en su propia fila, a todo el ancho — con
               muchas cuentas (Providencia, Super Caixinha, Muebles...)
               la lista de referencias no entra al lado de la torta si
@@ -920,6 +949,9 @@ export default function MiNegocioPage() {
               grande
             />
           </div>
+
+            </div>
+          )}
 
           {perfil?.empresa_id && (
             <CompromisosProgramadosResumen
@@ -1830,6 +1862,69 @@ function ProgresoNivelBanner({
           : t('nivelMaximo')}
       </div>
     </div>
+  );
+}
+
+// Saldo en caja: el indicador principal de la pantalla (mismo valor que
+// "Caja disponible hoy" de Informes → Flujo de Caja: ver cajaDisponible en
+// lib/contabilidad.ts). Grande y con un cofre del tesoro.
+function SaldoEnCajaGrande({
+  titulo,
+  valor,
+  ayuda,
+  color,
+  colorSecundario,
+}: {
+  titulo: string;
+  valor: string;
+  ayuda: string;
+  color: string;
+  colorSecundario: string;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 18,
+        flexWrap: 'wrap',
+        marginBottom: 14,
+        padding: '20px 22px',
+        borderRadius: 20,
+        background: `linear-gradient(125deg, ${color} 0%, ${color} 55%, ${colorSecundario} 100%)`,
+        color: '#ffffff',
+        boxShadow: '0 12px 28px rgba(31,58,95,0.18)',
+      }}
+    >
+      <CofreDinero />
+
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', opacity: 0.9 }}>
+          <span>{titulo}</span>
+          <IconoAyuda texto={ayuda} color="#ffffff" />
+        </div>
+        <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 900, lineHeight: 1.1, marginTop: 4, wordBreak: 'break-word' }}>{valor}</div>
+      </div>
+    </div>
+  );
+}
+
+// Cofre del tesoro con monedas, dibujado a mano (no hay emoji de cofre).
+function CofreDinero() {
+  return (
+    <svg width="76" height="76" viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="22" cy="14" r="7" fill="#fbbf24" stroke="#b45309" strokeWidth="1.5" />
+      <circle cx="34" cy="11" r="7" fill="#fcd34d" stroke="#b45309" strokeWidth="1.5" />
+      <circle cx="44" cy="15" r="6" fill="#fbbf24" stroke="#b45309" strokeWidth="1.5" />
+      <text x="34" y="14.5" textAnchor="middle" fontSize="9" fontWeight="900" fill="#92400e">$</text>
+      <path d="M8 30 Q8 20 32 20 Q56 20 56 30 Z" fill="#a16207" stroke="#713f12" strokeWidth="2" />
+      <rect x="8" y="30" width="48" height="26" rx="3" fill="#ca8a04" stroke="#713f12" strokeWidth="2" />
+      <rect x="8" y="30" width="48" height="6" fill="#a16207" stroke="#713f12" strokeWidth="2" />
+      <rect x="26" y="29" width="12" height="14" rx="2" fill="#fde68a" stroke="#713f12" strokeWidth="2" />
+      <circle cx="32" cy="35" r="2" fill="#713f12" />
+      <rect x="31" y="35" width="2" height="5" fill="#713f12" />
+      <path d="M14 30 V56 M50 30 V56" stroke="#713f12" strokeWidth="2" />
+    </svg>
   );
 }
 
