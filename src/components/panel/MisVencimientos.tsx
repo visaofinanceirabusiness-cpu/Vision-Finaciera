@@ -190,6 +190,24 @@ export function MisVencimientos({
           reglas, solo por debajo de 560px, apilan el texto arriba y
           el monto/acciones abajo en vez de scrollear al costado. */}
       <style>{`
+        /* Ancho de la tarjeta, no de la pantalla: en Finanzas → Compromisos las dos
+           tarjetas van lado a lado y cada una queda angosta aun en una pantalla
+           grande. Si el monto y los botones no entran al lado del texto, bajan. */
+        .mv-fila {
+          flex-wrap: wrap !important;
+          overflow-x: visible !important;
+        }
+        .mv-texto {
+          white-space: normal !important;
+          flex: 1 1 220px;
+          min-width: 0;
+        }
+        .mv-derecha {
+          position: static !important;
+          padding-left: 0 !important;
+          margin-left: auto;
+          flex-wrap: wrap;
+        }
         @media (max-width: 560px) {
           .mv-fila {
             flex-direction: column !important;

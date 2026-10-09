@@ -192,6 +192,24 @@ export function MisIngresos({
       {/* Mismo apilado en celular que Mis Vencimientos (.mv-*): sin esto cada fila
           dependía de scroll horizontal para ver el monto y los botones. */}
       <style>{`
+        /* Ancho de la tarjeta, no de la pantalla: en Finanzas → Compromisos las dos
+           tarjetas van lado a lado y cada una queda angosta aun en una pantalla
+           grande. Si el monto y los botones no entran al lado del texto, bajan. */
+        .mi-fila {
+          flex-wrap: wrap !important;
+          overflow-x: visible !important;
+        }
+        .mi-texto {
+          white-space: normal !important;
+          flex: 1 1 220px;
+          min-width: 0;
+        }
+        .mi-derecha {
+          position: static !important;
+          padding-left: 0 !important;
+          margin-left: auto;
+          flex-wrap: wrap;
+        }
         @media (max-width: 560px) {
           .mi-fila {
             flex-direction: column !important;
