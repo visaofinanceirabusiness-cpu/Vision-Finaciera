@@ -217,9 +217,12 @@ export function MisVencimientos({
           .mv-texto {
             white-space: normal !important;
             width: 100%;
+            /* en columna el flex-basis de arriba pasaría a ser ALTO */
+            flex: 0 0 auto !important;
           }
           .mv-derecha {
             position: static !important;
+            margin-left: 0;
             width: 100%;
             justify-content: space-between !important;
             padding-left: 0 !important;
