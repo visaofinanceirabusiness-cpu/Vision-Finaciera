@@ -55,6 +55,9 @@ export type ClavePanelControl =
   | 'ayudaPasivo'
   | 'ayudaCapital'
   | 'ayudaSaldoEnCaja'
+  | 'ayudaSaldoEnCajaFamilia'
+  | 'verGraficos'
+  | 'ocultarGraficos'
   | 'ayudaStockBajo'
   | 'ayudaIngresosDelPeriodo'
   | 'ayudaGastosDelPeriodo'
@@ -166,6 +169,9 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaPasivo: 'Todo lo que la empresa debe: proveedores, préstamos, tarjetas. Es dinero que en algún momento hay que devolver.',
     ayudaCapital: 'Lo que le queda a la empresa después de restarle las deudas a todo lo que posee: Activo menos Pasivo.',
     ayudaSaldoEnCaja: 'Cuánto dinero líquido tiene la empresa ahora mismo, sumando todas sus cuentas (caja, banco, billetera virtual).',
+    ayudaSaldoEnCajaFamilia: 'Cuánta plata líquida tiene la familia ahora mismo, sumando todas sus cuentas (efectivo, bancos, billeteras). Es el mismo valor de Informes → Flujo de Caja.',
+    verGraficos: 'Ver gráficos',
+    ocultarGraficos: 'Ocultar gráficos',
     ayudaStockBajo: 'Cantidad de productos con muy poco stock disponible — revisalos para no quedarte sin mercadería para vender.',
     ayudaIngresosDelPeriodo: 'Todo lo que ingresó a la familia en el período elegido: sueldos, ventas, cobros, etc.',
     ayudaGastosDelPeriodo: 'Todo lo que se gastó en el período elegido, sin contar inversiones ni retiros personales.',
@@ -278,6 +284,9 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaPasivo: 'Tudo o que a empresa deve: fornecedores, empréstimos, cartões. É dinheiro que em algum momento precisa ser devolvido.',
     ayudaCapital: 'O que sobra para a empresa depois de descontar as dívidas de tudo o que ela possui: Ativo menos Passivo.',
     ayudaSaldoEnCaja: 'Quanto dinheiro líquido a empresa tem agora, somando todas as suas contas (caixa, banco, carteira virtual).',
+    ayudaSaldoEnCajaFamilia: 'Quanto dinheiro líquido a família tem agora, somando todas as suas contas (dinheiro, bancos, carteiras). É o mesmo valor de Relatórios → Fluxo de Caixa.',
+    verGraficos: 'Ver gráficos',
+    ocultarGraficos: 'Ocultar gráficos',
     ayudaStockBajo: 'Quantidade de produtos com pouquíssimo estoque disponível — revise-os para não ficar sem mercadoria para vender.',
     ayudaIngresosDelPeriodo: 'Tudo o que entrou para a família no período escolhido: salários, vendas, recebimentos, etc.',
     ayudaGastosDelPeriodo: 'Tudo o que foi gasto no período escolhido, sem contar investimentos nem retiradas pessoais.',
