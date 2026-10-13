@@ -5,6 +5,7 @@
 // Genera la matriz y registra las operaciones.
 // Mantiene un mismo id_operacion como hilo conductor.
 
+import { aCentavos } from './centavos';
 import { supabase } from './supabase';
 import { cuentaMedioDeLiquidacion, medioNoValidoParaLiquidar } from './liquidacion';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
@@ -688,10 +689,13 @@ export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string
   const debe = sumar(comoDebito, 'total') + sumar(autoComoDebito, 'importe');
   const haber = sumar(comoCredito, 'total') + sumar(autoComoCredito, 'importe');
 
-  const saldo =
+  // A centavos: ver lib/centavos.ts (una cuenta en 20,00 daba 19,999… y se
+  // rechazaba un pago que la dejaba en cero).
+  const saldo = aCentavos(
     cuenta.naturaleza === 'ACREEDORA'
       ? Number(cuenta.saldo_inicial ?? 0) + haber - debe
-      : Number(cuenta.saldo_inicial ?? 0) + debe - haber;
+      : Number(cuenta.saldo_inicial ?? 0) + debe - haber
+  );
 
   return {
     saldo,
@@ -828,7 +832,7 @@ export async function registrarOperacion(
     const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito, formulario.fecha);
 
     if (cuentaCredito && cuentaCredito.naturaleza === 'DEUDORA') {
-      const saldoResultante = cuentaCredito.saldo - total;
+      const saldoResultante = aCentavos(cuentaCredito.saldo - total);
 
       if (saldoResultante < 0) {
         throw new Error(
@@ -842,7 +846,7 @@ export async function registrarOperacion(
     const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito, formulario.fecha);
 
     if (cuentaDebito && cuentaDebito.naturaleza === 'ACREEDORA') {
-      const saldoResultante = cuentaDebito.saldo - total;
+      const saldoResultante = aCentavos(cuentaDebito.saldo - total);
 
       if (saldoResultante < 0) {
         throw new Error(
