@@ -55,7 +55,7 @@ export function ComposicionPorGrupos({
           </div>
           {imagenBanner && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imagenBanner} alt="" style={{ width: 72, height: 'auto', margin: '-10px -4px -10px 0' }} />
+            <img src={imagenBanner} alt="" style={{ height: 96, width: 'auto', margin: '-14px -6px -14px 0', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))' }} />
           )}
         </div>
       )}

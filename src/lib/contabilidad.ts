@@ -29,6 +29,7 @@
 
 import { agruparActivo, type GrupoComposicion } from './gruposActivo';
 import { agruparPasivo } from './gruposPasivo';
+import { agruparPatrimonio } from './gruposPatrimonio';
 import { supabase } from './supabase';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 import { cargarNaturalezaPorOperacion } from './naturalezaResultadoDatos';
@@ -93,6 +94,7 @@ export type IndicadoresPanel = {
   composicionPasivo: PuntoGrafico[];
   composicionPasivoGrupos: GrupoComposicion[];
   composicionPatrimonio: PuntoGrafico[];
+  composicionPatrimonioGrupos: GrupoComposicion[];
 
   // ---- Resumen ejecutivo: SÍ dependen del período ----
   ingresos: number;
@@ -426,6 +428,10 @@ export async function obtenerIndicadores(
   );
   const composicionPatrimonio = composicionPorTipo('PATRIMONIO');
 
+  const composicionPatrimonioGrupos = agruparPatrimonio(
+    composicionPatrimonio.map((p) => ({ nombre: p.nombre, codigo: null, valor: p.valor }))
+  );
+
   // Caja disponible: solo las cuentas que son medios financieros de
   // verdad (Caja, Bancos, Billetera Virtual...). NO incluye "a
   // Recibir" ni Clientes.
@@ -741,6 +747,7 @@ export async function obtenerIndicadores(
     composicionPasivo,
     composicionPasivoGrupos,
     composicionPatrimonio,
+    composicionPatrimonioGrupos,
 
     // Del período seleccionado
     ingresos: redondear(ingresos),
