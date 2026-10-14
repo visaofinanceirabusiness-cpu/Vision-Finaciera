@@ -24,7 +24,7 @@ export type GrupoComposicion = {
   cuentas: Array<{ nombre: string; valor: number }>;
 };
 
-function normalizar(texto: string): string {
+export function normalizar(texto: string): string {
   return texto
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

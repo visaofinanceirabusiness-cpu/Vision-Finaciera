@@ -9,7 +9,7 @@ import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
-import { GRUPOS_ACTIVO } from '@/components/panel/gruposComposicion';
+import { GRUPOS_ACTIVO, GRUPOS_PASIVO } from '@/components/panel/gruposComposicion';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -925,6 +925,20 @@ export default function MiNegocioPage() {
             />
           </div>
 
+          <div style={{ marginTop: 16 }}>
+            <ComposicionPorGrupos
+              grupos={indicadores?.composicionPasivoGrupos ?? []}
+              presentacion={GRUPOS_PASIVO}
+              titulo={t('tituloComposicionPasivo')}
+              subtitulo={t('subtituloComposicionPasivo')}
+              etiquetaTotal={idioma === 'PT' ? 'Total do Passivo' : 'Total del Pasivo'}
+              mensajeVacio={t('vacioComposicionPasivo')}
+              simbolo={simbolo}
+              idioma={idioma}
+              colorBanner="#b91c1c"
+            />
+          </div>
+
           <div
             className="grilla-responsiva"
             style={{
@@ -934,15 +948,7 @@ export default function MiNegocioPage() {
               marginTop: 16,
             }}
           >
-            <DistribucionPieChart
-              datos={indicadores?.composicionPasivo ?? []}
-              simbolo={simbolo}
-              idioma={idioma}
-              titulo={t('tituloComposicionPasivo')}
-              subtitulo={t('subtituloComposicionPasivo')}
-              mensajeVacio={t('vacioComposicionPasivo')}
-              grande
-            />
+
 
             <DistribucionPieChart
               datos={indicadores?.composicionPatrimonio ?? []}

@@ -20,3 +20,11 @@ export const GRUPOS_ACTIVO: Record<string, PresentacionGrupo> = {
   NO_CORRIENTE: { es: 'Equipos e instalaciones', pt: 'Equipamentos e instalações', imagen: '/grupos/activo-no-corriente.webp', emoji: '🛠️', acento: '#0f766e', fondo: '#f0fdfa', borde: '#99f6e4' },
   OTROS: { es: 'Otros activos', pt: 'Outros ativos', imagen: '/grupos/activo-otros.webp', emoji: '💰', acento: '#475569', fondo: '#f8fafc', borde: '#e2e8f0' },
 };
+
+export const GRUPOS_PASIVO: Record<string, PresentacionGrupo> = {
+  DEUDAS: { es: 'Deudas y préstamos', pt: 'Dívidas e empréstimos', imagen: '/grupos/pasivo-deudas.webp', emoji: '🔒', acento: '#b91c1c', fondo: '#fef2f2', borde: '#fecaca' },
+  TARJETAS: { es: 'Tarjetas de crédito', pt: 'Cartões de crédito', imagen: '/grupos/pasivo-tarjetas.webp', emoji: '💳', acento: '#1d4ed8', fondo: '#eff6ff', borde: '#bfdbfe' },
+  CUENTAS_PAGAR: { es: 'Cuentas a pagar', pt: 'Contas a pagar', imagen: '/grupos/pasivo-cuentas-pagar.webp', emoji: '🧾', acento: '#c2410c', fondo: '#fff7ed', borde: '#fed7aa' },
+  LARGO_PLAZO: { es: 'Deudas a largo plazo', pt: 'Dívidas de longo prazo', imagen: '/grupos/pasivo-largo-plazo.webp', emoji: '⏳', acento: '#7c3aed', fondo: '#f5f3ff', borde: '#ddd6fe' },
+  OTROS: { es: 'Otros pasivos', pt: 'Outros passivos', imagen: '/grupos/pasivo-otros.webp', emoji: '📁', acento: '#a16207', fondo: '#fefce8', borde: '#fde68a' },
+};
