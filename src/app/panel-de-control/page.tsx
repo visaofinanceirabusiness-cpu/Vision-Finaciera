@@ -8,6 +8,8 @@ import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
 import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
+import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
+import { GRUPOS_ACTIVO } from '@/components/panel/gruposComposicion';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -909,14 +911,17 @@ export default function MiNegocioPage() {
               comparte columna con Pasivo y Patrimonio, y termina
               apilada debajo en vez de al costado. */}
           <div style={{ marginTop: 16 }}>
-            <DistribucionPieChart
-              datos={indicadores?.composicionActivo ?? []}
-              simbolo={simbolo}
-              idioma={idioma}
+            <ComposicionPorGrupos
+              grupos={indicadores?.composicionActivoGrupos ?? []}
+              presentacion={GRUPOS_ACTIVO}
               titulo={t('tituloComposicionActivo')}
               subtitulo={t('subtituloComposicionActivo')}
+              etiquetaTotal={idioma === 'PT' ? 'Total do Ativo' : 'Total del Activo'}
               mensajeVacio={t('vacioComposicionActivo')}
-              grande
+              imagenBanner="/sabio/sabio-cofre.webp"
+              simbolo={simbolo}
+              idioma={idioma}
+              colorBanner={colores.azul}
             />
           </div>
 
