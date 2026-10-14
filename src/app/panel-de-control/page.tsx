@@ -1191,7 +1191,7 @@ export default function MiNegocioPage() {
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fit, minmax(170px, 1fr))',
+                  'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: 12,
                 marginBottom: 18,
               }}
@@ -1199,6 +1199,7 @@ export default function MiNegocioPage() {
               {esFamiliar ? (
                 <>
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-ingresos.webp"
                     titulo={t('ingresosDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
@@ -1207,6 +1208,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-gastos.webp"
                     titulo={t('gastosDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
@@ -1215,6 +1217,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-resultado.webp"
                     titulo={t('ahorroDelPeriodo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="🐷"
@@ -1223,6 +1226,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-margen.webp"
                     titulo={t('tasaDeAhorro')}
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
@@ -1233,6 +1237,7 @@ export default function MiNegocioPage() {
               ) : (
                 <>
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-ingresos.webp"
                     titulo={t('ingresoOperativo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.ingresos ?? 0)}`}
                     emoji="💵"
@@ -1249,6 +1254,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-gastos.webp"
                     titulo={t('gastos')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.gastos ?? 0)}`}
                     emoji="🧾"
@@ -1257,6 +1263,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-resultado.webp"
                     titulo={t('lucro')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.lucro ?? 0)}`}
                     emoji="💰"
@@ -1265,6 +1272,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-resumen-margen.webp"
                     titulo={t('rentabilidad')}
                     valor={`${formatearNumero(indicadores?.rentabilidad ?? 0)}%`}
                     emoji="📈"
@@ -1968,8 +1976,10 @@ function ResumenEjecutivoCard({
       <div style={{ flex: 1, minWidth: 0 }}>
       <div
         style={{
-          fontSize: 12,
-          color: COLORES_BASE.gris,
+          fontSize: 17,
+          fontWeight: 800,
+          lineHeight: 1.2,
+          color,
           marginBottom: 8,
           display: 'flex',
           alignItems: 'center',
@@ -1983,7 +1993,7 @@ function ResumenEjecutivoCard({
       <strong
         style={{
           color,
-          fontSize: 21,
+          fontSize: 23,
         }}
       >
         {valor}
