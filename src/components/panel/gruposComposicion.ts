@@ -28,3 +28,10 @@ export const GRUPOS_PASIVO: Record<string, PresentacionGrupo> = {
   LARGO_PLAZO: { es: 'Deudas a largo plazo', pt: 'Dívidas de longo prazo', imagen: '/grupos/pasivo-largo-plazo.webp', emoji: '⏳', acento: '#7c3aed', fondo: '#f5f3ff', borde: '#ddd6fe' },
   OTROS: { es: 'Otros pasivos', pt: 'Outros passivos', imagen: '/grupos/pasivo-otros.webp', emoji: '📁', acento: '#a16207', fondo: '#fefce8', borde: '#fde68a' },
 };
+
+// Patrimonio: sin imágenes de grupo todavía (emoji de reserva); el Sabio del banner sí.
+export const GRUPOS_PATRIMONIO: Record<string, PresentacionGrupo> = {
+  APORTES: { es: 'Capital y aportes', pt: 'Capital e aportes', imagen: null, emoji: '🌱', acento: '#15803d', fondo: '#f0fdf4', borde: '#bbf7d0' },
+  RESULTADOS: { es: 'Resultados acumulados', pt: 'Resultados acumulados', imagen: null, emoji: '🏆', acento: '#b45309', fondo: '#fffbeb', borde: '#fde68a' },
+  FAMILIAR: { es: 'Patrimonio familiar', pt: 'Patrimônio familiar', imagen: null, emoji: '🏠', acento: '#1d4ed8', fondo: '#eff6ff', borde: '#bfdbfe' },
+};

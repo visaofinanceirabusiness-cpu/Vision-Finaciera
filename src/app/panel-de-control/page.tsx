@@ -9,7 +9,7 @@ import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
-import { GRUPOS_ACTIVO, GRUPOS_PASIVO } from '@/components/panel/gruposComposicion';
+import { GRUPOS_ACTIVO, GRUPOS_PASIVO, GRUPOS_PATRIMONIO } from '@/components/panel/gruposComposicion';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -918,7 +918,7 @@ export default function MiNegocioPage() {
               subtitulo={t('subtituloComposicionActivo')}
               etiquetaTotal={idioma === 'PT' ? 'Total do Ativo' : 'Total del Activo'}
               mensajeVacio={t('vacioComposicionActivo')}
-              imagenBanner="/sabio/sabio-cofre.webp"
+              imagenBanner="/sabio/sabio-activo.webp"
               simbolo={simbolo}
               idioma={idioma}
               colorBanner={colores.azul}
@@ -933,6 +933,7 @@ export default function MiNegocioPage() {
               subtitulo={t('subtituloComposicionPasivo')}
               etiquetaTotal={idioma === 'PT' ? 'Total do Passivo' : 'Total del Pasivo'}
               mensajeVacio={t('vacioComposicionPasivo')}
+              imagenBanner="/sabio/sabio-pasivo.webp"
               simbolo={simbolo}
               idioma={idioma}
               colorBanner="#b91c1c"
@@ -950,14 +951,17 @@ export default function MiNegocioPage() {
           >
 
 
-            <DistribucionPieChart
-              datos={indicadores?.composicionPatrimonio ?? []}
-              simbolo={simbolo}
-              idioma={idioma}
+            <ComposicionPorGrupos
+              grupos={indicadores?.composicionPatrimonioGrupos ?? []}
+              presentacion={GRUPOS_PATRIMONIO}
               titulo={t('tituloComposicionPatrimonio')}
               subtitulo={t('subtituloComposicionPatrimonio')}
+              etiquetaTotal={idioma === 'PT' ? 'Total do Patrimônio' : 'Total del Patrimonio'}
               mensajeVacio={t('vacioComposicionPatrimonio')}
-              grande
+              imagenBanner="/sabio/sabio-patrimonio.webp"
+              simbolo={simbolo}
+              idioma={idioma}
+              colorBanner="#1d4ed8"
             />
           </div>
 
