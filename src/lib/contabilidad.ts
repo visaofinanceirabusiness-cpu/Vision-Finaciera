@@ -27,6 +27,7 @@
 //  - Ingresos, Gastos, Costos, Lucro y Rentabilidad SÍ son del período
 //    seleccionado (son cuentas de resultado).
 
+import { agruparActivo, type GrupoComposicion } from './gruposActivo';
 import { supabase } from './supabase';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 import { cargarNaturalezaPorOperacion } from './naturalezaResultadoDatos';
@@ -86,6 +87,8 @@ export type IndicadoresPanel = {
   ahorroInversiones: number;
   stockBajo: number;
   composicionActivo: PuntoGrafico[];
+  // Lo mismo, pero agrupado (Dinero disponible, Por cobrar, Ahorros…): ver lib/gruposActivo.ts.
+  composicionActivoGrupos: GrupoComposicion[];
   composicionPasivo: PuntoGrafico[];
   composicionPatrimonio: PuntoGrafico[];
 
@@ -380,6 +383,32 @@ export async function obtenerIndicadores(
   }
 
   const composicionActivo = composicionPorTipo('ACTIVO');
+
+  // Nombres de los grupos padre de cada cuenta (para agrupar el Activo según el plan).
+  const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
+  function ancestrosDe(cuenta: CuentaPlan): string[] {
+    const nombres: string[] = [];
+    let actual = cuenta.cuenta_padre_id ? cuentaPorId.get(cuenta.cuenta_padre_id) : undefined;
+    while (actual && nombres.length < 8) {
+      nombres.unshift(actual.nombre);
+      actual = actual.cuenta_padre_id ? cuentaPorId.get(actual.cuenta_padre_id) : undefined;
+    }
+    return nombres;
+  }
+
+  const composicionActivoGrupos = agruparActivo(
+    hojas
+      .filter((cuenta) => cuenta.tipo_saldo === 'ACTIVO')
+      .map((cuenta) => ({
+        nombre: cuenta.nombre,
+        codigo: cuenta.codigo,
+        esMedio: nombresMedioFinanciero.has(cuenta.nombre),
+        esPorCobrar: nombresPorCobrar.has(cuenta.nombre),
+        ancestros: ancestrosDe(cuenta),
+        valor: redondear(saldoConSigno(cuenta, acumuladoTotal, true)),
+      }))
+      .filter((c) => c.valor >= 0.5)
+  );
   const composicionPasivo = composicionPorTipo('PASIVO');
   const composicionPatrimonio = composicionPorTipo('PATRIMONIO');
 
@@ -694,6 +723,7 @@ export async function obtenerIndicadores(
     ahorroInversiones: redondear(ahorroInversiones),
     stockBajo,
     composicionActivo,
+    composicionActivoGrupos,
     composicionPasivo,
     composicionPatrimonio,
 
