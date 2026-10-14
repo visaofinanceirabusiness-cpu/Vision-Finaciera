@@ -28,6 +28,7 @@
 //    seleccionado (son cuentas de resultado).
 
 import { agruparActivo, type GrupoComposicion } from './gruposActivo';
+import { agruparPasivo } from './gruposPasivo';
 import { supabase } from './supabase';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 import { cargarNaturalezaPorOperacion } from './naturalezaResultadoDatos';
@@ -90,6 +91,7 @@ export type IndicadoresPanel = {
   // Lo mismo, pero agrupado (Dinero disponible, Por cobrar, Ahorros…): ver lib/gruposActivo.ts.
   composicionActivoGrupos: GrupoComposicion[];
   composicionPasivo: PuntoGrafico[];
+  composicionPasivoGrupos: GrupoComposicion[];
   composicionPatrimonio: PuntoGrafico[];
 
   // ---- Resumen ejecutivo: SÍ dependen del período ----
@@ -410,6 +412,18 @@ export async function obtenerIndicadores(
       .filter((c) => c.valor >= 0.5)
   );
   const composicionPasivo = composicionPorTipo('PASIVO');
+
+  const composicionPasivoGrupos = agruparPasivo(
+    hojas
+      .filter((cuenta) => cuenta.tipo_saldo === 'PASIVO')
+      .map((cuenta) => ({
+        nombre: cuenta.nombre,
+        codigo: cuenta.codigo,
+        ancestros: ancestrosDe(cuenta),
+        valor: redondear(saldoConSigno(cuenta, acumuladoTotal, true)),
+      }))
+      .filter((c) => c.valor >= 0.5)
+  );
   const composicionPatrimonio = composicionPorTipo('PATRIMONIO');
 
   // Caja disponible: solo las cuentas que son medios financieros de
@@ -725,6 +739,7 @@ export async function obtenerIndicadores(
     composicionActivo,
     composicionActivoGrupos,
     composicionPasivo,
+    composicionPasivoGrupos,
     composicionPatrimonio,
 
     // Del período seleccionado
