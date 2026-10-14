@@ -815,6 +815,7 @@ export default function MiNegocioPage() {
               return esFamiliar ? (
                 <>
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-activo.webp"
                     titulo={t('activo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                     emoji="💚"
@@ -823,6 +824,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-pasivo.webp"
                     titulo={t('pasivo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                     emoji="💗"
@@ -831,6 +833,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-patrimonio.webp"
                     titulo={t('patrimonioNeto')}
                     valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
                     emoji="💙"
@@ -842,6 +845,7 @@ export default function MiNegocioPage() {
               ) : (
                 <>
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-activo.webp"
                     titulo={t('activo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                     emoji="💚"
@@ -850,6 +854,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-pasivo.webp"
                     titulo={t('pasivo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                     emoji="💗"
@@ -858,6 +863,7 @@ export default function MiNegocioPage() {
                   />
 
                   <ResumenEjecutivoCard
+                    sabio="/sabio/sabio-patrimonio.webp"
                     titulo={t('capital')}
                     valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
                     emoji="💙"
@@ -1936,6 +1942,7 @@ function ResumenEjecutivoCard({
   color,
   ayuda,
   detalle,
+  sabio,
 }: {
   titulo: string;
   valor: string;
@@ -1943,6 +1950,8 @@ function ResumenEjecutivoCard({
   color: string;
   ayuda?: string;
   detalle?: string;
+  // Sabio que acompaña a la tarjeta (el mismo del banner de su composición).
+  sabio?: string;
 }) {
   return (
     <div
@@ -1951,8 +1960,12 @@ function ResumenEjecutivoCard({
         borderRadius: 16,
         padding: 15,
         background: '#fbfcfd',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div
         style={{
           fontSize: 12,
@@ -1980,6 +1993,12 @@ function ResumenEjecutivoCard({
         <div style={{ marginTop: 4, fontSize: 10.5, color: COLORES_BASE.gris, lineHeight: 1.4 }}>
           {detalle}
         </div>
+      )}
+      </div>
+
+      {sabio && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={sabio} alt="" style={{ height: 84, width: 'auto', flexShrink: 0, margin: '-6px -2px -6px 0' }} />
       )}
     </div>
   );
