@@ -121,7 +121,10 @@ export default function MiNegocioPage() {
   const [error, setError] = useState('');
   const [mostrarBienvenidaTutorial, setMostrarBienvenidaTutorial] = useState(false);
   // Gráficos de composición (activo / pasivo / patrimonio): ocultos hasta que se abren.
-  const [mostrarGraficosSituacion, setMostrarGraficosSituacion] = useState(false);
+  const [graficosAbiertos, setGraficosAbiertos] = useState({ activo: false, pasivo: false, patrimonio: false });
+  const alternarGrafico = (k: 'activo' | 'pasivo' | 'patrimonio') =>
+    setGraficosAbiertos((g) => ({ ...g, [k]: !g[k] }));
+  const [pestana, setPestana] = useState<'situacion' | 'periodo' | 'objetivos'>('situacion');
   const [recordatorioUrgente, setRecordatorioUrgente] = useState<RecordatorioGastoRecurrente | null>(null);
   const [mostrarDialogoGasto, setMostrarDialogoGasto] = useState(false);
   const [refrescarVencimientos, setRefrescarVencimientos] = useState(0);
@@ -560,6 +563,71 @@ export default function MiNegocioPage() {
       </section>
     );
 
+
+  const selectorPeriodo = (
+        <section
+      style={{
+        background: colores.blanco,
+        borderRadius: 18,
+        padding: '15px 18px',
+        marginBottom: 20,
+        border: '1px solid #e5e7eb',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 1.3,
+            color: colores.verde,
+            marginBottom: 4,
+          }}
+        >
+          {t('eyebrowPeriodo')}
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            color: COLORES_BASE.gris,
+          }}
+        >
+          {t('ayudaPeriodo')}
+        </div>
+      </div>
+
+      <select
+        value={periodoSeleccionado}
+        onChange={(e) => setPeriodoSeleccionado(e.target.value)}
+        style={{
+          minWidth: 210,
+          padding: '11px 14px',
+          borderRadius: 12,
+          border: `1px solid ${colores.acento}`,
+          background: '#fbfcfd',
+          color: colores.azul,
+          fontWeight: 700,
+          fontSize: 13,
+          cursor: 'pointer',
+        }}
+      >
+        {periodos.map((periodo) => (
+          <option key={periodo.valor} value={periodo.valor}>
+            {periodo.etiqueta}
+          </option>
+        ))}
+
+        <option value="TODOS">{t('todosLosPeriodos')}</option>
+      </select>
+    </section>
+  );
+
   return (
     <main
       style={{
@@ -733,19 +801,58 @@ export default function MiNegocioPage() {
         )}
 
         {/* =================================================
-            OBJETIVOS FAMILIARES — arriba de todo, a pedido: es lo
-            primero que quiere ver una empresa Familia al entrar.
-        ================================================== */}
-
-        {esFamiliar && bloqueObjetivos}
-
-        {/* =================================================
             SITUACIÓN A LA FECHA
             Estas tarjetas NO dependen del selector de período:
             son saldos acumulados, o ventanas fijas (hoy / mes en curso).
             Por eso van ARRIBA del selector.
         ================================================== */}
 
+        <nav
+          role="tablist"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 8,
+            marginBottom: 20,
+            background: colores.blanco,
+            border: '1px solid #e5e7eb',
+            borderRadius: 18,
+            padding: 6,
+          }}
+        >
+          {([
+            ['situacion', '🏦', t('pestanaSituacion')],
+            ['periodo', '📅', t('pestanaPeriodo')],
+            ['objetivos', '🎯', esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')],
+          ] as const).map(([clave, icono, etiqueta]) => {
+            const activa = pestana === clave;
+            return (
+              <button
+                key={clave}
+                type="button"
+                role="tab"
+                aria-selected={activa}
+                onClick={() => setPestana(clave)}
+                style={{
+                  border: 'none',
+                  borderRadius: 13,
+                  padding: '11px 8px',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  background: activa ? colores.azul : 'transparent',
+                  color: activa ? colores.blanco : colores.azul,
+                  lineHeight: 1.25,
+                }}
+              >
+                <span aria-hidden="true">{icono}</span> {etiqueta}
+              </button>
+            );
+          })}
+        </nav>
+
+        {pestana === 'situacion' && (
+          <>
         <section
           style={{
             background: colores.blanco,
@@ -816,6 +923,9 @@ export default function MiNegocioPage() {
                 <>
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-activo.webp"
+                    graficoAbierto={graficosAbiertos.activo}
+                    etiquetaGrafico={graficosAbiertos.activo ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('activo')}
                     titulo={t('activo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                     emoji="💚"
@@ -825,6 +935,9 @@ export default function MiNegocioPage() {
 
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-pasivo.webp"
+                    graficoAbierto={graficosAbiertos.pasivo}
+                    etiquetaGrafico={graficosAbiertos.pasivo ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('pasivo')}
                     titulo={t('pasivo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                     emoji="💗"
@@ -834,6 +947,9 @@ export default function MiNegocioPage() {
 
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-patrimonio.webp"
+                    graficoAbierto={graficosAbiertos.patrimonio}
+                    etiquetaGrafico={graficosAbiertos.patrimonio ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('patrimonio')}
                     titulo={t('patrimonioNeto')}
                     valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
                     emoji="💙"
@@ -846,6 +962,9 @@ export default function MiNegocioPage() {
                 <>
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-activo.webp"
+                    graficoAbierto={graficosAbiertos.activo}
+                    etiquetaGrafico={graficosAbiertos.activo ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('activo')}
                     titulo={t('activo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.activos ?? 0)}`}
                     emoji="💚"
@@ -855,6 +974,9 @@ export default function MiNegocioPage() {
 
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-pasivo.webp"
+                    graficoAbierto={graficosAbiertos.pasivo}
+                    etiquetaGrafico={graficosAbiertos.pasivo ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('pasivo')}
                     titulo={t('pasivo')}
                     valor={`${simbolo} ${formatearNumero(indicadores?.pasivos ?? 0)}`}
                     emoji="💗"
@@ -864,6 +986,9 @@ export default function MiNegocioPage() {
 
                   <ResumenEjecutivoCard
                     sabio="/sabio/sabio-patrimonio.webp"
+                    graficoAbierto={graficosAbiertos.patrimonio}
+                    etiquetaGrafico={graficosAbiertos.patrimonio ? t('ocultarGrafico') : t('verGrafico')}
+                    onToggleGrafico={() => alternarGrafico('patrimonio')}
                     titulo={t('capital')}
                     valor={`${simbolo} ${formatearNumero(patrimonioNetoTotal)}`}
                     emoji="💙"
@@ -884,40 +1009,10 @@ export default function MiNegocioPage() {
             })()}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMostrarGraficosSituacion((v) => !v)}
-            aria-expanded={mostrarGraficosSituacion}
-            style={{
-              marginTop: 16,
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 10,
-              background: '#f1f5f9',
-              border: '1px solid #e2e8f0',
-              borderRadius: 14,
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 800,
-              color: colores.azul,
-              cursor: 'pointer',
-            }}
-          >
-            <span>📊 {mostrarGraficosSituacion ? t('ocultarGraficos') : t('verGraficos')}</span>
-            <span aria-hidden="true">{mostrarGraficosSituacion ? '▴' : '▾'}</span>
-          </button>
 
-          {mostrarGraficosSituacion && (
-            <div>
-          {/* El Activo va en su propia fila, a todo el ancho — con
-              muchas cuentas (Providencia, Super Caixinha, Muebles...)
-              la lista de referencias no entra al lado de la torta si
-              comparte columna con Pasivo y Patrimonio, y termina
-              apilada debajo en vez de al costado. */}
-          <div style={{ marginTop: 16 }}>
-            <ComposicionPorGrupos
+          {graficosAbiertos.activo && (
+            <div style={{ marginTop: 16 }}>
+              <ComposicionPorGrupos
               grupos={indicadores?.composicionActivoGrupos ?? []}
               presentacion={GRUPOS_ACTIVO}
               titulo={t('tituloComposicionActivo')}
@@ -929,10 +1024,12 @@ export default function MiNegocioPage() {
               idioma={idioma}
               colorBanner={colores.azul}
             />
-          </div>
+            </div>
+          )}
 
-          <div style={{ marginTop: 16 }}>
-            <ComposicionPorGrupos
+          {graficosAbiertos.pasivo && (
+            <div style={{ marginTop: 16 }}>
+              <ComposicionPorGrupos
               grupos={indicadores?.composicionPasivoGrupos ?? []}
               presentacion={GRUPOS_PASIVO}
               titulo={t('tituloComposicionPasivo')}
@@ -944,20 +1041,12 @@ export default function MiNegocioPage() {
               idioma={idioma}
               colorBanner="#b91c1c"
             />
-          </div>
+            </div>
+          )}
 
-          <div
-            className="grilla-responsiva"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-              gap: 16,
-              marginTop: 16,
-            }}
-          >
-
-
-            <ComposicionPorGrupos
+          {graficosAbiertos.patrimonio && (
+            <div style={{ marginTop: 16 }}>
+              <ComposicionPorGrupos
               grupos={indicadores?.composicionPatrimonioGrupos ?? []}
               presentacion={GRUPOS_PATRIMONIO}
               titulo={t('tituloComposicionPatrimonio')}
@@ -969,20 +1058,68 @@ export default function MiNegocioPage() {
               idioma={idioma}
               colorBanner="#1d4ed8"
             />
-          </div>
-
             </div>
           )}
+        </section>
 
-          {perfil?.empresa_id && (
+        {esFamiliar && configuracion?.mostrar_graficos && (
+          <section
+            className="grilla-responsiva"
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: 20,
+            }}
+          >
+            <SeccionEndeudamiento
+              deuda={indicadores?.pasivos ?? 0}
+              patrimonio={indicadores?.patrimonio ?? 0}
+              simbolo={simbolo}
+              colores={colores}
+              idioma={idioma}
+            />
+
+            <SeccionFondoRespaldo
+              cajaDisponible={indicadores?.cajaDisponible ?? 0}
+              meta={objetivos.find((o) => o.indicador === 'FONDO_EMERGENCIA')}
+              simbolo={simbolo}
+              colores={colores}
+              idioma={idioma}
+            />
+          </section>
+        )}
+          </>
+        )}
+
+        {pestana === 'periodo' && (
+          <>
+        {perfil?.empresa_id && (
+          <section
+            style={{
+              background: colores.blanco,
+              borderRadius: 24,
+              padding: 24,
+              marginBottom: 20,
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+            }}
+          >
             <CompromisosProgramadosResumen
               empresaId={perfil.empresa_id}
               idioma={idioma}
               simbolo={simbolo}
               colores={colores}
             />
-          )}
-        </section>
+          </section>
+        )}
+
+        {selectorPeriodo}
 
         {perfil?.empresa_id && (
           <div
@@ -1045,76 +1182,6 @@ export default function MiNegocioPage() {
             </PanelFlujo>
           </div>
         )}
-
-        {/* =================================================
-            SELECTOR GLOBAL
-        ================================================== */}
-
-        <section
-          style={{
-            background: colores.blanco,
-            borderRadius: 18,
-            padding: '15px 18px',
-            marginBottom: 20,
-            border: '1px solid #e5e7eb',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 1.3,
-                color: colores.verde,
-                marginBottom: 4,
-              }}
-            >
-              {t('eyebrowPeriodo')}
-            </div>
-
-            <div
-              style={{
-                fontSize: 13,
-                color: COLORES_BASE.gris,
-              }}
-            >
-              {t('ayudaPeriodo')}
-            </div>
-          </div>
-
-          <select
-            value={periodoSeleccionado}
-            onChange={(e) => setPeriodoSeleccionado(e.target.value)}
-            style={{
-              minWidth: 210,
-              padding: '11px 14px',
-              borderRadius: 12,
-              border: `1px solid ${colores.acento}`,
-              background: '#fbfcfd',
-              color: colores.azul,
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            {periodos.map((periodo) => (
-              <option key={periodo.valor} value={periodo.valor}>
-                {periodo.etiqueta}
-              </option>
-            ))}
-
-            <option value="TODOS">{t('todosLosPeriodos')}</option>
-          </select>
-        </section>
-
-        {/* =================================================
-            RESUMEN EJECUTIVO
-        ================================================== */}
 
         {configuracion?.mostrar_graficos && (
           <section
@@ -1373,55 +1440,6 @@ export default function MiNegocioPage() {
           </section>
         )}
 
-        {/* =================================================
-            ENDEUDAMIENTO Y FONDO DE RESPALDO (perfil Familia)
-        ================================================== */}
-
-        {esFamiliar && configuracion?.mostrar_graficos && (
-          <section
-            className="grilla-responsiva"
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-              gap: 20,
-            }}
-          >
-            <SeccionEndeudamiento
-              deuda={indicadores?.pasivos ?? 0}
-              patrimonio={indicadores?.patrimonio ?? 0}
-              simbolo={simbolo}
-              colores={colores}
-              idioma={idioma}
-            />
-
-            <SeccionFondoRespaldo
-              cajaDisponible={indicadores?.cajaDisponible ?? 0}
-              meta={objetivos.find((o) => o.indicador === 'FONDO_EMERGENCIA')}
-              simbolo={simbolo}
-              colores={colores}
-              idioma={idioma}
-            />
-          </section>
-        )}
-
-        {/* =================================================
-            OBJETIVOS — para el resto de los perfiles queda acá, en su
-            posición original. Para Familia se muestra arriba de todo
-            (ver bloqueObjetivos más arriba en el componente).
-        ================================================== */}
-
-        {!esFamiliar && bloqueObjetivos}
-
-        {/* =================================================
-            TODOS LOS PERIODOS
-        ================================================== */}
-
         {esTodosLosPeriodos && (
           <section
             style={{
@@ -1446,6 +1464,10 @@ export default function MiNegocioPage() {
             </div>
           </section>
         )}
+          </>
+        )}
+
+        {pestana === 'objetivos' && bloqueObjetivos}
 
         {/* =================================================
             NOTA
@@ -1951,6 +1973,9 @@ function ResumenEjecutivoCard({
   ayuda,
   detalle,
   sabio,
+  graficoAbierto,
+  onToggleGrafico,
+  etiquetaGrafico,
 }: {
   titulo: string;
   valor: string;
@@ -1960,6 +1985,9 @@ function ResumenEjecutivoCard({
   detalle?: string;
   // Sabio que acompaña a la tarjeta (el mismo del banner de su composición).
   sabio?: string;
+  graficoAbierto?: boolean;
+  onToggleGrafico?: () => void;
+  etiquetaGrafico?: string;
 }) {
   return (
     <div
@@ -2003,6 +2031,27 @@ function ResumenEjecutivoCard({
         <div style={{ marginTop: 4, fontSize: 10.5, color: COLORES_BASE.gris, lineHeight: 1.4 }}>
           {detalle}
         </div>
+      )}
+
+      {onToggleGrafico && (
+        <button
+          type="button"
+          onClick={onToggleGrafico}
+          aria-expanded={graficoAbierto}
+          style={{
+            marginTop: 10,
+            background: `${color}12`,
+            border: `1px solid ${color}40`,
+            borderRadius: 999,
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 800,
+            color,
+            cursor: 'pointer',
+          }}
+        >
+          📊 {etiquetaGrafico} {graficoAbierto ? '▴' : '▾'}
+        </button>
       )}
       </div>
 

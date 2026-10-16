@@ -625,3 +625,7 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 ## Resumen Ejecutivo con Sabios (oct 2026)
 - Las 4 tarjetas del período (Ingresos, Gastos, Resultado/Ahorro, Rentabilidad/Tasa de ahorro; ambos perfiles) llevan su Sabio (`public/sabio/sabio-resumen-{ingresos,gastos,resultado,margen}.webp`) vía la prop `sabio` de `ResumenEjecutivoCard`.
 - Títulos de las tarjetas: 17px, negrita, color de la tarjeta (antes 12px gris); valor 23px. Grilla con mínimo 240px.
+
+## Panel de Control en 3 pestañas (oct 2026)
+- `pestana` en `panel-de-control/page.tsx`: **Situación actual** (saldo en caja, Activo/Pasivo/Patrimonio con botón "Ver gráfico" propio por tarjeta — estado `graficosAbiertos` — y al final Endeudamiento/Fondo de respaldo en Familia), **Análisis por período** (Compromisos programados → selector de período → Ingresos / Salud de caja / Egresos → Resumen ejecutivo con todos sus indicadores y gráficos), **Objetivos** (`bloqueObjetivos`: objetivos familiares / escalonados, o del mes en otros perfiles).
+- Los objetivos de Familia ya no van arriba de todo: viven solo en la pestaña 3. La pestaña activa no se persiste (arranca en Situación).
