@@ -99,6 +99,8 @@ export type ClavePanelControl =
   | 'endeudamientoSano'
   | 'endeudamientoModerado'
   | 'endeudamientoAlto'
+  | 'deudaSobreLiquido'
+  | 'liquidoMasInversiones'
   | 'eyebrowColchon'
   | 'fondoDeRespaldo'
   | 'ayudaFondoRespaldo'
@@ -219,6 +221,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     endeudamientoSano: 'Endeudamiento sano',
     endeudamientoModerado: 'Endeudamiento moderado',
     endeudamientoAlto: 'Endeudamiento alto',
+    deudaSobreLiquido: 'Deuda sobre dinero e inversiones',
+    liquidoMasInversiones: 'Dinero disponible + inversiones',
     eyebrowColchon: 'COLCHÓN',
     fondoDeRespaldo: 'Fondo de respaldo',
     ayudaFondoRespaldo: 'Plata disponible aparte de lo que necesitás para el día a día.',
@@ -338,6 +342,8 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     endeudamientoSano: 'Endividamento saudável',
     endeudamientoModerado: 'Endividamento moderado',
     endeudamientoAlto: 'Endividamento alto',
+    deudaSobreLiquido: 'Dívida sobre dinheiro e investimentos',
+    liquidoMasInversiones: 'Dinheiro disponível + investimentos',
     eyebrowColchon: 'COLCHÃO',
     fondoDeRespaldo: 'Fundo de reserva',
     ayudaFondoRespaldo: 'Dinheiro disponível além do que você precisa para o dia a dia.',
@@ -382,6 +388,12 @@ export function msgSaludEndeudamiento(idioma: string, porcentaje: string): strin
   return esPT(idioma)
     ? `a dívida é ${porcentaje}% de dívida + patrimônio.`
     : `la deuda es el ${porcentaje}% de deuda + patrimonio.`;
+}
+
+export function msgDeudaSobreLiquido(idioma: string, porcentaje: string): string {
+  return esPT(idioma)
+    ? `a dívida equivale a ${porcentaje}% do dinheiro disponível + investimentos.`
+    : `la deuda equivale al ${porcentaje}% del dinero disponible + inversiones.`;
 }
 
 export function msgFondoRespaldoProgreso(idioma: string, porcentaje: string): string {
