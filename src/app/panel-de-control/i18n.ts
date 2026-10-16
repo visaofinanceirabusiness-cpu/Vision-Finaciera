@@ -58,6 +58,10 @@ export type ClavePanelControl =
   | 'ayudaSaldoEnCajaFamilia'
   | 'verGraficos'
   | 'ocultarGraficos'
+  | 'verGrafico'
+  | 'ocultarGrafico'
+  | 'pestanaSituacion'
+  | 'pestanaPeriodo'
   | 'ayudaStockBajo'
   | 'ayudaIngresosDelPeriodo'
   | 'ayudaGastosDelPeriodo'
@@ -172,6 +176,10 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaSaldoEnCajaFamilia: 'Cuánta plata líquida tiene la familia ahora mismo, sumando todas sus cuentas (efectivo, bancos, billeteras). Es el mismo valor de Informes → Flujo de Caja.',
     verGraficos: 'Ver gráficos',
     ocultarGraficos: 'Ocultar gráficos',
+    verGrafico: 'Ver gráfico',
+    ocultarGrafico: 'Ocultar gráfico',
+    pestanaSituacion: 'Situación actual',
+    pestanaPeriodo: 'Análisis por período',
     ayudaStockBajo: 'Cantidad de productos con muy poco stock disponible — revisalos para no quedarte sin mercadería para vender.',
     ayudaIngresosDelPeriodo: 'Todo lo que ingresó a la familia en el período elegido: sueldos, ventas, cobros, etc.',
     ayudaGastosDelPeriodo: 'Todo lo que se gastó en el período elegido, sin contar inversiones ni retiros personales.',
@@ -287,6 +295,10 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     ayudaSaldoEnCajaFamilia: 'Quanto dinheiro líquido a família tem agora, somando todas as suas contas (dinheiro, bancos, carteiras). É o mesmo valor de Relatórios → Fluxo de Caixa.',
     verGraficos: 'Ver gráficos',
     ocultarGraficos: 'Ocultar gráficos',
+    verGrafico: 'Ver gráfico',
+    ocultarGrafico: 'Ocultar gráfico',
+    pestanaSituacion: 'Situação atual',
+    pestanaPeriodo: 'Análise por período',
     ayudaStockBajo: 'Quantidade de produtos com pouquíssimo estoque disponível — revise-os para não ficar sem mercadoria para vender.',
     ayudaIngresosDelPeriodo: 'Tudo o que entrou para a família no período escolhido: salários, vendas, recebimentos, etc.',
     ayudaGastosDelPeriodo: 'Tudo o que foi gasto no período escolhido, sem contar investimentos nem retiradas pessoais.',
