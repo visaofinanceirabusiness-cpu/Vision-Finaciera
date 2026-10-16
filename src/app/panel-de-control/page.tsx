@@ -35,6 +35,7 @@ import {
   type ClavePanelControl,
   msgEcuacionNoCierra,
   msgSaludEndeudamiento,
+  msgDeudaSobreLiquido,
   msgFondoRespaldoProgreso,
   msgNivelBanner,
   msgFaltanParaSubirNivel,
@@ -1080,6 +1081,7 @@ export default function MiNegocioPage() {
             <SeccionEndeudamiento
               deuda={indicadores?.pasivos ?? 0}
               patrimonio={indicadores?.patrimonio ?? 0}
+              liquidoMasInversiones={(indicadores?.cajaDisponible ?? 0) + (indicadores?.ahorroInversiones ?? 0)}
               simbolo={simbolo}
               colores={colores}
               idioma={idioma}
@@ -1732,17 +1734,23 @@ function ObjetivoCard({
 function SeccionEndeudamiento({
   deuda,
   patrimonio,
+  liquidoMasInversiones,
   simbolo,
   colores,
   idioma,
 }: {
   deuda: number;
   patrimonio: number;
+  liquidoMasInversiones: number;
   simbolo: string;
   colores: { azul: string; verde: string; acento: string; blanco: string };
   idioma: string;
 }) {
   const t = crearTraductor(diccionarioPanelControl, idioma);
+  const colorSalud = (porcentaje: number) =>
+    porcentaje < 30 ? colores.verde : porcentaje < 60 ? '#d97706' : '#dc2626';
+  const proporcionSobreLiquido =
+    liquidoMasInversiones > 0 ? (deuda / liquidoMasInversiones) * 100 : deuda > 0 ? 100 : 0;
   const total = deuda + Math.max(patrimonio, 0);
   const proporcionDeuda = total > 0 ? (deuda / total) * 100 : 0;
 
@@ -1776,6 +1784,35 @@ function SeccionEndeudamiento({
 
       <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: salud.color }}>
         {salud.texto} — {msgSaludEndeudamiento(idioma, formatearNumero(proporcionDeuda))}
+      </div>
+
+      <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
+          {t('deudaSobreLiquido')}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <InfoCard
+            etiqueta={t('liquidoMasInversiones')}
+            valor={`${simbolo} ${formatearNumero(liquidoMasInversiones)}`}
+            color={colores.verde}
+          />
+        </div>
+
+        <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+          <div
+            style={{
+              width: `${Math.min(100, proporcionSobreLiquido)}%`,
+              height: '100%',
+              borderRadius: 999,
+              background: colorSalud(proporcionSobreLiquido),
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: colorSalud(proporcionSobreLiquido) }}>
+          {msgDeudaSobreLiquido(idioma, formatearNumero(proporcionSobreLiquido))}
+        </div>
       </div>
     </div>
   );
