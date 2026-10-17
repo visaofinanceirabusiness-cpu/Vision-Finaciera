@@ -31,6 +31,20 @@ sesión a sesión.
 - Supabase (Postgres + Auth + RLS) — project ref `dbmbyqsgyrbccxesqdfj`
 - Sin librería de UI: estilos inline (`style={{...}}`), sin Tailwind
 
+## Regla dura: cuentas con operación
+Ninguna cuenta del plan de cuentas (de una empresa o de un plan
+maestro `perfil_plan_cuentas_maestro`) puede quedar sin al menos una
+operación que la use — categoría de operación, forma de pago, categoría
+de producto o fila de la matriz. Salvo las contenedoras
+(`rol_contable` CONTENEDOR_*) y "Resultados Acumulados" (ver
+`lib/auditoriaCuentas.ts`). Al agregar una cuenta a un maestro, agregar
+en el mismo cambio su categoría y regla; al borrar categorías/formas de
+pago no se puede dejar huérfana una cuenta con historial (ver
+`motivoQueDejariaCuentaHuerfana` en `lib/categorias.ts`). Auditoría:
+funciones SQL `cuentas_sin_operacion()` y `maestro_cuentas_sin_operacion()`,
+y Panel Maestro → Cuentas sin operación. Correrlas antes de dar por
+cerrado cualquier cambio de plan de cuentas.
+
 ## Convenciones del código
 - Español primero, portugués como `idioma === 'PT'` condicional en
   cada string visible — nunca portugués solo

@@ -667,6 +667,13 @@ export default function PanelMaestroPage() {
             />
 
             <TarjetaHerramientaMaestro
+              href="/panel-maestro/cuentas-sin-operacion"
+              emoji="🧾"
+              titulo="Cuentas sin operación"
+              color="#b91c1c"
+            />
+
+            <TarjetaHerramientaMaestro
               href="/panel-maestro/probar-tutorial"
               emoji="🧪"
               titulo="Probar tutorial de empresas nuevas"
