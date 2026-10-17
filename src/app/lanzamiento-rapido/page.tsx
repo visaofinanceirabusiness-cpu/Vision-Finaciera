@@ -8,6 +8,7 @@
 // Disponible para todas las empresas (nació como piloto de Buenaventura).
 
 import { useEffect, useRef, useState } from 'react';
+import { tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -73,6 +74,9 @@ export default function LanzamientoRapidoPage() {
   const [errorTarjeta, setErrorTarjeta] = useState('');
   const [confirmarGrande, setConfirmarGrande] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [tipoCuotas, setTipoCuotas] = useState<TipoCuotas>(null);
+  const [enCuotas, setEnCuotas] = useState(false);
+  const [cantidadCuotas, setCantidadCuotas] = useState('2');
   // Aviso "ya lo devengaste" de la tarjeta abierta, y la categoría del compromiso si se eligió.
   const [avisos, setAvisos] = useState<CompromisoAbierto[]>([]);
   const [categoriaAlt, setCategoriaAlt] = useState<string | null>(null);
@@ -211,6 +215,16 @@ export default function LanzamientoRapidoPage() {
         })
         .catch(() => null);
     }
+    setTipoCuotas(null);
+    setEnCuotas(false);
+    setCantidadCuotas('2');
+    if (empresaId) {
+      tipoCuotasDeFormaPago(empresaId, t.operacion, t.formaPago)
+        .then((tipo) => {
+          if (abiertaRef.current === t.clave) setTipoCuotas(tipo);
+        })
+        .catch(() => null);
+    }
     setValor(String(t.ultimoValor).replace('.', ','));
     setFecha(fechaLocalHoy());
     setErrorTarjeta('');
@@ -230,6 +244,11 @@ export default function LanzamientoRapidoPage() {
       setErrorTarjeta(tr('Elegí la fecha.', 'Escolha a data.'));
       return;
     }
+    const cuotasElegidas = tipoCuotas && enCuotas ? Number(cantidadCuotas) : 0;
+    if (tipoCuotas && enCuotas && (!Number.isInteger(cuotasElegidas) || cuotasElegidas < 1)) {
+      setErrorTarjeta(tr('La cantidad de cuotas tiene que ser 1 o más.', 'A quantidade de parcelas tem que ser 1 ou mais.'));
+      return;
+    }
     if (!confirmarGrande && montoSospechoso(monto, t)) {
       setConfirmarGrande(true);
       return;
@@ -239,7 +258,11 @@ export default function LanzamientoRapidoPage() {
     setErrorTarjeta('');
 
     try {
-      const id = await registrarLanzamiento(empresaId, categoriaAlt ? { ...t, categoria: categoriaAlt } : t, monto, fecha);
+      const id = await registrarLanzamiento(empresaId, categoriaAlt ? { ...t, categoria: categoriaAlt } : t,
+        monto,
+        fecha,
+        tipoCuotas && enCuotas ? { tipo: tipoCuotas, cantidad: cuotasElegidas, idioma: meta.idioma } : undefined
+      );
       invalidarCache(empresaId);
       const resumen = `${nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
 
@@ -441,6 +464,25 @@ export default function LanzamientoRapidoPage() {
                           />
                         </label>
                       </div>
+
+                      {tipoCuotas && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: COLORES.azul, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />
+                            {tr('¿En cuotas? Cantidad:', 'Em parcelas? Quantidade:')}
+                          </label>
+                          {enCuotas && (
+                            <input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={cantidadCuotas}
+                              onChange={(e) => setCantidadCuotas(e.target.value)}
+                              style={{ width: 80, padding: '8px 10px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 16 }}
+                            />
+                          )}
+                        </div>
+                      )}
 
                       {categoriaAlt ? (
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
