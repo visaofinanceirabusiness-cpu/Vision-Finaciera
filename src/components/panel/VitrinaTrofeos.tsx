@@ -1,6 +1,6 @@
 'use client';
 
-// VITRINA DE TROFEOS — lobby, perfil Familia.
+// VITRINA DE TROFEOS — lobby, todos los perfiles.
 //
 // Muestra el progreso acumulado histórico (lifetime, nunca se
 // resetea) de cada tipo de trofeo — ver lib/trofeos.ts y

@@ -1,6 +1,6 @@
 // lib/trofeosRangos.ts
 //
-// ESCALERA DE TÍTULOS DE LOS TROFEOS (perfil Familia)
+// ESCALERA DE TÍTULOS DE LOS TROFEOS (todos los perfiles)
 // =====================================================
 // Cada tipo de trofeo (Pagador, Cobrador, Ahorrista) tiene una escalera de
 // títulos ("rangos"): el 0 es el original (Pagador Responsable…) y del 1 al 5

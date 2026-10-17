@@ -322,13 +322,11 @@ export default function InicioPage() {
         }
       }
 
-      // Trofeos — solo perfil Familia por ahora (ver lib/trofeos.ts).
-      if (codigoDePerfil(empresaData?.perfiles_empresa) === 'FAMILIAR') {
-        try {
-          setTrofeoActual(await obtenerTrofeoPendiente(perfilData.empresa_id));
-        } catch (errorTrofeo) {
-          console.warn('No se pudo calcular el trofeo pendiente:', errorTrofeo);
-        }
+      // Trofeos — todos los perfiles (ver lib/trofeos.ts).
+      try {
+        setTrofeoActual(await obtenerTrofeoPendiente(perfilData.empresa_id));
+      } catch (errorTrofeo) {
+        console.warn('No se pudo calcular el trofeo pendiente:', errorTrofeo);
       }
 
       // Objetivos del mes en curso.
@@ -866,7 +864,7 @@ export default function InicioPage() {
           />
         )}
 
-        {esFamiliar && perfil && (
+        {perfil && (
           <VitrinaTrofeos empresaId={perfil.empresa_id} idioma={idioma} colores={colores} />
         )}
 
