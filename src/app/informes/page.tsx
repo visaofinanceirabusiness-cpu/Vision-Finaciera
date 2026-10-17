@@ -90,6 +90,14 @@ export default function InformesPage() {
   const [nombresPorCobrar, setNombresPorCobrar] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  // Deep link desde el Panel de Control: /informes?pestana=mayor&cuenta=<nombre>
+  const [cuentaInicial, setCuentaInicial] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pestana') === 'mayor') setPestana('mayor');
+    setCuentaInicial(params.get('cuenta') ?? '');
+  }, []);
 
   const t = crearTraductor(diccionarioInformes, idioma);
 
@@ -333,7 +341,7 @@ export default function InformesPage() {
             <div style={cargandoStyle}>{t('cargandoInformes')}</div>
           ) : (
             <>
-              {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} />}
+              {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} cuentaInicial={cuentaInicial} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} />
@@ -552,12 +560,20 @@ function tituloTipoSaldo(
   }
 }
 
-function MayorTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asientos: Asiento[]; cuentaInicial: string }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
   const [cuentaId, setCuentaId] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
+
+  // Las cuentas se identifican por nombre en los asientos, así que el
+  // enlace del Panel de Control también viaja por nombre.
+  useEffect(() => {
+    if (!cuentaInicial) return;
+    const encontrada = hojas.find((c) => c.nombre === cuentaInicial);
+    if (encontrada) setCuentaId(encontrada.id);
+  }, [cuentaInicial, hojas]);
 
   const cuenta = hojas.find((c) => c.id === cuentaId) ?? null;
 

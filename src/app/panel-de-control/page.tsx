@@ -1014,6 +1014,7 @@ export default function MiNegocioPage() {
           {graficosAbiertos.activo && (
             <div style={{ marginTop: 16 }}>
               <ComposicionPorGrupos
+                hrefCuenta={hrefMayor}
               grupos={indicadores?.composicionActivoGrupos ?? []}
               presentacion={GRUPOS_ACTIVO}
               titulo={t('tituloComposicionActivo')}
@@ -1031,6 +1032,7 @@ export default function MiNegocioPage() {
           {graficosAbiertos.pasivo && (
             <div style={{ marginTop: 16 }}>
               <ComposicionPorGrupos
+                hrefCuenta={hrefMayor}
               grupos={indicadores?.composicionPasivoGrupos ?? []}
               presentacion={GRUPOS_PASIVO}
               titulo={t('tituloComposicionPasivo')}
@@ -1048,6 +1050,7 @@ export default function MiNegocioPage() {
           {graficosAbiertos.patrimonio && (
             <div style={{ marginTop: 16 }}>
               <ComposicionPorGrupos
+                hrefCuenta={hrefMayor}
               grupos={indicadores?.composicionPatrimonioGrupos ?? []}
               presentacion={GRUPOS_PATRIMONIO}
               titulo={t('tituloComposicionPatrimonio')}
@@ -1729,6 +1732,9 @@ function ObjetivoCard({
     </div>
   );
 }
+
+// El Mayor de Informes muestra los movimientos de la cuenta elegida.
+const hrefMayor = (nombre: string) => `/informes?pestana=mayor&cuenta=${encodeURIComponent(nombre)}`;
 
 function SeccionEndeudamiento({
   deuda,
