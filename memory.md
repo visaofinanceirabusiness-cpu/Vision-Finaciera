@@ -670,3 +670,18 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - Verificado (SQL): las plantillas recurrentes de Buenaventura ya se llaman "Alquiler Arg. Casita" / "Alquiler Arg. Departamento" (= altas CLI-00007/8); los devengos futuros nacen con ese nombre. Plantillas de gasto (Alquiler Santihno, Chat GPT, Claude, Combustible Uber, Netflix) no tienen alta de proveedor (opcional en Familia). Los recordatorios no guardan nombre propio: lo toman de la plantilla.
 - Tarjeta "Por cobrar / Por pagar (saldos)" en Análisis (`AnalisisContrapartes`). Familia: saldo de cada cuenta "X a cobrar"/"X a pagar" (grupo POR_COBRAR del Activo; CUENTAS_PAGAR+OTROS del Pasivo, de `obtenerIndicadores`), con enlace al Mayor; coincide con el Panel por construcción. Empresas: `saldosPorContraparte` (lib) = saldo inicial + movimiento por nombre en esas cuentas + "sin nombre asignado", con chequeo contra el saldo en libros (avisa la diferencia si no cierra).
 - No hay ventas a crédito reales en las empresas hoy (la comercial 03641ed7 no tiene movimientos en cuentas por cobrar), así que la rama de empresas está validada con tests y datos simulados, no con datos reales.
+
+## Paridad de perfiles — decisiones (17/10/2026)
+Análisis completo en la conversación (Familia/Buenaventura vs resto). Decisiones del usuario:
+- **Objetivos Escalonados para todos los perfiles** (hecho): Familia = Pago/Cobro/Transferencia; empresas = Venta/Cobro/Pago (+ Compra si maneja mercadería; `tiposEscalonadosDelPerfil`). Es lo ÚNICO que se generaliza de lo exclusivo de Familia; se descartó (por ahora) habilitar a empresas Endeudamiento, Fondo de respaldo, banner de nivel, Trofeos y unificar el gráfico de evolución. Objetivos familiares vs del mes siguen distintos.
+- **Noticias del día para todas las empresas** (hecho; fuentes genéricas, caché 30 min).
+- **Plan de Acción de 30 días y Nuestro Sueño**: el acceso aparece para todas las empresas; solo Buenaventura (y Ocaña en Nuestro Sueño) tienen contenido; el resto ve "Ponete en contacto con un asesor para que cargue el plan" (`MensajeContactarAsesor`). Las listas siguen en `planAccionEmpresas.ts` / `nuestroSuenoEmpresas.ts` (= "tiene contenido cargado").
+- **REGLA DURA (reiterada por el usuario): ninguna cuenta del plan de cuentas puede quedar sin al menos una operación que la use.** Aplica a todos los maestros y a las cuentas que se creen después. Ver "Pendientes" abajo para el estado.
+- **Bienes de uso**: agregar Compra de Muebles y Útiles / Equipos de Computación / Maquinarias y Equipos a todos los perfiles de empresa (y la operación Compra a Servicios, solo para bienes de uso).
+
+## PENDIENTE — resolver ANTES DE FIN DE MES (oct 2026)
+Punto 6 del análisis de paridad, que el usuario dejó para después: decidir y diseñar
+1. **Depreciación Acumulada** (no hay cuenta de gasto "Depreciación" en el plan de empresa: crearla + operación).
+2. **Anticipo a Proveedores** (operación de anticipo y cómo se aplica a una compra posterior).
+3. **Impuestos**: IVA Crédito/Débito, Impuestos a Pagar, Ingresos Brutos (AR), Simples/INSS/FGTS (BR), Sueldos y Cargas Sociales a Pagar, Alquiler y Servicios a Pagar (depende del régimen de cada país).
+Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): son la deuda pendiente de la auditoría.

@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { empresaTieneNuestroSueno } from '@/lib/perfilCapacidades';
+import { MensajeContactarAsesor } from '@/components/panel/MensajeContactarAsesor';
 import {
   obtenerMiPareja,
   crearInvitacion,
@@ -54,6 +55,7 @@ export default function NuestroSuenoPage() {
   const [campos, setCampos] = useState<Record<string, SuenoCampo>>({});
   const [mensajes, setMensajes] = useState<SuenoMensaje[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [sinHabilitar, setSinHabilitar] = useState(false);
   const [error, setError] = useState('');
   const [codigoIngresado, setCodigoIngresado] = useState('');
   const [uniendo, setUniendo] = useState(false);
@@ -102,7 +104,10 @@ export default function NuestroSuenoPage() {
       }
 
       if (!empresaTieneNuestroSueno(perfilData.empresa_id)) {
-        router.push('/');
+        const { data: empresaSinSueno } = await supabase.from('empresas').select('nombre, idioma').eq('id', perfilData.empresa_id).maybeSingle();
+        setEmpresa((empresaSinSueno as Empresa | null) ?? null);
+        setSinHabilitar(true);
+        setCargando(false);
         return;
       }
 
@@ -241,6 +246,10 @@ export default function NuestroSuenoPage() {
 
   if (cargando) {
     return <main style={estilos.main}>{esPT ? 'Carregando…' : 'Cargando…'}</main>;
+  }
+
+  if (sinHabilitar) {
+    return <MensajeContactarAsesor emoji="💞" titulo="Nuestro Sueño" idioma={empresa?.idioma} />;
   }
 
   return (

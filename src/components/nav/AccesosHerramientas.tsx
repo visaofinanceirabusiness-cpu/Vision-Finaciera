@@ -18,7 +18,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CAJA_SABIO } from '@/components/panel/SabioWidget';
-import { empresaManejaMercaderia, empresaTieneModulo, empresaTienePlanAccion, empresaTieneNuestroSueno } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
 
 type Herramienta = {
   href: string;
@@ -99,8 +99,6 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         TODAS_LAS_HERRAMIENTAS.filter((herramienta) => {
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
-          if (herramienta.href === '/plan-accion') return empresaTienePlanAccion(perfil.empresa_id);
-          if (herramienta.href === '/nuestro-sueno') return empresaTieneNuestroSueno(perfil.empresa_id);
           // Igual que en el lobby: el asistente no ve Informes.
           if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
           return true;

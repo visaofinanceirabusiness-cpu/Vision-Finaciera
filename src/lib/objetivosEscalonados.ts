@@ -1,11 +1,12 @@
 // lib/objetivosEscalonados.ts
 //
-// OBJETIVOS ESCALONADOS — perfil Familia
+// OBJETIVOS ESCALONADOS — todos los perfiles
 // =====================================================
 // Capa motivacional adicional a "Primeros pasos": dentro de cada
 // nivel de gamificación (10 niveles, 75 operaciones cada uno — ver
-// lib/gamificacion.ts) se proponen 3 operaciones (Pago, Cobro,
-// Transferencia) con 3 checkpoints crecientes cada una — otra forma
+// lib/gamificacion.ts) se proponen 3 o 4 operaciones con 3 checkpoints
+// crecientes cada una (Familia: Pago, Cobro, Transferencia; empresas:
+// Venta, Cobro, Pago y, si manejan mercadería, Compra) — otra forma
 // de acercarse a las 75 operaciones del nivel, pero por etapas.
 //
 // El conteo es SOLO del nivel actual: arranca de nuevo cada vez que
@@ -18,7 +19,16 @@
 
 import { supabase } from './supabase';
 
-export type TipoEscalonado = 'PAGO' | 'COBRO' | 'TRANSFERENCIA';
+export type TipoEscalonado = 'PAGO' | 'COBRO' | 'TRANSFERENCIA' | 'VENTA' | 'COMPRA';
+
+export const TIPOS_FAMILIA: TipoEscalonado[] = ['PAGO', 'COBRO', 'TRANSFERENCIA'];
+
+// En una empresa lo que más se hace es vender, cobrar y pagar; comprar solo
+// si maneja mercadería (Servicios no tiene stock).
+export function tiposEscalonadosDelPerfil(esFamiliar: boolean, manejaMercaderia: boolean): TipoEscalonado[] {
+  if (esFamiliar) return TIPOS_FAMILIA;
+  return manejaMercaderia ? ['VENTA', 'COBRO', 'PAGO', 'COMPRA'] : ['VENTA', 'COBRO', 'PAGO'];
+}
 
 export type ObjetivoEscalonado = {
   tipo: TipoEscalonado;
@@ -61,6 +71,30 @@ const ESCALAS: Record<TipoEscalonado, number[][]> = {
     [9, 26, 35],
     [10, 28, 38],
   ],
+  VENTA: [
+    [5, 15, 22],
+    [6, 17, 25],
+    [7, 19, 28],
+    [8, 21, 31],
+    [9, 23, 34],
+    [10, 25, 37],
+    [11, 27, 40],
+    [12, 29, 43],
+    [13, 31, 46],
+    [14, 34, 50],
+  ],
+  COMPRA: [
+    [3, 8, 12],
+    [3, 9, 14],
+    [4, 10, 16],
+    [4, 11, 18],
+    [5, 12, 20],
+    [5, 13, 22],
+    [6, 14, 24],
+    [6, 15, 26],
+    [7, 16, 28],
+    [8, 18, 30],
+  ],
   TRANSFERENCIA: [
     [2, 6, 10],
     [3, 7, 12],
@@ -79,6 +113,8 @@ const INFO: Record<TipoEscalonado, { emoji: string; nombre: string; nombrePT: st
   PAGO: { emoji: '💸', nombre: 'Pagos registrados', nombrePT: 'Pagamentos registrados' },
   COBRO: { emoji: '💵', nombre: 'Cobros registrados', nombrePT: 'Recebimentos registrados' },
   TRANSFERENCIA: { emoji: '🔄', nombre: 'Transferencias registradas', nombrePT: 'Transferências registradas' },
+  VENTA: { emoji: '🛒', nombre: 'Ventas registradas', nombrePT: 'Vendas registradas' },
+  COMPRA: { emoji: '📦', nombre: 'Compras registradas', nombrePT: 'Compras registradas' },
 };
 
 export function checkpointsDelNivel(tipo: TipoEscalonado, nivel: number): number[] {
@@ -114,17 +150,16 @@ async function contarDesde(empresaId: string, operacion: TipoEscalonado, desde: 
   return count ?? 0;
 }
 
-const TIPOS: TipoEscalonado[] = ['PAGO', 'COBRO', 'TRANSFERENCIA'];
-
 export async function obtenerObjetivosEscalonados(
   empresaId: string,
   nivel: number,
-  operacionesMin: number
+  operacionesMin: number,
+  tipos: TipoEscalonado[] = TIPOS_FAMILIA
 ): Promise<ObjetivoEscalonado[]> {
   const desde = await fechaInicioNivel(empresaId, operacionesMin);
-  const conteos = await Promise.all(TIPOS.map((tipo) => contarDesde(empresaId, tipo, desde)));
+  const conteos = await Promise.all(tipos.map((tipo) => contarDesde(empresaId, tipo, desde)));
 
-  return TIPOS.map((tipo, i) => {
+  return tipos.map((tipo, i) => {
     const checkpoints = checkpointsDelNivel(tipo, nivel);
     const conteo = conteos[i];
     const checkpointsCumplidos = checkpoints.filter((c) => conteo >= c).length;

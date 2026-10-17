@@ -1,9 +1,9 @@
 'use client';
 
-// OBJETIVOS ESCALONADOS — perfil Familia (dentro de la sección
+// OBJETIVOS ESCALONADOS — todos los perfiles (dentro de la sección
 // OBJETIVOS de Panel de Control, junto a "Primeros pasos").
 //
-// 3 operaciones (Pago, Cobro, Transferencia) con 3 checkpoints
+// 3 o 4 operaciones (según el perfil) con 3 checkpoints
 // crecientes cada una, que resetean al subir de nivel — ver
 // lib/objetivosEscalonados.ts para el detalle de cómo se cuenta.
 //
@@ -18,6 +18,7 @@ import {
   obtenerObjetivosEscalonados,
   type ObjetivoEscalonado,
   type TipoEscalonado,
+  TIPOS_FAMILIA,
 } from '@/lib/objetivosEscalonados';
 import type { TipoFestejo } from '@/lib/festejoVisual';
 import { FestejoModal } from './FestejoModal';
@@ -51,10 +52,12 @@ export function ObjetivosEscalonados({
   operacionesMin,
   idioma,
   colores,
+  tipos = TIPOS_FAMILIA,
 }: {
   empresaId: string;
   nivel: number;
   operacionesMin: number;
+  tipos?: TipoEscalonado[];
   idioma?: string | null;
   colores: { azul: string; verde: string; acento: string };
 }) {
@@ -67,7 +70,7 @@ export function ObjetivosEscalonados({
     let activo = true;
     yaCargado.current = false;
 
-    obtenerObjetivosEscalonados(empresaId, nivel, operacionesMin)
+    obtenerObjetivosEscalonados(empresaId, nivel, operacionesMin, tipos)
       .then((datos) => {
         if (!activo) return;
         setObjetivos(datos);
@@ -96,7 +99,7 @@ export function ObjetivosEscalonados({
     return () => {
       activo = false;
     };
-  }, [empresaId, nivel, operacionesMin]);
+  }, [empresaId, nivel, operacionesMin, tipos]);
 
   function cerrarFestejo() {
     if (!festejo) return;
