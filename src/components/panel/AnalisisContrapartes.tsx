@@ -7,13 +7,16 @@
 // destinos de pago.
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { fechaLocalHoy, formatearPeriodo } from '@/lib/fecha';
 import {
   analizarContrapartes,
   fichaDeContraparte,
   grafiasPorRevisar,
   operacionesSinContraparte,
+  saldosPorContraparte,
   normalizarNombre,
   type EtiquetaFrecuencia,
   type OperacionTercero,
@@ -78,6 +81,8 @@ export function AnalisisContrapartes({
 
   const [operaciones, setOperaciones] = useState<OperacionTercero[] | null>(null);
   const [tiposCuenta, setTiposCuenta] = useState<TiposDeCuenta | undefined>(undefined);
+  const [planCuentas, setPlanCuentas] = useState<Array<{ nombre: string; saldo_inicial: number | null; naturaleza: string | null }>>([]);
+  const [indicadores, setIndicadores] = useState<IndicadoresPanel | null>(null);
   const [error, setError] = useState(false);
   const [tipo, setTipo] = useState<TipoContraparte>('clientes');
   const [periodo, setPeriodo] = useState(mesActual);
@@ -102,12 +107,16 @@ export function AnalisisContrapartes({
     let vigente = true;
     supabase
       .from('plan_cuentas')
-      .select('nombre, tipo_saldo')
+      .select('nombre, tipo_saldo, saldo_inicial, naturaleza')
       .eq('empresa_id', empresaId)
       .then(({ data }) => {
         if (!vigente || !data) return;
         setTiposCuenta(new Map(data.map((c) => [c.nombre as string, (c.tipo_saldo ?? '') as string])));
+        setPlanCuentas(data.map((c) => ({ nombre: c.nombre as string, saldo_inicial: c.saldo_inicial as number | null, naturaleza: c.naturaleza as string | null })));
       });
+    obtenerIndicadores(empresaId, 'TODOS')
+      .then((datos) => vigente && setIndicadores(datos))
+      .catch(() => undefined);
     return () => {
       vigente = false;
     };
@@ -146,6 +155,26 @@ export function AnalisisContrapartes({
     () => grafiasPorRevisar({ operaciones: operaciones ?? [], tipo, esFamiliar, altas }),
     [operaciones, tipo, esFamiliar, altas]
   );
+
+  const cuentasPendientes = useMemo(() => {
+    if (!indicadores) return [];
+    if (tipo === 'clientes') return indicadores.composicionActivoGrupos.find((g) => g.id === 'POR_COBRAR')?.cuentas ?? [];
+    return indicadores.composicionPasivoGrupos
+      .filter((g) => g.id === 'CUENTAS_PAGAR' || g.id === 'OTROS')
+      .flatMap((g) => g.cuentas)
+      .sort((a, b) => b.valor - a.valor);
+  }, [indicadores, tipo]);
+  const totalPendientePanel = cuentasPendientes.reduce((suma, c) => suma + c.valor, 0);
+
+  const saldos = useMemo(() => {
+    if (esFamiliar || cuentasPendientes.length === 0) return null;
+    const nombresCuentas = new Set(cuentasPendientes.map((c) => c.nombre));
+    return saldosPorContraparte({
+      operaciones: operaciones ?? [],
+      cuentas: planCuentas.filter((c) => nombresCuentas.has(c.nombre)).map((c) => ({ nombre: c.nombre, saldoInicial: Number(c.saldo_inicial ?? 0), naturaleza: c.naturaleza })),
+      lado: tipo === 'clientes' ? 'COBRAR' : 'PAGAR',
+    });
+  }, [esFamiliar, cuentasPendientes, operaciones, planCuentas, tipo]);
 
   const sinNombre = useMemo(
     () => operacionesSinContraparte({ operaciones: operaciones ?? [], tipo, esFamiliar }),
@@ -439,6 +468,84 @@ export function AnalisisContrapartes({
           })}
         </svg>
       </div>
+
+      {/* SALDOS PENDIENTES */}
+      {cuentasPendientes.length > 0 && (
+        <div style={{ ...tarjetaStyle, marginBottom: 18 }}>
+          <h3 style={tituloStyle(colores.azul)}>
+            {tipo === 'clientes' ? '🧾' : '💳'}{' '}
+            {tipo === 'clientes' ? (esPT ? 'A receber (saldos)' : 'Por cobrar (saldos)') : esPT ? 'A pagar (saldos)' : 'Por pagar (saldos)'}
+          </h3>
+          <p style={subtituloStyle}>
+            {esFamiliar
+              ? esPT
+                ? 'Em Família cada fonte tem a sua própria conta: este é o saldo de cada uma, hoje. Toque para ver os movimentos.'
+                : 'En Familia cada fuente tiene su propia cuenta: este es el saldo de cada una, hoy. Tocá una para ver sus movimientos.'
+              : esPT
+                ? `Saldo de cada ${tipo === 'clientes' ? 'cliente' : 'fornecedor'}, a partir do que movimentou nas contas ${tipo === 'clientes' ? 'a receber' : 'a pagar'}.`
+                : `Saldo de cada ${tipo === 'clientes' ? 'cliente' : 'proveedor'}, a partir de lo que movió en las cuentas ${tipo === 'clientes' ? 'por cobrar' : 'por pagar'}.`}
+          </p>
+
+          {esFamiliar || !saldos ? (
+            <>
+              {cuentasPendientes.map((c) => (
+                <Link
+                  key={c.nombre}
+                  href={`/informes?pestana=mayor&cuenta=${encodeURIComponent(c.nombre)}`}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderTop: '1px solid #eef2f6', textDecoration: 'none', fontSize: 14 }}
+                >
+                  <span style={{ fontWeight: 700, color: '#1f2937' }}>{c.nombre}</span>
+                  <span style={{ fontWeight: 800, color: tipo === 'clientes' ? '#15803d' : '#c2410c', whiteSpace: 'nowrap' }}>
+                    {formatear(c.valor)} <span style={{ color: colores.azul }}>›</span>
+                  </span>
+                </Link>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', borderTop: '2px solid #e5e7eb', fontWeight: 900, color: colores.azul }}>
+                <span>Total</span>
+                <span>{formatear(totalPendientePanel)}</span>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: '#15803d' }}>
+                ✓ {esPT ? `Coincide com "${tipo === 'clientes' ? 'A receber' : 'A pagar'}" do Painel de Controle.` : `Coincide con "${tipo === 'clientes' ? 'Por cobrar' : 'Cuentas a pagar'}" del Panel de Control.`}
+              </div>
+            </>
+          ) : (
+            <>
+              {saldos.filas.map((f) => (
+                <div key={f.nombre} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderTop: '1px solid #eef2f6', fontSize: 14 }}>
+                  <button type="button" onClick={() => setFichaAbierta(normalizarNombre(f.nombre))} style={botonNombre(colores.azul)}>
+                    {f.nombre}
+                  </button>
+                  <span style={{ fontWeight: 800, whiteSpace: 'nowrap', color: f.saldo < 0 ? '#b45309' : tipo === 'clientes' ? '#15803d' : '#c2410c' }}>
+                    {formatear(f.saldo)}
+                    {f.saldo < 0 && <span style={{ fontWeight: 600, fontSize: 11 }}> {esPT ? '(a favor)' : '(a favor)'}</span>}
+                  </span>
+                </div>
+              ))}
+              {saldos.sinAsignar.operaciones > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderTop: '1px solid #eef2f6', fontSize: 14, color: '#92400e' }}>
+                  <span>⚠️ {esPT ? 'Sem nome atribuído' : 'Sin nombre asignado'} ({saldos.sinAsignar.operaciones})</span>
+                  <span style={{ fontWeight: 800 }}>{formatear(saldos.sinAsignar.saldo)}</span>
+                </div>
+              )}
+              {Math.abs(saldos.saldoInicial) >= 0.5 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderTop: '1px solid #eef2f6', fontSize: 14, color: COLORES_GRIS }}>
+                  <span>{esPT ? 'Saldo inicial (sem detalhe)' : 'Saldo inicial (sin detalle)'}</span>
+                  <span style={{ fontWeight: 800 }}>{formatear(saldos.saldoInicial)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', borderTop: '2px solid #e5e7eb', fontWeight: 900, color: colores.azul }}>
+                <span>Total</span>
+                <span>{formatear(saldos.total)}</span>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: Math.abs(saldos.total - totalPendientePanel) < 0.5 ? '#15803d' : '#b91c1c' }}>
+                {Math.abs(saldos.total - totalPendientePanel) < 0.5
+                  ? `✓ ${esPT ? 'Coincide com o saldo em livros' : 'Coincide con el saldo en libros'} (${formatear(totalPendientePanel)}).`
+                  : `⚠️ ${esPT ? 'Diferença com os livros' : 'Diferencia con los libros'}: ${formatear(saldos.total - totalPendientePanel)} (${esPT ? 'livros' : 'libros'} ${formatear(totalPendientePanel)}).`}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* FRECUENCIA */}
       <div style={tarjetaStyle}>
