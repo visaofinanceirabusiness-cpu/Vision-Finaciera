@@ -17,7 +17,12 @@ export type OperacionTercero = {
   categoria?: string | null;
   historico?: string | null;
   id_operacion?: string | null;
+  cuenta_debito?: string | null;
+  cuenta_credito?: string | null;
 };
+
+// nombre de cuenta -> tipo_saldo (INGRESO, GASTO, COSTO, ACTIVO, PASIVO…)
+export type TiposDeCuenta = Map<string, string>;
 
 export type TipoContraparte = 'clientes' | 'proveedores';
 
@@ -65,6 +70,22 @@ export function operacionBase(tipo: TipoContraparte, esFamiliar: boolean): strin
   return esFamiliar ? 'PAGO' : 'COMPRA';
 }
 
+// En Familia el cobro y el pago son a la vez el devengo (se reconoce el
+// ingreso o el gasto: se acredita una cuenta de ingreso / se debita una de
+// gasto) y la liquidación posterior (se acredita o debita "X a cobrar" /
+// "X a pagar"). Contar las dos veces duplica el valor, así que el análisis
+// solo cuenta la que reconoce el resultado: así coincide con "Ingresos" y
+// "Gastos" del Panel de Control.
+export function reconoceResultado(o: OperacionTercero, tipo: TipoContraparte, tipos?: TiposDeCuenta): boolean {
+  const cuenta = ((tipo === 'clientes' ? o.cuenta_credito : o.cuenta_debito) ?? '').trim();
+  if (!cuenta) return true;
+
+  const tipoSaldo = tipos?.get(cuenta);
+  if (tipoSaldo) return tipo === 'clientes' ? tipoSaldo === 'INGRESO' : tipoSaldo === 'GASTO' || tipoSaldo === 'COSTO';
+
+  return !/cobrar|pagar/i.test(cuenta);
+}
+
 export function normalizarNombre(nombre: string | null | undefined): string {
   return (nombre ?? '')
     .normalize('NFD')
@@ -99,6 +120,7 @@ export function analizarContrapartes({
   periodo,
   hoy,
   fechasAlta,
+  tiposCuenta,
 }: {
   operaciones: OperacionTercero[];
   tipo: TipoContraparte;
@@ -109,6 +131,7 @@ export function analizarContrapartes({
   hoy: string;
   // nombre normalizado -> fecha de alta ('AAAA-MM-DD'), de la tabla clientes/proveedores
   fechasAlta: Map<string, string | null>;
+  tiposCuenta?: TiposDeCuenta;
 }): AnalisisContrapartes {
   const base = operacionBase(tipo, esFamiliar);
   const liquidacion = tipo === 'clientes' ? 'COBRO' : 'PAGO';
@@ -132,6 +155,7 @@ export function analizarContrapartes({
     }
 
     if (operacion !== base) continue;
+    if (esFamiliar && !reconoceResultado(o, tipo, tiposCuenta)) continue;
 
     if (!clave) {
       if (delPeriodo(o)) {
@@ -288,16 +312,19 @@ export function fichaDeContraparte({
   clave,
   periodo,
   hoy,
+  tiposCuenta,
 }: {
   operaciones: OperacionTercero[];
   tipo: TipoContraparte;
   esFamiliar: boolean;
+  tiposCuenta?: TiposDeCuenta;
   // nombre ya normalizado
   clave: string;
   periodo: string;
   hoy: string;
 }): FichaContraparte {
   const base = operacionBase(tipo, esFamiliar);
+  const cuentaPropia = (o: OperacionTercero) => (o.operacion ?? '').toUpperCase() === base && (!esFamiliar || reconoceResultado(o, tipo, tiposCuenta));
   const tipos = operacionesDeContraparte(tipo, esFamiliar);
   const propias = operaciones.filter(
     (o) =>
@@ -306,7 +333,7 @@ export function fichaDeContraparte({
       tipos.includes((o.operacion ?? '').toUpperCase())
   );
 
-  const bases = propias.filter((o) => (o.operacion ?? '').toUpperCase() === base);
+  const bases = propias.filter(cuentaPropia);
   const delPeriodo = bases.filter((o) => periodo === 'TODOS' || o.fecha.slice(0, 7) === periodo);
 
   const sumar = (lista: OperacionTercero[]) => lista.reduce((suma, o) => suma + (Number(o.total ?? 0) || 0), 0);
@@ -353,10 +380,14 @@ export function fichaDeContraparte({
         total: Number(o.total ?? 0) || 0,
         categoria: o.categoria ?? '',
         historico: o.historico ?? '',
-        esBase: (o.operacion ?? '').toUpperCase() === base,
+        esBase: cuentaPropia(o),
       }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha)),
   };
+}
+
+function palabrasClave(normal: string): string[] {
+  return normal.split(/[^a-z0-9]+/).filter((palabra) => palabra.length >= 4);
 }
 
 function distanciaEdicion(a: string, b: string): number {
@@ -430,10 +461,30 @@ export function grafiasPorRevisar({
         confianza = 'MISMA';
       } else {
         let mejor: { nombre: string; distancia: number } | null = null;
+        let empate = false;
         for (const [normalAlta, original] of altasNormalizadas) {
           const contiene = Math.min(normal.length, normalAlta.length) >= 4 && (normalAlta.includes(normal) || normal.includes(normalAlta));
           const distancia = contiene ? 1 : normal.length >= 5 ? distanciaEdicion(normal, normalAlta) : 99;
-          if (distancia <= 2 && (!mejor || distancia < mejor.distancia)) mejor = { nombre: original, distancia };
+          if (distancia > 2) continue;
+          if (!mejor || distancia < mejor.distancia) {
+            mejor = { nombre: original, distancia };
+            empate = false;
+          } else if (distancia === mejor.distancia) {
+            empate = true;
+          }
+        }
+        // Si dos altas se parecen igual, no se adivina: que lo elija la persona.
+        if (empate) mejor = null;
+        if (!mejor && !empate) {
+          // "Casita 💚" vs "Alquiler Arg. Casita": todas sus palabras están en un único alta.
+          const palabras = palabrasClave(normal);
+          if (palabras.length > 0) {
+            const candidatos = [...altasNormalizadas].filter(([normalAlta]) => {
+              const delAlta = palabrasClave(normalAlta);
+              return palabras.every((p) => delAlta.includes(p));
+            });
+            if (candidatos.length === 1) mejor = { nombre: candidatos[0][1], distancia: 2 };
+          }
         }
         if (mejor) {
           sugerencia = mejor.nombre;

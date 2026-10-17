@@ -8,6 +8,7 @@ import {
   grafiasPorRevisar,
   operacionesSinContraparte,
   sugerenciaDeHistorico,
+  reconoceResultado,
   type OperacionTercero,
 } from './analisisContrapartes';
 
@@ -220,5 +221,92 @@ describe('operacionesSinContraparte', () => {
   it('para proveedores en empresas incluye compra y pago', () => {
     const r = operacionesSinContraparte({ operaciones: ops, tipo: 'proveedores', esFamiliar: false });
     expect(r.map((x) => x.id)).toEqual(['4']);
+  });
+});
+
+describe('Familia: devengo y liquidación no se cuentan dos veces', () => {
+  const tipos = new Map([
+    ['Uber', 'INGRESO'],
+    ['Uber a cobrar', 'ACTIVO'],
+    ['Banco Uber', 'ACTIVO'],
+    ['Combustible Uber', 'GASTO'],
+    ['Combustible Uber a pagar', 'PASIVO'],
+  ]);
+  const cobro = (fecha: string, total: number, debito: string, credito: string, tercero = 'Uber'): OperacionTercero => ({
+    fecha,
+    operacion: 'COBRO',
+    total,
+    cliente_proveedor: tercero,
+    estado: 'VALIDADO',
+    cuenta_debito: debito,
+    cuenta_credito: credito,
+  });
+  const pago = (fecha: string, total: number, debito: string, credito: string): OperacionTercero => ({
+    fecha,
+    operacion: 'PAGO',
+    total,
+    cliente_proveedor: 'Uber',
+    estado: 'VALIDADO',
+    cuenta_debito: debito,
+    cuenta_credito: credito,
+  });
+
+  const ops = [
+    cobro('2026-10-01', 1000, 'Uber a cobrar', 'Uber'), // devengo
+    cobro('2026-10-05', 200, 'Banco Uber', 'Uber'), // ingreso directo
+    cobro('2026-10-13', 750, 'Banco Uber', 'Uber a cobrar'), // liquidación del devengo
+    pago('2026-10-01', 630, 'Combustible Uber', 'Combustible Uber a pagar'), // devengo
+    pago('2026-10-13', 600, 'Combustible Uber a pagar', 'Banco Uber'), // liquidación
+  ];
+
+  it('solo cuenta el cobro que acredita una cuenta de ingreso', () => {
+    const r = analizarContrapartes({ operaciones: ops, tipo: 'clientes', esFamiliar: true, periodo: '2026-10', hoy: HOY, fechasAlta: new Map(), tiposCuenta: tipos });
+    expect(r.total).toBe(1200);
+    expect(r.operaciones).toBe(2);
+  });
+
+  it('solo cuenta el pago que debita una cuenta de gasto', () => {
+    const r = analizarContrapartes({ operaciones: ops, tipo: 'proveedores', esFamiliar: true, periodo: '2026-10', hoy: HOY, fechasAlta: new Map(), tiposCuenta: tipos });
+    expect(r.total).toBe(630);
+  });
+
+  it('sin plan de cuentas cae al nombre de la cuenta', () => {
+    expect(reconoceResultado(ops[2], 'clientes')).toBe(false);
+    expect(reconoceResultado(ops[0], 'clientes')).toBe(true);
+    expect(reconoceResultado(ops[4], 'proveedores')).toBe(false);
+  });
+
+  it('en la ficha la liquidación aparece pero no suma', () => {
+    const f = fichaDeContraparte({ operaciones: ops, tipo: 'clientes', esFamiliar: true, clave: 'uber', periodo: '2026-10', hoy: HOY, tiposCuenta: tipos });
+    expect(f.totalHistorico).toBe(1200);
+    expect(f.movimientos).toHaveLength(3);
+    expect(f.movimientos.filter((m) => !m.esBase)).toHaveLength(1);
+  });
+
+  it('empresas no cambian: venta y cobro son operaciones distintas', () => {
+    const r = analizarContrapartes({
+      operaciones: [op('2026-10-02', 100, 'Ana'), { ...op('2026-10-05', 100, 'Ana', 'COBRO'), cuenta_credito: 'Clientes' }],
+      tipo: 'clientes',
+      esFamiliar: false,
+      periodo: '2026-10',
+      hoy: HOY,
+      fechasAlta: new Map(),
+    });
+    expect(r.total).toBe(100);
+  });
+});
+
+describe('grafiasPorRevisar: palabras en común', () => {
+  const ops = [op('2026-10-01', 1100, 'Casita 💚', 'COBRO'), op('2026-10-01', 1100, 'Departamento 🏠', 'COBRO'), op('2026-10-02', 5, 'Alquiler', 'COBRO')];
+  const altas = ['Alquiler Arg. Casita', 'Alquiler Arg. Departamento'];
+  const r = grafiasPorRevisar({ operaciones: ops, tipo: 'clientes', esFamiliar: true, altas });
+
+  it('sugiere el alta que contiene todas sus palabras', () => {
+    expect(r.find((x) => x.grafia === 'Casita 💚')).toMatchObject({ sugerencia: 'Alquiler Arg. Casita', confianza: 'PARECIDA' });
+    expect(r.find((x) => x.grafia === 'Departamento 🏠')).toMatchObject({ sugerencia: 'Alquiler Arg. Departamento' });
+  });
+
+  it('si es ambiguo no adivina', () => {
+    expect(r.find((x) => x.grafia === 'Alquiler')?.sugerencia).toBeNull();
   });
 });
