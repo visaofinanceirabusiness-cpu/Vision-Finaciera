@@ -63,10 +63,16 @@ export function PanelCotizaciones({ idioma, colores }: { idioma: string; colores
 
   return (
     <div>
-      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        {esPT ? 'COTAÇÕES' : 'COTIZACIONES'}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+          {esPT ? 'COTAÇÕES' : 'COTIZACIONES'}
+        </div>
+        <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>💱 {esPT ? 'Cotações' : 'Cotizaciones'}</h2>
       </div>
-      <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>💱 {esPT ? 'Cotações' : 'Cotizaciones'}</h2>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/sabio/sabio-cotizaciones.webp" alt="" style={{ height: 92, width: 'auto', flexShrink: 0 }} />
+    </div>
 
       {cargando ? (
         <p style={{ fontSize: 13, color: '#6e7781', marginTop: 14 }}>{esPT ? 'Carregando...' : 'Cargando...'}</p>

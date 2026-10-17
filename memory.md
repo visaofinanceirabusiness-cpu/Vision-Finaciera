@@ -644,3 +644,5 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - Endeudamiento y Fondo de respaldo (Situación actual, Familia) llevan su Sabio en el encabezado (`public/sabio/sabio-endeudamiento.webp` — calculadora, flecha roja y alcancía; `sabio-fondo.webp` — balanza con escudo y monedas), a la derecha del título.
 
 - Análisis por período: "Compromisos programados" es ahora su propia tarjeta (`CompromisosProgramadosResumen`, ya no va dentro de otra sección; devuelve null si no hay nada programado) con `sabio-compromisos.webp`, y el selector de período lleva `sabio-periodo.webp` a la izquierda.
+
+- Lobby: Calendario Organizador, Cotizaciones y Noticias del día llevan su Sabio en el encabezado (`public/sabio/sabio-{calendario,cotizaciones,noticias}.webp`; calendario a la izquierda del título, los otros dos a la derecha).

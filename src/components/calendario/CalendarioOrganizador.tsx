@@ -302,13 +302,18 @@ export function CalendarioOrganizador({
           marginBottom: 16,
         }}
       >
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde, marginBottom: 4 }}>
-            {esPT ? 'ORGANIZAÇÃO' : 'ORGANIZACIÓN'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/sabio/sabio-calendario.webp" alt="" style={{ height: 88, width: 'auto', flexShrink: 0 }} />
+
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde, marginBottom: 4 }}>
+              {esPT ? 'ORGANIZAÇÃO' : 'ORGANIZACIÓN'}
+            </div>
+            <h2 style={{ margin: 0, color: colores.azul, fontSize: 21 }}>
+              📅 {esPT ? 'Calendário Organizador' : 'Calendario Organizador'}
+            </h2>
           </div>
-          <h2 style={{ margin: 0, color: colores.azul, fontSize: 21 }}>
-            📅 {esPT ? 'Calendário Organizador' : 'Calendario Organizador'}
-          </h2>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
