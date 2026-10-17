@@ -479,7 +479,7 @@ export default function MiNegocioPage() {
           </div>
         </div>
 
-        {esFamiliar && gamificacion && (
+        {gamificacion && (
           <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} idioma={idioma} />
         )}
 
@@ -1087,7 +1087,7 @@ export default function MiNegocioPage() {
           )}
         </section>
 
-        {esFamiliar && configuracion?.mostrar_graficos && (
+        {configuracion?.mostrar_graficos && (
           <section
             className="grilla-responsiva"
             style={{

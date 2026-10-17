@@ -1,6 +1,6 @@
 // lib/trofeos.ts
 //
-// TROFEOS — perfil Familia
+// TROFEOS — todos los perfiles
 // =====================================================
 // A diferencia de "Objetivos Escalonados" (que resetean con cada
 // nivel), los trofeos se calculan contra el ACUMULADO HISTÓRICO de
