@@ -90,12 +90,13 @@ export default function InformesPage() {
   const [nombresPorCobrar, setNombresPorCobrar] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  // Deep link desde el Panel de Control: /informes?pestana=mayor&cuenta=<nombre>
+  // Deep links desde el Panel de Control: /informes?pestana=flujo o ?pestana=mayor&cuenta=<nombre>
   const [cuentaInicial, setCuentaInicial] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('pestana') === 'mayor') setPestana('mayor');
+    const deseada = params.get('pestana');
+    if (deseada === 'mayor' || deseada === 'flujo') setPestana(deseada);
     setCuentaInicial(params.get('cuenta') ?? '');
   }, []);
 
