@@ -646,3 +646,10 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - Análisis por período: "Compromisos programados" es ahora su propia tarjeta (`CompromisosProgramadosResumen`, ya no va dentro de otra sección; devuelve null si no hay nada programado) con `sabio-compromisos.webp`, y el selector de período lleva `sabio-periodo.webp` a la izquierda.
 
 - Lobby: Calendario Organizador, Cotizaciones y Noticias del día llevan su Sabio en el encabezado (`public/sabio/sabio-{calendario,cotizaciones,noticias}.webp`; calendario a la izquierda del título, los otros dos a la derecha).
+
+## RRHH — pestaña Análisis, fase 1 (oct 2026)
+- `recursos-humanos/page.tsx`: tercera pestaña "📊 Análisis" (`components/panel/AnalisisContrapartes.tsx` + lógica pura `lib/analisisContrapartes.ts`, con test). Solo lectura sobre `registro_operaciones` (estado VALIDADO).
+- Base del análisis: empresas → clientes = VENTA, proveedores = COMPRA; Familia → fuentes de ingreso = COBRO, destinos de pago = PAGO. La contraparte es el texto libre `cliente_proveedor`, agrupado por nombre normalizado (sin tildes/mayúsculas); no hay id.
+- Muestra: indicadores (total, operaciones, ticket promedio, activos, nuevos por fecha_alta, concentración top 3), ranking top 10, torta top 5 + otros, evolución 12 meses, frecuencia (Recurrente ≥3 ops / Ocasional / Dormido si pasaron >max(60, 2×intervalo) días; usa todo el historial). Período por defecto: mes en curso.
+- "Falta asignar": operaciones base sin contraparte, y (solo empresas) cobros/pagos sin contraparte — sin eso NO se calculan saldos por cliente/proveedor (fase 3, toca vinculación de cobros/pagos; necesita OK aparte).
+- Fase 2 pendiente: ficha por contraparte + aviso de calidad de datos (crear altas / unificar nombres).
