@@ -640,3 +640,5 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - El "Saldo en caja" grande (Situación actual) es un enlace a `/informes?pestana=flujo` (Flujo de Caja); Informes acepta `pestana=flujo|mayor`.
 
 - Informes: Flujo de Caja y Estado de Resultado abren por defecto en el MES EN CURSO (antes "Todos"); `obtenerPeriodos` siempre incluye el mes actual aunque no tenga asientos. Aceptan `?periodo=AAAA-MM` en la URL. En el Panel de Control (Análisis por período) los encabezados de INGRESOS y EGRESOS enlazan a `/informes?pestana=resultado&periodo=<período elegido>`.
+
+- Endeudamiento y Fondo de respaldo (Situación actual, Familia) llevan su Sabio en el encabezado (`public/sabio/sabio-endeudamiento.webp` — calculadora, flecha roja y alcancía; `sabio-fondo.webp` — balanza con escudo y monedas), a la derecha del título.
