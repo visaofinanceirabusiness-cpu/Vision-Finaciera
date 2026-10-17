@@ -52,7 +52,24 @@ export function CompromisosProgramadosResumen({
   const formatear = (valor: number) => `${simbolo} ${valor.toLocaleString(esPT ? 'pt-BR' : 'es-AR', { maximumFractionDigits: 0 })}`;
 
   return (
-    <div style={{ marginTop: 16, border: '1px dashed #cbd5e1', borderRadius: 18, padding: '16px 20px', background: '#fbfcfd' }}>
+    <section
+      style={{
+        marginBottom: 20,
+        border: '1px solid #e5e7eb',
+        borderRadius: 24,
+        padding: '18px 24px',
+        background: '#ffffff',
+        boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 18,
+        flexWrap: 'wrap',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/sabio/sabio-compromisos.webp" alt="" style={{ height: 116, width: 'auto', flexShrink: 0 }} />
+
+      <div style={{ flex: '1 1 280px', minWidth: 0 }}>
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde, marginBottom: 4 }}>
         {esPT ? 'COMPROMISSOS PROGRAMADOS' : 'COMPROMISOS PROGRAMADOS'}
       </div>
@@ -81,6 +98,7 @@ export function CompromisosProgramadosResumen({
           {esPT ? 'Gerenciar em Finanças → Compromissos' : 'Gestionar en Finanzas → Compromisos'}
         </Link>
       </div>
-    </div>
+      </div>
+    </section>
   );
 }
