@@ -1,9 +1,10 @@
 // lib/noticiasEmpresas.ts
 //
-// Empresas con "Noticias del día" — hoy solo Buenaventura (piloto). Sin
-// imports, igual que planAccionEmpresas.ts.
-export const EMPRESAS_CON_NOTICIAS = ['8512b8b0-1985-4731-981b-955f1d62a898']; // Buenaventura
-
+// "Noticias del día" está disponible para todas las empresas (nació como piloto
+// de Buenaventura). Las fuentes son genéricas (mundo, Brasil, Argentina) y el
+// servidor las cachea 30 minutos, así que no depende de la empresa. Se
+// mantiene la función para no tocar a quien ya la usa y poder volver a
+// restringir si hiciera falta. Sin imports.
 export function empresaTieneNoticias(empresaId: string | null | undefined): boolean {
-  return Boolean(empresaId) && EMPRESAS_CON_NOTICIAS.includes(empresaId as string);
+  return Boolean(empresaId);
 }

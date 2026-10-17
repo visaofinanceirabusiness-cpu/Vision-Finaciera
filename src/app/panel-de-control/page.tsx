@@ -16,6 +16,8 @@ import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
 import { ObjetivosEscalonados } from '@/components/panel/ObjetivosEscalonados';
+import { tiposEscalonadosDelPerfil } from '@/lib/objetivosEscalonados';
+import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { crearTraductor } from '@/lib/i18n';
@@ -114,6 +116,7 @@ export default function MiNegocioPage() {
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [configuracion, setConfiguracion] = useState<ConfiguracionDashboard | null>(null);
   const [gamificacion, setGamificacion] = useState<ProgresoGamificacion | null>(null);
+  const [manejaMercaderia, setManejaMercaderia] = useState(false);
   const [objetivos, setObjetivos] = useState<ObjetivoCalculado[]>([]);
   const [indicadores, setIndicadores] = useState<IndicadoresPanel | null>(null);
   const [periodos, setPeriodos] = useState<PeriodoDisponible[]>([]);
@@ -274,6 +277,18 @@ export default function MiNegocioPage() {
 
     cargarBase();
   }, [router, periodoActual]);
+
+  useEffect(() => {
+    if (!perfil?.empresa_id) return;
+    empresaManejaMercaderia(perfil.empresa_id)
+      .then(setManejaMercaderia)
+      .catch(() => setManejaMercaderia(false));
+  }, [perfil?.empresa_id]);
+
+  const tiposEscalonados = useMemo(
+    () => tiposEscalonadosDelPerfil(esFamiliar, manejaMercaderia),
+    [esFamiliar, manejaMercaderia]
+  );
 
   useEffect(() => {
     async function cargarObjetivos() {
@@ -468,13 +483,14 @@ export default function MiNegocioPage() {
           <ProgresoNivelBanner gamificacion={gamificacion} colores={colores} idioma={idioma} />
         )}
 
-        {esFamiliar && gamificacion && perfil?.empresa_id && (
+        {gamificacion && perfil?.empresa_id && (
           <ObjetivosEscalonados
             empresaId={perfil.empresa_id}
             nivel={gamificacion.nivel}
             operacionesMin={gamificacion.operacionesMin}
             idioma={idioma}
             colores={colores}
+            tipos={tiposEscalonados}
           />
         )}
 

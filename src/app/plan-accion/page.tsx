@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { empresaTienePlanAccion } from '@/lib/perfilCapacidades';
+import { MensajeContactarAsesor } from '@/components/panel/MensajeContactarAsesor';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import {
@@ -78,6 +79,7 @@ export default function PlanAccionPage() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
+  const [idiomaEmpresa, setIdiomaEmpresa] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -122,6 +124,10 @@ export default function PlanAccionPage() {
         .maybeSingle();
 
       if (!perfil?.empresa_id || !empresaTienePlanAccion(perfil.empresa_id)) {
+        if (perfil?.empresa_id) {
+          const { data: empresaSinPlan } = await supabase.from('empresas').select('idioma').eq('id', perfil.empresa_id).maybeSingle();
+          setIdiomaEmpresa(empresaSinPlan?.idioma ?? null);
+        }
         setAutorizado(false);
         setCargando(false);
         return;
@@ -239,12 +245,7 @@ export default function PlanAccionPage() {
   }
 
   if (!autorizado) {
-    return (
-      <div style={{ ...fondo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-        <p style={{ color: COLORES.gris }}>No encontramos esta herramienta para tu empresa.</p>
-        <Link href="/" style={{ color: COLORES.azul }}>← Volver</Link>
-      </div>
-    );
+    return <MensajeContactarAsesor emoji="🎯" titulo={idiomaEmpresa === 'PT' ? 'Plano de Ação de 30 Dias' : 'Plan de Acción de 30 Días'} idioma={idiomaEmpresa} />;
   }
 
   return (
