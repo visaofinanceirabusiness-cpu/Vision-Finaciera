@@ -638,3 +638,5 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - En Panel de Control → Situación actual, cada cuenta listada en los gráficos de Activo/Pasivo/Patrimonio es un enlace (`hrefCuenta` en `ComposicionPorGrupos`) a `/informes?pestana=mayor&cuenta=<nombre>`. Informes lee esos parámetros al montar y `MayorTab` preselecciona la cuenta por nombre (las cuentas se identifican por nombre en los asientos).
 
 - El "Saldo en caja" grande (Situación actual) es un enlace a `/informes?pestana=flujo` (Flujo de Caja); Informes acepta `pestana=flujo|mayor`.
+
+- Informes: Flujo de Caja y Estado de Resultado abren por defecto en el MES EN CURSO (antes "Todos"); `obtenerPeriodos` siempre incluye el mes actual aunque no tenga asientos. Aceptan `?periodo=AAAA-MM` en la URL. En el Panel de Control (Análisis por período) los encabezados de INGRESOS y EGRESOS enlazan a `/informes?pestana=resultado&periodo=<período elegido>`.

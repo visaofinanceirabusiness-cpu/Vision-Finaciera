@@ -1137,6 +1137,7 @@ export default function MiNegocioPage() {
           >
             <PanelFlujo
               icono="💰"
+              href={`/informes?pestana=resultado&periodo=${periodoFlujoCaja.slice(0, 7)}`}
               titulo={idioma === 'PT' ? 'RECEITAS' : 'INGRESOS'}
               subtitulo={idioma === 'PT' ? 'Tudo o que entra' : 'Todo lo que entra'}
               fondo="linear-gradient(120deg, #1f3a5f 0%, #2e6a8e 100%)"
@@ -1170,6 +1171,7 @@ export default function MiNegocioPage() {
 
             <PanelFlujo
               icono="📅"
+              href={`/informes?pestana=resultado&periodo=${periodoFlujoCaja.slice(0, 7)}`}
               titulo={idioma === 'PT' ? 'DESPESAS' : 'EGRESOS'}
               subtitulo={idioma === 'PT' ? 'Tudo o que sai' : 'Todo lo que sale'}
               fondo="linear-gradient(120deg, #1e3a8a 0%, #1f3a5f 100%)"
@@ -2288,8 +2290,11 @@ function PanelFlujo({
   subtitulo,
   fondo,
   destacado,
+  href,
   children,
 }: {
+  // Si se pasa, el encabezado es un enlace (ej. al Estado de Resultado).
+  href?: string;
   icono: string;
   titulo: string;
   subtitulo: string;
@@ -2307,15 +2312,28 @@ function PanelFlujo({
         boxShadow: destacado ? '0 16px 40px rgba(21,128,61,0.18)' : '0 10px 28px rgba(31,58,95,0.06)',
       }}
     >
-      <div style={{ background: fondo, color: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-          {icono}
-        </div>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.6 }}>{titulo}</div>
-          <div style={{ fontSize: 12.5, opacity: 0.85 }}>{subtitulo}</div>
-        </div>
-      </div>
+      {(() => {
+        const encabezado = (
+          <>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+              {icono}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.6 }}>{titulo}</div>
+              <div style={{ fontSize: 12.5, opacity: 0.85 }}>{subtitulo}</div>
+            </div>
+            {href && <span aria-hidden="true" style={{ fontSize: 26, fontWeight: 800, opacity: 0.85 }}>›</span>}
+          </>
+        );
+        const estiloEncabezado = { background: fondo, color: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none' } as const;
+        return href ? (
+          <Link href={href} style={estiloEncabezado}>
+            {encabezado}
+          </Link>
+        ) : (
+          <div style={estiloEncabezado}>{encabezado}</div>
+        );
+      })()}
       <div style={{ padding: 24 }}>{children}</div>
     </section>
   );

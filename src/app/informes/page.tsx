@@ -92,12 +92,14 @@ export default function InformesPage() {
   const [error, setError] = useState('');
   // Deep links desde el Panel de Control: /informes?pestana=flujo o ?pestana=mayor&cuenta=<nombre>
   const [cuentaInicial, setCuentaInicial] = useState('');
+  const [periodoInicial, setPeriodoInicial] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const deseada = params.get('pestana');
-    if (deseada === 'mayor' || deseada === 'flujo') setPestana(deseada);
+    if (deseada === 'mayor' || deseada === 'flujo' || deseada === 'resultado') setPestana(deseada);
     setCuentaInicial(params.get('cuenta') ?? '');
+    setPeriodoInicial(params.get('periodo') ?? '');
   }, []);
 
   const t = crearTraductor(diccionarioInformes, idioma);
@@ -345,9 +347,9 @@ export default function InformesPage() {
               {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} cuentaInicial={cuentaInicial} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
               {pestana === 'flujo' && (
-                <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} />
+                <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} periodoInicial={periodoInicial} />
               )}
-              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} />}
+              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
             </>
           )}
@@ -382,8 +384,18 @@ function calcularMovimiento(cuenta: CuentaPlan, asientos: Asiento[], incluirInic
 
 // Agrupa las fechas de los asientos en períodos "AAAA-MM", más la
 // opción "TODOS" para ver el histórico completo.
-function obtenerPeriodos(asientos: Asiento[], idioma: string | null) {
+function mesEnCurso(): string {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// El mes en curso siempre está en la lista (aunque todavía no tenga
+// movimientos): es el período con el que abren Flujo de Caja y Estado de
+// Resultado, y un <select> con un valor que no existe se ve en blanco.
+function obtenerPeriodos(asientos: Asiento[], idioma: string | null, extra?: string) {
   const claves = new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean));
+  claves.add(mesEnCurso());
+  if (extra && /^\d{4}-\d{2}$/.test(extra)) claves.add(extra);
 
   return Array.from(claves)
     .sort((a, b) => b.localeCompare(a))
@@ -752,12 +764,12 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
    PESTAÑA · ESTADO DE RESULTADO
 ========================================================== */
 
-function EstadoDeResultadoTab({ hojas, asientos, empresaId }: { hojas: CuentaPlan[]; asientos: Asiento[]; empresaId: string | null }) {
+function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial }: { hojas: CuentaPlan[]; asientos: Asiento[]; empresaId: string | null; periodoInicial: string }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
-  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
-  const [periodo, setPeriodo] = useState('TODOS');
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma, periodoInicial), [asientos, idioma, periodoInicial]);
+  const [periodo, setPeriodo] = useState(/^\d{4}-\d{2}$/.test(periodoInicial) ? periodoInicial : mesEnCurso());
   // "Por cuenta" (como siempre) o "Por naturaleza": fijos / recurrentes variables / del mes.
   const [vista, setVista] = useState<'CUENTA' | 'NATURALEZA'>('CUENTA');
 
@@ -1100,11 +1112,13 @@ function FlujoDeCajaTab({
   asientos,
   nombresMedioFinanciero,
   nombresPorCobrar,
+  periodoInicial,
 }: {
   hojas: CuentaPlan[];
   asientos: Asiento[];
   nombresMedioFinanciero: Set<string>;
   nombresPorCobrar: Set<string>;
+  periodoInicial: string;
 }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
@@ -1124,8 +1138,8 @@ function FlujoDeCajaTab({
 
   const nombresCaja = useMemo(() => new Set(cuentasCaja.map((c) => c.nombre)), [cuentasCaja]);
 
-  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
-  const [periodo, setPeriodo] = useState('TODOS');
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma, periodoInicial), [asientos, idioma, periodoInicial]);
+  const [periodo, setPeriodo] = useState(/^\d{4}-\d{2}$/.test(periodoInicial) ? periodoInicial : mesEnCurso());
   const esTodos = periodo === 'TODOS';
 
   // El saldo de caja actual es siempre acumulado a la fecha — no
