@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { fechaLocalHoy, formatearPeriodo } from '@/lib/fecha';
 import {
   analizarContrapartes,
+  fichaDeContraparte,
+  grafiasPorRevisar,
   normalizarNombre,
   type EtiquetaFrecuencia,
   type OperacionTercero,
@@ -29,7 +31,7 @@ async function cargarOperaciones(empresaId: string): Promise<OperacionTercero[]>
   for (let desde = 0; ; desde += TAMANO_PAGINA) {
     const { data, error } = await supabase
       .from('registro_operaciones')
-      .select('fecha, operacion, total, cliente_proveedor, estado')
+      .select('fecha, operacion, total, cliente_proveedor, estado, categoria, historico, id_operacion')
       .eq('empresa_id', empresaId)
       .in('operacion', ['VENTA', 'COMPRA', 'COBRO', 'PAGO'])
       .order('fecha', { ascending: true })
@@ -50,6 +52,9 @@ export function AnalisisContrapartes({
   clientes,
   proveedores,
   colores,
+  fichaPedida,
+  onFichaAbierta,
+  onDarDeAlta,
 }: {
   empresaId: string;
   esFamiliar: boolean;
@@ -58,6 +63,11 @@ export function AnalisisContrapartes({
   clientes: Persona[];
   proveedores: Persona[];
   colores: Colores;
+  // Viene de Clientes / Proveedores (botón "Ver análisis"): abre esa ficha.
+  fichaPedida?: { tipo: TipoContraparte; nombre: string } | null;
+  onFichaAbierta?: () => void;
+  // Abre el formulario de alta de RRHH ya con el nombre cargado.
+  onDarDeAlta: (tipo: TipoContraparte, nombre: string, fechaAlta: string) => void;
 }) {
   const esPT = idioma === 'PT';
   const locale = esPT ? 'pt-BR' : 'es-AR';
@@ -69,6 +79,18 @@ export function AnalisisContrapartes({
   const [tipo, setTipo] = useState<TipoContraparte>('clientes');
   const [periodo, setPeriodo] = useState(mesActual);
   const [verTodasFrecuencia, setVerTodasFrecuencia] = useState(false);
+  const [fichaAbierta, setFichaAbierta] = useState<string | null>(null);
+  const [unificando, setUnificando] = useState<string | null>(null);
+  const [errorUnificar, setErrorUnificar] = useState('');
+  const [recarga, setRecarga] = useState(0);
+
+  useEffect(() => {
+    if (!fichaPedida) return;
+    setTipo(fichaPedida.tipo);
+    setPeriodo('TODOS');
+    setFichaAbierta(normalizarNombre(fichaPedida.nombre));
+    onFichaAbierta?.();
+  }, [fichaPedida, onFichaAbierta]);
 
   useEffect(() => {
     let vigente = true;
@@ -78,7 +100,7 @@ export function AnalisisContrapartes({
     return () => {
       vigente = false;
     };
-  }, [empresaId]);
+  }, [empresaId, recarga]);
 
   const periodos = useMemo(() => {
     const claves = new Set<string>([mesActual]);
@@ -96,6 +118,43 @@ export function AnalisisContrapartes({
     () => analizarContrapartes({ operaciones: operaciones ?? [], tipo, esFamiliar, periodo, hoy, fechasAlta }),
     [operaciones, tipo, esFamiliar, periodo, hoy, fechasAlta]
   );
+
+  const altas = useMemo(() => (tipo === 'clientes' ? clientes : proveedores).map((p) => p.nombre), [tipo, clientes, proveedores]);
+
+  const porRevisar = useMemo(
+    () => grafiasPorRevisar({ operaciones: operaciones ?? [], tipo, esFamiliar, altas }),
+    [operaciones, tipo, esFamiliar, altas]
+  );
+
+  const ficha = useMemo(
+    () =>
+      fichaAbierta
+        ? fichaDeContraparte({ operaciones: operaciones ?? [], tipo, esFamiliar, clave: fichaAbierta, periodo, hoy })
+        : null,
+    [fichaAbierta, operaciones, tipo, esFamiliar, periodo, hoy]
+  );
+
+  async function unificar(grafia: string, destino: string) {
+    const pregunta = esPT
+      ? `Vai trocar "${grafia}" por "${destino}" em todas as operações que usam esse nome. Continuar?`
+      : `Vas a reemplazar "${grafia}" por "${destino}" en todas las operaciones que usan ese nombre. ¿Continuar?`;
+    if (!window.confirm(pregunta)) return;
+
+    setUnificando(grafia);
+    setErrorUnificar('');
+    const { error: errorUpdate } = await supabase
+      .from('registro_operaciones')
+      .update({ cliente_proveedor: destino })
+      .eq('empresa_id', empresaId)
+      .eq('cliente_proveedor', grafia);
+    setUnificando(null);
+
+    if (errorUpdate) {
+      setErrorUnificar(esPT ? 'Não foi possível unificar. Tente novamente.' : 'No se pudo unificar. Probá de nuevo.');
+      return;
+    }
+    setRecarga((n) => n + 1);
+  }
 
   const nombres = useMemo(() => {
     if (esFamiliar) {
@@ -238,7 +297,10 @@ export function AnalisisContrapartes({
               <div key={fila.nombre} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 }}>
                   <span style={{ fontWeight: 700, color: '#1f2937', overflowWrap: 'anywhere' }}>
-                    {i + 1}. {fila.nombre}
+                    {i + 1}.{' '}
+                    <button type="button" onClick={() => setFichaAbierta(normalizarNombre(fila.nombre))} style={botonNombre(colores.azul)}>
+                      {fila.nombre}
+                    </button>
                   </span>
                   <span style={{ whiteSpace: 'nowrap', color: colores.azul, fontWeight: 800 }}>
                     {formatear(fila.valor)} <span style={{ color: COLORES_GRIS, fontWeight: 600 }}>· {fila.porcentaje.toFixed(0)}%</span>
@@ -330,7 +392,11 @@ export function AnalisisContrapartes({
               <tbody>
                 {filasFrecuencia.map((fila) => (
                   <tr key={fila.nombre} style={{ borderTop: '1px solid #eef2f6' }}>
-                    <td style={{ ...tdStyle, fontWeight: 700, color: '#1f2937' }}>{fila.nombre}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700 }}>
+                      <button type="button" onClick={() => setFichaAbierta(normalizarNombre(fila.nombre))} style={botonNombre(colores.azul)}>
+                        {fila.nombre}
+                      </button>
+                    </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fila.operaciones}</td>
                     <td style={tdStyle}>{formatearFecha(fila.ultima)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fila.diasDesdeUltima}</td>
@@ -359,6 +425,144 @@ export function AnalisisContrapartes({
           </button>
         )}
       </div>
+
+      {/* CALIDAD DE DATOS */}
+      {porRevisar.length > 0 && (
+        <div style={{ ...tarjetaStyle, marginTop: 18 }}>
+          <h3 style={tituloStyle(colores.azul)}>🧹 {esPT ? 'Qualidade dos dados' : 'Calidad de datos'}</h3>
+          <p style={subtituloStyle}>
+            {esPT
+              ? `Nomes usados nas operações que não coincidem exatamente com ${esFamiliar ? 'um cadastro' : tipo === 'clientes' ? 'um cliente cadastrado' : 'um fornecedor cadastrado'}. Unificar deixa o ranking e a frequência mais certos.`
+              : `Nombres usados en las operaciones que no coinciden exactamente con ${esFamiliar ? 'un alta' : tipo === 'clientes' ? 'un cliente dado de alta' : 'un proveedor dado de alta'}. Unificar deja el ranking y la frecuencia más precisos.`}
+          </p>
+
+          {errorUnificar && <div style={{ ...avisoStyle, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', marginBottom: 12 }}>{errorUnificar}</div>}
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 520 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: COLORES_GRIS, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <th style={thStyle}>{esPT ? 'Como está escrito' : 'Como está escrito'}</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>{esPT ? 'Oper.' : 'Oper.'}</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>{esPT ? 'Valor' : 'Valor'}</th>
+                  <th style={thStyle}>{esPT ? 'O que fazer' : 'Qué hacer'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porRevisar.slice(0, 15).map((fila) => (
+                  <tr key={fila.grafia} style={{ borderTop: '1px solid #eef2f6' }}>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#1f2937' }}>&ldquo;{fila.grafia}&rdquo;</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{fila.operaciones}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{formatear(fila.importe)}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {fila.sugerencia && (
+                          <button
+                            type="button"
+                            disabled={unificando === fila.grafia}
+                            onClick={() => unificar(fila.grafia, fila.sugerencia!)}
+                            style={botonAccion(colores.azul, true)}
+                          >
+                            {unificando === fila.grafia
+                              ? esPT ? 'Unificando...' : 'Unificando...'
+                              : `${fila.confianza === 'MISMA' ? '🔗' : '❓'} ${esPT ? 'Unificar com' : 'Unificar con'} ${fila.sugerencia}`}
+                          </button>
+                        )}
+                        {!fila.sugerencia && (
+                          <button type="button" onClick={() => onDarDeAlta(tipo, fila.grafia.trim(), fila.primeraFecha)} style={botonAccion(colores.verde, false)}>
+                            ➕ {esPT ? 'Cadastrar' : 'Dar de alta'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {porRevisar.length > 15 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: COLORES_GRIS }}>
+              {esPT ? `E mais ${porRevisar.length - 15}. Unifique estes e volte a abrir.` : `Y ${porRevisar.length - 15} más. Unificá estos y volvé a abrir.`}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FICHA */}
+      {ficha && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setFichaAbierta(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 60, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, overflowY: 'auto' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#ffffff', borderRadius: 24, padding: 22, width: '100%', maxWidth: 760, margin: '24px 0', boxShadow: '0 24px 60px rgba(15,23,42,0.35)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+                  {nombres.emoji} {nombres.plural.toUpperCase()}
+                </div>
+                <h3 style={{ margin: '4px 0 0', color: colores.azul, fontSize: 22, overflowWrap: 'anywhere' }}>{ficha.nombre}</h3>
+              </div>
+              <button type="button" onClick={() => setFichaAbierta(null)} aria-label={esPT ? 'Fechar' : 'Cerrar'} style={{ border: 'none', background: '#f1f5f9', borderRadius: 999, width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: colores.azul }}>
+                ✕
+              </button>
+            </div>
+
+            {ficha.operaciones === 0 ? (
+              <div style={{ ...vacioStyle, marginTop: 16 }}>{esPT ? 'Sem operações registradas com este nome.' : 'Sin operaciones registradas con este nombre.'}</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, margin: '16px 0' }}>
+                  {[
+                    { etiqueta: esPT ? 'Total histórico' : 'Total histórico', valor: formatear(ficha.totalHistorico), color: colores.verde },
+                    { etiqueta: periodo === 'TODOS' ? (esPT ? 'No período' : 'En el período') : formatearPeriodo(periodo, esPT), valor: formatear(ficha.totalPeriodo), color: colores.azul },
+                    { etiqueta: esPT ? 'Operações' : 'Operaciones', valor: String(ficha.operaciones), color: colores.azul },
+                    { etiqueta: esPT ? 'Ticket médio' : 'Ticket promedio', valor: formatear(ficha.ticketPromedio), color: colores.azul },
+                    { etiqueta: esPT ? 'Primeira' : 'Primera', valor: ficha.primera ? formatearFecha(ficha.primera) : '—', color: '#475569' },
+                    { etiqueta: esPT ? 'Última' : 'Última', valor: ficha.ultima ? `${formatearFecha(ficha.ultima)}${ficha.diasDesdeUltima !== null ? ` · ${ficha.diasDesdeUltima} ${esPT ? 'd' : 'd'}` : ''}` : '—', color: '#475569' },
+                  ].map((c) => (
+                    <div key={c.etiqueta} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: '10px 12px', background: '#fbfcfd' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: COLORES_GRIS, textTransform: 'uppercase' }}>{c.etiqueta}</div>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: c.color, marginTop: 3 }}>{c.valor}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <GraficoMeses
+                  meses={ficha.evolucion}
+                  resaltado={periodo === 'TODOS' ? mesActual : periodo}
+                  locale={locale}
+                  esPT={esPT}
+                  color={colores.verde}
+                  resaltadoColor={colores.azul}
+                />
+
+                <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, margin: '14px 0 6px' }}>
+                  {esPT ? 'Operações' : 'Operaciones'}
+                </div>
+                <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid #eef2f6', borderRadius: 12 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <tbody>
+                      {ficha.movimientos.map((m, i) => (
+                        <tr key={`${m.fecha}-${i}`} style={{ borderTop: i === 0 ? 'none' : '1px solid #eef2f6' }}>
+                          <td style={tdStyle}>{formatearFecha(m.fecha)}</td>
+                          <td style={tdStyle}>
+                            <span style={{ fontWeight: 800, color: m.esBase ? colores.azul : COLORES_GRIS, fontSize: 11 }}>{m.operacion}</span>
+                          </td>
+                          <td style={{ ...tdStyle, color: '#475569' }}>{m.categoria || m.historico || '—'}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: colores.azul }}>{formatear(m.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -411,3 +615,66 @@ const avisoStyle: React.CSSProperties = {
 
 const thStyle: React.CSSProperties = { padding: '8px 10px', fontWeight: 800 };
 const tdStyle: React.CSSProperties = { padding: '9px 10px' };
+
+const botonNombre = (color: string): React.CSSProperties => ({
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
+  font: 'inherit',
+  fontWeight: 800,
+  color,
+  cursor: 'pointer',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dotted',
+  textAlign: 'left',
+});
+
+const botonAccion = (color: string, relleno: boolean): React.CSSProperties => ({
+  border: `1px solid ${color}`,
+  background: relleno ? `${color}12` : '#ffffff',
+  color,
+  borderRadius: 999,
+  padding: '6px 12px',
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+});
+
+function GraficoMeses({
+  meses,
+  resaltado,
+  locale,
+  esPT,
+  color,
+  resaltadoColor,
+}: {
+  meses: Array<{ clave: string; valor: number; operaciones: number }>;
+  resaltado: string;
+  locale: string;
+  esPT: boolean;
+  color: string;
+  resaltadoColor: string;
+}) {
+  const max = Math.max(...meses.map((m) => m.valor), 1);
+  const ancho = 600 / meses.length;
+  return (
+    <svg viewBox="0 0 600 130" style={{ width: '100%', height: 130, display: 'block' }}>
+      {meses.map((mes, i) => {
+        const alto = (mes.valor / max) * 82;
+        const activo = mes.clave === resaltado;
+        return (
+          <g key={mes.clave}>
+            <title>{`${formatearPeriodo(mes.clave, esPT)}: ${Math.round(mes.valor).toLocaleString(locale)} · ${mes.operaciones}`}</title>
+            <rect x={i * ancho + 6} y={96 - alto} width={ancho - 12} height={Math.max(alto, mes.valor > 0 ? 2 : 0)} rx={5} fill={activo ? resaltadoColor : color} opacity={activo ? 1 : 0.65} />
+            <text x={i * ancho + ancho / 2} y={96 - alto - 4} textAnchor="middle" fontSize="9.5" fill="#475569">
+              {mes.valor > 0 ? Math.round(mes.valor).toLocaleString(locale) : ''}
+            </text>
+            <text x={i * ancho + ancho / 2} y={113} textAnchor="middle" fontSize="10" fill="#6e7781">
+              {new Date(`${mes.clave}-01T00:00:00`).toLocaleDateString(locale, { month: 'short' }).replace('.', '')}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

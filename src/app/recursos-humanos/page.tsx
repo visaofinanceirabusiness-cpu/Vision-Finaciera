@@ -73,6 +73,7 @@ export default function RecursosHumanosPage() {
 
   const [pestana, setPestana] = useState<TipoRecurso>('clientes');
   const [verAnalisis, setVerAnalisis] = useState(false);
+  const [fichaPedida, setFichaPedida] = useState<{ tipo: TipoRecurso; nombre: string } | null>(null);
   const [simbolo, setSimbolo] = useState('R$');
 
   const [busqueda, setBusqueda] = useState('');
@@ -202,6 +203,21 @@ export default function RecursosHumanosPage() {
 
     setError('');
     setMostrarFormulario(true);
+  }
+
+  function abrirAltaDesdeAnalisis(tipo: TipoRecurso, nombre: string, fechaAlta: string) {
+    setVerAnalisis(false);
+    setPestana(tipo);
+    setBusqueda('');
+    setEditandoId(null);
+    setFormulario({ ...FORMULARIO_VACIO, nombre, fecha_alta: fechaAlta || fechaLocalHoy() });
+    setError('');
+    setMostrarFormulario(true);
+  }
+
+  function abrirFichaDe(persona: Persona) {
+    setFichaPedida({ tipo: pestana, nombre: persona.nombre });
+    setVerAnalisis(true);
   }
 
   function abrirEdicion(persona: Persona) {
@@ -385,6 +401,9 @@ export default function RecursosHumanosPage() {
               clientes={clientes}
               proveedores={proveedores}
               colores={COLORES}
+              fichaPedida={fichaPedida}
+              onFichaAbierta={() => setFichaPedida(null)}
+              onDarDeAlta={abrirAltaDesdeAnalisis}
             />
           )}
 
@@ -592,6 +611,9 @@ export default function RecursosHumanosPage() {
                       <Td>{formatearFecha(persona.fecha_alta, idioma)}</Td>
 
                       <Td align="right">
+                        <button type="button" onClick={() => abrirFichaDe(persona)} style={botonEditar}>
+                          📊 {idioma === 'PT' ? 'Análise' : 'Análisis'}
+                        </button>{' '}
                         <button type="button" onClick={() => abrirEdicion(persona)} style={botonEditar}>
                           {t('editar')}
                         </button>
