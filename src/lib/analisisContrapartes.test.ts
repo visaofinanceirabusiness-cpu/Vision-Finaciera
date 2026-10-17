@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { analizarContrapartes, normalizarNombre, operacionBase, mesesHacia, type OperacionTercero } from './analisisContrapartes';
+import {
+  analizarContrapartes,
+  normalizarNombre,
+  operacionBase,
+  mesesHacia,
+  fichaDeContraparte,
+  grafiasPorRevisar,
+  type OperacionTercero,
+} from './analisisContrapartes';
 
 const op = (fecha: string, total: number, tercero: string | null, operacion = 'VENTA', estado = 'VALIDADO'): OperacionTercero => ({
   fecha,
@@ -106,5 +114,63 @@ describe('analizarContrapartes', () => {
     });
     expect(familia.total).toBe(1000);
     expect(familia.liquidacionesSinAsignar.operaciones).toBe(0);
+  });
+});
+
+describe('fichaDeContraparte', () => {
+  const ops = [
+    op('2026-10-02', 100, 'Ana'),
+    op('2026-08-10', 300, 'ana '),
+    op('2026-10-05', 40, 'Ana', 'COBRO'),
+    op('2026-10-06', 9, 'Beto'),
+  ];
+  const ficha = fichaDeContraparte({ operaciones: ops, tipo: 'clientes', esFamiliar: false, clave: 'ana', periodo: '2026-10', hoy: HOY });
+
+  it('totales históricos y del período solo con ventas', () => {
+    expect(ficha.totalHistorico).toBe(400);
+    expect(ficha.totalPeriodo).toBe(100);
+    expect(ficha.operaciones).toBe(2);
+    expect(ficha.ticketPromedio).toBe(200);
+    expect(ficha.primera).toBe('2026-08-10');
+    expect(ficha.ultima).toBe('2026-10-02');
+    expect(ficha.diasDesdeUltima).toBe(15);
+  });
+
+  it('lista ventas y cobros de la persona, más nuevos primero', () => {
+    expect(ficha.movimientos.map((m) => m.operacion)).toEqual(['COBRO', 'VENTA', 'VENTA']);
+    expect(ficha.movimientos[0].esBase).toBe(false);
+  });
+
+  it('evolución de 12 meses', () => {
+    expect(ficha.evolucion).toHaveLength(12);
+    expect(ficha.evolucion[11].valor).toBe(100);
+    expect(ficha.evolucion[9].valor).toBe(300);
+  });
+});
+
+describe('grafiasPorRevisar', () => {
+  const ops = [
+    op('2026-10-02', 100, 'ana '),
+    op('2026-10-03', 100, 'Ana'),
+    op('2026-10-04', 50, 'Beto Limma'),
+    op('2026-10-05', 70, 'Carla'),
+    op('2026-10-06', 5, 'Zeca', 'COMPRA'),
+  ];
+  const r = grafiasPorRevisar({ operaciones: ops, tipo: 'clientes', esFamiliar: false, altas: ['Ana', 'Beto Lima'] });
+
+  it('ignora lo que coincide exacto con un alta y lo de otro tipo', () => {
+    expect(r.map((x) => x.grafia).sort()).toEqual(['Beto Limma', 'Carla', 'ana ']);
+  });
+
+  it('misma persona escrita distinto', () => {
+    expect(r.find((x) => x.grafia === 'ana ')).toMatchObject({ sugerencia: 'Ana', confianza: 'MISMA', operaciones: 1 });
+  });
+
+  it('nombre parecido', () => {
+    expect(r.find((x) => x.grafia === 'Beto Limma')).toMatchObject({ sugerencia: 'Beto Lima', confianza: 'PARECIDA' });
+  });
+
+  it('sin parecido: falta darlo de alta', () => {
+    expect(r.find((x) => x.grafia === 'Carla')).toMatchObject({ sugerencia: null, confianza: null, primeraFecha: '2026-10-05' });
   });
 });

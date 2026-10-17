@@ -13,6 +13,9 @@ export type OperacionTercero = {
   total: number | string | null;
   cliente_proveedor: string | null;
   estado: string | null;
+  categoria?: string | null;
+  historico?: string | null;
+  id_operacion?: string | null;
 };
 
 export type TipoContraparte = 'clientes' | 'proveedores';
@@ -247,4 +250,197 @@ export function analizarContrapartes({
       importe: aCentavos(liquidacionesSinAsignar.importe),
     },
   };
+}
+
+// Operaciones que se atribuyen a un cliente (venta y cobro) o a un
+// proveedor (compra y pago). En Familia solo existen el cobro y el pago.
+export function operacionesDeContraparte(tipo: TipoContraparte, esFamiliar: boolean): string[] {
+  if (esFamiliar) return [operacionBase(tipo, true)];
+  return tipo === 'clientes' ? ['VENTA', 'COBRO'] : ['COMPRA', 'PAGO'];
+}
+
+export type FichaContraparte = {
+  nombre: string;
+  totalHistorico: number;
+  totalPeriodo: number;
+  operaciones: number;
+  operacionesPeriodo: number;
+  ticketPromedio: number;
+  primera: string | null;
+  ultima: string | null;
+  diasDesdeUltima: number | null;
+  evolucion: Array<{ clave: string; valor: number; operaciones: number }>;
+  movimientos: Array<{
+    fecha: string;
+    operacion: string;
+    total: number;
+    categoria: string;
+    historico: string;
+    esBase: boolean;
+  }>;
+};
+
+export function fichaDeContraparte({
+  operaciones,
+  tipo,
+  esFamiliar,
+  clave,
+  periodo,
+  hoy,
+}: {
+  operaciones: OperacionTercero[];
+  tipo: TipoContraparte;
+  esFamiliar: boolean;
+  // nombre ya normalizado
+  clave: string;
+  periodo: string;
+  hoy: string;
+}): FichaContraparte {
+  const base = operacionBase(tipo, esFamiliar);
+  const tipos = operacionesDeContraparte(tipo, esFamiliar);
+  const propias = operaciones.filter(
+    (o) =>
+      (o.estado ?? '').toUpperCase() === 'VALIDADO' &&
+      normalizarNombre(o.cliente_proveedor) === clave &&
+      tipos.includes((o.operacion ?? '').toUpperCase())
+  );
+
+  const bases = propias.filter((o) => (o.operacion ?? '').toUpperCase() === base);
+  const delPeriodo = bases.filter((o) => periodo === 'TODOS' || o.fecha.slice(0, 7) === periodo);
+
+  const sumar = (lista: OperacionTercero[]) => lista.reduce((suma, o) => suma + (Number(o.total ?? 0) || 0), 0);
+  const fechas = bases.map((o) => o.fecha.slice(0, 10)).sort();
+  const ultima = fechas.length ? fechas[fechas.length - 1] : null;
+
+  const porMes = new Map<string, { valor: number; operaciones: number }>();
+  for (const o of bases) {
+    const mes = o.fecha.slice(0, 7);
+    const acum = porMes.get(mes) ?? { valor: 0, operaciones: 0 };
+    acum.valor += Number(o.total ?? 0) || 0;
+    acum.operaciones += 1;
+    porMes.set(mes, acum);
+  }
+
+  const nombres = new Map<string, number>();
+  for (const o of propias) {
+    const n = (o.cliente_proveedor ?? '').trim();
+    nombres.set(n, (nombres.get(n) ?? 0) + 1);
+  }
+  const nombre = [...nombres.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? clave;
+
+  const hasta = periodo === 'TODOS' ? hoy.slice(0, 7) : periodo;
+
+  return {
+    nombre,
+    totalHistorico: aCentavos(sumar(bases)),
+    totalPeriodo: aCentavos(sumar(delPeriodo)),
+    operaciones: bases.length,
+    operacionesPeriodo: delPeriodo.length,
+    ticketPromedio: bases.length ? aCentavos(sumar(bases) / bases.length) : 0,
+    primera: fechas[0] ?? null,
+    ultima,
+    diasDesdeUltima: ultima ? Math.max(0, diasEntre(ultima, hoy)) : null,
+    evolucion: mesesHacia(hasta, 12).map((mes) => ({
+      clave: mes,
+      valor: aCentavos(porMes.get(mes)?.valor ?? 0),
+      operaciones: porMes.get(mes)?.operaciones ?? 0,
+    })),
+    movimientos: propias
+      .map((o) => ({
+        fecha: o.fecha.slice(0, 10),
+        operacion: (o.operacion ?? '').toUpperCase(),
+        total: Number(o.total ?? 0) || 0,
+        categoria: o.categoria ?? '',
+        historico: o.historico ?? '',
+        esBase: (o.operacion ?? '').toUpperCase() === base,
+      }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha)),
+  };
+}
+
+function distanciaEdicion(a: string, b: string): number {
+  const fila = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let anterior = fila[0];
+    fila[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const temporal = fila[j];
+      fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, anterior + (a[i - 1] === b[j - 1] ? 0 : 1));
+      anterior = temporal;
+    }
+  }
+  return fila[b.length];
+}
+
+export type GrafiaPorRevisar = {
+  // Texto tal cual está guardado en las operaciones.
+  grafia: string;
+  operaciones: number;
+  importe: number;
+  primeraFecha: string;
+  // Nombre dado de alta con el que se puede unificar (o null: falta darlo de alta).
+  sugerencia: string | null;
+  // 'MISMA' = es la misma persona escrita distinto; 'PARECIDA' = parecida, a confirmar.
+  confianza: 'MISMA' | 'PARECIDA' | null;
+};
+
+// Nombres que las operaciones usan pero que no coinciden EXACTAMENTE con un
+// alta de clientes / proveedores: o es la misma persona escrita distinto, o
+// se parece a una, o falta darla de alta.
+export function grafiasPorRevisar({
+  operaciones,
+  tipo,
+  esFamiliar,
+  altas,
+}: {
+  operaciones: OperacionTercero[];
+  tipo: TipoContraparte;
+  esFamiliar: boolean;
+  altas: string[];
+}): GrafiaPorRevisar[] {
+  const tipos = operacionesDeContraparte(tipo, esFamiliar);
+  const altasExactas = new Set(altas);
+  const altasNormalizadas = new Map(altas.map((a) => [normalizarNombre(a), a]));
+
+  const porGrafia = new Map<string, { operaciones: number; importe: number; primeraFecha: string }>();
+  for (const o of operaciones) {
+    if ((o.estado ?? '').toUpperCase() !== 'VALIDADO') continue;
+    if (!tipos.includes((o.operacion ?? '').toUpperCase())) continue;
+    const grafia = o.cliente_proveedor ?? '';
+    if (!normalizarNombre(grafia)) continue;
+    if (altasExactas.has(grafia)) continue;
+
+    const acum = porGrafia.get(grafia) ?? { operaciones: 0, importe: 0, primeraFecha: o.fecha.slice(0, 10) };
+    acum.operaciones += 1;
+    acum.importe += Number(o.total ?? 0) || 0;
+    if (o.fecha.slice(0, 10) < acum.primeraFecha) acum.primeraFecha = o.fecha.slice(0, 10);
+    porGrafia.set(grafia, acum);
+  }
+
+  return [...porGrafia.entries()]
+    .map(([grafia, acum]) => {
+      const normal = normalizarNombre(grafia);
+      let sugerencia: string | null = null;
+      let confianza: GrafiaPorRevisar['confianza'] = null;
+
+      const exacta = altasNormalizadas.get(normal);
+      if (exacta) {
+        sugerencia = exacta;
+        confianza = 'MISMA';
+      } else {
+        let mejor: { nombre: string; distancia: number } | null = null;
+        for (const [normalAlta, original] of altasNormalizadas) {
+          const contiene = Math.min(normal.length, normalAlta.length) >= 4 && (normalAlta.includes(normal) || normal.includes(normalAlta));
+          const distancia = contiene ? 1 : normal.length >= 5 ? distanciaEdicion(normal, normalAlta) : 99;
+          if (distancia <= 2 && (!mejor || distancia < mejor.distancia)) mejor = { nombre: original, distancia };
+        }
+        if (mejor) {
+          sugerencia = mejor.nombre;
+          confianza = 'PARECIDA';
+        }
+      }
+
+      return { grafia, operaciones: acum.operaciones, importe: aCentavos(acum.importe), primeraFecha: acum.primeraFecha, sugerencia, confianza };
+    })
+    .sort((a, b) => b.operaciones - a.operaciones || a.grafia.localeCompare(b.grafia));
 }
