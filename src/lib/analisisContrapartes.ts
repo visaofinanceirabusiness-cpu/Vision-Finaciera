@@ -547,3 +547,78 @@ export function operacionesSinContraparte({
     }))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
+
+export type CuentaDeSaldo = { nombre: string; saldoInicial: number; naturaleza: string | null };
+
+export type SaldosPorContraparte = {
+  filas: Array<{ nombre: string; saldo: number; operaciones: number }>;
+  // Movimiento de operaciones sin nombre de contraparte.
+  sinAsignar: { saldo: number; operaciones: number };
+  // Apertura de las cuentas: no tiene detalle por contraparte.
+  saldoInicial: number;
+  // saldoInicial + todo lo atribuido + sin asignar: lo que tendrían los libros.
+  total: number;
+};
+
+// Saldo por cliente / proveedor, a partir de lo que cada nombre movió en las
+// cuentas "por cobrar" (clientes) o "por pagar" (proveedores). Un devengo o
+// una venta a crédito lo aumenta; un cobro o un pago lo reduce. Si la
+// contraparte no se cargó en alguno de los dos, el saldo queda corrido (uno
+// positivo y otro negativo): por eso existe la fila "sin asignar".
+export function saldosPorContraparte({
+  operaciones,
+  cuentas,
+  lado,
+}: {
+  operaciones: OperacionTercero[];
+  cuentas: CuentaDeSaldo[];
+  lado: 'COBRAR' | 'PAGAR';
+}): SaldosPorContraparte {
+  const nombres = new Set(cuentas.map((c) => c.nombre));
+  const porNombre = new Map<string, { nombres: Map<string, number>; saldo: number; operaciones: number }>();
+  const sinAsignar = { saldo: 0, operaciones: 0 };
+
+  for (const o of operaciones) {
+    if ((o.estado ?? '').toUpperCase() !== 'VALIDADO') continue;
+    const importe = Number(o.total ?? 0) || 0;
+    const debito = nombres.has((o.cuenta_debito ?? '').trim());
+    const credito = nombres.has((o.cuenta_credito ?? '').trim());
+    if (!debito && !credito) continue;
+
+    const movimiento = (debito ? importe : 0) - (credito ? importe : 0);
+    const saldo = lado === 'COBRAR' ? movimiento : -movimiento;
+    const clave = normalizarNombre(o.cliente_proveedor);
+
+    if (!clave) {
+      sinAsignar.saldo += saldo;
+      sinAsignar.operaciones += 1;
+      continue;
+    }
+
+    const acum = porNombre.get(clave) ?? { nombres: new Map<string, number>(), saldo: 0, operaciones: 0 };
+    const original = (o.cliente_proveedor ?? '').trim();
+    acum.nombres.set(original, (acum.nombres.get(original) ?? 0) + 1);
+    acum.saldo += saldo;
+    acum.operaciones += 1;
+    porNombre.set(clave, acum);
+  }
+
+  const filas = [...porNombre.values()]
+    .map((a) => ({
+      nombre: [...a.nombres.entries()].sort((x, y) => y[1] - x[1])[0][0],
+      saldo: aCentavos(a.saldo),
+      operaciones: a.operaciones,
+    }))
+    .filter((f) => Math.abs(f.saldo) >= 0.005)
+    .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
+
+  const saldoInicial = cuentas.reduce((suma, c) => suma + (Number(c.saldoInicial) || 0), 0);
+  const atribuido = [...porNombre.values()].reduce((suma, a) => suma + a.saldo, 0);
+
+  return {
+    filas,
+    sinAsignar: { saldo: aCentavos(sinAsignar.saldo), operaciones: sinAsignar.operaciones },
+    saldoInicial: aCentavos(saldoInicial),
+    total: aCentavos(saldoInicial + atribuido + sinAsignar.saldo),
+  };
+}

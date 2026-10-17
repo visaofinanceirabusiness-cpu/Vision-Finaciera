@@ -9,6 +9,7 @@ import {
   operacionesSinContraparte,
   sugerenciaDeHistorico,
   reconoceResultado,
+  saldosPorContraparte,
   type OperacionTercero,
 } from './analisisContrapartes';
 
@@ -308,5 +309,52 @@ describe('grafiasPorRevisar: palabras en común', () => {
 
   it('si es ambiguo no adivina', () => {
     expect(r.find((x) => x.grafia === 'Alquiler')?.sugerencia).toBeNull();
+  });
+});
+
+describe('saldosPorContraparte', () => {
+  const mov = (fecha: string, total: number, tercero: string | null, debito: string, credito: string): OperacionTercero => ({
+    fecha,
+    operacion: 'X',
+    total,
+    cliente_proveedor: tercero,
+    estado: 'VALIDADO',
+    cuenta_debito: debito,
+    cuenta_credito: credito,
+  });
+
+  const ops = [
+    mov('2026-10-01', 1000, 'Ana', 'Clientes', 'Ventas'),
+    mov('2026-10-05', 400, 'ana', 'Banco', 'Clientes'),
+    mov('2026-10-06', 300, 'Beto', 'Clientes', 'Ventas'),
+    mov('2026-10-07', 50, null, 'Banco', 'Clientes'),
+    mov('2026-10-08', 999, 'Ana', 'Banco', 'Ventas'),
+  ];
+
+  it('clientes: ventas a crédito suman y cobros restan, por nombre normalizado', () => {
+    const r = saldosPorContraparte({ operaciones: ops, cuentas: [{ nombre: 'Clientes', saldoInicial: 100, naturaleza: 'DEUDORA' }], lado: 'COBRAR' });
+    expect(r.filas).toEqual([
+      { nombre: 'Ana', saldo: 600, operaciones: 2 },
+      { nombre: 'Beto', saldo: 300, operaciones: 1 },
+    ]);
+    expect(r.sinAsignar).toEqual({ saldo: -50, operaciones: 1 });
+    expect(r.saldoInicial).toBe(100);
+    expect(r.total).toBe(950);
+  });
+
+  it('proveedores: la compra a crédito suma y el pago resta', () => {
+    const compras = [
+      mov('2026-10-01', 500, 'Prov', 'Mercadería', 'Proveedores'),
+      mov('2026-10-09', 200, 'Prov', 'Proveedores', 'Banco'),
+    ];
+    const r = saldosPorContraparte({ operaciones: compras, cuentas: [{ nombre: 'Proveedores', saldoInicial: 0, naturaleza: 'ACREEDORA' }], lado: 'PAGAR' });
+    expect(r.filas).toEqual([{ nombre: 'Prov', saldo: 300, operaciones: 2 }]);
+    expect(r.total).toBe(300);
+  });
+
+  it('un nombre ya saldado no aparece en la lista', () => {
+    const saldadas = [mov('2026-10-01', 100, 'Zoe', 'Clientes', 'Ventas'), mov('2026-10-02', 100, 'Zoe', 'Banco', 'Clientes')];
+    const r = saldosPorContraparte({ operaciones: saldadas, cuentas: [{ nombre: 'Clientes', saldoInicial: 0, naturaleza: 'DEUDORA' }], lado: 'COBRAR' });
+    expect(r.filas).toEqual([]);
   });
 });
