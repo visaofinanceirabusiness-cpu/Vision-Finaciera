@@ -1789,15 +1789,22 @@ function SeccionEndeudamiento({
 
   return (
     <div>
-      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        {t('eyebrowEquilibrio')}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+          {t('eyebrowEquilibrio')}
+        </div>
+
+        <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('endeudamiento')}</h3>
+
+        <p style={{ margin: 0, fontSize: 12, color: COLORES_BASE.gris }}>
+          {t('ayudaEndeudamiento')}
+        </p>
+        </div>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/sabio/sabio-endeudamiento.webp" alt="" style={{ height: 104, width: 'auto', flexShrink: 0 }} />
       </div>
-
-      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('endeudamiento')}</h3>
-
-      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
-        {t('ayudaEndeudamiento')}
-      </p>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
         <InfoCard etiqueta={t('deudaTotal')} valor={`${simbolo} ${formatearNumero(deuda)}`} color="#b91c1c" />
@@ -1870,15 +1877,22 @@ function SeccionFondoRespaldo({
 
   return (
     <div>
-      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        {t('eyebrowColchon')}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+          {t('eyebrowColchon')}
+        </div>
+
+        <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('fondoDeRespaldo')}</h3>
+
+        <p style={{ margin: 0, fontSize: 12, color: COLORES_BASE.gris }}>
+          {t('ayudaFondoRespaldo')}
+        </p>
+        </div>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/sabio/sabio-fondo.webp" alt="" style={{ height: 104, width: 'auto', flexShrink: 0 }} />
       </div>
-
-      <h3 style={{ margin: '0 0 4px', color: colores.azul, fontSize: 18 }}>{t('fondoDeRespaldo')}</h3>
-
-      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES_BASE.gris }}>
-        {t('ayudaFondoRespaldo')}
-      </p>
 
       {objetivoMonto > 0 ? (
         <>
