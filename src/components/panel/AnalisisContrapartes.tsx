@@ -18,6 +18,7 @@ import {
   type EtiquetaFrecuencia,
   type OperacionTercero,
   type TipoContraparte,
+  type TiposDeCuenta,
 } from '@/lib/analisisContrapartes';
 import { DistribucionPieChart } from './DistribucionPieChart';
 
@@ -32,7 +33,7 @@ async function cargarOperaciones(empresaId: string): Promise<OperacionTercero[]>
   for (let desde = 0; ; desde += TAMANO_PAGINA) {
     const { data, error } = await supabase
       .from('registro_operaciones')
-      .select('id, fecha, operacion, total, cliente_proveedor, estado, categoria, historico, id_operacion')
+      .select('id, fecha, operacion, total, cliente_proveedor, estado, categoria, historico, id_operacion, cuenta_debito, cuenta_credito')
       .eq('empresa_id', empresaId)
       .in('operacion', ['VENTA', 'COMPRA', 'COBRO', 'PAGO'])
       .order('fecha', { ascending: true })
@@ -76,6 +77,7 @@ export function AnalisisContrapartes({
   const mesActual = hoy.slice(0, 7);
 
   const [operaciones, setOperaciones] = useState<OperacionTercero[] | null>(null);
+  const [tiposCuenta, setTiposCuenta] = useState<TiposDeCuenta | undefined>(undefined);
   const [error, setError] = useState(false);
   const [tipo, setTipo] = useState<TipoContraparte>('clientes');
   const [periodo, setPeriodo] = useState(mesActual);
@@ -95,6 +97,21 @@ export function AnalisisContrapartes({
     setFichaAbierta(normalizarNombre(fichaPedida.nombre));
     onFichaAbierta?.();
   }, [fichaPedida, onFichaAbierta]);
+
+  useEffect(() => {
+    let vigente = true;
+    supabase
+      .from('plan_cuentas')
+      .select('nombre, tipo_saldo')
+      .eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        if (!vigente || !data) return;
+        setTiposCuenta(new Map(data.map((c) => [c.nombre as string, (c.tipo_saldo ?? '') as string])));
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [empresaId]);
 
   useEffect(() => {
     let vigente = true;
@@ -119,8 +136,8 @@ export function AnalisisContrapartes({
   }, [tipo, clientes, proveedores]);
 
   const analisis = useMemo(
-    () => analizarContrapartes({ operaciones: operaciones ?? [], tipo, esFamiliar, periodo, hoy, fechasAlta }),
-    [operaciones, tipo, esFamiliar, periodo, hoy, fechasAlta]
+    () => analizarContrapartes({ operaciones: operaciones ?? [], tipo, esFamiliar, periodo, hoy, fechasAlta, tiposCuenta }),
+    [operaciones, tipo, esFamiliar, periodo, hoy, fechasAlta, tiposCuenta]
   );
 
   const altas = useMemo(() => (tipo === 'clientes' ? clientes : proveedores).map((p) => p.nombre), [tipo, clientes, proveedores]);
@@ -187,9 +204,9 @@ export function AnalisisContrapartes({
   const ficha = useMemo(
     () =>
       fichaAbierta
-        ? fichaDeContraparte({ operaciones: operaciones ?? [], tipo, esFamiliar, clave: fichaAbierta, periodo, hoy })
+        ? fichaDeContraparte({ operaciones: operaciones ?? [], tipo, esFamiliar, clave: fichaAbierta, periodo, hoy, tiposCuenta })
         : null,
-    [fichaAbierta, operaciones, tipo, esFamiliar, periodo, hoy]
+    [fichaAbierta, operaciones, tipo, esFamiliar, periodo, hoy, tiposCuenta]
   );
 
   async function unificar(grafia: string, destino: string) {
