@@ -41,10 +41,16 @@ export function PanelNoticias({
 
   return (
     <div>
-      <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
-        {esPT ? 'NOTÍCIAS' : 'NOTICIAS'}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>
+          {esPT ? 'NOTÍCIAS' : 'NOTICIAS'}
+        </div>
+        <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>📰 {esPT ? 'Notícias do dia' : 'Noticias del día'}</h2>
       </div>
-      <h2 style={{ margin: 0, color: colores.azul, fontSize: 23 }}>📰 {esPT ? 'Notícias do dia' : 'Noticias del día'}</h2>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/sabio/sabio-noticias.webp" alt="" style={{ height: 92, width: 'auto', flexShrink: 0 }} />
+    </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
         {BLOQUES.map((b) => (
