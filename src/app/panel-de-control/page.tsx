@@ -580,26 +580,31 @@ export default function MiNegocioPage() {
         flexWrap: 'wrap',
       }}
     >
-      <div>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: 1.3,
-            color: colores.verde,
-            marginBottom: 4,
-          }}
-        >
-          {t('eyebrowPeriodo')}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/sabio/sabio-periodo.webp" alt="" style={{ height: 88, width: 'auto', flexShrink: 0 }} />
 
-        <div
-          style={{
-            fontSize: 13,
-            color: COLORES_BASE.gris,
-          }}
-        >
-          {t('ayudaPeriodo')}
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 1.3,
+              color: colores.verde,
+              marginBottom: 4,
+            }}
+          >
+            {t('eyebrowPeriodo')}
+          </div>
+
+          <div
+            style={{
+              fontSize: 13,
+              color: COLORES_BASE.gris,
+            }}
+          >
+            {t('ayudaPeriodo')}
+          </div>
         </div>
       </div>
 
@@ -1104,23 +1109,12 @@ export default function MiNegocioPage() {
         {pestana === 'periodo' && (
           <>
         {perfil?.empresa_id && (
-          <section
-            style={{
-              background: colores.blanco,
-              borderRadius: 24,
-              padding: 24,
-              marginBottom: 20,
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 28px rgba(31,58,95,0.06)',
-            }}
-          >
-            <CompromisosProgramadosResumen
-              empresaId={perfil.empresa_id}
-              idioma={idioma}
-              simbolo={simbolo}
-              colores={colores}
-            />
-          </section>
+          <CompromisosProgramadosResumen
+            empresaId={perfil.empresa_id}
+            idioma={idioma}
+            simbolo={simbolo}
+            colores={colores}
+          />
         )}
 
         {selectorPeriodo}

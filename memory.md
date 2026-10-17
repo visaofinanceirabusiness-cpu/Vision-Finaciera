@@ -642,3 +642,5 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - Informes: Flujo de Caja y Estado de Resultado abren por defecto en el MES EN CURSO (antes "Todos"); `obtenerPeriodos` siempre incluye el mes actual aunque no tenga asientos. Aceptan `?periodo=AAAA-MM` en la URL. En el Panel de Control (Análisis por período) los encabezados de INGRESOS y EGRESOS enlazan a `/informes?pestana=resultado&periodo=<período elegido>`.
 
 - Endeudamiento y Fondo de respaldo (Situación actual, Familia) llevan su Sabio en el encabezado (`public/sabio/sabio-endeudamiento.webp` — calculadora, flecha roja y alcancía; `sabio-fondo.webp` — balanza con escudo y monedas), a la derecha del título.
+
+- Análisis por período: "Compromisos programados" es ahora su propia tarjeta (`CompromisosProgramadosResumen`, ya no va dentro de otra sección; devuelve null si no hay nada programado) con `sabio-compromisos.webp`, y el selector de período lleva `sabio-periodo.webp` a la izquierda.
