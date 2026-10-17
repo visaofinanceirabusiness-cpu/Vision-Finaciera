@@ -633,3 +633,6 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 ## Endeudamiento con rubros tildables (oct 2026)
 - `SeccionEndeudamiento` tiene UNA sola barra: deuda ÷ suma de los grupos del Activo (`composicionActivoGrupos`) que se tilden como chips (más "Todo el activo"). Por defecto: Dinero disponible + Ahorros e inversiones. Semáforo <30% sano / <60% moderado / resto alto, tope visual 100%.
 - Reemplaza las dos barras anteriores (deuda/(deuda+patrimonio) y deuda/líquido+inversiones); el patrimonio ya no entra en esta sección. Sigue montada solo en Familia, pero el componente es genérico (listo para empresas: usar `composicionActivoGrupos` del perfil).
+
+## Cuentas de las composiciones → Mayor (oct 2026)
+- En Panel de Control → Situación actual, cada cuenta listada en los gráficos de Activo/Pasivo/Patrimonio es un enlace (`hrefCuenta` en `ComposicionPorGrupos`) a `/informes?pestana=mayor&cuenta=<nombre>`. Informes lee esos parámetros al montar y `MayorTab` preselecciona la cuenta por nombre (las cuentas se identifican por nombre en los asientos).

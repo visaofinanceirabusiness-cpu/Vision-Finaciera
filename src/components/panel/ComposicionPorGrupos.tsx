@@ -4,6 +4,7 @@
 // con su imagen, su % del total y la lista de sus cuentas. Hoy lo usa el
 // Activo (ver lib/gruposActivo.ts); sirve igual para Pasivo y Patrimonio.
 
+import Link from 'next/link';
 import type { GrupoComposicion } from '@/lib/gruposActivo';
 import type { PresentacionGrupo } from './gruposComposicion';
 
@@ -22,7 +23,10 @@ export function ComposicionPorGrupos({
   simbolo = 'R$',
   idioma = 'ES',
   colorBanner = '#1f3a5f',
+  hrefCuenta,
 }: {
+  // Si se pasa, cada cuenta es un enlace (ej. a su Mayor en Informes).
+  hrefCuenta?: (nombre: string) => string;
   grupos: GrupoComposicion[];
   presentacion: Record<string, PresentacionGrupo>;
   titulo: string;
@@ -142,14 +146,35 @@ export function ComposicionPorGrupos({
               </div>
 
               <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.75)', borderRadius: 14, padding: '6px 12px' }}>
-                {g.cuentas.map((c, i) => (
-                  <div key={c.nombre} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: i === 0 ? 'none' : '1px solid #eef2f6', fontSize: 13.5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.acento, opacity: Math.max(0.35, 1 - i * 0.15), flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, color: '#1f2937', fontWeight: 600, overflowWrap: 'anywhere' }}>{c.nombre}</span>
-                    <strong style={{ color: '#1f3a5f' }}>{formatear(c.valor)}</strong>
-                    <span style={{ width: 36, textAlign: 'right', color: '#6e7781', fontSize: 12 }}>{Math.round((c.valor / total) * 100)}%</span>
-                  </div>
-                ))}
+                {g.cuentas.map((c, i) => {
+                  const fila = {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 0',
+                    borderTop: i === 0 ? 'none' : '1px solid #eef2f6',
+                    fontSize: 13.5,
+                    textDecoration: 'none',
+                  } as const;
+                  const contenido = (
+                    <>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.acento, opacity: Math.max(0.35, 1 - i * 0.15), flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 0, color: '#1f2937', fontWeight: 600, overflowWrap: 'anywhere' }}>{c.nombre}</span>
+                      <strong style={{ color: '#1f3a5f' }}>{formatear(c.valor)}</strong>
+                      <span style={{ width: 36, textAlign: 'right', color: '#6e7781', fontSize: 12 }}>{Math.round((c.valor / total) * 100)}%</span>
+                      {hrefCuenta && <span aria-hidden="true" style={{ color: p.acento, fontWeight: 800 }}>›</span>}
+                    </>
+                  );
+                  return hrefCuenta ? (
+                    <Link key={c.nombre} href={hrefCuenta(c.nombre)} style={fila}>
+                      {contenido}
+                    </Link>
+                  ) : (
+                    <div key={c.nombre} style={fila}>
+                      {contenido}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
