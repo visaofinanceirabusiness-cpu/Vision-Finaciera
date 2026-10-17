@@ -599,7 +599,7 @@ export async function registrarPagoRecordatorio(
     categoria,
     formaPago: recordatorio.forma_pago,
     historico: recordatorio.nombre,
-    clienteProveedor: '',
+    clienteProveedor: recordatorio.nombre,
     lineas: [{ producto: '', cantidad: 1, monto }],
   });
 

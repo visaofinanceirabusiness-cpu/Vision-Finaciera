@@ -8,6 +8,7 @@
 import { aCentavos } from './centavos';
 
 export type OperacionTercero = {
+  id?: string;
   fecha: string;
   operacion: string | null;
   total: number | string | null;
@@ -443,4 +444,55 @@ export function grafiasPorRevisar({
       return { grafia, operaciones: acum.operaciones, importe: aCentavos(acum.importe), primeraFecha: acum.primeraFecha, sugerencia, confianza };
     })
     .sort((a, b) => b.operaciones - a.operaciones || a.grafia.localeCompare(b.grafia));
+}
+
+// Los devengos de plantillas recurrentes anteriores a guardar el nombre
+// quedaron con el nombre solo dentro del histórico: "Uber — devengado 2026-10".
+export function sugerenciaDeHistorico(historico: string | null | undefined): string | null {
+  const coincidencia = /^(.+?)\s+—\s+devengado\s+\d{4}-\d{2}$/.exec((historico ?? '').trim());
+  const nombre = coincidencia?.[1].trim();
+  return nombre ? nombre : null;
+}
+
+export type OperacionSinContraparte = {
+  id: string;
+  fecha: string;
+  operacion: string;
+  categoria: string;
+  historico: string;
+  total: number;
+  sugerencia: string | null;
+};
+
+// Operaciones de este tipo (cliente / proveedor) que no tienen nombre
+// cargado, más nuevas primero.
+export function operacionesSinContraparte({
+  operaciones,
+  tipo,
+  esFamiliar,
+}: {
+  operaciones: OperacionTercero[];
+  tipo: TipoContraparte;
+  esFamiliar: boolean;
+}): OperacionSinContraparte[] {
+  const tipos = operacionesDeContraparte(tipo, esFamiliar);
+
+  return operaciones
+    .filter(
+      (o) =>
+        !!o.id &&
+        (o.estado ?? '').toUpperCase() === 'VALIDADO' &&
+        tipos.includes((o.operacion ?? '').toUpperCase()) &&
+        !normalizarNombre(o.cliente_proveedor)
+    )
+    .map((o) => ({
+      id: o.id as string,
+      fecha: o.fecha.slice(0, 10),
+      operacion: (o.operacion ?? '').toUpperCase(),
+      categoria: o.categoria ?? '',
+      historico: o.historico ?? '',
+      total: Number(o.total ?? 0) || 0,
+      sugerencia: sugerenciaDeHistorico(o.historico),
+    }))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
