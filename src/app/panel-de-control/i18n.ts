@@ -99,8 +99,10 @@ export type ClavePanelControl =
   | 'endeudamientoSano'
   | 'endeudamientoModerado'
   | 'endeudamientoAlto'
-  | 'deudaSobreLiquido'
-  | 'liquidoMasInversiones'
+  | 'comparaCon'
+  | 'seleccionado'
+  | 'todoElActivo'
+  | 'sinSeleccion'
   | 'eyebrowColchon'
   | 'fondoDeRespaldo'
   | 'ayudaFondoRespaldo'
@@ -217,12 +219,14 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     vacioDistribucionLiquidez: 'Todavía no hay dinero disponible para graficar.',
     eyebrowEquilibrio: 'EQUILIBRIO',
     endeudamiento: 'Endeudamiento',
-    ayudaEndeudamiento: 'Cuánto de lo que tenés depende de deuda.',
+    ayudaEndeudamiento: 'Cuánto pesa tu deuda frente a lo que elijas del activo.',
     endeudamientoSano: 'Endeudamiento sano',
     endeudamientoModerado: 'Endeudamiento moderado',
     endeudamientoAlto: 'Endeudamiento alto',
-    deudaSobreLiquido: 'Deuda sobre dinero e inversiones',
-    liquidoMasInversiones: 'Dinero disponible + inversiones',
+    comparaCon: 'Compará la deuda con (tildá los rubros del activo):',
+    seleccionado: 'Lo que tildaste',
+    todoElActivo: 'Todo el activo',
+    sinSeleccion: 'Tildá al menos un rubro para comparar.',
     eyebrowColchon: 'COLCHÓN',
     fondoDeRespaldo: 'Fondo de respaldo',
     ayudaFondoRespaldo: 'Plata disponible aparte de lo que necesitás para el día a día.',
@@ -338,12 +342,14 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     vacioComposicionPatrimonio: 'Ainda não há Patrimônio registrado.',
     eyebrowEquilibrio: 'EQUILÍBRIO',
     endeudamiento: 'Endividamento',
-    ayudaEndeudamiento: 'Quanto do que você tem depende de dívida.',
+    ayudaEndeudamiento: 'Quanto pesa sua dívida frente ao que você escolher do ativo.',
     endeudamientoSano: 'Endividamento saudável',
     endeudamientoModerado: 'Endividamento moderado',
     endeudamientoAlto: 'Endividamento alto',
-    deudaSobreLiquido: 'Dívida sobre dinheiro e investimentos',
-    liquidoMasInversiones: 'Dinheiro disponível + investimentos',
+    comparaCon: 'Compare a dívida com (marque os grupos do ativo):',
+    seleccionado: 'O que você marcou',
+    todoElActivo: 'Todo o ativo',
+    sinSeleccion: 'Marque pelo menos um grupo para comparar.',
     eyebrowColchon: 'COLCHÃO',
     fondoDeRespaldo: 'Fundo de reserva',
     ayudaFondoRespaldo: 'Dinheiro disponível além do que você precisa para o dia a dia.',
@@ -384,16 +390,10 @@ export function msgEcuacionNoCierra(idioma: string, simbolo: string, descuadre: 
     : `⚠️ La ecuación contable no cierra por ${simbolo} ${descuadre}. Activo (${activos}) no coincide con Pasivo + Patrimonio + Resultado. Revisá los saldos iniciales del plan de cuentas.`;
 }
 
-export function msgSaludEndeudamiento(idioma: string, porcentaje: string): string {
+export function msgDeudaSobreSeleccion(idioma: string, porcentaje: string): string {
   return esPT(idioma)
-    ? `a dívida é ${porcentaje}% de dívida + patrimônio.`
-    : `la deuda es el ${porcentaje}% de deuda + patrimonio.`;
-}
-
-export function msgDeudaSobreLiquido(idioma: string, porcentaje: string): string {
-  return esPT(idioma)
-    ? `a dívida equivale a ${porcentaje}% do dinheiro disponível + investimentos.`
-    : `la deuda equivale al ${porcentaje}% del dinero disponible + inversiones.`;
+    ? `a dívida equivale a ${porcentaje}% do que você marcou.`
+    : `la deuda equivale al ${porcentaje}% de lo que tildaste.`;
 }
 
 export function msgFondoRespaldoProgreso(idioma: string, porcentaje: string): string {

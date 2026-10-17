@@ -10,6 +10,7 @@ import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
 import { GRUPOS_ACTIVO, GRUPOS_PASIVO, GRUPOS_PATRIMONIO } from '@/components/panel/gruposComposicion';
+import type { GrupoComposicion } from '@/lib/gruposActivo';
 import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
@@ -34,8 +35,7 @@ import {
   diccionarioPanelControl,
   type ClavePanelControl,
   msgEcuacionNoCierra,
-  msgSaludEndeudamiento,
-  msgDeudaSobreLiquido,
+  msgDeudaSobreSeleccion,
   msgFondoRespaldoProgreso,
   msgNivelBanner,
   msgFaltanParaSubirNivel,
@@ -1080,8 +1080,7 @@ export default function MiNegocioPage() {
           >
             <SeccionEndeudamiento
               deuda={indicadores?.pasivos ?? 0}
-              patrimonio={indicadores?.patrimonio ?? 0}
-              liquidoMasInversiones={(indicadores?.cajaDisponible ?? 0) + (indicadores?.ahorroInversiones ?? 0)}
+              gruposActivo={indicadores?.composicionActivoGrupos ?? []}
               simbolo={simbolo}
               colores={colores}
               idioma={idioma}
@@ -1733,33 +1732,52 @@ function ObjetivoCard({
 
 function SeccionEndeudamiento({
   deuda,
-  patrimonio,
-  liquidoMasInversiones,
+  gruposActivo,
   simbolo,
   colores,
   idioma,
 }: {
   deuda: number;
-  patrimonio: number;
-  liquidoMasInversiones: number;
+  gruposActivo: GrupoComposicion[];
   simbolo: string;
   colores: { azul: string; verde: string; acento: string; blanco: string };
   idioma: string;
 }) {
   const t = crearTraductor(diccionarioPanelControl, idioma);
-  const colorSalud = (porcentaje: number) =>
-    porcentaje < 30 ? colores.verde : porcentaje < 60 ? '#d97706' : '#dc2626';
-  const proporcionSobreLiquido =
-    liquidoMasInversiones > 0 ? (deuda / liquidoMasInversiones) * 100 : deuda > 0 ? 100 : 0;
-  const total = deuda + Math.max(patrimonio, 0);
-  const proporcionDeuda = total > 0 ? (deuda / total) * 100 : 0;
+  // null = selección por defecto (dinero disponible + ahorros e
+  // inversiones). No se guarda un valor inicial porque los grupos llegan
+  // recién cuando cargan los indicadores.
+  const [seleccion, setSeleccion] = useState<string[] | null>(null);
 
+  const grupos = gruposActivo.filter((g) => g.total > 0);
+  const elegidos = seleccion ?? grupos.filter((g) => g.id === 'DINERO' || g.id === 'AHORROS').map((g) => g.id);
+  const base = grupos.filter((g) => elegidos.includes(g.id)).reduce((suma, g) => suma + g.total, 0);
+  const todoTildado = grupos.length > 0 && grupos.every((g) => elegidos.includes(g.id));
+
+  const alternar = (id: string) =>
+    setSeleccion(elegidos.includes(id) ? elegidos.filter((x) => x !== id) : [...elegidos, id]);
+
+  const proporcion = base > 0 ? (deuda / base) * 100 : 0;
   const salud =
-    proporcionDeuda < 30
+    proporcion < 30
       ? { texto: t('endeudamientoSano'), color: colores.verde }
-      : proporcionDeuda < 60
+      : proporcion < 60
         ? { texto: t('endeudamientoModerado'), color: '#d97706' }
         : { texto: t('endeudamientoAlto'), color: '#dc2626' };
+
+  const chip = (activo: boolean, acento: string): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 11px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: 'pointer',
+    border: `1.5px solid ${activo ? acento : '#d6dee5'}`,
+    background: activo ? `${acento}14` : '#ffffff',
+    color: activo ? acento : COLORES_BASE.gris,
+  });
 
   return (
     <div>
@@ -1775,45 +1793,51 @@ function SeccionEndeudamiento({
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
         <InfoCard etiqueta={t('deudaTotal')} valor={`${simbolo} ${formatearNumero(deuda)}`} color="#b91c1c" />
-        <InfoCard etiqueta={t('patrimonioNeto')} valor={`${simbolo} ${formatearNumero(patrimonio)}`} color={colores.azul} />
+        <InfoCard etiqueta={t('seleccionado')} valor={`${simbolo} ${formatearNumero(base)}`} color={colores.verde} />
       </div>
 
-      <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
-        <div style={{ width: `${Math.min(100, proporcionDeuda)}%`, height: '100%', borderRadius: 999, background: salud.color }} />
+      <div style={{ fontSize: 12, fontWeight: 700, color: colores.azul, marginBottom: 8 }}>{t('comparaCon')}</div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+        {grupos.map((g) => {
+          const pres = GRUPOS_ACTIVO[g.id];
+          const activo = elegidos.includes(g.id);
+          return (
+            <button key={g.id} type="button" role="checkbox" aria-checked={activo} onClick={() => alternar(g.id)} style={chip(activo, pres?.acento ?? colores.azul)}>
+              <span aria-hidden="true">{activo ? '☑' : '☐'}</span>
+              <span>{pres?.emoji} {pres ? (idioma === 'PT' ? pres.pt : pres.es) : g.id}</span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>{simbolo} {formatearNumero(g.total)}</span>
+            </button>
+          );
+        })}
+
+        {grupos.length > 1 && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={todoTildado}
+            onClick={() => setSeleccion(todoTildado ? [] : grupos.map((g) => g.id))}
+            style={chip(todoTildado, colores.azul)}
+          >
+            <span aria-hidden="true">{todoTildado ? '☑' : '☐'}</span>
+            <span>{t('todoElActivo')}</span>
+          </button>
+        )}
       </div>
 
-      <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: salud.color }}>
-        {salud.texto} — {msgSaludEndeudamiento(idioma, formatearNumero(proporcionDeuda))}
-      </div>
+      {base > 0 ? (
+        <>
+          <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, proporcion)}%`, height: '100%', borderRadius: 999, background: salud.color }} />
+          </div>
 
-      <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
-          {t('deudaSobreLiquido')}
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <InfoCard
-            etiqueta={t('liquidoMasInversiones')}
-            valor={`${simbolo} ${formatearNumero(liquidoMasInversiones)}`}
-            color={colores.verde}
-          />
-        </div>
-
-        <div style={{ height: 9, borderRadius: 999, background: '#e7edf1', overflow: 'hidden' }}>
-          <div
-            style={{
-              width: `${Math.min(100, proporcionSobreLiquido)}%`,
-              height: '100%',
-              borderRadius: 999,
-              background: colorSalud(proporcionSobreLiquido),
-            }}
-          />
-        </div>
-
-        <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: colorSalud(proporcionSobreLiquido) }}>
-          {msgDeudaSobreLiquido(idioma, formatearNumero(proporcionSobreLiquido))}
-        </div>
-      </div>
+          <div style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: salud.color }}>
+            {salud.texto} — {msgDeudaSobreSeleccion(idioma, formatearNumero(proporcion))}
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 12, color: COLORES_BASE.gris }}>{t('sinSeleccion')}</div>
+      )}
     </div>
   );
 }

@@ -630,5 +630,6 @@ Panel de Control → "Ver gráficos" → "Composición del Activo": dona por gru
 - `pestana` en `panel-de-control/page.tsx`: **Situación actual** (saldo en caja, Activo/Pasivo/Patrimonio con botón "Ver gráfico" propio por tarjeta — estado `graficosAbiertos` — y al final Endeudamiento/Fondo de respaldo en Familia), **Análisis por período** (Compromisos programados → selector de período → Ingresos / Salud de caja / Egresos → Resumen ejecutivo con todos sus indicadores y gráficos), **Objetivos** (`bloqueObjetivos`: objetivos familiares / escalonados, o del mes en otros perfiles).
 - Los objetivos de Familia ya no van arriba de todo: viven solo en la pestaña 3. La pestaña activa no se persiste (arranca en Situación).
 
-## Endeudamiento sobre líquido + inversiones (oct 2026)
-- `SeccionEndeudamiento` (Familia, pestaña Situación) suma una segunda barra: deuda ÷ (cajaDisponible + ahorroInversiones). Semáforo <30% sano / <60% moderado / resto alto, tope visual 100%. La barra original (deuda sobre deuda + patrimonio aportado) no cambió.
+## Endeudamiento con rubros tildables (oct 2026)
+- `SeccionEndeudamiento` tiene UNA sola barra: deuda ÷ suma de los grupos del Activo (`composicionActivoGrupos`) que se tilden como chips (más "Todo el activo"). Por defecto: Dinero disponible + Ahorros e inversiones. Semáforo <30% sano / <60% moderado / resto alto, tope visual 100%.
+- Reemplaza las dos barras anteriores (deuda/(deuda+patrimonio) y deuda/líquido+inversiones); el patrimonio ya no entra en esta sección. Sigue montada solo en Familia, pero el componente es genérico (listo para empresas: usar `composicionActivoGrupos` del perfil).
