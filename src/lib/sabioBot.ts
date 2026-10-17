@@ -42,6 +42,7 @@ import { simboloMoneda, formatearNumeroEntero } from './moneda';
 import { saldoDeFormaDePago, saldosDeCategorias, saldosDeMedios } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarContactoPorTelefono } from './clientes';
+import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
 
 type Paso =
   | 'FECHA'
@@ -49,6 +50,7 @@ type Paso =
   | 'CATEGORIA'
   | 'AVISO_COMPROMISO'
   | 'FORMA_PAGO'
+  | 'CUOTAS'
   | 'CONTACTO'
   | 'CONTACTO_TELEFONO'
   | 'PRODUCTO'
@@ -84,6 +86,9 @@ type Datos = {
   categoriaOriginal?: string;
   categoriasCompromiso?: string[];
   esStock?: boolean;
+  // Paso CUOTAS: la forma de pago elegida admite cuotas (deuda o cuenta por cobrar).
+  tipoCuotas?: Exclude<TipoCuotas, null>;
+  cuotas?: number;
   productoId?: string;
   productoNombre?: string;
   cantidad?: number;
@@ -407,6 +412,40 @@ async function avanzarDesdeCategoria(
   return `${tituloFormaPago}\n\n${numerarLista(formasPagoConSaldo)}${saldoDestino}`;
 }
 
+// Lo que sigue a elegir la forma de pago (y, si aplica, la cantidad de
+// cuotas): saldo del medio y siguiente pregunta.
+async function seguirTrasFormaPago(empresaId: string, datos: Datos, formaPago: string): Promise<string> {
+  const idioma = datos.idioma;
+  const operacion = datos.operacion ?? '';
+  const esTransferencia = operacion === 'TRANSFERENCIA';
+
+  const saldoOrigen =
+    operacion === 'PAGO' || operacion === 'COMPRA' || esTransferencia
+      ? await lineaSaldo(empresaId, formaPago, datos.simbolo ?? 'R$', idioma)
+      : '';
+
+  if (esTransferencia || datos.esFamiliar) {
+    const siguiente = await avanzarAProductoODetalle(empresaId, { ...datos, formaPago });
+    return `${siguiente}${saldoOrigen}`;
+  }
+
+  const contactos = await pedirContactos(empresaId, operacion);
+  const etiqueta = etiquetaContacto(idioma, operacion);
+
+  if (contactos.length === 0) {
+    const nuevosDatos: Datos = { ...datos, formaPago, opciones: [], pidiendoContactoLibre: true };
+    await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
+    return `${t(idioma, `¿Cuál es el nombre del/de la ${etiqueta}?`, `Qual é o nome do(a) ${etiqueta}?`)}${saldoOrigen}`;
+  }
+
+  const nuevosDatos: Datos = { ...datos, formaPago, opciones: contactos };
+  await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
+
+  const etiquetaTitulo = etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1);
+
+  return `${t(idioma, `¿${etiquetaTitulo}?`, `${etiquetaTitulo}?`)}\n\n${numerarLista(contactos)}\n\n${t(idioma, '0) Escribir otro nombre', '0) Digitar outro nome')}${saldoOrigen}`;
+}
+
 export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: string): Promise<string> {
   const texto = textoOriginal.trim();
   const textoNormalizado = texto.toLowerCase();
@@ -559,34 +598,32 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     const formaPago = opciones[n - 1];
-    const operacion = datos.operacion ?? '';
-    const esTransferencia = operacion === 'TRANSFERENCIA';
+    const tipoCuotas = await tipoCuotasDeFormaPago(empresaId, datos.operacion ?? '', formaPago);
 
-    const saldoOrigen =
-      operacion === 'PAGO' || operacion === 'COMPRA' || esTransferencia
-        ? await lineaSaldo(empresaId, formaPago, datos.simbolo ?? 'R$', idioma)
-        : '';
-
-    if (esTransferencia || datos.esFamiliar) {
-      const siguiente = await avanzarAProductoODetalle(empresaId, { ...datos, formaPago });
-      return `${siguiente}${saldoOrigen}`;
+    if (tipoCuotas) {
+      await guardarConversacion(empresaId, 'CUOTAS', { ...datos, formaPago, tipoCuotas, opciones: [] });
+      return t(
+        idioma,
+        '¿En cuántas cuotas? Escribí el número, o 0 si no es en cuotas.',
+        'Em quantas parcelas? Digite o número, ou 0 se não for parcelado.'
+      );
     }
 
-    const contactos = await pedirContactos(empresaId, operacion);
-    const etiqueta = etiquetaContacto(idioma, operacion);
+    return seguirTrasFormaPago(empresaId, datos, formaPago);
+  }
 
-    if (contactos.length === 0) {
-      const nuevosDatos: Datos = { ...datos, formaPago, opciones: [], pidiendoContactoLibre: true };
-      await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
-      return `${t(idioma, `¿Cuál es el nombre del/de la ${etiqueta}?`, `Qual é o nome do(a) ${etiqueta}?`)}${saldoOrigen}`;
+  if (paso === 'CUOTAS') {
+    const cantidad = Number(texto.trim());
+
+    if (!Number.isInteger(cantidad) || cantidad < 0) {
+      return t(
+        idioma,
+        'No entendí. Escribí la cantidad de cuotas (0 si no es en cuotas).',
+        'Não entendi. Digite a quantidade de parcelas (0 se não for parcelado).'
+      );
     }
 
-    const nuevosDatos: Datos = { ...datos, formaPago, opciones: contactos };
-    await guardarConversacion(empresaId, 'CONTACTO', nuevosDatos);
-
-    const etiquetaTitulo = etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1);
-
-    return `${t(idioma, `¿${etiquetaTitulo}?`, `${etiquetaTitulo}?`)}\n\n${numerarLista(contactos)}\n\n${t(idioma, '0) Escribir otro nombre', '0) Digitar outro nome')}${saldoOrigen}`;
+    return seguirTrasFormaPago(empresaId, { ...datos, cuotas: cantidad }, datos.formaPago ?? '');
   }
 
   // ---------------------------------------------------
@@ -707,6 +744,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
+      (datos.cuotas && datos.cuotas >= 1 ? `${t(idioma, 'Cuotas', 'Parcelas')}: ${datos.cuotas}\n` : '') +
       `${t(idioma, 'Producto', 'Produto')}: ${datos.productoNombre} x${datos.cantidad}\n` +
       `${t(idioma, 'Precio unitario', 'Preço unitário')}: ${simbolo} ${formatearNumeroEntero(monto)}\n` +
       `Total: ${simbolo} ${formatearNumeroEntero(total)}\n\n` +
@@ -754,6 +792,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
       `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
+      (datos.cuotas && datos.cuotas >= 1 ? `${t(idioma, 'Cuotas', 'Parcelas')}: ${datos.cuotas}\n` : '') +
       `${t(idioma, 'Detalle', 'Detalhe')}: ${detalle}\n` +
       `${t(idioma, 'Monto', 'Valor')}: ${simbolo} ${formatearNumeroEntero(monto)}\n\n` +
       `1) ${t(idioma, 'Confirmar', 'Confirmar')}\n2) ${t(idioma, 'Cancelar', 'Cancelar')}`
@@ -793,6 +832,16 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         lineas,
       });
       conciliarTrasRegistrar(empresaId);
+
+      if (datos.tipoCuotas && datos.cuotas && datos.cuotas >= 1) {
+        await crearCuotasDeOperacion(empresaId, idioma, datos.tipoCuotas, {
+          idOperacion: resultado.idOperacion,
+          formaPagoNombre: datos.formaPago ?? '',
+          total: resultado.total,
+          cantidadCuotas: datos.cuotas,
+          fecha: datos.fecha ?? fechaLocalHoy(),
+        });
+      }
 
       await borrarConversacion(empresaId);
 

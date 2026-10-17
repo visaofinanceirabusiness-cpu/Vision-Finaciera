@@ -4,6 +4,7 @@
 // motor de siempre (registrarOperacion / eliminarOperacion): acá no hay
 // lógica contable nueva.
 
+import { crearCuotasDeOperacion, type TipoCuotas } from './cuotasOperacion';
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
 import { fechaLocalHoy } from './fecha';
@@ -121,7 +122,8 @@ export async function registrarLanzamiento(
   empresaId: string,
   tarjeta: TarjetaRapida,
   monto: number,
-  fecha: string = fechaLocalHoy()
+  fecha: string = fechaLocalHoy(),
+  cuotas?: { tipo: Exclude<TipoCuotas, null>; cantidad: number; idioma: string }
 ): Promise<string> {
   const resultado = await registrarOperacion(empresaId, {
     fecha,
@@ -134,6 +136,16 @@ export async function registrarLanzamiento(
   });
 
   conciliarTrasRegistrar(empresaId);
+
+  if (cuotas && cuotas.cantidad >= 1) {
+    await crearCuotasDeOperacion(empresaId, cuotas.idioma, cuotas.tipo, {
+      idOperacion: resultado.idOperacion as string,
+      formaPagoNombre: tarjeta.formaPago,
+      total: resultado.total,
+      cantidadCuotas: cuotas.cantidad,
+      fecha,
+    });
+  }
 
   return resultado.idOperacion as string;
 }

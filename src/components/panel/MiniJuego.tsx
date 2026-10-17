@@ -15,6 +15,7 @@
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
+import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
 import {
   obtenerCategoriasJuego,
   obtenerFormasPagoJuego,
@@ -113,6 +114,9 @@ export function MiniJuego({
   const [operacion, setOperacion] = useState(operacionForzada ?? '');
   const [categoria, setCategoria] = useState('');
   const [formaPago, setFormaPago] = useState('');
+  const [tipoCuotas, setTipoCuotas] = useState<TipoCuotas>(null);
+  const [enCuotas, setEnCuotas] = useState(false);
+  const [cantidadCuotas, setCantidadCuotas] = useState('2');
   const [productoId, setProductoId] = useState('');
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadMedida, setUnidadMedida] = useState('');
@@ -418,11 +422,36 @@ export function MiniJuego({
     setPaso('operacion');
   }
 
+  useEffect(() => {
+    setEnCuotas(false);
+    setCantidadCuotas('2');
+    setTipoCuotas(null);
+
+    if (simulacion || !operacion || !formaPago) return;
+
+    let cancelado = false;
+    tipoCuotasDeFormaPago(empresaId, operacion, formaPago)
+      .then((tipo) => {
+        if (!cancelado) setTipoCuotas(tipo);
+      })
+      .catch(() => null);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, operacion, formaPago, simulacion]);
+
   async function confirmarJugada() {
     const total = Number(monto);
 
     if (!total || total <= 0) {
       setError(esPT ? 'O valor tem que ser maior que zero.' : 'El monto tiene que ser mayor a cero.');
+      return;
+    }
+
+    const cuotas = tipoCuotas && enCuotas ? Number(cantidadCuotas) : 0;
+    if (tipoCuotas && enCuotas && (!Number.isInteger(cuotas) || cuotas < 1)) {
+      setError(esPT ? 'A quantidade de parcelas tem que ser 1 ou mais.' : 'La cantidad de cuotas tiene que ser 1 o más.');
       return;
     }
 
@@ -433,7 +462,7 @@ export function MiniJuego({
       const cantidadNum = necesitaProducto ? Number(cantidad) || 1 : 1;
       const montoParaMotor = necesitaProducto ? total / cantidadNum : total;
 
-      if (!simulacion) await registrarOperacion(empresaId, {
+      const resultado = simulacion ? null : await registrarOperacion(empresaId, {
         fecha,
         operacion,
         categoria,
@@ -443,6 +472,16 @@ export function MiniJuego({
         lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
       if (!simulacion) conciliarTrasRegistrar(empresaId);
+
+      if (resultado && tipoCuotas && enCuotas) {
+        await crearCuotasDeOperacion(empresaId, idioma, tipoCuotas, {
+          idOperacion: resultado.idOperacion,
+          formaPagoNombre: formaPago,
+          total: resultado.total,
+          cantidadCuotas: cuotas,
+          fecha,
+        });
+      }
 
       let numeroDelDia: number;
       if (simulacion) {
@@ -1020,6 +1059,25 @@ export function MiniJuego({
             >
               {simbolo} {monto || '0'}
             </div>
+
+            {tipoCuotas && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14, color: '#fff' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={enCuotas} disabled={paso === 'guardando'} onChange={(e) => setEnCuotas(e.target.checked)} />
+                  {esPT ? 'Em parcelas? Quantidade:' : '¿En cuotas? Cantidad:'}
+                </label>
+                {enCuotas && (
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={cantidadCuotas}
+                    onChange={(e) => setCantidadCuotas(e.target.value)}
+                    style={{ width: 70, padding: '6px 8px', borderRadius: 10, border: 'none', fontSize: 16, textAlign: 'center' }}
+                  />
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'borrar'].map((tecla) => (
