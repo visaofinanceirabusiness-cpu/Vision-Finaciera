@@ -2000,8 +2000,11 @@ function SaldoEnCajaGrande({
   colorSecundario: string;
 }) {
   return (
-    <div
+    <Link
+      href="/informes?pestana=flujo"
       style={{
+        textDecoration: 'none',
+        cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         gap: 18,
@@ -2028,7 +2031,9 @@ function SaldoEnCajaGrande({
         </div>
         <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 900, lineHeight: 1.1, marginTop: 4, wordBreak: 'break-word' }}>{valor}</div>
       </div>
-    </div>
+
+      <span aria-hidden="true" style={{ fontSize: 30, fontWeight: 800, opacity: 0.8 }}>›</span>
+    </Link>
   );
 }
 
