@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion, obtenerHitoPendiente, marcarHitoVisto, type HitoPendiente } from '@/lib/gamificacion';
 import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal';
 import { obtenerTrofeoPendiente, marcarTrofeoVisto, type TrofeoPendiente } from '@/lib/trofeos';
-import { FAMILIAS_TROFEO, descripcionMedalla } from '@/lib/trofeosRangos';
+import { FAMILIAS_TROFEO, descripcionMedalla, tiposTrofeoDelPerfil } from '@/lib/trofeosRangos';
 import { FestejoModal } from '@/components/panel/FestejoModal';
 import { VitrinaTrofeos } from '@/components/panel/VitrinaTrofeos';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
@@ -324,7 +324,9 @@ export default function InicioPage() {
 
       // Trofeos — todos los perfiles (ver lib/trofeos.ts).
       try {
-        setTrofeoActual(await obtenerTrofeoPendiente(perfilData.empresa_id));
+        setTrofeoActual(
+          await obtenerTrofeoPendiente(perfilData.empresa_id, tiposTrofeoDelPerfil(codigoDePerfil(empresaData?.perfiles_empresa) === 'FAMILIAR'))
+        );
       } catch (errorTrofeo) {
         console.warn('No se pudo calcular el trofeo pendiente:', errorTrofeo);
       }
@@ -446,6 +448,7 @@ export default function InicioPage() {
 
   const idioma = empresa?.idioma ?? 'ES';
   const esFamiliar = codigoDePerfil(empresa?.perfiles_empresa) === 'FAMILIAR';
+  const tiposTrofeo = tiposTrofeoDelPerfil(esFamiliar); // constantes de módulo: referencia estable
   const t = crearTraductor(diccionarioInicio, idioma);
 
   if (cargando) {
@@ -865,7 +868,7 @@ export default function InicioPage() {
         )}
 
         {perfil && (
-          <VitrinaTrofeos empresaId={perfil.empresa_id} idioma={idioma} colores={colores} />
+          <VitrinaTrofeos empresaId={perfil.empresa_id} idioma={idioma} colores={colores} tipos={tiposTrofeo} />
         )}
 
         {miniJuegoAbierto && perfil && (

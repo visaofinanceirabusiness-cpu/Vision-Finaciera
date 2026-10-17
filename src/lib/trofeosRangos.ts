@@ -2,7 +2,8 @@
 //
 // ESCALERA DE TÍTULOS DE LOS TROFEOS (todos los perfiles)
 // =====================================================
-// Cada tipo de trofeo (Pagador, Cobrador, Ahorrista) tiene una escalera de
+// Cada tipo de trofeo (Familia: Pagador, Cobrador, Ahorrista; empresas:
+// Vendedor, Comprador, Cobrador, Pagador) tiene una escalera de
 // títulos ("rangos"): el 0 es el original (Pagador Responsable…) y del 1 al 5
 // van mejorando — Bronce, Plata, Oro, Platino, Diamante — cada uno con SUS
 // tres medallas (Bronce/Plata/Oro) y umbrales cada vez más altos. Se mide
@@ -12,7 +13,7 @@
 // de "en qué título estoy" y "qué medallas se ganaron" — ver lib/trofeos.ts
 // para lo que se lee y guarda.
 
-export type TipoTrofeo = 'PAGO' | 'COBRO' | 'TRANSFERENCIA';
+export type TipoTrofeo = 'PAGO' | 'COBRO' | 'TRANSFERENCIA' | 'VENTA' | 'COMPRA';
 export type TierMedalla = 'BRONCE' | 'PLATA' | 'ORO';
 
 export const ORDEN_TIER: TierMedalla[] = ['BRONCE', 'PLATA', 'ORO'];
@@ -111,9 +112,45 @@ export const FAMILIAS_TROFEO: Record<TipoTrofeo, FamiliaTrofeo> = {
       [[10, 25, 45], [48, 64, 80], [100, 120, 160], [200, 240, 320], [400, 480, 600], [720, 880, 1040]]
     ),
   },
+  VENTA: {
+    tipo: 'VENTA',
+    emoji: '🛒',
+    rangos: rangos(
+      [
+        ['Vendedor Emprendedor', 'Vendedor Empreendedor'],
+        ['Vendedor Dedicado', 'Vendedor Dedicado'],
+        ['Vendedor Destacado', 'Vendedor Destacado'],
+        ['Vendedor Estrella', 'Vendedor Estrela'],
+        ['Vendedor Maestro', 'Vendedor Mestre'],
+        ['Vendedor Legendario', 'Vendedor Lendário'],
+      ],
+      [[15, 35, 60], [65, 80, 120], [160, 200, 240], [320, 400, 520], [640, 800, 1000], [1200, 1440, 1760]]
+    ),
+  },
+  COMPRA: {
+    tipo: 'COMPRA',
+    emoji: '📦',
+    rangos: rangos(
+      [
+        ['Comprador Atento', 'Comprador Atento'],
+        ['Comprador Inteligente', 'Comprador Inteligente'],
+        ['Comprador Estratégico', 'Comprador Estratégico'],
+        ['Comprador Experto', 'Comprador Especialista'],
+        ['Comprador Maestro', 'Comprador Mestre'],
+        ['Comprador Legendario', 'Comprador Lendário'],
+      ],
+      [[8, 20, 35], [40, 55, 70], [90, 110, 140], [180, 220, 280], [360, 440, 560], [640, 780, 920]]
+    ),
+  },
 };
 
 export const TIPOS_TROFEO: TipoTrofeo[] = ['PAGO', 'COBRO', 'TRANSFERENCIA'];
+export const TIPOS_TROFEO_EMPRESA: TipoTrofeo[] = ['VENTA', 'COMPRA', 'COBRO', 'PAGO'];
+export const TODOS_LOS_TIPOS_TROFEO: TipoTrofeo[] = ['PAGO', 'COBRO', 'TRANSFERENCIA', 'VENTA', 'COMPRA'];
+
+export function tiposTrofeoDelPerfil(esFamiliar: boolean): TipoTrofeo[] {
+  return esFamiliar ? TIPOS_TROFEO : TIPOS_TROFEO_EMPRESA;
+}
 
 export const EMOJI_MEDALLA: Record<TierMedalla, string> = { BRONCE: '🥉', PLATA: '🥈', ORO: '🏆' };
 export const NOMBRE_MEDALLA: Record<TierMedalla, { es: string; pt: string }> = {
@@ -161,15 +198,16 @@ export type MedallaGanable = { tipo: TipoTrofeo; rango: number; tier: TierMedall
 
 // Todas las medallas que el conteo ya alcanzó y todavía no están guardadas.
 export function medallasPendientes(
-  conteos: Record<TipoTrofeo, number>,
-  yaGanadas: Set<string>
+  conteos: Partial<Record<TipoTrofeo, number>>,
+  yaGanadas: Set<string>,
+  tipos: TipoTrofeo[] = TIPOS_TROFEO
 ): MedallaGanable[] {
   const pendientes: MedallaGanable[] = [];
 
-  for (const tipo of TIPOS_TROFEO) {
+  for (const tipo of tipos) {
     for (const rango of FAMILIAS_TROFEO[tipo].rangos) {
       for (const tier of ORDEN_TIER) {
-        if (conteos[tipo] >= rango.umbrales[tier] && !yaGanadas.has(claveMedalla(tipo, rango.indice, tier))) {
+        if ((conteos[tipo] ?? 0) >= rango.umbrales[tier] && !yaGanadas.has(claveMedalla(tipo, rango.indice, tier))) {
           pendientes.push({ tipo, rango: rango.indice, tier });
         }
       }

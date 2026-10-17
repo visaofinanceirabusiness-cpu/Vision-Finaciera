@@ -662,45 +662,15 @@ export async function crearObjetivosModelo(empresaId: string, cliente: SupabaseC
   const perfilCodigo = (empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)
     ?.perfiles_empresa?.codigo;
 
-  let manejaMercaderia = perfilCodigo !== 'SERVICIOS' && perfilCodigo !== 'FAMILIAR';
-
-  if (perfilCodigo === 'MIXTO') {
-    const { data: componentes } = await cliente
-      .from('empresa_mixto_componentes')
-      .select('componente')
-      .eq('empresa_id', empresaId);
-
-    manejaMercaderia = (componentes ?? []).some(
-      (c) => c.componente === 'COMERCIAL' || c.componente === 'PRODUCCION'
-    );
-  }
-
+  // Mismo set para todos los perfiles (el de Familia): los objetivos
+  // CONTABLE/MERCADERIA/MARKETING y el resto de FINANCIERO se retiraron
+  // a pedido; sus indicadores siguen en el catálogo por si vuelven.
   const modelo: { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[] = [
-    { categoria: 'CONTABLE', indicador: 'CAJA_MINIMA', orden: 1 },
-    { categoria: 'CONTABLE', indicador: 'VENTAS_10PCT', orden: 2 },
-    { categoria: 'CONTABLE', indicador: 'GASTOS_CONTROLADOS', orden: 3 },
-    ...(manejaMercaderia
-      ? ([
-          { categoria: 'MERCADERIA', indicador: 'STOCK_ESTANCADO', orden: 1 },
-          { categoria: 'MERCADERIA', indicador: 'VALOR_INVENTARIO', orden: 2 },
-          { categoria: 'MERCADERIA', indicador: 'COMPRAS_CONTROLADAS', orden: 3 },
-        ] as { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[])
-      : []),
-    { categoria: 'FINANCIERO', indicador: 'RENTABILIDAD', orden: 1 },
-    { categoria: 'FINANCIERO', indicador: 'VOLUMEN_VENTAS', orden: 2 },
     { categoria: 'FINANCIERO', indicador: 'FONDO_EMERGENCIA', orden: 3 },
-    // Objetivos de "primeros pasos" — hoy solo para Familia. Guían al
-    // usuario nuevo a usar el sistema (en vez de metas en dinero, que
-    // no tienen sentido hasta que ya cargó movimientos). Cuando se
-    // extienda a otros perfiles, alcanza con sumar la condición acá.
-    ...(perfilCodigo === 'FAMILIAR'
-      ? ([
-          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_INGRESOS', orden: 1 },
-          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_GASTOS', orden: 2 },
-          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_CLIENTES', orden: 3 },
-          { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_PROVEEDORES', orden: 4 },
-        ] as { categoria: CategoriaObjetivo; indicador: IndicadorCodigo; orden: number }[])
-      : []),
+    { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_INGRESOS', orden: 1 },
+    { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_GASTOS', orden: 2 },
+    { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_CLIENTES', orden: 3 },
+    { categoria: 'ACTIVIDAD', indicador: 'PRIMEROS_PROVEEDORES', orden: 4 },
   ];
 
   const filas = modelo.map((m) => ({

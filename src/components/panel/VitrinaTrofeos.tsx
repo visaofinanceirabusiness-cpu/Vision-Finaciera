@@ -11,14 +11,16 @@
 
 import { useEffect, useState } from 'react';
 import { obtenerProgresoTrofeos, type ProgresoTrofeo } from '@/lib/trofeos';
-import { EMOJI_MEDALLA, NOMBRE_MEDALLA, ORDEN_TIER } from '@/lib/trofeosRangos';
+import { EMOJI_MEDALLA, NOMBRE_MEDALLA, ORDEN_TIER, TIPOS_TROFEO, type TipoTrofeo } from '@/lib/trofeosRangos';
 
 export function VitrinaTrofeos({
   empresaId,
   idioma,
   colores,
+  tipos = TIPOS_TROFEO,
 }: {
   empresaId: string;
+  tipos?: TipoTrofeo[];
   idioma?: string | null;
   colores: { azul: string; verde: string; acento: string; blanco: string };
 }) {
@@ -28,7 +30,7 @@ export function VitrinaTrofeos({
 
   useEffect(() => {
     let activo = true;
-    obtenerProgresoTrofeos(empresaId)
+    obtenerProgresoTrofeos(empresaId, tipos)
       .then((datos) => {
         if (activo) setProgreso(datos);
       })
@@ -41,7 +43,7 @@ export function VitrinaTrofeos({
     return () => {
       activo = false;
     };
-  }, [empresaId]);
+  }, [empresaId, tipos]);
 
   if (!cargado || !progreso.length) return null;
 

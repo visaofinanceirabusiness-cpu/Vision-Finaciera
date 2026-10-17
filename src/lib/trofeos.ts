@@ -1,6 +1,7 @@
 // lib/trofeos.ts
 //
-// TROFEOS — todos los perfiles
+// TROFEOS — todos los perfiles (Familia: Pago/Cobro/Transferencia; empresas:
+// Venta/Compra/Cobro/Pago — ver tiposTrofeoDelPerfil)
 // =====================================================
 // A diferencia de "Objetivos Escalonados" (que resetean con cada
 // nivel), los trofeos se calculan contra el ACUMULADO HISTÓRICO de
@@ -62,18 +63,18 @@ async function contarLifetime(empresaId: string, operacion: TipoTrofeo): Promise
   return count ?? 0;
 }
 
-async function contarTodos(empresaId: string): Promise<Record<TipoTrofeo, number>> {
-  const conteos = await Promise.all(TIPOS_TROFEO.map((tipo) => contarLifetime(empresaId, tipo)));
-  return { PAGO: conteos[0], COBRO: conteos[1], TRANSFERENCIA: conteos[2] };
+async function contarTodos(empresaId: string, tipos: TipoTrofeo[]): Promise<Partial<Record<TipoTrofeo, number>>> {
+  const conteos = await Promise.all(tipos.map((tipo) => contarLifetime(empresaId, tipo)));
+  return Object.fromEntries(tipos.map((tipo, i) => [tipo, conteos[i]]));
 }
 
-export async function obtenerProgresoTrofeos(empresaId: string): Promise<ProgresoTrofeo[]> {
-  const conteos = await contarTodos(empresaId);
+export async function obtenerProgresoTrofeos(empresaId: string, tipos: TipoTrofeo[] = TIPOS_TROFEO): Promise<ProgresoTrofeo[]> {
+  const conteos = await contarTodos(empresaId, tipos);
 
-  return TIPOS_TROFEO.map((tipo) => ({
+  return tipos.map((tipo) => ({
     familia: FAMILIAS_TROFEO[tipo],
-    conteo: conteos[tipo],
-    progreso: progresoDeFamilia(conteos[tipo], FAMILIAS_TROFEO[tipo]),
+    conteo: conteos[tipo] ?? 0,
+    progreso: progresoDeFamilia(conteos[tipo] ?? 0, FAMILIAS_TROFEO[tipo]),
   }));
 }
 
@@ -98,10 +99,10 @@ export async function obtenerTrofeosGanados(empresaId: string): Promise<TrofeoGa
 // festejarla — o null si no hay ninguna pendiente. Se llama de nuevo
 // después de marcar cada una para encadenar el resto, igual que
 // obtenerHitoPendiente en lib/gamificacion.ts.
-export async function obtenerTrofeoPendiente(empresaId: string): Promise<TrofeoPendiente | null> {
-  const [conteos, yaGanados] = await Promise.all([contarTodos(empresaId), obtenerTrofeosGanados(empresaId)]);
+export async function obtenerTrofeoPendiente(empresaId: string, tipos: TipoTrofeo[] = TIPOS_TROFEO): Promise<TrofeoPendiente | null> {
+  const [conteos, yaGanados] = await Promise.all([contarTodos(empresaId, tipos), obtenerTrofeosGanados(empresaId)]);
 
-  const pendientes = medallasPendientes(conteos, new Set(yaGanados.map((g) => claveMedalla(g.tipo, g.rango, g.tier))));
+  const pendientes = medallasPendientes(conteos, new Set(yaGanados.map((g) => claveMedalla(g.tipo, g.rango, g.tier))), tipos);
 
   if (pendientes.length === 0) return null;
 
