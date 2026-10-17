@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { simboloMoneda } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
+import { AnalisisContrapartes } from '@/components/panel/AnalisisContrapartes';
 import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import {
@@ -70,6 +72,8 @@ export default function RecursosHumanosPage() {
   const [proveedores, setProveedores] = useState<Persona[]>([]);
 
   const [pestana, setPestana] = useState<TipoRecurso>('clientes');
+  const [verAnalisis, setVerAnalisis] = useState(false);
+  const [simbolo, setSimbolo] = useState('R$');
 
   const [busqueda, setBusqueda] = useState('');
 
@@ -134,7 +138,7 @@ export default function RecursosHumanosPage() {
 
       supabase
         .from('empresas')
-        .select('perfil_empresa_id, idioma, perfiles_empresa(codigo)')
+        .select('perfil_empresa_id, idioma, moneda, perfiles_empresa(codigo)')
         .eq('id', perfil.empresa_id)
         .maybeSingle(),
     ]);
@@ -153,6 +157,8 @@ export default function RecursosHumanosPage() {
 
     setEsFamiliar(perfilCodigo === 'FAMILIAR');
     setIdioma((empresaData as unknown as { idioma?: string | null } | null)?.idioma ?? null);
+
+    setSimbolo(simboloMoneda((empresaData as unknown as { moneda?: string | null } | null)?.moneda));
 
     setClientes(ordenarPersonas((clientesData ?? []) as Persona[]));
     setProveedores(ordenarPersonas((proveedoresData ?? []) as Persona[]));
@@ -180,6 +186,7 @@ export default function RecursosHumanosPage() {
   }, [registrosActuales, busqueda]);
 
   function cambiarPestana(nuevaPestana: TipoRecurso) {
+    setVerAnalisis(false);
     setPestana(nuevaPestana);
     setBusqueda('');
     cancelarFormulario();
@@ -350,7 +357,7 @@ export default function RecursosHumanosPage() {
               marginBottom: 22,
             }}
           >
-            <button type="button" onClick={() => cambiarPestana('clientes')} style={tabStyle(pestana === 'clientes')}>
+            <button type="button" onClick={() => cambiarPestana('clientes')} style={tabStyle(!verAnalisis && pestana === 'clientes')}>
               {obtenerEtiquetas('clientes', esFamiliar, idioma).emoji}{' '}
               {obtenerEtiquetas('clientes', esFamiliar, idioma).plural}
             </button>
@@ -358,13 +365,31 @@ export default function RecursosHumanosPage() {
             <button
               type="button"
               onClick={() => cambiarPestana('proveedores')}
-              style={tabStyle(pestana === 'proveedores')}
+              style={tabStyle(!verAnalisis && pestana === 'proveedores')}
             >
               {obtenerEtiquetas('proveedores', esFamiliar, idioma).emoji}{' '}
               {obtenerEtiquetas('proveedores', esFamiliar, idioma).plural}
             </button>
+
+            <button type="button" onClick={() => setVerAnalisis(true)} style={tabStyle(verAnalisis)}>
+              📊 {idioma === 'PT' ? 'Análise' : 'Análisis'}
+            </button>
           </div>
 
+          {verAnalisis && empresaId && (
+            <AnalisisContrapartes
+              empresaId={empresaId}
+              esFamiliar={esFamiliar}
+              idioma={idioma}
+              simbolo={simbolo}
+              clientes={clientes}
+              proveedores={proveedores}
+              colores={COLORES}
+            />
+          )}
+
+          {!verAnalisis && (
+            <>
           {/* =================================================
               BARRA SUPERIOR
           ================================================== */}
@@ -584,6 +609,8 @@ export default function RecursosHumanosPage() {
                 </tbody>
               </table>
             </div>
+          )}
+            </>
           )}
         </main>
       </div>
