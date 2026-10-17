@@ -566,7 +566,7 @@ export async function registrarCobroRecordatorio(
     categoria,
     formaPago: recordatorio.forma_pago,
     historico: recordatorio.nombre,
-    clienteProveedor: '',
+    clienteProveedor: recordatorio.nombre,
     lineas: [{ producto: '', cantidad: 1, monto }],
   });
 

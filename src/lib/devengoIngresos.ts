@@ -117,7 +117,9 @@ async function devengarFilaIngreso(empresaId: string, config: ConfigACobrar, fil
         categoria: fila.categoria,
         formaPago: config.formaPago,
         historico,
-        clienteProveedor: '',
+        // El nombre de la plantilla identifica a quién se le cobra: sin esto el
+        // devengo queda "sin asignar" en el análisis de RRHH.
+        clienteProveedor: fila.nombre,
         lineas: [{ producto: '', cantidad: 1, monto }],
       });
 

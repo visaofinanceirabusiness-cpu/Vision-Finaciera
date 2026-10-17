@@ -6,6 +6,8 @@ import {
   mesesHacia,
   fichaDeContraparte,
   grafiasPorRevisar,
+  operacionesSinContraparte,
+  sugerenciaDeHistorico,
   type OperacionTercero,
 } from './analisisContrapartes';
 
@@ -172,5 +174,51 @@ describe('grafiasPorRevisar', () => {
 
   it('sin parecido: falta darlo de alta', () => {
     expect(r.find((x) => x.grafia === 'Carla')).toMatchObject({ sugerencia: null, confianza: null, primeraFecha: '2026-10-05' });
+  });
+});
+
+describe('sugerenciaDeHistorico', () => {
+  it('saca el nombre de un devengo recurrente', () => {
+    expect(sugerenciaDeHistorico('Casita 💚 — devengado 2026-10')).toBe('Casita 💚');
+    expect(sugerenciaDeHistorico('Alquiler Santihno — devengado 2026-10')).toBe('Alquiler Santihno');
+  });
+
+  it('no inventa nombres de otros históricos', () => {
+    expect(sugerenciaDeHistorico('Pago deuda')).toBeNull();
+    expect(sugerenciaDeHistorico('')).toBeNull();
+    expect(sugerenciaDeHistorico(null)).toBeNull();
+  });
+});
+
+describe('operacionesSinContraparte', () => {
+  const con = (id: string, fecha: string, operacion: string, tercero: string | null, historico: string): OperacionTercero => ({
+    id,
+    fecha,
+    operacion,
+    total: 10,
+    cliente_proveedor: tercero,
+    estado: 'VALIDADO',
+    categoria: 'Cat',
+    historico,
+  });
+  const ops = [
+    con('1', '2026-10-01', 'COBRO', null, 'Uber — devengado 2026-10'),
+    con('2', '2026-10-05', 'COBRO', '  ', 'Pago deuda'),
+    con('3', '2026-10-06', 'COBRO', 'Ana', 'x'),
+    con('4', '2026-10-07', 'PAGO', null, 'Netflix — devengado 2026-10'),
+    { ...con('5', '2026-10-08', 'COBRO', null, 'y'), estado: 'PENDIENTE' },
+    { ...con('6', '2026-10-09', 'COBRO', null, 'z'), id: undefined },
+  ];
+
+  it('solo las del tipo, validadas, con id y sin nombre; más nuevas primero', () => {
+    const r = operacionesSinContraparte({ operaciones: ops, tipo: 'clientes', esFamiliar: true });
+    expect(r.map((x) => x.id)).toEqual(['2', '1']);
+    expect(r[1].sugerencia).toBe('Uber');
+    expect(r[0].sugerencia).toBeNull();
+  });
+
+  it('para proveedores en empresas incluye compra y pago', () => {
+    const r = operacionesSinContraparte({ operaciones: ops, tipo: 'proveedores', esFamiliar: false });
+    expect(r.map((x) => x.id)).toEqual(['4']);
   });
 });

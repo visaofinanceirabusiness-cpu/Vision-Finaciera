@@ -13,6 +13,7 @@ import {
   analizarContrapartes,
   fichaDeContraparte,
   grafiasPorRevisar,
+  operacionesSinContraparte,
   normalizarNombre,
   type EtiquetaFrecuencia,
   type OperacionTercero,
@@ -31,7 +32,7 @@ async function cargarOperaciones(empresaId: string): Promise<OperacionTercero[]>
   for (let desde = 0; ; desde += TAMANO_PAGINA) {
     const { data, error } = await supabase
       .from('registro_operaciones')
-      .select('fecha, operacion, total, cliente_proveedor, estado, categoria, historico, id_operacion')
+      .select('id, fecha, operacion, total, cliente_proveedor, estado, categoria, historico, id_operacion')
       .eq('empresa_id', empresaId)
       .in('operacion', ['VENTA', 'COMPRA', 'COBRO', 'PAGO'])
       .order('fecha', { ascending: true })
@@ -83,6 +84,9 @@ export function AnalisisContrapartes({
   const [unificando, setUnificando] = useState<string | null>(null);
   const [errorUnificar, setErrorUnificar] = useState('');
   const [recarga, setRecarga] = useState(0);
+  const [verTodasSinNombre, setVerTodasSinNombre] = useState(false);
+  const [nombresEscritos, setNombresEscritos] = useState<Record<string, string>>({});
+  const [asignando, setAsignando] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fichaPedida) return;
@@ -125,6 +129,60 @@ export function AnalisisContrapartes({
     () => grafiasPorRevisar({ operaciones: operaciones ?? [], tipo, esFamiliar, altas }),
     [operaciones, tipo, esFamiliar, altas]
   );
+
+  const sinNombre = useMemo(
+    () => operacionesSinContraparte({ operaciones: operaciones ?? [], tipo, esFamiliar }),
+    [operaciones, tipo, esFamiliar]
+  );
+  const sugeridas = useMemo(() => sinNombre.filter((o) => o.sugerencia), [sinNombre]);
+
+  async function asignarNombre(ids: string[], nombre: string, clave: string) {
+    const limpio = nombre.trim();
+    if (!limpio || ids.length === 0) return;
+
+    setAsignando(clave);
+    setErrorUnificar('');
+    const { error: errorUpdate } = await supabase
+      .from('registro_operaciones')
+      .update({ cliente_proveedor: limpio })
+      .eq('empresa_id', empresaId)
+      .in('id', ids);
+    setAsignando(null);
+
+    if (errorUpdate) {
+      setErrorUnificar(esPT ? 'Não foi possível atribuir. Tente novamente.' : 'No se pudo asignar. Probá de nuevo.');
+      return;
+    }
+    setRecarga((n) => n + 1);
+  }
+
+  async function asignarSugeridas() {
+    const pregunta = esPT
+      ? `Vai atribuir o nome sugerido a ${sugeridas.length} operações (o nome vem do histórico de cada uma). Continuar?`
+      : `Vas a asignar el nombre sugerido a ${sugeridas.length} operaciones (el nombre sale del histórico de cada una). ¿Continuar?`;
+    if (!window.confirm(pregunta)) return;
+
+    const porNombre = new Map<string, string[]>();
+    for (const o of sugeridas) porNombre.set(o.sugerencia!, [...(porNombre.get(o.sugerencia!) ?? []), o.id]);
+
+    setAsignando('SUGERIDAS');
+    setErrorUnificar('');
+    for (const [nombre, ids] of porNombre) {
+      const { error: errorUpdate } = await supabase
+        .from('registro_operaciones')
+        .update({ cliente_proveedor: nombre })
+        .eq('empresa_id', empresaId)
+        .in('id', ids);
+      if (errorUpdate) {
+        setAsignando(null);
+        setErrorUnificar(esPT ? 'Não foi possível atribuir todas. Tente novamente.' : 'No se pudieron asignar todas. Probá de nuevo.');
+        setRecarga((n) => n + 1);
+        return;
+      }
+    }
+    setAsignando(null);
+    setRecarga((n) => n + 1);
+  }
 
   const ficha = useMemo(
     () =>
@@ -427,16 +485,18 @@ export function AnalisisContrapartes({
       </div>
 
       {/* CALIDAD DE DATOS */}
-      {porRevisar.length > 0 && (
+      {(porRevisar.length > 0 || sinNombre.length > 0) && (
         <div style={{ ...tarjetaStyle, marginTop: 18 }}>
           <h3 style={tituloStyle(colores.azul)}>🧹 {esPT ? 'Qualidade dos dados' : 'Calidad de datos'}</h3>
+          {errorUnificar && <div style={{ ...avisoStyle, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', marginBottom: 12 }}>{errorUnificar}</div>}
+
+          {porRevisar.length > 0 && (
+            <>
           <p style={subtituloStyle}>
             {esPT
               ? `Nomes usados nas operações que não coincidem exatamente com ${esFamiliar ? 'um cadastro' : tipo === 'clientes' ? 'um cliente cadastrado' : 'um fornecedor cadastrado'}. Unificar deixa o ranking e a frequência mais certos.`
               : `Nombres usados en las operaciones que no coinciden exactamente con ${esFamiliar ? 'un alta' : tipo === 'clientes' ? 'un cliente dado de alta' : 'un proveedor dado de alta'}. Unificar deja el ranking y la frecuencia más precisos.`}
           </p>
-
-          {errorUnificar && <div style={{ ...avisoStyle, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', marginBottom: 12 }}>{errorUnificar}</div>}
 
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 520 }}>
@@ -484,6 +544,96 @@ export function AnalisisContrapartes({
           {porRevisar.length > 15 && (
             <div style={{ marginTop: 8, fontSize: 12, color: COLORES_GRIS }}>
               {esPT ? `E mais ${porRevisar.length - 15}. Unifique estes e volte a abrir.` : `Y ${porRevisar.length - 15} más. Unificá estos y volvé a abrir.`}
+            </div>
+          )}
+            </>
+          )}
+
+          {sinNombre.length > 0 && (
+            <div style={{ marginTop: porRevisar.length > 0 ? 22 : 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: colores.azul }}>
+                🏷️ {esPT ? 'Operações sem nome atribuído' : 'Operaciones sin nombre asignado'} ({sinNombre.length})
+              </div>
+              <p style={subtituloStyle}>
+                {esPT
+                  ? 'Escolha a quem pertence cada uma. Só muda o nome; valores e contas ficam iguais. As sugeridas vêm do histórico de cada devengo.'
+                  : 'Elegí a quién corresponde cada una. Solo cambia el nombre; los importes y las cuentas quedan igual. Las sugeridas salen del histórico de cada devengo.'}
+              </p>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                {sugeridas.length > 0 && (
+                  <button type="button" disabled={asignando === 'SUGERIDAS'} onClick={asignarSugeridas} style={botonAccion(colores.verde, true)}>
+                    {asignando === 'SUGERIDAS'
+                      ? esPT ? 'Atribuindo...' : 'Asignando...'
+                      : esPT ? `✅ Atribuir as ${sugeridas.length} sugeridas` : `✅ Asignar las ${sugeridas.length} sugeridas`}
+                  </button>
+                )}
+                {sinNombre.length > sugeridas.length && (
+                  <button type="button" onClick={() => setVerTodasSinNombre((v) => !v)} style={botonAccion(colores.azul, false)}>
+                    {verTodasSinNombre
+                      ? esPT ? 'Ver só as sugeridas ▴' : 'Ver solo las sugeridas ▴'
+                      : esPT ? `Ver todas (${sinNombre.length}) ▾` : `Ver todas (${sinNombre.length}) ▾`}
+                  </button>
+                )}
+              </div>
+
+              <datalist id="nombres-altas">
+                {altas.map((nombre) => (
+                  <option key={nombre} value={nombre} />
+                ))}
+              </datalist>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 560 }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', color: COLORES_GRIS, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      <th style={thStyle}>{esPT ? 'Data' : 'Fecha'}</th>
+                      <th style={thStyle}>{esPT ? 'Operação' : 'Operación'}</th>
+                      <th style={thStyle}>{esPT ? 'Detalhe' : 'Detalle'}</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>{esPT ? 'Valor' : 'Valor'}</th>
+                      <th style={thStyle}>{esPT ? 'Nome' : 'Nombre'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(verTodasSinNombre || sugeridas.length === 0 ? sinNombre : sugeridas).slice(0, 25).map((o) => {
+                      const escrito = nombresEscritos[o.id] ?? o.sugerencia ?? '';
+                      return (
+                        <tr key={o.id} style={{ borderTop: '1px solid #eef2f6' }}>
+                          <td style={tdStyle}>{formatearFecha(o.fecha)}</td>
+                          <td style={{ ...tdStyle, fontWeight: 800, fontSize: 11, color: colores.azul }}>{o.operacion}</td>
+                          <td style={{ ...tdStyle, color: '#475569' }}>{o.historico || o.categoria || '—'}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: colores.azul }}>{formatear(o.total)}</td>
+                          <td style={tdStyle}>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <input
+                                list="nombres-altas"
+                                value={escrito}
+                                onChange={(e) => setNombresEscritos((actual) => ({ ...actual, [o.id]: e.target.value }))}
+                                placeholder={esPT ? 'Nome...' : 'Nombre...'}
+                                style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 13, minWidth: 140, flex: 1 }}
+                              />
+                              <button
+                                type="button"
+                                disabled={!escrito.trim() || asignando === o.id}
+                                onClick={() => asignarNombre([o.id], escrito, o.id)}
+                                style={{ ...botonAccion(colores.verde, true), opacity: !escrito.trim() ? 0.5 : 1 }}
+                              >
+                                {asignando === o.id ? '...' : esPT ? 'Atribuir' : 'Asignar'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {(verTodasSinNombre || sugeridas.length === 0 ? sinNombre.length : sugeridas.length) > 25 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: COLORES_GRIS }}>
+                  {esPT ? 'Mostrando as 25 mais recentes; ao atribuir, aparecem as seguintes.' : 'Mostrando las 25 más recientes; al asignar, aparecen las siguientes.'}
+                </div>
+              )}
             </div>
           )}
         </div>
