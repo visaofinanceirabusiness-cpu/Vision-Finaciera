@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerProgresoGamificacion } from '@/lib/gamificacion';
-import { LucroChart } from '@/components/panel/LucroChart';
 import { CategoryChart } from '@/components/panel/CategoryChart';
 import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
@@ -72,10 +71,6 @@ function categoriasOrden(t: (clave: ClavePanelControl) => string): { categoria: 
   return [
     { categoria: 'ACTIVIDAD', titulo: t('categoriaPrimerosPasos'), emoji: '🚀' },
     { categoria: 'METAS', titulo: t('categoriaMetasFamiliares'), emoji: '✈️' },
-    { categoria: 'CONTABLE', titulo: t('categoriaContables'), emoji: '📒' },
-    { categoria: 'MERCADERIA', titulo: t('categoriaMercaderia'), emoji: '📦' },
-    { categoria: 'FINANCIERO', titulo: t('categoriaFinancieros'), emoji: '💹' },
-    { categoria: 'MARKETING', titulo: t('categoriaMarketing'), emoji: '📣' },
   ];
 }
 
@@ -405,10 +400,8 @@ export default function MiNegocioPage() {
   // En Familia queda independiente del período elegido: el nivel, los
   // Objetivos Escalonados y Primeros Pasos son acumulados/de nivel,
   // no "del mes" — no tiene sentido que desaparezcan al elegir "Todos
-  // los períodos". El resto de los perfiles mantiene el comportamiento
-  // de siempre (objetivos del mes, se ocultan en "Todos los períodos").
-  const bloqueObjetivos = configuracion?.mostrar_objetivos &&
-    (esFamiliar || !esTodosLosPeriodos) && (
+  // los períodos". Rige para todos los perfiles.
+  const bloqueObjetivos = configuracion?.mostrar_objetivos && (
       <section
         style={{
           background: colores.blanco,
@@ -450,7 +443,7 @@ export default function MiNegocioPage() {
                 fontSize: 22,
               }}
             >
-              {esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')}
+              {esFamiliar ? t('objetivosFamiliares') : t('objetivosGenerales')}
             </h2>
 
             <p
@@ -495,41 +488,10 @@ export default function MiNegocioPage() {
         )}
 
         {categoriasOrden(t).map(({ categoria, titulo, emoji }) => {
-          // En Familia, Contables/Financieros/Marketing quedan afuera
-          // de esta sección — los Objetivos Escalonados (arriba) ya
-          // cumplen ese rol de "hacia dónde crecer". Metas Familiares
-          // y Primeros Pasos siguen.
-          if (esFamiliar && (categoria === 'CONTABLE' || categoria === 'FINANCIERO' || categoria === 'MARKETING')) {
-            return null;
-          }
-
           const deLaCategoria =
             categoria === 'ACTIVIDAD'
               ? objetivos.filter((o) => o.categoria === categoria && !o.cumplido)
               : objetivos.filter((o) => o.categoria === categoria);
-
-          if (categoria === 'MARKETING' && deLaCategoria.length === 0) {
-            return (
-              <div key={categoria} style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: colores.azul, marginBottom: 10 }}>
-                  {emoji} {titulo}
-                </div>
-
-                <div
-                  style={{
-                    padding: 20,
-                    border: '1px dashed #d6dee5',
-                    borderRadius: 14,
-                    textAlign: 'center',
-                    color: COLORES_BASE.gris,
-                    fontSize: 13,
-                  }}
-                >
-                  {t('proximamenteMarketing')}
-                </div>
-              </div>
-            );
-          }
 
           if (deLaCategoria.length === 0) {
             return null;
@@ -845,7 +807,7 @@ export default function MiNegocioPage() {
           {([
             ['situacion', '🏦', t('pestanaSituacion')],
             ['periodo', '📅', t('pestanaPeriodo')],
-            ['objetivos', '🎯', esFamiliar ? t('objetivosFamiliares') : t('objetivosDelMes')],
+            ['objetivos', '🎯', esFamiliar ? t('objetivosFamiliares') : t('objetivosGenerales')],
           ] as const).map(([clave, icono, etiqueta]) => {
             const activa = pestana === clave;
             return (
@@ -1448,11 +1410,7 @@ export default function MiNegocioPage() {
               </div>
             )}
 
-            {esFamiliar ? (
-              <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
-            ) : (
-              <LucroChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
-            )}
+            <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
           </section>
         )}
 

@@ -112,6 +112,7 @@ export type ClavePanelControl =
   | 'eyebrowGestion'
   | 'objetivosFamiliares'
   | 'objetivosDelMes'
+  | 'objetivosGenerales'
   | 'objetivosAcordados'
   | 'proximamenteMarketing'
   | 'sinObjetivos'
@@ -236,6 +237,7 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     eyebrowGestion: 'GESTIÓN',
     objetivosFamiliares: 'Objetivos familiares',
     objetivosDelMes: 'Objetivos del mes',
+    objetivosGenerales: 'Objetivos',
     objetivosAcordados: 'Objetivos acordados',
     proximamenteMarketing: '🔒 Próximamente — objetivos conectados a Instagram/WhatsApp.',
     sinObjetivos: 'No hay objetivos configurados todavía.',
@@ -359,6 +361,7 @@ export const diccionarioPanelControl: Diccionario<ClavePanelControl> = {
     eyebrowGestion: 'GESTÃO',
     objetivosFamiliares: 'Objetivos familiares',
     objetivosDelMes: 'Objetivos do mês',
+    objetivosGenerales: 'Objetivos',
     objetivosAcordados: 'Objetivos combinados',
     proximamenteMarketing: '🔒 Em breve — objetivos conectados a Instagram/WhatsApp.',
     sinObjetivos: 'Ainda não há objetivos configurados.',

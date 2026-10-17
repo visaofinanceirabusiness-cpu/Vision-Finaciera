@@ -12,7 +12,7 @@ type PuntoMesFamiliar = {
   gastos: number;
 };
 
-// Ver LucroChart.tsx: ubica cada punto según la distancia real en
+// Ubica cada punto según la distancia real en
 // meses entre el primero y el último, no por índice.
 function claveANumeroDeMes(clave: string): number {
   const [anio, mes] = clave.split('-').map(Number);
@@ -22,13 +22,12 @@ function claveANumeroDeMes(clave: string): number {
 // GRÁFICO EVOLUCIÓN FAMILIAR — Ingresos, Gastos y Ahorro
 // =====================================================
 //
-// A diferencia de LucroChart (pensado para negocios, donde se asume
-// Ingresos > Gastos y el "Lucro" se etiqueta pegado a la línea de
-// Ingresos), acá una familia puede gastar más de lo que ingresa
-// algunos meses. Por eso cada línea tiene SU PROPIA etiqueta en SU
-// PROPIO punto (nunca la de otra serie), y se agrega una línea de
-// referencia en $0 para que un Ahorro negativo (déficit) se entienda
-// de un vistazo.
+// Sirve a todos los perfiles (antes solo Familia; reemplazó a LucroChart, que
+// asumía Ingresos > Gastos y pegaba el "Lucro" a la línea de Ingresos). Un
+// hogar o un negocio pueden gastar más de lo que ingresan algunos meses, por
+// eso cada línea tiene SU PROPIA etiqueta en SU PROPIO punto (nunca la de otra
+// serie), y hay una línea de referencia en $0 para que un resultado negativo
+// (déficit) se entienda de un vistazo.
 
 const COLOR_INGRESOS = '#2e8b57';
 const COLOR_GASTOS = '#dc2626';

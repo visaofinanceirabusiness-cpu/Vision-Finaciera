@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   FAMILIAS_TROFEO,
   TIPOS_TROFEO,
+  TODOS_LOS_TIPOS_TROFEO,
+  tiposTrofeoDelPerfil,
   ORDEN_TIER,
   claveMedalla,
   descripcionMedalla,
@@ -12,13 +14,13 @@ import {
 
 describe('catálogo', () => {
   it('cada tipo tiene el título original y 5 títulos nuevos', () => {
-    for (const tipo of TIPOS_TROFEO) {
+    for (const tipo of TODOS_LOS_TIPOS_TROFEO) {
       expect(FAMILIAS_TROFEO[tipo].rangos).toHaveLength(6);
     }
   });
 
   it('los umbrales siempre suben: dentro de un título y de un título al siguiente', () => {
-    for (const tipo of TIPOS_TROFEO) {
+    for (const tipo of TODOS_LOS_TIPOS_TROFEO) {
       const todos = FAMILIAS_TROFEO[tipo].rangos.flatMap((r) => ORDEN_TIER.map((t) => r.umbrales[t]));
       for (let i = 1; i < todos.length; i++) {
         expect(todos[i]).toBeGreaterThan(todos[i - 1]);
@@ -33,7 +35,7 @@ describe('catálogo', () => {
   });
 
   it('cada título tiene un nombre distinto', () => {
-    for (const tipo of TIPOS_TROFEO) {
+    for (const tipo of TODOS_LOS_TIPOS_TROFEO) {
       const nombres = FAMILIAS_TROFEO[tipo].rangos.map((r) => r.nombre);
       expect(new Set(nombres).size).toBe(nombres.length);
     }
@@ -91,5 +93,26 @@ describe('medallas', () => {
   it('describe la medalla en los dos idiomas', () => {
     expect(descripcionMedalla('PAGO', 2, 'ORO', false)).toBe('Pagador Ejemplar — medalla Oro');
     expect(descripcionMedalla('PAGO', 2, 'ORO', true)).toBe('Pagador Exemplar — medalha Ouro');
+  });
+});
+
+describe('trofeos por perfil', () => {
+  it('Familia: Pagador, Cobrador y Ahorrista; empresas: Vendedor, Comprador, Cobrador y Pagador', () => {
+    expect(tiposTrofeoDelPerfil(true)).toEqual(['PAGO', 'COBRO', 'TRANSFERENCIA']);
+    expect(tiposTrofeoDelPerfil(false)).toEqual(['VENTA', 'COMPRA', 'COBRO', 'PAGO']);
+  });
+
+  it('las medallas pendientes solo miran los tipos del perfil', () => {
+    const conteos = { VENTA: 20, PAGO: 30, TRANSFERENCIA: 50 };
+    const empresa = medallasPendientes(conteos, new Set(), tiposTrofeoDelPerfil(false));
+    expect(empresa.some((m) => m.tipo === 'VENTA')).toBe(true);
+    expect(empresa.some((m) => m.tipo === 'TRANSFERENCIA')).toBe(false);
+    const familia = medallasPendientes(conteos, new Set(), tiposTrofeoDelPerfil(true));
+    expect(familia.some((m) => m.tipo === 'VENTA')).toBe(false);
+  });
+
+  it('el catálogo nuevo tiene sus nombres', () => {
+    expect(FAMILIAS_TROFEO.VENTA.rangos[0].nombre).toBe('Vendedor Emprendedor');
+    expect(FAMILIAS_TROFEO.COMPRA.rangos[5].nombre).toBe('Comprador Legendario');
   });
 });
