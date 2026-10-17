@@ -1156,6 +1156,69 @@ async function cuentaTieneMovimiento(empresaId: string, nombreCuenta: string) {
   return Boolean((enRegistros ?? 0) > 0 || (enAutomaticos ?? 0) > 0);
 }
 
+// REGLA DURA: ninguna cuenta del plan puede quedar sin al menos una
+// operación que la use. Borrar una categoría (o una forma de pago) quita
+// sus vínculos y sus filas de la matriz; si la cuenta ya tiene historial no
+// se puede borrar, y quedaba "huérfana": con saldo, pero sin ninguna
+// operación para moverla. Para que eso no pase, antes de borrar se revisa
+// si la cuenta quedaría sin ningún otro vínculo y con movimientos — y en
+// ese caso no se borra nada: la salida es desactivar.
+async function motivoQueDejariaCuentaHuerfana(
+  empresaId: string,
+  cuentaId: string | null | undefined,
+  excluir: { categoriaOperacionId?: string; categoriaProductoId?: string; formaPagoId?: string }
+): Promise<string | null> {
+  if (!cuentaId) return null;
+
+  const { data: cuenta } = await supabase
+    .from('plan_cuentas')
+    .select('nombre, rol_contable')
+    .eq('id', cuentaId)
+    .maybeSingle();
+
+  // Una contenedora (rol_contable) no cuenta: nunca se opera directo.
+  if (!cuenta || cuenta.rol_contable) return null;
+
+  const { count: hijas } = await supabase
+    .from('plan_cuentas')
+    .select('id', { count: 'exact', head: true })
+    .eq('cuenta_padre_id', cuentaId);
+
+  if (hijas && hijas > 0) return null;
+
+  let vinculosOperacion = supabase
+    .from('categorias_operacion_cuentas')
+    .select('id', { count: 'exact', head: true })
+    .eq('cuenta_id', cuentaId)
+    .eq('activo', true);
+  if (excluir.categoriaOperacionId) vinculosOperacion = vinculosOperacion.neq('categoria_operacion_id', excluir.categoriaOperacionId);
+
+  let vinculosFormaPago = supabase
+    .from('forma_pago_cuentas')
+    .select('id', { count: 'exact', head: true })
+    .eq('cuenta_id', cuentaId)
+    .eq('activo', true);
+  if (excluir.formaPagoId) vinculosFormaPago = vinculosFormaPago.neq('forma_pago_id', excluir.formaPagoId);
+
+  let vinculosProducto = supabase
+    .from('categorias_productos_cuentas')
+    .select('id', { count: 'exact', head: true })
+    .or(`cuenta_stock_id.eq.${cuentaId},cuenta_ingreso_id.eq.${cuentaId},cuenta_cmv_id.eq.${cuentaId}`);
+  if (excluir.categoriaProductoId) vinculosProducto = vinculosProducto.neq('categoria_producto_id', excluir.categoriaProductoId);
+
+  const [{ count: enOperacion }, { count: enFormaPago }, { count: enProducto }] = await Promise.all([
+    vinculosOperacion,
+    vinculosFormaPago,
+    vinculosProducto,
+  ]);
+
+  if ((enOperacion ?? 0) + (enFormaPago ?? 0) + (enProducto ?? 0) > 0) return null;
+
+  if (!(await cuentaTieneMovimiento(empresaId, cuenta.nombre))) return null;
+
+  return `"${cuenta.nombre}" ya tiene operaciones cargadas y quedaría sin ninguna operación para usarla. No se puede eliminar: desactivala.`;
+}
+
 // Intenta borrar una cuenta del Plan de Cuentas. Si tiene movimiento
 // real, tiene hijas, o es una cuenta contenedora, NO la borra y
 // devuelve el motivo en vez de tirar error (para que el que llama
@@ -1222,16 +1285,40 @@ export async function eliminarCategoriaProducto(categoriaProductoId: string) {
     .eq('codigo', categoria.codigo)
     .maybeSingle();
 
-  if (categoriaOperacionPerdida) {
-    await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionPerdida.id);
-    await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionPerdida.id);
-  }
-
   const { data: vinculo } = await supabase
     .from('categorias_productos_cuentas')
     .select('cuenta_stock_id, cuenta_ingreso_id, cuenta_cmv_id')
     .eq('categoria_producto_id', categoriaProductoId)
     .maybeSingle();
+
+  const { data: vinculoPerdida } = categoriaOperacionPerdida
+    ? await supabase
+        .from('categorias_operacion_cuentas')
+        .select('cuenta_id')
+        .eq('categoria_operacion_id', categoriaOperacionPerdida.id)
+        .maybeSingle()
+    : { data: null };
+
+  // Todos los chequeos antes de borrar nada: si falla uno, no se toca nada.
+  const chequeos = [
+    ...(vinculo
+      ? [vinculo.cuenta_stock_id, vinculo.cuenta_ingreso_id, vinculo.cuenta_cmv_id].map((cuentaId) =>
+          motivoQueDejariaCuentaHuerfana(categoria.empresa_id, cuentaId, { categoriaProductoId })
+        )
+      : []),
+    ...(categoriaOperacionPerdida && vinculoPerdida
+      ? [motivoQueDejariaCuentaHuerfana(categoria.empresa_id, vinculoPerdida.cuenta_id, { categoriaOperacionId: categoriaOperacionPerdida.id })]
+      : []),
+  ];
+  const motivoHuerfana = (await Promise.all(chequeos)).find(Boolean);
+  if (motivoHuerfana) {
+    throw new Error(motivoHuerfana);
+  }
+
+  if (categoriaOperacionPerdida) {
+    await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionPerdida.id);
+    await supabase.from('categorias_operacion').delete().eq('id', categoriaOperacionPerdida.id);
+  }
 
   await supabase.from('categorias_productos_cuentas').delete().eq('categoria_producto_id', categoriaProductoId);
 
@@ -1255,6 +1342,13 @@ export async function eliminarCategoriaProducto(categoriaProductoId: string) {
   }
 
   const avisos: string[] = [];
+
+  if (vinculoPerdida) {
+    const resultado = await intentarEliminarCuenta(categoria.empresa_id, vinculoPerdida.cuenta_id);
+    if (!resultado.borrada && resultado.motivo) {
+      avisos.push(resultado.motivo);
+    }
+  }
 
   if (vinculo) {
     for (const cuentaId of [vinculo.cuenta_stock_id, vinculo.cuenta_ingreso_id, vinculo.cuenta_cmv_id]) {
@@ -1286,6 +1380,11 @@ export async function eliminarCategoriaOperacion(categoriaOperacionId: string) {
     .select('cuenta_id')
     .eq('categoria_operacion_id', categoriaOperacionId)
     .maybeSingle();
+
+  const motivoHuerfana = await motivoQueDejariaCuentaHuerfana(categoria.empresa_id, vinculo?.cuenta_id, { categoriaOperacionId });
+  if (motivoHuerfana) {
+    throw new Error(motivoHuerfana);
+  }
 
   await supabase.from('categorias_operacion_cuentas').delete().eq('categoria_operacion_id', categoriaOperacionId);
 
@@ -1341,6 +1440,17 @@ export async function eliminarFormaPago(formaPagoId: string) {
 
   if (errorFormaPago) {
     throw errorFormaPago;
+  }
+
+  const { data: vinculoMedio } = await supabase
+    .from('forma_pago_cuentas')
+    .select('cuenta_id')
+    .eq('forma_pago_id', formaPagoId)
+    .maybeSingle();
+
+  const motivoHuerfana = await motivoQueDejariaCuentaHuerfana(formaPago.empresa_id, vinculoMedio?.cuenta_id, { formaPagoId });
+  if (motivoHuerfana) {
+    throw new Error(motivoHuerfana);
   }
 
   await supabase.from('forma_pago_cuentas').delete().eq('forma_pago_id', formaPagoId);

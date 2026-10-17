@@ -40,6 +40,15 @@ den una foto rápida y después profundizar donde aparezca algo raro:
 6. **Motor contable**: si hubo cambios en `lib/motor.ts` o
    `lib/categorias.ts` este mes, prestar atención extra — es la parte
    de más riesgo del sistema (afecta plata real).
+7. **Cuentas sin operación (REGLA DURA)**: ninguna cuenta del plan, de
+   ninguna empresa ni de ningún plan maestro, puede quedar sin al menos
+   una operación. Correr en Supabase `select * from
+   cuentas_sin_operacion();` y `select * from
+   maestro_cuentas_sin_operacion();` (o abrir Panel Maestro → Cuentas sin
+   operación). Reportar cada cuenta NUEVA (las que no están en
+   `CUENTAS_ESTRUCTURALES` ni `PENDIENTES_FIN_DE_MES` de
+   `lib/auditoriaCuentas.ts`) como hallazgo CRÍTICO, y revisar que las
+   pendientes de esa lista sigan teniendo fecha y no se hayan estancado.
 
 ## Cómo escribir el informe
 
