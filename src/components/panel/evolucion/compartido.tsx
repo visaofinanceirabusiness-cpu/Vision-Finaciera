@@ -3,7 +3,7 @@
 // Piezas compartidas por las vistas de la tarjeta de evolución financiera
 // (Tendência, Comparar...).
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type Serie = 'ingresos' | 'costos' | 'gastos' | 'resultado' | 'margenBruto';
 
@@ -110,4 +110,25 @@ export function PestanasVista({ vista, onCambiar, t }: { vista: VistaEvolucion; 
       ))}
     </div>
   );
+}
+
+// Ancho real (en px) del contenedor del gráfico: el SVG se dibuja a tamaño
+// natural en vez de escalarse desde un ancho fijo, así los textos no se
+// achican en pantallas angostas ni el gráfico queda chico en las anchas.
+export function useAncho(inicial = 1000) {
+  const [elemento, setElemento] = useState<HTMLDivElement | null>(null);
+  const [ancho, setAncho] = useState(inicial);
+
+  useEffect(() => {
+    if (!elemento) return;
+
+    const medir = () => setAncho(Math.round(elemento.clientWidth));
+    medir();
+
+    const observador = new ResizeObserver(medir);
+    observador.observe(elemento);
+    return () => observador.disconnect();
+  }, [elemento]);
+
+  return [setElemento, ancho] as const;
 }
