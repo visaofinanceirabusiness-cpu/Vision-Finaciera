@@ -17,6 +17,8 @@ import {
   type PuntoAgrupado,
   type RangoMeses,
 } from '@/lib/evolucionFinanciera';
+import { AZUL, BotonFlecha, COLOR, PestanasVista, SUBIR_ES_BUENO, Variacion, controlEstilo, type Serie, type VistaEvolucion } from './compartido';
+import { VistaComparar } from './VistaComparar';
 
 // EVOLUCIÓN FINANCIERA — tarjeta del Panel (Tendência)
 // =====================================================
@@ -28,23 +30,9 @@ import {
 // cursor o tocar un punto, y el panel lateral compara ese período con el
 // anterior.
 
-type Serie = 'ingresos' | 'costos' | 'gastos' | 'resultado' | 'margenBruto';
-
-const COLOR = {
-  ingresos: '#2e8b57',
-  costos: '#ea8a1a',
-  gastos: '#dc2626',
-  resultado: '#1f3a5f',
-  margenBruto: '#0d9488',
-};
-
-const AZUL = '#1f3a5f';
 const ANCHO = 1180;
 const ALTO = 340;
 const MARGEN = { izq: 78, der: 24, sup: 24, inf: 44 };
-
-// Subir ingresos/resultado/margen es bueno; subir costos o gastos, no.
-const SUBIR_ES_BUENO: Record<Serie, boolean> = { ingresos: true, resultado: true, margenBruto: true, costos: false, gastos: false };
 
 const GRANULARIDADES: Granularidad[] = ['MES', 'TRIMESTRE', 'SEMESTRE', 'ANIO'];
 
@@ -72,6 +60,7 @@ export function EvolucionFinanciera({
   const [ocultas, setOcultas] = useState<Set<Serie>>(new Set(['margenBruto']));
   const [elegida, setElegida] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [vista, setVista] = useState<VistaEvolucion>('TENDENCIA');
 
   const visible = (serie: Serie) => !ocultas.has(serie) && (conCostos || (serie !== 'costos' && serie !== 'margenBruto'));
 
@@ -94,6 +83,15 @@ export function EvolucionFinanciera({
   const enRango = useMemo(() => (rango ? filtrarRango(completos, rango) : []), [completos, rango]);
   const serie = useMemo(() => agrupar(enRango, granularidad), [enRango, granularidad]);
   const serieCompleta = useMemo(() => agrupar(completos, granularidad), [completos, granularidad]);
+
+  if (vista === 'COMPARAR' && completos.length > 0) {
+    return (
+      <Tarjeta idioma={idioma} t={t}>
+        <PestanasVista vista={vista} onCambiar={setVista} t={t} />
+        <VistaComparar completos={completos} conCostos={conCostos} simbolo={simbolo} idioma={idioma} />
+      </Tarjeta>
+    );
+  }
 
   if (!rango || serie.length === 0) {
     return (
@@ -188,7 +186,9 @@ export function EvolucionFinanciera({
         @media (max-width: 860px) { .evo-cuerpo { grid-template-columns: minmax(0, 1fr); } }
       `}</style>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 14px' }}>
+      <PestanasVista vista={vista} onCambiar={setVista} t={t} />
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '10px 0 14px' }}>
         <select
           value={preset}
           onChange={(e) => cambiarRango(e.target.value)}
@@ -426,16 +426,6 @@ export function EvolucionFinanciera({
   );
 }
 
-const controlEstilo: React.CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: 10,
-  padding: '8px 12px',
-  fontSize: 14,
-  fontWeight: 600,
-  color: '#374151',
-  background: '#fff',
-};
-
 function Tarjeta({ idioma, t, children }: { idioma: string; t: (es: string, pt: string) => string; children: React.ReactNode }) {
   void idioma;
   return (
@@ -457,49 +447,3 @@ function Tarjeta({ idioma, t, children }: { idioma: string; t: (es: string, pt: 
   );
 }
 
-function Variacion({
-  valor,
-  subirEsBueno,
-  etiqueta,
-  locale,
-  chica = false,
-  noHayBase,
-}: {
-  valor: number | null;
-  subirEsBueno: boolean;
-  etiqueta: string;
-  locale: string;
-  chica?: boolean;
-  noHayBase: string;
-}) {
-  if (valor === null) {
-    return <span style={{ fontSize: chica ? 12 : 13, color: '#94a3b8' }}>{noHayBase}</span>;
-  }
-
-  const sube = valor > 0;
-  const bueno = valor === 0 ? null : sube === subirEsBueno;
-  const color = bueno === null ? '#6b7280' : bueno ? '#15803d' : '#dc2626';
-
-  return (
-    <span style={{ fontSize: chica ? 12 : 13, color: '#6b7280' }}>
-      <b style={{ color }}>
-        {valor > 0 ? '↑' : valor < 0 ? '↓' : '='} {Math.abs(valor).toLocaleString(locale, { maximumFractionDigits: 0 })}%
-      </b>{' '}
-      {etiqueta}
-    </span>
-  );
-}
-
-function BotonFlecha({ deshabilitado, onClick, etiqueta, children }: { deshabilitado: boolean; onClick: () => void; etiqueta: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      disabled={deshabilitado}
-      onClick={onClick}
-      aria-label={etiqueta}
-      style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', color: AZUL, fontSize: 18, fontWeight: 800, lineHeight: 1, cursor: deshabilitado ? 'default' : 'pointer', opacity: deshabilitado ? 0.35 : 1 }}
-    >
-      {children}
-    </button>
-  );
-}
