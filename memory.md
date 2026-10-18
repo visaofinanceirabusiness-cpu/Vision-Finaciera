@@ -720,3 +720,8 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 - El renombre actualizó formas_pago, matriz_operaciones (forma y clave) y los 9 registros de Equilibra; ningún otro lugar guardaba el nombre. Filas de matriz generadas como lo haría `generarMatrizOperaciones`, salvo las categorías que liquidan la misma cuenta (COBRO.CXC con Clientes, PAGO.Proveedores con Proveedores), que el motor igual rechaza.
 - Las empresas nuevas lo heredan del maestro. Las cuotas de cobro/pago funcionan sin cambios (Clientes es Activo a cobrar; Proveedores es Pasivo).
 - Encanto conserva sus nombres de cuenta personalizados ("Proveedor", "Tarjeta de credito a recibir").
+
+## Evolución financiera — tarjeta nueva (2026-10-18, fase 1)
+- `components/panel/evolucion/EvolucionFinanciera.tsx` reemplaza a `EvolucionFamiliarChart`. Todos los perfiles; Costos y Margen bruto solo si hay cuentas COSTO. Rango de fechas PROPIO (año en curso por defecto, 6/12 meses, años, todo, personalizado) y agrupado Mensual/Trimestral/Semestral/Anual. Sin etiquetas numéricas sobre el gráfico: los valores salen al pasar el cursor o tocar un punto; panel lateral con el período elegido y su variación contra el anterior; 4 tarjetas de totales con variación contra el rango anterior de igual largo. Sabio nuevo `public/sabio/sabio-evolucion.webp`.
+- `evolucionLucro` (lib/contabilidad.ts) ahora devuelve TODO el historial mensual (antes 12 meses); los meses sin movimientos se rellenan en cero en `lib/evolucionFinanciera.ts` (+test).
+- Fases siguientes (propuestas, pendientes): vista Comparar (barras por años/trimestres, diferencia en % entre períodos) y vista Detalhes (tabla + dona de composición + barras de resultado).
