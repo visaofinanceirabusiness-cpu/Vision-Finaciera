@@ -703,3 +703,6 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 ## Cuotas universales (2026-10-17)
 - Perfiles de empresa (Comercial/Mixto/Producción/Servicios, AR y BR) y las 5 empresas existentes: nuevas cuentas de Pasivo `2.1.1.0.2 Tarjeta de Crédito a Pagar` y `2.1.1.0.3 Préstamos Bancarios CP`, formas de pago `TCP` "Tarjeta de Crédito" y `PRE` "Préstamo Bancario" habilitadas para COMPRA y PAGO (maestro + empresas + filas de `matriz_operaciones` clonadas de Proveedor/Efectivo). Las auditorías de cuentas sin operación no las listan.
 - "¿En cuotas?" ahora también en Mini-Juego, Sabio Bot (paso CUOTAS tras elegir forma de pago) y Lanzamiento rápido, vía `lib/cuotasOperacion.ts` (`tipoCuotasDeFormaPago`, `crearCuotasDeOperacion`). Central de Lanzamientos mantiene su propia copia del criterio.
+
+## Gráfico de evolución con Costos (2026-10-18)
+- `EvolucionFamiliarChart` ahora muestra Costos y "Resultado = Ingresos − Costos − Gastos" cuando la empresa tiene cuentas COSTO (Familia no cambia). Corrige un error de la unificación del 17/10: el resultado de empresas no restaba los costos. Margen bruto (Ingresos − Costos) como serie opcional, apagada por defecto; chips para prender/apagar cada serie. Cálculo en `lib/evolucionResultado.ts` (+test). Validado contra SQL de Encanto (marzo: 466 − 284,77 − 26 = 155).

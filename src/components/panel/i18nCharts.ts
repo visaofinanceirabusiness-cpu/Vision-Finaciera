@@ -11,12 +11,14 @@ export type ClaveChart =
   | 'costos'
   | 'gastos'
   | 'ahorro'
+  | 'margenBruto'
   | 'total'
   | 'tituloLucro'
   | 'subtituloLucro'
   | 'tituloVentasCategoria'
   | 'subtituloVentasCategoria'
   | 'tituloEvolucionFamiliar'
+  | 'tituloEvolucionConCostos'
   | 'subtituloEvolucionFamiliar';
 
 export const diccionarioCharts: Diccionario<ClaveChart> = {
@@ -25,12 +27,14 @@ export const diccionarioCharts: Diccionario<ClaveChart> = {
     costos: 'Costos',
     gastos: 'Gastos',
     ahorro: 'Resultado',
+    margenBruto: 'Margen bruto',
     total: 'Total',
     tituloLucro: '📈 Evolución de Lucro',
     subtituloLucro: 'Ingresos, costos y gastos por mes',
     tituloVentasCategoria: '🛍️ Ventas por categoría',
     subtituloVentasCategoria: 'Distribución comercial',
     tituloEvolucionFamiliar: '📈 Evolución de ingresos, gastos y resultado',
+    tituloEvolucionConCostos: '📈 Evolución de ingresos, costos, gastos y resultado',
     subtituloEvolucionFamiliar: 'Mes a mes',
   },
   PT: {
@@ -38,12 +42,14 @@ export const diccionarioCharts: Diccionario<ClaveChart> = {
     costos: 'Custos',
     gastos: 'Despesas',
     ahorro: 'Resultado',
+    margenBruto: 'Margem bruta',
     total: 'Total',
     tituloLucro: '📈 Evolução de Lucro',
     subtituloLucro: 'Receitas, custos e despesas por mês',
     tituloVentasCategoria: '🛍️ Vendas por categoria',
     subtituloVentasCategoria: 'Distribuição comercial',
     tituloEvolucionFamiliar: '📈 Evolução de receitas, despesas e resultado',
+    tituloEvolucionConCostos: '📈 Evolução de receitas, custos, despesas e resultado',
     subtituloEvolucionFamiliar: 'Mês a mês',
   },
 };

@@ -4,13 +4,11 @@ import { useState } from 'react';
 import { ChartCard } from './ChartCard';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioCharts } from './i18nCharts';
+import { calcularEvolucion, tieneCostos, type PuntoEvolucion } from '@/lib/evolucionResultado';
 
-type PuntoMesFamiliar = {
-  mes: string;
-  clave: string; // "YYYY-MM"
-  ingresos: number;
-  gastos: number;
-};
+type PuntoMesFamiliar = PuntoEvolucion;
+
+type Serie = 'ingresos' | 'costos' | 'gastos' | 'resultado' | 'margenBruto';
 
 // Ubica cada punto según la distancia real en
 // meses entre el primero y el último, no por índice.
@@ -19,7 +17,7 @@ function claveANumeroDeMes(clave: string): number {
   return anio * 12 + (mes - 1);
 }
 
-// GRÁFICO EVOLUCIÓN FAMILIAR — Ingresos, Gastos y Ahorro
+// GRÁFICO EVOLUCIÓN — Ingresos, Costos (si hay), Gastos y Resultado
 // =====================================================
 //
 // Sirve a todos los perfiles (antes solo Familia; reemplazó a LucroChart, que
@@ -32,6 +30,8 @@ function claveANumeroDeMes(clave: string): number {
 const COLOR_INGRESOS = '#2e8b57';
 const COLOR_GASTOS = '#dc2626';
 const COLOR_AHORRO = '#1f3a5f';
+const COLOR_COSTOS = '#ea8a1a';
+const COLOR_MARGEN = '#0d9488';
 const COLOR_DEFICIT = '#dc2626';
 
 export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', idioma = 'ES' }: { datos: PuntoMesFamiliar[]; simbolo?: string; idioma?: string }) {
@@ -54,9 +54,29 @@ export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', i
   const margenSup = 60;
   const margenInf = 55;
 
-  const conAhorro = datos.map((dato) => ({ ...dato, ahorro: dato.ingresos - dato.gastos }));
+  const conCostos = tieneCostos(todosLosDatos);
+  // El margen bruto arranca apagado: es un dato de apoyo, no el protagonista.
+  const [ocultas, setOcultas] = useState<Set<Serie>>(new Set(['margenBruto']));
+  const visible = (serie: Serie) => !ocultas.has(serie);
 
-  const todosLosValores = conAhorro.flatMap((dato) => [dato.ingresos, dato.gastos, dato.ahorro]);
+  function alternar(serie: Serie) {
+    setOcultas((previo) => {
+      const siguiente = new Set(previo);
+      if (siguiente.has(serie)) siguiente.delete(serie);
+      else siguiente.add(serie);
+      return siguiente;
+    });
+  }
+
+  const conAhorro = calcularEvolucion(datos).map((dato) => ({ ...dato, ahorro: dato.resultado }));
+
+  const todosLosValores = conAhorro.flatMap((dato) => [
+    ...(visible('ingresos') ? [dato.ingresos] : []),
+    ...(visible('gastos') ? [dato.gastos] : []),
+    ...(visible('resultado') ? [dato.ahorro] : []),
+    ...(conCostos && visible('costos') ? [dato.costos] : []),
+    ...(conCostos && visible('margenBruto') ? [dato.margenBruto] : []),
+  ]);
   const maxValor = Math.max(...todosLosValores, 1);
   const minValor = Math.min(...todosLosValores, 0);
 
@@ -96,11 +116,13 @@ export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', i
   }
 
   return (
-    <ChartCard titulo={t('tituloEvolucionFamiliar')} subtitulo={t('subtituloEvolucionFamiliar')}>
+    <ChartCard titulo={conCostos ? t('tituloEvolucionConCostos') : t('tituloEvolucionFamiliar')} subtitulo={t('subtituloEvolucionFamiliar')}>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Referencia color={COLOR_INGRESOS} etiqueta={t('ingresos')} />
-        <Referencia color={COLOR_GASTOS} etiqueta={t('gastos')} />
-        <Referencia color={COLOR_AHORRO} etiqueta={t('ahorro')} />
+        <Referencia color={COLOR_INGRESOS} etiqueta={t('ingresos')} activa={visible('ingresos')} onClick={() => alternar('ingresos')} />
+        {conCostos && <Referencia color={COLOR_COSTOS} etiqueta={t('costos')} activa={visible('costos')} onClick={() => alternar('costos')} />}
+        <Referencia color={COLOR_GASTOS} etiqueta={t('gastos')} activa={visible('gastos')} onClick={() => alternar('gastos')} />
+        <Referencia color={COLOR_AHORRO} etiqueta={t('ahorro')} activa={visible('resultado')} onClick={() => alternar('resultado')} />
+        {conCostos && <Referencia color={COLOR_MARGEN} etiqueta={t('margenBruto')} activa={visible('margenBruto')} onClick={() => alternar('margenBruto')} />}
       </div>
 
       {anios.length > 1 && (
@@ -133,7 +155,7 @@ export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', i
           );
         })}
 
-        {/* Línea de referencia en $0 — si el Ahorro cae por debajo, acá está el piso. */}
+        {/* Línea de referencia en $0 — si el Resultado cae por debajo, acá está el piso. */}
         {minValor < 0 && (
           <line
             x1={margenIzq}
@@ -146,52 +168,86 @@ export function EvolucionFamiliarChart({ datos: todosLosDatos, simbolo = 'R$', i
           />
         )}
 
-        <path d={trazarLinea((d) => d.gastos)} fill="none" stroke={COLOR_GASTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
-        <path d={trazarLinea((d) => d.ingresos)} fill="none" stroke={COLOR_INGRESOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
-        <path d={trazarLinea((d) => d.ahorro)} fill="none" stroke={COLOR_AHORRO} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+        {conCostos && visible('margenBruto') && (
+          <path d={trazarLinea((d) => d.margenBruto)} fill="none" stroke={COLOR_MARGEN} strokeWidth="3" strokeDasharray="3 7" strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+        )}
+        {visible('gastos') && <path d={trazarLinea((d) => d.gastos)} fill="none" stroke={COLOR_GASTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />}
+        {conCostos && visible('costos') && <path d={trazarLinea((d) => d.costos)} fill="none" stroke={COLOR_COSTOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />}
+        {visible('ingresos') && <path d={trazarLinea((d) => d.ingresos)} fill="none" stroke={COLOR_INGRESOS} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />}
+        {visible('resultado') && <path d={trazarLinea((d) => d.ahorro)} fill="none" stroke={COLOR_AHORRO} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />}
 
         {conAhorro.map((dato, indice) => {
           const puntoIngresos = coordenadas(dato.ingresos, indice);
           const puntoGastos = coordenadas(dato.gastos, indice);
           const puntoAhorro = coordenadas(dato.ahorro, indice);
+          const puntoCostos = coordenadas(dato.costos, indice);
+          const puntoMargen = coordenadas(dato.margenBruto, indice);
 
           const colorAhorro = dato.ahorro >= 0 ? COLOR_AHORRO : COLOR_DEFICIT;
 
           return (
             <g key={dato.mes}>
-              <circle cx={puntoGastos.x} cy={puntoGastos.y} r="5" fill={COLOR_GASTOS} />
-              <circle cx={puntoIngresos.x} cy={puntoIngresos.y} r="5" fill={COLOR_INGRESOS} />
+              {visible('gastos') && <circle cx={puntoGastos.x} cy={puntoGastos.y} r="5" fill={COLOR_GASTOS} />}
+              {visible('ingresos') && <circle cx={puntoIngresos.x} cy={puntoIngresos.y} r="5" fill={COLOR_INGRESOS} />}
+              {conCostos && visible('costos') && <circle cx={puntoCostos.x} cy={puntoCostos.y} r="5" fill={COLOR_COSTOS} />}
+              {conCostos && visible('margenBruto') && <circle cx={puntoMargen.x} cy={puntoMargen.y} r="5" fill={COLOR_MARGEN} />}
 
-              <circle
-                cx={puntoAhorro.x}
-                cy={puntoAhorro.y}
-                r="7"
-                fill={colorAhorro}
-                stroke="#ffffff"
-                strokeWidth="3"
-              />
+              {visible('resultado') && (
+                <circle
+                  cx={puntoAhorro.x}
+                  cy={puntoAhorro.y}
+                  r="7"
+                  fill={colorAhorro}
+                  stroke="#ffffff"
+                  strokeWidth="3"
+                />
+              )}
 
-              <EtiquetaValor
-                x={puntoIngresos.x}
-                y={puntoIngresos.y - 18}
-                texto={`${simbolo} ${dato.ingresos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
-                color={COLOR_INGRESOS}
-              />
+              {visible('ingresos') && (
+                <EtiquetaValor
+                  x={puntoIngresos.x}
+                  y={puntoIngresos.y - 18}
+                  texto={`${simbolo} ${dato.ingresos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
+                  color={COLOR_INGRESOS}
+                />
+              )}
 
-              <EtiquetaValor
-                x={puntoGastos.x}
-                y={puntoGastos.y + 24}
-                texto={`${simbolo} ${dato.gastos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
-                color={COLOR_GASTOS}
-              />
+              {conCostos && visible('costos') && (
+                <EtiquetaValor
+                  x={puntoCostos.x}
+                  y={puntoCostos.y + 24}
+                  texto={`${simbolo} ${dato.costos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
+                  color={COLOR_COSTOS}
+                />
+              )}
 
-              <EtiquetaValor
-                x={puntoAhorro.x}
-                y={dato.ahorro >= 0 ? puntoAhorro.y - 24 : puntoAhorro.y + 24}
-                texto={`${simbolo} ${dato.ahorro.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
-                color={colorAhorro}
-                grande
-              />
+              {conCostos && visible('margenBruto') && (
+                <EtiquetaValor
+                  x={puntoMargen.x}
+                  y={puntoMargen.y - 18}
+                  texto={`${simbolo} ${dato.margenBruto.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
+                  color={COLOR_MARGEN}
+                />
+              )}
+
+              {visible('gastos') && (
+                <EtiquetaValor
+                  x={puntoGastos.x}
+                  y={puntoGastos.y + 24}
+                  texto={`${simbolo} ${dato.gastos.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
+                  color={COLOR_GASTOS}
+                />
+              )}
+
+              {visible('resultado') && (
+                <EtiquetaValor
+                  x={puntoAhorro.x}
+                  y={dato.ahorro >= 0 ? puntoAhorro.y - 24 : puntoAhorro.y + 24}
+                  texto={`${simbolo} ${dato.ahorro.toLocaleString(locale, { maximumFractionDigits: 0 })}`}
+                  color={colorAhorro}
+                  grande
+                />
+              )}
 
               <text x={puntoIngresos.x} y={alto - 18} textAnchor="middle" fontSize="15" fontWeight="700" fill="#6e7781">
                 {dato.mes}
@@ -261,11 +317,16 @@ function ChipAnio({ activo, onClick, children }: { activo: boolean; onClick: () 
   );
 }
 
-function Referencia({ color, etiqueta }: { color: string; etiqueta: string }) {
+function Referencia({ color, etiqueta, activa, onClick }: { color: string; etiqueta: string; activa: boolean; onClick: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ width: 11, height: 11, borderRadius: '50%', background: color, display: 'inline-block' }} />
-      <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>{etiqueta}</span>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', opacity: activa ? 1 : 0.4 }}
+    >
+      <span style={{ width: 11, height: 11, borderRadius: '50%', background: activa ? color : 'transparent', border: `2px solid ${color}`, boxSizing: 'border-box', display: 'inline-block' }} />
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#374151', textDecoration: activa ? 'none' : 'line-through' }}>{etiqueta}</span>
+    </button>
   );
 }
