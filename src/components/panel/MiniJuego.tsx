@@ -31,7 +31,7 @@ import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from 
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldosDeCategorias, saldosDeMedios, saldosDeStock } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
-import { CelebracionMiniJuego } from './CelebracionMiniJuego';
+import { CelebracionMiniJuego, type ResumenJugada } from './CelebracionMiniJuego';
 import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
@@ -136,6 +136,8 @@ export function MiniJuego({
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
+  // Foto de la jugada al confirmar: el juego se reinicia al terminar el festejo.
+  const [resumenJugada, setResumenJugada] = useState<ResumenJugada | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [saldosPorMedio, setSaldosPorMedio] = useState<Record<string, number>>({});
   const [saldosPorCategoria, setSaldosPorCategoria] = useState<Record<string, number>>({});
@@ -511,6 +513,18 @@ export function MiniJuego({
       } else {
         numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
       }
+      setResumenJugada({
+        emojiOperacion: iconoOperacion(operacion),
+        operacion: nombreOperacionDisplay(idioma, operacion, esFamiliar),
+        monto: total,
+        simbolo,
+        fecha,
+        categoria,
+        formaPago,
+        contacto: tablaContacto ? clienteProveedor.trim() || undefined : undefined,
+        producto: necesitaProducto && productoNombre ? `${productoNombre} (${cantidad} ${unidadMedida})` : undefined,
+        cuotas: tipoCuotas && enCuotas ? cuotas : undefined,
+      });
       setCelebrando(numeroDelDia);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la jugada.');
@@ -1159,6 +1173,7 @@ export function MiniJuego({
         <CelebracionMiniJuego
           numeroDelDia={celebrando}
           idioma={idioma}
+          resumen={resumenJugada}
           onTerminar={() => {
             setCelebrando(null);
 

@@ -710,3 +710,6 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 ## Mini-Juego: stock visible al elegir producto (2026-10-18)
 - Cada tarjeta de producto muestra "Stock: N unidad" a la fecha del juego (`saldosDeStock` en `lib/saldoCuenta.ts`, mismo criterio que la vista `saldo_stock` pero cortado por fecha). Sabio Bot y Lanzamiento Central no lo muestran todavía.
 - Stock visible también en Sabio Bot y Lanzamiento Central para cualquier operación con producto (antes solo en Venta/Pérdida). El stock sigue bloqueando Venta/Pérdida sin saldo; en Compra solo informa.
+
+## Mini-Juego: resumen en el festejo (2026-10-18)
+- Al confirmar, el festejo (`CelebracionMiniJuego`) muestra debajo del Sabio un resumen de la jugada: operación y monto destacados, más categoría, medio, contacto, producto, cuotas y fecha. El festejo dura 5 s cuando hay resumen (3,5 s sin él).

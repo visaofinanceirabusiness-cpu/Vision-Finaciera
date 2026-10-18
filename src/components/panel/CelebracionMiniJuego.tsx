@@ -9,6 +9,24 @@
 import { useEffect, useState } from 'react';
 import { SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 
+export type ResumenJugada = {
+  emojiOperacion: string;
+  operacion: string;
+  monto: number;
+  simbolo: string;
+  fecha: string; // YYYY-MM-DD
+  categoria: string;
+  formaPago: string;
+  contacto?: string;
+  producto?: string;
+  cuotas?: number;
+};
+
+function fechaCorta(fecha: string): string {
+  const [anio, mes, dia] = fecha.split('-');
+  return anio && mes && dia ? `${dia}/${mes}/${anio}` : fecha;
+}
+
 const PALETA = ['#2e8b57', '#fbbf24', '#60a5fa', '#f97316', '#ffffff'];
 
 function reproducirSonidoJugada() {
@@ -44,11 +62,13 @@ function reproducirSonidoJugada() {
 export function CelebracionMiniJuego({
   numeroDelDia,
   idioma,
+  resumen,
   onTerminar,
 }: {
   // Cuántas jugadas van cargadas hoy — le da sensación de racha.
   numeroDelDia: number;
   idioma?: string | null;
+  resumen?: ResumenJugada | null;
   onTerminar: () => void;
 }) {
   const esPT = idioma === 'PT';
@@ -57,7 +77,8 @@ export function CelebracionMiniJuego({
   useEffect(() => {
     reproducirSonidoJugada();
     const aparecer = requestAnimationFrame(() => setVisible(true));
-    const cerrar = setTimeout(onTerminar, 3500);
+    // Con resumen hace falta un poco más de tiempo para leerlo.
+    const cerrar = setTimeout(onTerminar, resumen ? 5000 : 3500);
 
     return () => {
       cancelAnimationFrame(aparecer);
@@ -139,7 +160,29 @@ export function CelebracionMiniJuego({
           {esPT ? 'Jogada registrada!' : '¡Jugada registrada!'}
         </div>
 
-        <div style={{ marginTop: 4, fontSize: 19, fontWeight: 800, color: '#2e8b57' }}>
+        {resumen && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #d1d5db', minWidth: 240 }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#1f3a5f', letterSpacing: 0.3 }}>
+              {resumen.emojiOperacion} {resumen.operacion}
+            </div>
+
+            <div style={{ marginTop: 4, fontSize: 40, fontWeight: 900, color: '#2e8b57', lineHeight: 1.1 }}>
+              {resumen.simbolo}{' '}
+              {resumen.monto.toLocaleString(esPT ? 'pt-BR' : 'es-AR', { minimumFractionDigits: Number.isInteger(resumen.monto) ? 0 : 2, maximumFractionDigits: 2 })}
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 13.5, color: '#4b5563', lineHeight: 1.6 }}>
+              <div>{resumen.categoria}</div>
+              <div>{resumen.formaPago}</div>
+              {resumen.contacto && <div>👤 {resumen.contacto}</div>}
+              {resumen.producto && <div>📦 {resumen.producto}</div>}
+              {resumen.cuotas && resumen.cuotas >= 1 && <div>{esPT ? `${resumen.cuotas} parcelas` : `${resumen.cuotas} cuotas`}</div>}
+              <div style={{ color: '#6b7280' }}>{fechaCorta(resumen.fecha)}</div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 12, fontSize: 19, fontWeight: 800, color: '#2e8b57' }}>
           {esPT ? `Já são ${numeroDelDia} hoje 🔥` : `Van ${numeroDelDia} hoy 🔥`}
         </div>
       </div>
