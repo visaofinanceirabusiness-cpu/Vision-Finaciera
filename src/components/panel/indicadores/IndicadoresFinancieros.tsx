@@ -86,7 +86,8 @@ function textos(id: IndicadorId, esPT: boolean): Textos {
 
 const BLOQUES: { id: string; es: string; pt: string; indicadores: IndicadorId[] }[] = [
   { id: 'liquidez', es: 'Liquidez', pt: 'Liquidez', indicadores: ['liquidezCorriente', 'liquidezSeca', 'liquidezGeneral'] },
-  { id: 'margenes', es: 'Márgenes y rentabilidad', pt: 'Margens e rentabilidade', indicadores: ['margenBruto', 'margenOperacional', 'margenLiquido', 'rentabilidadActivo', 'rentabilidadPN'] },
+  { id: 'margenes', es: 'Márgenes', pt: 'Margens', indicadores: ['margenBruto', 'margenOperacional', 'margenLiquido'] },
+  { id: 'rentabilidad', es: 'Rentabilidad', pt: 'Rentabilidade', indicadores: ['rentabilidadActivo', 'rentabilidadPN'] },
   { id: 'estructura', es: 'Estructura de capital', pt: 'Estrutura de capital', indicadores: ['participacionTerceros', 'endeudamiento'] },
   { id: 'crecimiento', es: 'Crecimiento (mes contra mes)', pt: 'Crescimento (mês contra mês)', indicadores: ['crecimientoIngresos', 'crecimientoLucro'] },
 ];
