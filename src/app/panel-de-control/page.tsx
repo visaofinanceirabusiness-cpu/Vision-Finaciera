@@ -1085,7 +1085,7 @@ export default function MiNegocioPage() {
 
         {!esFamiliar && (indicadores?.fotosMensuales?.length ?? 0) > 0 && (
           <section style={{ marginBottom: 20 }}>
-            <IndicadoresFinancieros fotos={indicadores?.fotosMensuales ?? []} idioma={idioma} imagenSabio="/sabio/sabio-evolucion.webp" />
+            <IndicadoresFinancieros fotos={indicadores?.fotosMensuales ?? []} idioma={idioma} imagenSabio="/sabio/sabio-indicadores.webp" />
           </section>
         )}
           </>
