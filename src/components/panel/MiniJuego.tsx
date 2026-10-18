@@ -31,7 +31,7 @@ import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from 
 import { fechaLocalHoy } from '@/lib/fecha';
 import { saldosDeCategorias, saldosDeMedios, saldosDeStock } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
-import { CelebracionMiniJuego, type ResumenJugada } from './CelebracionMiniJuego';
+import { BloqueResumenJugada, CelebracionMiniJuego, type ResumenJugada } from './CelebracionMiniJuego';
 import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
@@ -51,7 +51,7 @@ function operacionNecesitaProducto(operacion: string, formaPago: string, categor
   return (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) || (operacion === 'INVERSION' && formaPago === 'Mercadería');
 }
 
-type Paso = 'operacion' | 'categoria' | 'formaPago' | 'contacto' | 'producto' | 'cantidad' | 'monto' | 'guardando';
+type Paso = 'operacion' | 'categoria' | 'formaPago' | 'contacto' | 'producto' | 'cantidad' | 'monto' | 'resumen' | 'guardando';
 
 // El Sabio Lúdico no habla — reacciona con un símbolo (no un diálogo)
 // y una "pose" distinta (nomás con transform, no hay dibujo aparte
@@ -64,6 +64,7 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
   producto: { simbolo: '❓', pose: 'rotate(4deg)' },
   cantidad: { simbolo: '🔢', pose: 'scale(1.06)' },
   monto: { simbolo: '💰', pose: 'rotate(-5deg) scale(1.08)' },
+  resumen: { simbolo: '🧐', pose: 'rotate(3deg) scale(1.06)' },
   guardando: { simbolo: '⏳', pose: 'scale(0.95)' },
 };
 
@@ -422,6 +423,7 @@ export function MiniJuego({
     else if (paso === 'contacto') setPaso('formaPago');
     else if (paso === 'producto') setPaso(tablaContacto ? 'contacto' : 'formaPago');
     else if (paso === 'cantidad') setPaso('producto');
+    else if (paso === 'resumen') setPaso('monto');
     else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : tablaContacto ? 'contacto' : 'formaPago');
   }
 
@@ -463,6 +465,43 @@ export function MiniJuego({
       cancelado = true;
     };
   }, [empresaId, operacion, formaPago, simulacion]);
+
+  // Valida lo tipeado y pasa a la pantalla de resumen: recién ahí, con el
+  // botón Confirmar, se graba.
+  function prepararJugada() {
+    const total = Number(monto);
+
+    if (!total || total <= 0) {
+      setError(esPT ? 'O valor tem que ser maior que zero.' : 'El monto tiene que ser mayor a cero.');
+      return;
+    }
+
+    if (tipoCuotas && enCuotas) {
+      const cuotas = Number(cantidadCuotas);
+      if (!Number.isInteger(cuotas) || cuotas < 1) {
+        setError(esPT ? 'A quantidade de parcelas tem que ser 1 ou mais.' : 'La cantidad de cuotas tiene que ser 1 o más.');
+        return;
+      }
+    }
+
+    setError('');
+    setPaso('resumen');
+  }
+
+  function armarResumen(): ResumenJugada {
+    return {
+      emojiOperacion: iconoOperacion(operacion),
+      operacion: nombreOperacionDisplay(idioma, operacion, esFamiliar),
+      monto: Number(monto),
+      simbolo,
+      fecha,
+      categoria,
+      formaPago,
+      contacto: tablaContacto ? clienteProveedor.trim() || undefined : undefined,
+      producto: necesitaProducto && productoNombre ? `${productoNombre} (${cantidad} ${unidadMedida})` : undefined,
+      cuotas: tipoCuotas && enCuotas ? Number(cantidadCuotas) : undefined,
+    };
+  }
 
   async function confirmarJugada() {
     const total = Number(monto);
@@ -513,22 +552,11 @@ export function MiniJuego({
       } else {
         numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
       }
-      setResumenJugada({
-        emojiOperacion: iconoOperacion(operacion),
-        operacion: nombreOperacionDisplay(idioma, operacion, esFamiliar),
-        monto: total,
-        simbolo,
-        fecha,
-        categoria,
-        formaPago,
-        contacto: tablaContacto ? clienteProveedor.trim() || undefined : undefined,
-        producto: necesitaProducto && productoNombre ? `${productoNombre} (${cantidad} ${unidadMedida})` : undefined,
-        cuotas: tipoCuotas && enCuotas ? cuotas : undefined,
-      });
+      setResumenJugada(armarResumen());
       setCelebrando(numeroDelDia);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la jugada.');
-      setPaso('monto');
+      setPaso('resumen');
     }
   }
 
@@ -548,6 +576,7 @@ export function MiniJuego({
     producto: esPT ? 'Qual produto?' : '¿Qué producto?',
     cantidad: esPT ? 'Quantas unidades?' : '¿Cuántas unidades?',
     monto: necesitaProducto ? (esPT ? 'Quanto no total?' : '¿Cuánto salió en total?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
+    resumen: esPT ? 'Confirmamos a jogada?' : '¿Confirmamos la jugada?',
     guardando: esPT ? 'Registrando...' : 'Registrando...',
   };
 
@@ -1065,7 +1094,7 @@ export function MiniJuego({
           </div>
         )}
 
-        {(paso === 'monto' || paso === 'guardando') && (
+        {paso === 'monto' && (
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div
               style={{
@@ -1108,7 +1137,7 @@ export function MiniJuego({
             {tipoCuotas && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14, color: '#fff' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={enCuotas} disabled={paso === 'guardando'} onChange={(e) => setEnCuotas(e.target.checked)} />
+                  <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />
                   {esPT ? 'Em parcelas? Quantidade:' : '¿En cuotas? Cantidad:'}
                 </label>
                 {enCuotas && (
@@ -1129,7 +1158,6 @@ export function MiniJuego({
                 <button
                   key={tecla}
                   type="button"
-                  disabled={paso === 'guardando'}
                   onClick={() => tocarTecla('monto', tecla)}
                   style={{
                     padding: '16px 0',
@@ -1149,7 +1177,34 @@ export function MiniJuego({
 
             <button
               type="button"
-              disabled={paso === 'guardando' || !monto}
+              disabled={!monto}
+              onClick={prepararJugada}
+              style={{
+                border: 'none',
+                background: colores.verde,
+                color: '#fff',
+                borderRadius: 16,
+                padding: '16px 0',
+                fontSize: 17,
+                fontWeight: 800,
+                cursor: 'pointer',
+                opacity: monto ? 1 : 0.5,
+              }}
+            >
+              🎲 {esPT ? 'Jogada preparada!' : '¡Jugada preparada!'}
+            </button>
+          </div>
+        )}
+
+        {(paso === 'resumen' || paso === 'guardando') && (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ background: '#fff', borderRadius: 20, padding: '8px 20px 22px', textAlign: 'center', marginBottom: 18 }}>
+              <BloqueResumenJugada resumen={armarResumen()} esPT={esPT} />
+            </div>
+
+            <button
+              type="button"
+              disabled={paso === 'guardando'}
               onClick={confirmarJugada}
               style={{
                 border: 'none',
@@ -1160,10 +1215,28 @@ export function MiniJuego({
                 fontSize: 17,
                 fontWeight: 800,
                 cursor: paso === 'guardando' ? 'wait' : 'pointer',
-                opacity: monto ? 1 : 0.5,
+                marginBottom: 10,
               }}
             >
-              {paso === 'guardando' ? (esPT ? 'Registrando...' : 'Registrando...') : `✅ ${esPT ? 'Confirmar jogada' : 'Confirmar jugada'}`}
+              {paso === 'guardando' ? (esPT ? 'Registrando...' : 'Registrando...') : `✅ ${esPT ? 'Confirmar' : 'Confirmar'}`}
+            </button>
+
+            <button
+              type="button"
+              disabled={paso === 'guardando'}
+              onClick={volver}
+              style={{
+                border: '2px solid rgba(255,255,255,0.35)',
+                background: 'transparent',
+                color: '#fff',
+                borderRadius: 16,
+                padding: '12px 0',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ← {esPT ? 'Voltar' : 'Volver'}
             </button>
           </div>
         )}

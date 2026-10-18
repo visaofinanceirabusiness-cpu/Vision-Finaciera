@@ -160,31 +160,37 @@ export function CelebracionMiniJuego({
           {esPT ? 'Jogada registrada!' : '¡Jugada registrada!'}
         </div>
 
-        {resumen && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #d1d5db', minWidth: 240 }}>
-            <div style={{ fontSize: 22, fontWeight: 900, color: '#1f3a5f', letterSpacing: 0.3 }}>
-              {resumen.emojiOperacion} {resumen.operacion}
-            </div>
-
-            <div style={{ marginTop: 4, fontSize: 40, fontWeight: 900, color: '#2e8b57', lineHeight: 1.1 }}>
-              {resumen.simbolo}{' '}
-              {resumen.monto.toLocaleString(esPT ? 'pt-BR' : 'es-AR', { minimumFractionDigits: Number.isInteger(resumen.monto) ? 0 : 2, maximumFractionDigits: 2 })}
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 13.5, color: '#4b5563', lineHeight: 1.6 }}>
-              <div>{resumen.categoria}</div>
-              <div>{resumen.formaPago}</div>
-              {resumen.contacto && <div>👤 {resumen.contacto}</div>}
-              {resumen.producto && <div>📦 {resumen.producto}</div>}
-              {resumen.cuotas && resumen.cuotas >= 1 && <div>{esPT ? `${resumen.cuotas} parcelas` : `${resumen.cuotas} cuotas`}</div>}
-              <div style={{ color: '#6b7280' }}>{fechaCorta(resumen.fecha)}</div>
-            </div>
-          </div>
-        )}
+        {resumen && <BloqueResumenJugada resumen={resumen} esPT={esPT} />}
 
         <div style={{ marginTop: 12, fontSize: 19, fontWeight: 800, color: '#2e8b57' }}>
           {esPT ? `Já são ${numeroDelDia} hoje 🔥` : `Van ${numeroDelDia} hoy 🔥`}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Mismo bloque en el festejo y en la pantalla de confirmación previa, para que
+// lo que se revisa antes de grabar sea exactamente lo que después se festeja.
+export function BloqueResumenJugada({ resumen, esPT }: { resumen: ResumenJugada; esPT: boolean }) {
+  return (
+    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #d1d5db', minWidth: 240 }}>
+      <div style={{ fontSize: 22, fontWeight: 900, color: '#1f3a5f', letterSpacing: 0.3 }}>
+        {resumen.emojiOperacion} {resumen.operacion}
+      </div>
+
+      <div style={{ marginTop: 4, fontSize: 40, fontWeight: 900, color: '#2e8b57', lineHeight: 1.1 }}>
+        {resumen.simbolo}{' '}
+        {resumen.monto.toLocaleString(esPT ? 'pt-BR' : 'es-AR', { minimumFractionDigits: Number.isInteger(resumen.monto) ? 0 : 2, maximumFractionDigits: 2 })}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 13.5, color: '#4b5563', lineHeight: 1.6 }}>
+        <div>{resumen.categoria}</div>
+        <div>{resumen.formaPago}</div>
+        {resumen.contacto && <div>👤 {resumen.contacto}</div>}
+        {resumen.producto && <div>📦 {resumen.producto}</div>}
+        {resumen.cuotas && resumen.cuotas >= 1 && <div>{esPT ? `${resumen.cuotas} parcelas` : `${resumen.cuotas} cuotas`}</div>}
+        <div style={{ color: '#6b7280' }}>{fechaCorta(resumen.fecha)}</div>
       </div>
     </div>
   );
