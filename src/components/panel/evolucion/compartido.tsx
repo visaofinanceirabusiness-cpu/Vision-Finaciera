@@ -54,11 +54,22 @@ export function Variacion({
   const color = bueno === null ? '#6b7280' : bueno ? '#15803d' : '#dc2626';
 
   return (
-    <span style={{ fontSize: chica ? 12 : 13, color: '#6b7280' }}>
-      <b style={{ color }}>
-        {valor > 0 ? '↑' : valor < 0 ? '↓' : '='} {Math.abs(valor).toLocaleString(locale, { maximumFractionDigits: 0 })}%
-      </b>{' '}
-      {etiqueta}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: chica ? 12 : 13, color: '#6b7280' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {bueno === null ? (
+          <b style={{ color, fontSize: chica ? 15 : 17 }}>=</b>
+        ) : (
+          // El pulgar dice si el cambio es favorable (verde, arriba) o no (rojo, abajo);
+          // el signo del porcentaje dice si el número subió o bajó.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bueno ? '/iconos/pulgar-arriba.webp' : '/iconos/pulgar-abajo.webp'} alt={bueno ? 'favorable' : 'desfavorable'} style={{ width: chica ? 30 : 36, height: chica ? 30 : 36, flexShrink: 0 }} />
+        )}
+        <b style={{ color, fontSize: chica ? 15 : 17 }}>
+          {valor > 0 ? '+' : valor < 0 ? '−' : ''}
+          {Math.abs(valor).toLocaleString(locale, { maximumFractionDigits: 0 })}%
+        </b>
+      </span>
+      <span>{etiqueta}</span>
     </span>
   );
 }
