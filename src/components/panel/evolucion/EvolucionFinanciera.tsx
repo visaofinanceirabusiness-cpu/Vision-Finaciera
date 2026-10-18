@@ -17,7 +17,7 @@ import {
   type PuntoAgrupado,
   type RangoMeses,
 } from '@/lib/evolucionFinanciera';
-import { AZUL, BotonFlecha, COLOR, PestanasVista, SUBIR_ES_BUENO, Variacion, controlEstilo, type Serie, type VistaEvolucion } from './compartido';
+import { AZUL, BotonFlecha, COLOR, PestanasVista, SUBIR_ES_BUENO, Variacion, controlEstilo, useAncho, type Serie, type VistaEvolucion } from './compartido';
 import { VistaComparar } from './VistaComparar';
 import { VistaDetalles } from './VistaDetalles';
 
@@ -31,9 +31,8 @@ import { VistaDetalles } from './VistaDetalles';
 // cursor o tocar un punto, y el panel lateral compara ese período con el
 // anterior.
 
-const ANCHO = 1180;
-const ALTO = 340;
-const MARGEN = { izq: 78, der: 24, sup: 24, inf: 44 };
+const ALTO = 420;
+const MARGEN = { izq: 86, der: 24, sup: 24, inf: 46 };
 
 const GRANULARIDADES: Granularidad[] = ['MES', 'TRIMESTRE', 'SEMESTRE', 'ANIO'];
 
@@ -62,6 +61,7 @@ export function EvolucionFinanciera({
   const [elegida, setElegida] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [vista, setVista] = useState<VistaEvolucion>('TENDENCIA');
+  const [refGrafico, anchoGrafico] = useAncho();
 
   const visible = (serie: Serie) => !ocultas.has(serie) && (conCostos || (serie !== 'costos' && serie !== 'margenBruto'));
 
@@ -141,6 +141,8 @@ export function EvolucionFinanciera({
   const minValor = Math.min(...valores, 0);
   const rangoValores = maxValor - minValor || 1;
 
+  // Ancho natural del gráfico; con muchos períodos crece y se desplaza.
+  const ANCHO = Math.max(anchoGrafico, serie.length * 46 + MARGEN.izq + MARGEN.der);
   const anchoUtil = ANCHO - MARGEN.izq - MARGEN.der;
   const altoUtil = ALTO - MARGEN.sup - MARGEN.inf;
 
@@ -183,8 +185,7 @@ export function EvolucionFinanciera({
   return (
     <Tarjeta idioma={idioma} t={t}>
       <style>{`
-        .evo-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
-        @media (max-width: 860px) { .evo-cuerpo { grid-template-columns: minmax(0, 1fr); } }
+        .evo-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
       `}</style>
 
       <PestanasVista vista={vista} onCambiar={setVista} t={t} />
@@ -294,8 +295,8 @@ export function EvolucionFinanciera({
       </div>
 
       <div className="evo-cuerpo">
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-         <div style={{ position: 'relative', minWidth: 640 }}>
+        <div ref={refGrafico} style={{ overflowX: 'auto', paddingBottom: 4 }}>
+         <div style={{ position: 'relative', width: ANCHO }}>
           <svg
             viewBox={`0 0 ${ANCHO} ${ALTO}`}
             style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y', cursor: 'crosshair' }}
@@ -312,7 +313,7 @@ export function EvolucionFinanciera({
               return (
                 <g key={f}>
                   <line x1={MARGEN.izq} x2={ANCHO - MARGEN.der} y1={y} y2={y} stroke="#eef2f6" strokeWidth="1" />
-                  <text x={MARGEN.izq - 10} y={y + 4} textAnchor="end" fontSize="13" fill="#94a3b8">
+                  <text x={MARGEN.izq - 10} y={y + 4} textAnchor="end" fontSize="14" fill="#94a3b8">
                     {formatoEje(minValor + f * rangoValores)}
                   </text>
                 </g>
@@ -353,7 +354,7 @@ export function EvolucionFinanciera({
 
             {serie.map((p, i) =>
               i % paso === 0 || i === indiceActivo ? (
-                <text key={p.clave} x={xDe(i)} y={ALTO - 14} textAnchor="middle" fontSize="14" fontWeight={i === indiceActivo ? 800 : 600} fill={i === indiceActivo ? AZUL : '#6e7781'}>
+                <text key={p.clave} x={xDe(i)} y={ALTO - 14} textAnchor="middle" fontSize="15" fontWeight={i === indiceActivo ? 800 : 600} fill={i === indiceActivo ? AZUL : '#6e7781'}>
                   {etiqueta(p.clave)}
                 </text>
               ) : null
@@ -405,11 +406,11 @@ export function EvolucionFinanciera({
             </div>
           </div>
 
-          <div style={{ padding: '6px 12px 12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0 24px', padding: '10px 14px 12px' }}>
             {(['ingresos', 'costos', 'gastos', 'resultado', 'margenBruto'] as Serie[])
               .filter((s) => (conCostos || (s !== 'costos' && s !== 'margenBruto')) && (s !== 'margenBruto' || visible('margenBruto')))
               .map((s) => (
-                <div key={s} style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div key={s} style={{ padding: '6px 0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#374151', fontWeight: s === 'resultado' ? 800 : 600 }}>
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR[s], display: 'inline-block' }} />

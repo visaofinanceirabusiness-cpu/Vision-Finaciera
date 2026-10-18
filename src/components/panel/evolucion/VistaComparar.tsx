@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { PuntoEvolucionCalculado } from '@/lib/evolucionResultado';
 import { agrupar, etiquetaPeriodo, variacion, type Granularidad } from '@/lib/evolucionFinanciera';
-import { AZUL, BotonFlecha, COLOR, SUBIR_ES_BUENO, Variacion, controlEstilo, type Serie } from './compartido';
+import { AZUL, BotonFlecha, COLOR, SUBIR_ES_BUENO, Variacion, controlEstilo, useAncho, type Serie } from './compartido';
 
 // COMPARAR — mismos períodos de años distintos, lado a lado
 // =====================================================
@@ -15,9 +15,8 @@ import { AZUL, BotonFlecha, COLOR, SUBIR_ES_BUENO, Variacion, controlEstilo, typ
 
 type Modo = Extract<Granularidad, 'MES' | 'TRIMESTRE' | 'SEMESTRE'>;
 
-const ANCHO = 1180;
-const ALTO = 340;
-const MARGEN = { izq: 78, der: 24, sup: 24, inf: 44 };
+const ALTO = 420;
+const MARGEN = { izq: 86, der: 24, sup: 24, inf: 46 };
 
 const COLORES_ANIO = ['#1d4ed8', '#2e8b57', '#ea8a1a', '#7c3aed'];
 const MAX_ANIOS = 4;
@@ -54,6 +53,7 @@ export function VistaComparar({
   const [serie, setSerie] = useState<Serie>('ingresos');
   const [elegida, setElegida] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [refGrafico, anchoGrafico] = useAncho();
 
   const seriesDisponibles = SERIES.filter((s) => conCostos || (s !== 'costos' && s !== 'margenBruto'));
   const aniosOrdenados = [...anios].sort().reverse(); // el más reciente primero
@@ -97,6 +97,7 @@ export function VistaComparar({
   const minValor = Math.min(...todos, 0);
   const rangoValores = maxValor - minValor || 1;
 
+  const ANCHO = Math.max(anchoGrafico, 420);
   const anchoUtil = ANCHO - MARGEN.izq - MARGEN.der;
   const altoUtil = ALTO - MARGEN.sup - MARGEN.inf;
   const anchoGrupo = anchoUtil / n;
@@ -151,8 +152,7 @@ export function VistaComparar({
   return (
     <div>
       <style>{`
-        .evo-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
-        @media (max-width: 860px) { .evo-cuerpo { grid-template-columns: minmax(0, 1fr); } }
+        .evo-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
       `}</style>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '10px 0 12px' }}>
@@ -220,8 +220,8 @@ export function VistaComparar({
       </div>
 
       <div className="evo-cuerpo">
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <div style={{ position: 'relative', minWidth: 640 }}>
+        <div ref={refGrafico} style={{ overflowX: 'auto', paddingBottom: 4 }}>
+          <div style={{ position: 'relative', width: ANCHO }}>
             <svg
               viewBox={`0 0 ${ANCHO} ${ALTO}`}
               style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y', cursor: 'crosshair' }}
@@ -238,7 +238,7 @@ export function VistaComparar({
                 return (
                   <g key={f}>
                     <line x1={MARGEN.izq} x2={ANCHO - MARGEN.der} y1={y} y2={y} stroke="#eef2f6" strokeWidth="1" />
-                    <text x={MARGEN.izq - 10} y={y + 4} textAnchor="end" fontSize="13" fill="#94a3b8">
+                    <text x={MARGEN.izq - 10} y={y + 4} textAnchor="end" fontSize="14" fill="#94a3b8">
                       {formato(minValor + f * rangoValores)}
                     </text>
                   </g>
@@ -270,7 +270,7 @@ export function VistaComparar({
                         />
                       );
                     })}
-                    <text x={MARGEN.izq + (i + 0.5) * anchoGrupo} y={ALTO - 14} textAnchor="middle" fontSize="14" fontWeight={i === indiceActivo ? 800 : 600} fill={i === indiceActivo ? AZUL : '#6e7781'}>
+                    <text x={MARGEN.izq + (i + 0.5) * anchoGrupo} y={ALTO - 14} textAnchor="middle" fontSize="15" fontWeight={i === indiceActivo ? 800 : 600} fill={i === indiceActivo ? AZUL : '#6e7781'}>
                       {etiquetaCategoria(i)}
                     </text>
                   </g>
@@ -323,11 +323,11 @@ export function VistaComparar({
             </div>
           </div>
 
-          <div style={{ padding: '6px 12px 12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0 24px', padding: '10px 14px 12px', alignItems: 'start' }}>
             {aniosOrdenados.map((a) => {
               const v = valores[a][indiceElegido];
               return (
-                <div key={a} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '9px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div key={a} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '9px 0' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: '#374151' }}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorDe(a), display: 'inline-block' }} />
                     {a}
@@ -340,7 +340,7 @@ export function VistaComparar({
             {anterior ? (
               <div
                 style={{
-                  marginTop: 12,
+                  marginTop: 4,
                   borderRadius: 12,
                   padding: '10px 12px',
                   background: diferenciaBuena === null ? '#f1f5f9' : diferenciaBuena ? '#ecfdf3' : '#fef2f2',
