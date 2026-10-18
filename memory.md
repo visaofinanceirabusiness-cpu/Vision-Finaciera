@@ -714,3 +714,9 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 ## Mini-Juego: resumen en el festejo (2026-10-18)
 - Al confirmar, el festejo (`CelebracionMiniJuego`) muestra debajo del Sabio un resumen de la jugada: operación y monto destacados, más categoría, medio, contacto, producto, cuotas y fecha. El festejo dura 5 s cuando hay resumen (3,5 s sin él).
 - Mini-Juego, flujo de confirmación (todos los perfiles): el botón del monto ahora es "¡Jugada preparada!" y lleva a una pantalla de resumen (`paso 'resumen'`, mismo `BloqueResumenJugada` que el festejo) con Confirmar y Volver; recién Confirmar graba. Si el motor rechaza, el error se ve en el resumen.
+
+## Clientes y Proveedores como formas de pago, parejas (2026-10-18)
+- Perfiles de empresa (maestro y las 5 empresas existentes): forma de pago `CLI` "Clientes" (cuenta 1.1.2.0.1 Clientes a Cobrar) habilitada para VENTA y COBRO, y `PRO` renombrada de "Proveedor" a "Proveedores" (cuenta 2.1.1.0.1), ahora para COMPRA y PAGO. Antes Clientes a Cobrar solo se alcanzaba por la categoría de cobro CXC (no había venta a crédito) y Proveedor solo servía para compras.
+- El renombre actualizó formas_pago, matriz_operaciones (forma y clave) y los 9 registros de Equilibra; ningún otro lugar guardaba el nombre. Filas de matriz generadas como lo haría `generarMatrizOperaciones`, salvo las categorías que liquidan la misma cuenta (COBRO.CXC con Clientes, PAGO.Proveedores con Proveedores), que el motor igual rechaza.
+- Las empresas nuevas lo heredan del maestro. Las cuotas de cobro/pago funcionan sin cambios (Clientes es Activo a cobrar; Proveedores es Pasivo).
+- Encanto conserva sus nombres de cuenta personalizados ("Proveedor", "Tarjeta de credito a recibir").
