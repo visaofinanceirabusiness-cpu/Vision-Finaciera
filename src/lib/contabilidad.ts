@@ -74,6 +74,8 @@ export type PuntoLucroMes = {
   gastos: number;
 };
 
+import type { FotoMes } from './indicadoresFinancieros';
+
 export type IndicadoresPanel = {
   // ---- "Tu negocio hoy": NO dependen del período ----
   activos: number;
@@ -108,6 +110,8 @@ export type IndicadoresPanel = {
   // Gráficos
   ventasMensuales: PuntoMes[];
   evolucionLucro: PuntoLucroMes[];
+  // Foto mensual de balance y resultado para los indicadores financieros (ver lib/indicadoresFinancieros.ts).
+  fotosMensuales: FotoMes[];
   ventasProductoCategorias: PuntoGrafico[];
   ventasServicioCategorias: PuntoGrafico[];
   stockCategorias: PuntoGrafico[];
@@ -612,6 +616,70 @@ export async function obtenerIndicadores(
     };
   });
 
+  // Foto por mes para los indicadores financieros: balance AL CIERRE del mes
+  // (acumulado con saldo inicial, igual que `acumuladoHastaFin`) y resultado de
+  // ESE mes. Los meses sin movimientos también llevan foto: el balance se
+  // arrastra. Una sola pasada cronológica por los asientos.
+  const asientosPorMes = new Map<string, Asiento[]>();
+  for (const asiento of asientos) {
+    const clave = asiento.fecha.slice(0, 7);
+    if (!clave) continue;
+    asientosPorMes.set(clave, [...(asientosPorMes.get(clave) ?? []), asiento]);
+  }
+
+  const fotosMensuales: FotoMes[] = [];
+  const mesesConDatos = Array.from(asientosPorMes.keys()).sort();
+
+  if (mesesConDatos.length > 0) {
+    const corrido = { debitos: new Map<string, number>(), creditos: new Map<string, number>() };
+    const sumarAlCorrido = (a: Asiento) => {
+      if (a.debito) corrido.debitos.set(a.debito, (corrido.debitos.get(a.debito) ?? 0) + a.importe);
+      if (a.credito) corrido.creditos.set(a.credito, (corrido.creditos.get(a.credito) ?? 0) + a.importe);
+    };
+
+    // Lo anterior al primer mes (no debería haber nada) entra al balance inicial.
+    const [anioIni, mesIni] = mesesConDatos[0].split('-').map(Number);
+    const [anioFin, mesFin] = mesesConDatos[mesesConDatos.length - 1].split('-').map(Number);
+    const totalMeses = (anioFin - anioIni) * 12 + (mesFin - mesIni) + 1;
+
+    for (let i = 0; i < totalMeses; i++) {
+      const numero = anioIni * 12 + (mesIni - 1) + i;
+      const clave = `${Math.floor(numero / 12)}-${String((numero % 12) + 1).padStart(2, '0')}`;
+      const delMes = asientosPorMes.get(clave) ?? [];
+
+      delMes.forEach(sumarAlCorrido);
+
+      const mesSolo = { debitos: new Map<string, number>(), creditos: new Map<string, number>() };
+      for (const a of delMes) {
+        if (a.debito) mesSolo.debitos.set(a.debito, (mesSolo.debitos.get(a.debito) ?? 0) + a.importe);
+        if (a.credito) mesSolo.creditos.set(a.credito, (mesSolo.creditos.get(a.credito) ?? 0) + a.importe);
+      }
+
+      const balance = (filtro: (c: CuentaPlan) => boolean) =>
+        hojas.filter(filtro).reduce((suma, c) => suma + saldoConSigno(c, corrido, true), 0);
+      const delResultado = (filtro: (c: CuentaPlan) => boolean) =>
+        hojas.filter(filtro).reduce((suma, c) => suma + saldoConSigno(c, mesSolo, false), 0);
+      const codigoEmpieza = (c: CuentaPlan, ...prefijos: string[]) => prefijos.some((p) => (c.codigo ?? '').startsWith(p));
+
+      const resultadoAcumuladoAlCierre =
+        balance((c) => c.tipo_saldo === 'INGRESO') - balance((c) => c.tipo_saldo === 'GASTO') - balance((c) => c.tipo_saldo === 'COSTO');
+
+      fotosMensuales.push({
+        clave,
+        activoCorriente: redondear(balance((c) => codigoEmpieza(c, '1.1.', '1.3.'))),
+        mercaderias: redondear(balance((c) => codigoEmpieza(c, '1.1.3.'))),
+        activoTotal: redondear(balance((c) => c.tipo_saldo === 'ACTIVO')),
+        pasivoCorriente: redondear(balance((c) => codigoEmpieza(c, '2.1.'))),
+        pasivoTotal: redondear(balance((c) => c.tipo_saldo === 'PASIVO')),
+        patrimonioNeto: redondear(balance((c) => c.tipo_saldo === 'PATRIMONIO') + resultadoAcumuladoAlCierre),
+        ingresos: redondear(delResultado((c) => c.tipo_saldo === 'INGRESO')),
+        costos: redondear(delResultado((c) => c.tipo_saldo === 'COSTO')),
+        gastosOperativos: redondear(delResultado((c) => c.tipo_saldo === 'GASTO' && !codigoEmpieza(c, '6.4.', '6.5.'))),
+        gastosNoOperativos: redondear(delResultado((c) => c.tipo_saldo === 'GASTO' && codigoEmpieza(c, '6.4.', '6.5.'))),
+      });
+    }
+  }
+
   // Ventas por categoría: del período seleccionado, separadas en dos
   // gráficos — Productos y Servicios — porque un perfil Mixto puede
   // vender ambas cosas y mezclarlas en una sola torta no deja ver
@@ -760,6 +828,7 @@ export async function obtenerIndicadores(
 
     ventasMensuales,
     evolucionLucro,
+    fotosMensuales,
     ventasProductoCategorias,
     ventasServicioCategorias,
     stockCategorias,

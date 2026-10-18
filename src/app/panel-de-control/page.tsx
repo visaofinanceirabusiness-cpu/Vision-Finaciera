@@ -11,6 +11,7 @@ import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
 import { GRUPOS_ACTIVO, GRUPOS_PASIVO, GRUPOS_PATRIMONIO } from '@/components/panel/gruposComposicion';
 import type { GrupoComposicion } from '@/lib/gruposActivo';
 import { EvolucionFinanciera } from '@/components/panel/evolucion/EvolucionFinanciera';
+import { IndicadoresFinancieros } from '@/components/panel/indicadores/IndicadoresFinancieros';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
@@ -1079,6 +1080,12 @@ export default function MiNegocioPage() {
               colores={colores}
               idioma={idioma}
             />
+          </section>
+        )}
+
+        {!esFamiliar && (indicadores?.fotosMensuales?.length ?? 0) > 0 && (
+          <section style={{ marginBottom: 20 }}>
+            <IndicadoresFinancieros fotos={indicadores?.fotosMensuales ?? []} idioma={idioma} imagenSabio="/sabio/sabio-evolucion.webp" />
           </section>
         )}
           </>
