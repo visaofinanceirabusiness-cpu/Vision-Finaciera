@@ -19,6 +19,7 @@ import {
 } from '@/lib/evolucionFinanciera';
 import { AZUL, BotonFlecha, COLOR, PestanasVista, SUBIR_ES_BUENO, Variacion, controlEstilo, type Serie, type VistaEvolucion } from './compartido';
 import { VistaComparar } from './VistaComparar';
+import { VistaDetalles } from './VistaDetalles';
 
 // EVOLUCIÓN FINANCIERA — tarjeta del Panel (Tendência)
 // =====================================================
@@ -271,6 +272,10 @@ export function EvolucionFinanciera({
         })}
       </div>
 
+      {vista === 'DETALLES' ? (
+        <VistaDetalles serie={serie} totales={totales} conCostos={conCostos} simbolo={simbolo} idioma={idioma} etiqueta={etiqueta} />
+      ) : (
+        <>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         {(['ingresos', 'costos', 'gastos', 'resultado', 'margenBruto'] as Serie[])
           .filter((s) => conCostos || (s !== 'costos' && s !== 'margenBruto'))
@@ -422,6 +427,8 @@ export function EvolucionFinanciera({
           </div>
         </div>
       </div>
+        </>
+      )}
     </Tarjeta>
   );
 }

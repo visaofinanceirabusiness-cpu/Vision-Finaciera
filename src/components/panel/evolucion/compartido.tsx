@@ -77,12 +77,13 @@ export function BotonFlecha({ deshabilitado, onClick, etiqueta, children }: { de
   );
 }
 
-export type VistaEvolucion = 'TENDENCIA' | 'COMPARAR';
+export type VistaEvolucion = 'TENDENCIA' | 'COMPARAR' | 'DETALLES';
 
 export function PestanasVista({ vista, onCambiar, t }: { vista: VistaEvolucion; onCambiar: (v: VistaEvolucion) => void; t: (es: string, pt: string) => string }) {
   const opciones: { id: VistaEvolucion; etiqueta: string; icono: string }[] = [
     { id: 'TENDENCIA', etiqueta: t('Tendencia', 'Tendência'), icono: '📈' },
     { id: 'COMPARAR', etiqueta: t('Comparar', 'Comparar'), icono: '📊' },
+    { id: 'DETALLES', etiqueta: t('Detalles', 'Detalhes'), icono: '🧾' },
   ];
 
   return (
