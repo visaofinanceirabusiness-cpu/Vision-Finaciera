@@ -1852,7 +1852,7 @@ export function CentralDeLanzamientosTab({
                         disabled={esSalidaStock && (saldoPorProductoAFecha[p.id] ?? 0) <= 0}
                       >
                         {p.nombre}
-                        {esSalidaStock ? stockDisponible(idioma, saldoPorProductoAFecha[p.id] ?? 0) : ''}
+                        {stockDisponible(idioma, saldoPorProductoAFecha[p.id] ?? 0)}
                       </option>
                     ))}
                 </select>

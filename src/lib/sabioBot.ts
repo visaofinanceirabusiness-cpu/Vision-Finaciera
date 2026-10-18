@@ -298,10 +298,8 @@ async function avanzarAProductoODetalle(empresaId: string, datos: Datos): Promis
     .in('producto_id', delaCategoria.map((p) => p.id));
 
   const saldoPorProducto = Object.fromEntries((saldos ?? []).map((s) => [s.producto_id, Number(s.saldo ?? 0)]));
-  const esSalida = datos.operacion === 'VENTA' || datos.operacion === 'PERDIDA';
-
   const opcionesTexto = delaCategoria.map(
-    (p) => `${p.nombre}${esSalida ? ` (${t(idioma, 'stock', 'estoque')}: ${saldoPorProducto[p.id] ?? 0})` : ''}`
+    (p) => `${p.nombre} (${t(idioma, 'stock', 'estoque')}: ${saldoPorProducto[p.id] ?? 0})`
   );
 
   await guardarConversacion(empresaId, 'PRODUCTO', {
