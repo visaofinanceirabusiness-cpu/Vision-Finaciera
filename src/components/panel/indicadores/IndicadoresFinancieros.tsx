@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { etiquetaPeriodo } from '@/lib/evolucionFinanciera';
+import { TendenciaIndicador } from './TendenciaIndicador';
 import {
   INDICADORES,
   calcularIndicadores,
@@ -106,6 +107,7 @@ export function IndicadoresFinancieros({
   const [elegida, setElegida] = useState<string | null>(null);
   const [anualizar, setAnualizar] = useState(false);
   const [abierta, setAbierta] = useState<IndicadorId | null>(null);
+  const [tendencia, setTendencia] = useState<IndicadorId | null>(null);
 
   const claves = useMemo(() => fotos.map((f) => f.clave), [fotos]);
   const claveActiva = elegida && claves.includes(elegida) ? elegida : claves[claves.length - 1];
@@ -191,7 +193,20 @@ export function IndicadoresFinancieros({
               const colorValor = valor !== null && valor < 0 ? ROJO : AZUL;
 
               return (
-                <div key={id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: '12px 14px' }}>
+                <div
+                  key={id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={tendencia === id}
+                  onClick={() => setTendencia(tendencia === id ? null : id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setTendencia(tendencia === id ? null : id);
+                    }
+                  }}
+                  style={{ background: '#fff', border: `${tendencia === id ? 2 : 1}px solid ${tendencia === id ? AZUL : '#e5e7eb'}`, borderRadius: 14, padding: tendencia === id ? '11px 13px' : '12px 14px', cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: '#374151', lineHeight: 1.25 }}>
                       {nombre}
@@ -199,7 +214,10 @@ export function IndicadoresFinancieros({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAbierta(abierta === id ? null : id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAbierta(abierta === id ? null : id);
+                      }}
                       aria-label={t('Cómo se calcula', 'Como é calculado')}
                       aria-expanded={abierta === id}
                       style={{ border: '1px solid #cbd5e1', background: abierta === id ? '#eef4fb' : '#fff', color: AZUL, borderRadius: '50%', width: 22, height: 22, fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0, padding: 0 }}
@@ -237,10 +255,25 @@ export function IndicadoresFinancieros({
                   </div>
 
                   <MiniLinea puntos={serie.map((p) => p.valor)} color={cambio?.favorable === false ? ROJO : VERDE} />
+                  <div style={{ fontSize: 12, fontWeight: 700, color: AZUL, textAlign: 'right', marginTop: 2 }}>{tendencia === id ? t('Ocultar tendencia ▴', 'Ocultar tendência ▴') : t('Ver tendencia ▾', 'Ver tendência ▾')}</div>
                 </div>
               );
             })}
           </div>
+
+          {tendencia && bloque.indicadores.includes(tendencia) && (
+            <TendenciaIndicador
+              fotos={fotos}
+              id={tendencia}
+              nombre={textos(tendencia, esPT).nombre}
+              anualizar={anualizar}
+              claveActiva={claveActiva}
+              onElegir={setElegida}
+              onCerrar={() => setTendencia(null)}
+              formatear={formatear}
+              idioma={idioma}
+            />
+          )}
         </div>
       ))}
     </Tarjeta>
