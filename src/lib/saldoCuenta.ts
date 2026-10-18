@@ -216,3 +216,27 @@ export async function saldosDeMedios(empresaId: string, nombres: string[], fecha
 
   return saldos;
 }
+
+// Saldo de stock por producto a una fecha (entradas − salidas hasta ese día):
+// mismo criterio que la vista saldo_stock, pero cortado en la fecha elegida
+// para que coincida con el saldo de los medios de pago, que también respeta
+// la fecha del formulario.
+export async function saldosDeStock(empresaId: string, fecha: string): Promise<Record<string, number>> {
+  if (!fecha) return {};
+
+  const { data, error } = await supabase
+    .from('movimientos_stock')
+    .select('producto_id, tipo, cantidad')
+    .eq('empresa_id', empresaId)
+    .lte('fecha', fecha);
+
+  if (error) throw error;
+
+  const saldos: Record<string, number> = {};
+  for (const fila of data ?? []) {
+    const cantidad = Number(fila.cantidad ?? 0);
+    saldos[fila.producto_id] = (saldos[fila.producto_id] ?? 0) + (fila.tipo === 'ENTRADA' ? cantidad : -cantidad);
+  }
+
+  return saldos;
+}

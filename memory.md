@@ -706,3 +706,6 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 
 ## Gráfico de evolución con Costos (2026-10-18)
 - `EvolucionFamiliarChart` ahora muestra Costos y "Resultado = Ingresos − Costos − Gastos" cuando la empresa tiene cuentas COSTO (Familia no cambia). Corrige un error de la unificación del 17/10: el resultado de empresas no restaba los costos. Margen bruto (Ingresos − Costos) como serie opcional, apagada por defecto; chips para prender/apagar cada serie. Cálculo en `lib/evolucionResultado.ts` (+test). Validado contra SQL de Encanto (marzo: 466 − 284,77 − 26 = 155).
+
+## Mini-Juego: stock visible al elegir producto (2026-10-18)
+- Cada tarjeta de producto muestra "Stock: N unidad" a la fecha del juego (`saldosDeStock` en `lib/saldoCuenta.ts`, mismo criterio que la vista `saldo_stock` pero cortado por fecha). Sabio Bot y Lanzamiento Central no lo muestran todavía.

@@ -29,7 +29,7 @@ import {
 import { crearOUsarContactoPorTelefono } from '@/lib/clientes';
 import { iconoOperacion, iconoParaTexto, asignarIconos, SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { fechaLocalHoy } from '@/lib/fecha';
-import { saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
+import { saldosDeCategorias, saldosDeMedios, saldosDeStock } from '@/lib/saldoCuenta';
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { CelebracionMiniJuego } from './CelebracionMiniJuego';
 import type { DatosSimulados } from '@/lib/tutorialSimulacion';
@@ -129,6 +129,7 @@ export function MiniJuego({
   const [categorias, setCategorias] = useState<CategoriaJuego[]>([]);
   const [formasPago, setFormasPago] = useState<string[]>([]);
   const [productos, setProductos] = useState<ProductoJuego[]>([]);
+  const [saldosStock, setSaldosStock] = useState<Record<string, number>>({});
   const [contactos, setContactos] = useState<string[]>([]);
   const [creandoContacto, setCreandoContacto] = useState(false);
   const [guardandoContacto, setGuardandoContacto] = useState(false);
@@ -205,6 +206,26 @@ export function MiniJuego({
       cancelado = true;
     };
   }, [empresaId, operacion, categorias, fecha, simulacion]);
+
+  // Stock de cada producto a la fecha, visible al elegirlo — igual que el
+  // saldo de las cuentas de dinero.
+  useEffect(() => {
+    if (simulacion || paso !== 'producto') return;
+
+    let cancelado = false;
+
+    saldosDeStock(empresaId, fecha)
+      .then((saldos) => {
+        if (!cancelado) setSaldosStock(saldos);
+      })
+      .catch(() => {
+        if (!cancelado) setSaldosStock({});
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [empresaId, fecha, paso, simulacion]);
 
   // Saldo de la cuenta detrás de cada medio (Activo: Caja, Banco... o
   // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
@@ -938,7 +959,17 @@ export function MiniJuego({
                   </p>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                    {productosFiltrados.map((p) => tarjeta('📦', p.nombre, () => elegirProducto(p), p.id))}
+                    {productosFiltrados.map((p) =>
+                      tarjeta(
+                        '📦',
+                        p.nombre,
+                        () => elegirProducto(p),
+                        p.id,
+                        simulacion
+                          ? undefined
+                          : `${esPT ? 'Estoque' : 'Stock'}: ${(saldosStock[p.id] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 })}${p.unidad_medida ? ` ${p.unidad_medida}` : ''}`
+                      )
+                    )}
                   </div>
                 )}
               </>
