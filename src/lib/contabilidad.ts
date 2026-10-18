@@ -592,23 +592,23 @@ export async function obtenerIndicadores(
     new Set(asientos.map((asiento) => asiento.fecha.slice(0, 7)).filter(Boolean))
   ).sort();
 
-  function totalTipoEnMes(tipo: string, clave: string): number {
+  // Todo el historial (no solo 12 meses): el gráfico de evolución tiene su
+  // propio selector de rango y compara años entre sí.
+  const evolucionLucro: PuntoLucroMes[] = clavesMeses.map((clave) => {
+    const mes = Number(clave.slice(5, 7));
     const acumuladoMes = acumular((fecha) => fecha.slice(0, 7) === clave);
 
-    return hojas
-      .filter((cuenta) => cuenta.tipo_saldo === tipo)
-      .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoMes, false), 0);
-  }
-
-  const evolucionLucro: PuntoLucroMes[] = clavesMeses.slice(-12).map((clave) => {
-    const mes = Number(clave.slice(5, 7));
+    const totalTipo = (tipo: string) =>
+      hojas
+        .filter((cuenta) => cuenta.tipo_saldo === tipo)
+        .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoMes, false), 0);
 
     return {
       mes: MESES_CORTOS[mes - 1] ?? clave,
       clave,
-      ingresos: redondear(totalTipoEnMes('INGRESO', clave)),
-      costos: redondear(totalTipoEnMes('COSTO', clave)),
-      gastos: redondear(totalTipoEnMes('GASTO', clave)),
+      ingresos: redondear(totalTipo('INGRESO')),
+      costos: redondear(totalTipo('COSTO')),
+      gastos: redondear(totalTipo('GASTO')),
     };
   });
 

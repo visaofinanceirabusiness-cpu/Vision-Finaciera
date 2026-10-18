@@ -10,7 +10,7 @@ import { DistribucionPieChart } from '@/components/panel/DistribucionPieChart';
 import { ComposicionPorGrupos } from '@/components/panel/ComposicionPorGrupos';
 import { GRUPOS_ACTIVO, GRUPOS_PASIVO, GRUPOS_PATRIMONIO } from '@/components/panel/gruposComposicion';
 import type { GrupoComposicion } from '@/lib/gruposActivo';
-import { EvolucionFamiliarChart } from '@/components/panel/EvolucionFamiliarChart';
+import { EvolucionFinanciera } from '@/components/panel/evolucion/EvolucionFinanciera';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { obtenerIndicadores, type IndicadoresPanel } from '@/lib/contabilidad';
 import { obtenerDefiniciones, calcularObjetivos, CATALOGO_INDICADORES, ayudaIndicador, type ObjetivoCalculado, type CategoriaObjetivo } from '@/lib/objetivos';
@@ -1410,7 +1410,7 @@ export default function MiNegocioPage() {
               </div>
             )}
 
-            <EvolucionFamiliarChart datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
+            <EvolucionFinanciera datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
           </section>
         )}
 

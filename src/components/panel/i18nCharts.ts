@@ -1,7 +1,7 @@
 // components/panel/i18nCharts.ts
 //
 // Diccionario compartido de los componentes de gráfico
-// (LucroChart, CategoryChart, EvolucionFamiliarChart,
+// (CategoryChart, EvolucionFinanciera,
 // DistribucionPieChart). Misma mecánica que lib/i18n.ts.
 
 import type { Diccionario } from '@/lib/i18n';
