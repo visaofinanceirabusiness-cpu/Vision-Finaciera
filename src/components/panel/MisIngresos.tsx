@@ -16,6 +16,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { crearCategoriaIngreso } from '@/lib/categorias';
+import { generarMatrizOperaciones } from '@/lib/motor';
 import { listarTodasLasCuotasCobro, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
 import {
   listarIngresosRecurrentes,
@@ -155,6 +157,17 @@ export function MisIngresos({
     recargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
+
+  // El plan base de las empresas solo trae categorías de COBRO para liquidar
+  // cuentas a cobrar; las de ingreso (alquileres, intereses, honorarios...) las
+  // arma cada cliente. Se crea desde el mismo formulario para no mandarlo a
+  // Configurações con el desplegable vacío.
+  async function crearCategoriaDeIngreso(nombre: string): Promise<string> {
+    const { nombre: creada } = await crearCategoriaIngreso(empresaId, nombre, 'COBRO');
+    await generarMatrizOperaciones(empresaId);
+    setCategorias((previo) => [...previo, creada].sort((a, b) => a.localeCompare(b)));
+    return creada;
+  }
 
   const hoy = fechaLocalHoy();
 
@@ -764,6 +777,7 @@ style={{
                   categorias={categorias}
                   formasPago={formasPago}
                   plantilla={editando}
+                  onCrearCategoria={crearCategoriaDeIngreso}
                   onCancelar={() => {
                     setCreando(false);
                     setEditando(null);
@@ -912,12 +926,15 @@ style={{
   );
 }
 
+const NUEVA_CATEGORIA = '__NUEVA_CATEGORIA__';
+
 function FormularioIngresoRecurrente({
   esPT,
   colores,
   categorias,
   formasPago,
   plantilla,
+  onCrearCategoria,
   onGuardar,
   onCancelar,
 }: {
@@ -926,6 +943,7 @@ function FormularioIngresoRecurrente({
   categorias: string[];
   formasPago: string[];
   plantilla: IngresoRecurrente | null;
+  onCrearCategoria: (nombre: string) => Promise<string>;
   onGuardar: (datos: { nombre: string; categoria: string; formaPago: string; montoHabitual: number; diaMes: number }) => Promise<void>;
   onCancelar: () => void;
 }) {
@@ -936,6 +954,32 @@ function FormularioIngresoRecurrente({
   const [diaMes, setDiaMes] = useState(plantilla ? String(plantilla.dia_mes) : '10');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
+  const [nombreCategoriaNueva, setNombreCategoriaNueva] = useState('');
+  const [guardandoCategoria, setGuardandoCategoria] = useState(false);
+
+  async function crearCategoria() {
+    const nombreLimpio = nombreCategoriaNueva.trim();
+
+    if (!nombreLimpio) {
+      setError(esPT ? 'Digite o nome da categoria.' : 'Escribí el nombre de la categoría.');
+      return;
+    }
+
+    setError('');
+    setGuardandoCategoria(true);
+
+    try {
+      const creada = await onCrearCategoria(nombreLimpio);
+      setCategoria(creada);
+      setCreandoCategoria(false);
+      setNombreCategoriaNueva('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error inesperado.');
+    } finally {
+      setGuardandoCategoria(false);
+    }
+  }
 
   async function guardar() {
     const monto = Number(montoHabitual);
@@ -978,13 +1022,25 @@ function FormularioIngresoRecurrente({
           onChange={(e) => setNombre(e.target.value)}
         />
 
-        <select style={inputEstilo} value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+        <select
+          style={inputEstilo}
+          value={creandoCategoria ? NUEVA_CATEGORIA : categoria}
+          onChange={(e) => {
+            if (e.target.value === NUEVA_CATEGORIA) {
+              setCreandoCategoria(true);
+              return;
+            }
+            setCreandoCategoria(false);
+            setCategoria(e.target.value);
+          }}
+        >
           <option value="">{esPT ? 'Categoria de receita...' : 'Categoría de ingreso...'}</option>
           {categorias.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
+          <option value={NUEVA_CATEGORIA}>{esPT ? '+ Criar categoria de receita nova' : '+ Crear categoría de ingreso nueva'}</option>
         </select>
 
         <select style={inputEstilo} value={formaPago} onChange={(e) => setFormaPago(e.target.value)}>
@@ -996,6 +1052,34 @@ function FormularioIngresoRecurrente({
           ))}
         </select>
       </div>
+
+      {categorias.length === 0 && !creandoCategoria && (
+        <div style={{ fontSize: 11.5, color: '#6e7781' }}>
+          {esPT
+            ? 'Você ainda não tem categorias de receita. Escolha "+ Criar categoria de receita nova" na lista para criar a primeira (ex.: Aluguel recebido).'
+            : 'Todavía no tenés categorías de ingreso. Elegí "+ Crear categoría de ingreso nueva" en la lista para crear la primera (ej. Alquileres cobrados).'}
+        </div>
+      )}
+
+      {creandoCategoria && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            style={inputEstilo}
+            autoFocus
+            placeholder={esPT ? 'Nome da categoria (ex.: Aluguel recebido)' : 'Nombre de la categoría (ej. Alquileres cobrados)'}
+            value={nombreCategoriaNueva}
+            onChange={(e) => setNombreCategoriaNueva(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={guardandoCategoria}
+            onClick={crearCategoria}
+            style={{ border: 'none', background: colores.verde, color: '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: guardandoCategoria ? 0.6 : 1 }}
+          >
+            {guardandoCategoria ? (esPT ? 'Criando...' : 'Creando...') : esPT ? 'Criar categoria' : 'Crear categoría'}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input
