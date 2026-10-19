@@ -736,3 +736,7 @@ Hasta resolverlos, esas cuentas siguen SIN operación (incumple la regla dura): 
 - Validado con SQL (Encanto, oct-2026): el balance de la foto cierra (descuadre 0).
 - Entrega 3 hecha: al tocar un tile se abre `TendenciaIndicador.tsx` bajo su bloque (línea mes a mes con rango 6/12/24/todo, tooltip al pasar el cursor o tocar, referencia 1,0× en liquidez y 0 si hay negativos, resumen mes elegido/promedio/máximo/mínimo; tocar un punto cambia el mes de toda la tarjeta).
 - Sabio propio de la tarjeta: `public/sabio/sabio-indicadores.webp` (búho con la tablet y tarjetas flotantes de gráficos y pulgares).
+
+## Festejo de escalones en el lobby (2026-10-19)
+- Antes el festejo de Objetivos Escalonados solo salía al entrar a Objetivos (Panel de Control). Ahora también al iniciar sesión, en el lobby (`app/page.tsx`): calcula los escalones del nivel y festeja el primero cumplido sin ver, encadenando los siguientes. Un festejo a la vez: espera a que se cierren el hito de gamificación y el trofeo. Solo si `mostrar_objetivos`.
+- El "ya visto" se comparte entre lobby y Objetivos vía `lib/escalonesVistos.ts` (localStorage por dispositivo, clave `escalon_visto_<empresa>_<nivel>_<tipo>_<indice>`): lo visto en uno no se repite en el otro. En otro dispositivo se vuelve a festejar (limitación conocida, igual que antes).

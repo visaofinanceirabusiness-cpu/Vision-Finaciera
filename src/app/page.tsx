@@ -20,6 +20,10 @@ import { GamificacionHitoModal } from '@/components/panel/GamificacionHitoModal'
 import { obtenerTrofeoPendiente, marcarTrofeoVisto, type TrofeoPendiente } from '@/lib/trofeos';
 import { FAMILIAS_TROFEO, descripcionMedalla, tiposTrofeoDelPerfil } from '@/lib/trofeosRangos';
 import { FestejoModal } from '@/components/panel/FestejoModal';
+import { obtenerObjetivosEscalonados, tiposEscalonadosDelPerfil, type ObjetivoEscalonado, type TipoEscalonado } from '@/lib/objetivosEscalonados';
+import { claveEscalonVisto, escalonYaVisto, marcarEscalonVisto, siguienteEscalonPendiente } from '@/lib/escalonesVistos';
+import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
+import type { TipoFestejo } from '@/lib/festejoVisual';
 import { VitrinaTrofeos } from '@/components/panel/VitrinaTrofeos';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { SabioHero } from '@/components/panel/SabioHero';
@@ -143,6 +147,9 @@ export default function InicioPage() {
     useState<ProgresoGamificacion | null>(null);
   const [hitoActual, setHitoActual] = useState<HitoPendiente | null>(null);
   const [trofeoActual, setTrofeoActual] = useState<TrofeoPendiente | null>(null);
+  // Escalones de Objetivos Escalonados recién cumplidos (ver lib/escalonesVistos.ts).
+  const [escalones, setEscalones] = useState<{ nivel: number; empresaId: string; objetivos: ObjetivoEscalonado[] } | null>(null);
+  const [escalonActual, setEscalonActual] = useState<{ tipo: TipoEscalonado; indice: number } | null>(null);
   const [objetivos, setObjetivos] = useState<ObjetivoResumen[]>([]);
   const [alertaSabio, setAlertaSabio] = useState<string | null>(null);
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
@@ -329,6 +336,26 @@ export default function InicioPage() {
         );
       } catch (errorTrofeo) {
         console.warn('No se pudo calcular el trofeo pendiente:', errorTrofeo);
+      }
+
+      // Escalones cumplidos (Objetivos Escalonados): se festejan acá, al iniciar
+      // sesión, y no solo al entrar a Objetivos. Comparten el registro de
+      // "ya visto" con esa sección, así no se repiten.
+      if (progresoActual && configFinal.mostrar_objetivos) {
+        try {
+          const esFamiliarEmpresa = codigoDePerfil(empresaData?.perfiles_empresa) === 'FAMILIAR';
+          const tipos = tiposEscalonadosDelPerfil(esFamiliarEmpresa, esFamiliarEmpresa ? false : await empresaManejaMercaderia(perfilData.empresa_id));
+          const objetivosEscalonados = await obtenerObjetivosEscalonados(perfilData.empresa_id, progresoActual.nivel, progresoActual.operacionesMin, tipos);
+
+          setEscalones({ nivel: progresoActual.nivel, empresaId: perfilData.empresa_id, objetivos: objetivosEscalonados });
+          setEscalonActual(
+            siguienteEscalonPendiente(objetivosEscalonados, (tipo, indice) =>
+              escalonYaVisto(claveEscalonVisto(perfilData.empresa_id, progresoActual!.nivel, tipo, indice))
+            )
+          );
+        } catch (errorEscalones) {
+          console.warn('No se pudieron calcular los escalones cumplidos:', errorEscalones);
+        }
       }
 
       // Objetivos del mes en curso.
@@ -611,6 +638,18 @@ export default function InicioPage() {
   // Mismo patrón que cerrarHitoActual: marca el trofeo como visto (se
   // guarda para siempre, ver trofeos_empresa) y encadena el siguiente
   // si un lote grande de operaciones cruzó varios de una vez.
+  function cerrarEscalonActual() {
+    if (!escalonActual || !escalones) {
+      setEscalonActual(null);
+      return;
+    }
+
+    marcarEscalonVisto(claveEscalonVisto(escalones.empresaId, escalones.nivel, escalonActual.tipo, escalonActual.indice));
+    setEscalonActual(
+      siguienteEscalonPendiente(escalones.objetivos, (tipo, indice) => escalonYaVisto(claveEscalonVisto(escalones.empresaId, escalones.nivel, tipo, indice)))
+    );
+  }
+
   async function cerrarTrofeoActual() {
     if (!trofeoActual || !perfil?.empresa_id) {
       setTrofeoActual(null);
@@ -836,6 +875,27 @@ export default function InicioPage() {
             onCerrar={cerrarTrofeoActual}
           />
         )}
+
+        {/* Un festejo a la vez: los escalones esperan a que se cierren el hito y el trofeo. */}
+        {escalonActual && escalones && !hitoActual && !trofeoActual && (() => {
+          const objetivoFestejado = escalones.objetivos.find((o) => o.tipo === escalonActual.tipo);
+          if (!objetivoFestejado) return null;
+          const tiers: TipoFestejo[] = ['BRONCE', 'PLATA', 'ORO'];
+
+          return (
+            <FestejoModal
+              tipo={tiers[escalonActual.indice]}
+              claveAnimacion={`${escalonActual.tipo}-${escalonActual.indice}`}
+              emoji={objetivoFestejado.emoji}
+              idioma={idioma}
+              tituloEs="¡Escalón cumplido!"
+              tituloPt="Degrau cumprido!"
+              subtituloEs={`${objetivoFestejado.nombre}: llegaste a ${objetivoFestejado.checkpoints[escalonActual.indice]}.`}
+              subtituloPt={`${objetivoFestejado.nombrePT}: você chegou a ${objetivoFestejado.checkpoints[escalonActual.indice]}.`}
+              onCerrar={cerrarEscalonActual}
+            />
+          );
+        })()}
 
         {/* =================================================
             SABIO BOT — protagonista del lobby.
