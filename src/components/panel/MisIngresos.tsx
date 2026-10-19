@@ -123,24 +123,36 @@ export function MisIngresos({
         setErrorDevengo(e instanceof Error ? e.message : 'Error inesperado.');
       });
 
-      const [cuotasData, recordatoriosData, plantillasData, catData, fpData] = await Promise.all([
+      const [cuotasData, recordatoriosData, plantillasData, catData, fpData, vinculosData, cuentasData] = await Promise.all([
         listarTodasLasCuotasCobro(empresaId),
         listarRecordatoriosIngresosConHistorial(empresaId),
         listarIngresosRecurrentes(empresaId),
         supabase
           .from('categorias_operacion')
-          .select('nombre')
+          .select('id, nombre')
           .eq('empresa_id', empresaId)
           .eq('operacion', 'COBRO')
           .eq('tipo', 'INGRESO')
           .order('nombre'),
         supabase.from('formas_pago').select('id, nombre').eq('empresa_id', empresaId).order('nombre'),
+        supabase.from('categorias_operacion_cuentas').select('categoria_operacion_id, cuenta_id').eq('empresa_id', empresaId).eq('activo', true),
+        supabase.from('plan_cuentas').select('id, tipo_saldo').eq('empresa_id', empresaId),
       ]);
+
+      // Algunos planes marcan como "ingreso" las categorías que solo liquidan una
+      // cuenta a cobrar (Clientes / Tarjeta a Cobrar): su cuenta es de Activo, no
+      // de Ingreso, y no sirven como categoría de un ingreso recurrente.
+      const tipoPorCuenta = new Map((cuentasData.data ?? []).map((c) => [c.id as string, c.tipo_saldo as string]));
+      const categoriasDeLiquidacion = new Set(
+        (catData.data ?? [])
+          .filter((c) => (vinculosData.data ?? []).some((v) => v.categoria_operacion_id === c.id && tipoPorCuenta.get(v.cuenta_id as string) === 'ACTIVO'))
+          .map((c) => c.nombre as string)
+      );
 
       setCuotas(cuotasData);
       setRecordatorios(recordatoriosData);
       setPlantillas(plantillasData);
-      setCategorias((catData.data ?? []).map((c) => c.nombre));
+      setCategorias((catData.data ?? []).map((c) => c.nombre as string).filter((nombre) => !categoriasDeLiquidacion.has(nombre)));
       setFormasPago((fpData.data ?? []).map((f) => f.nombre));
       setNombreCuentaPorId(Object.fromEntries((fpData.data ?? []).map((f) => [f.id as string, f.nombre as string])));
       setError('');
