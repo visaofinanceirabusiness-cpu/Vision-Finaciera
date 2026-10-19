@@ -21,30 +21,10 @@ import {
   TIPOS_FAMILIA,
 } from '@/lib/objetivosEscalonados';
 import type { TipoFestejo } from '@/lib/festejoVisual';
+import { claveEscalonVisto, escalonYaVisto, marcarEscalonVisto, siguienteEscalonPendiente } from '@/lib/escalonesVistos';
 import { FestejoModal } from './FestejoModal';
 
 const TIER_POR_INDICE: TipoFestejo[] = ['BRONCE', 'PLATA', 'ORO'];
-
-function claveVisto(empresaId: string, nivel: number, tipo: TipoEscalonado, indice: number): string {
-  return `escalon_visto_${empresaId}_${nivel}_${tipo}_${indice}`;
-}
-
-function yaVisto(clave: string): boolean {
-  try {
-    return window.localStorage.getItem(clave) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function marcarVisto(clave: string) {
-  try {
-    window.localStorage.setItem(clave, '1');
-  } catch {
-    // localStorage bloqueado (modo privado, etc.) — el festejo puede
-    // repetirse en la próxima visita, no es grave.
-  }
-}
 
 export function ObjetivosEscalonados({
   empresaId,
@@ -81,15 +61,8 @@ export function ObjetivosEscalonados({
         if (!yaCargado.current) {
           yaCargado.current = true;
 
-          for (const objetivo of datos) {
-            for (let indice = 0; indice < objetivo.checkpointsCumplidos; indice++) {
-              const clave = claveVisto(empresaId, nivel, objetivo.tipo, indice);
-              if (!yaVisto(clave)) {
-                setFestejo({ tipo: objetivo.tipo, indice });
-                return;
-              }
-            }
-          }
+          const pendiente = siguienteEscalonPendiente(datos, (tipo, indice) => escalonYaVisto(claveEscalonVisto(empresaId, nivel, tipo, indice)));
+          if (pendiente) setFestejo(pendiente);
         }
       })
       .catch((errorEscalonados) => {
@@ -103,20 +76,12 @@ export function ObjetivosEscalonados({
 
   function cerrarFestejo() {
     if (!festejo) return;
-    marcarVisto(claveVisto(empresaId, nivel, festejo.tipo, festejo.indice));
+    marcarEscalonVisto(claveEscalonVisto(empresaId, nivel, festejo.tipo, festejo.indice));
     setFestejo(null);
 
-    // Busca el siguiente checkpoint pendiente de festejar (mismo
-    // patrón que el modal de hitos de gamificación).
-    for (const objetivo of objetivos) {
-      for (let indice = 0; indice < objetivo.checkpointsCumplidos; indice++) {
-        const clave = claveVisto(empresaId, nivel, objetivo.tipo, indice);
-        if (!yaVisto(clave)) {
-          setFestejo({ tipo: objetivo.tipo, indice });
-          return;
-        }
-      }
-    }
+    // Siguiente escalón pendiente de festejar (mismo patrón que el modal de
+    // hitos de gamificación).
+    setFestejo(siguienteEscalonPendiente(objetivos, (tipo, indice) => escalonYaVisto(claveEscalonVisto(empresaId, nivel, tipo, indice))));
   }
 
   if (!objetivos.length) return null;
