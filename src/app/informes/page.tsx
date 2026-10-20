@@ -85,6 +85,7 @@ export default function InformesPage() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [idioma, setIdioma] = useState<string | null>(null);
+  const [esFamiliar, setEsFamiliar] = useState(false);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
   const [nombresMedioFinanciero, setNombresMedioFinanciero] = useState<Set<string>>(new Set());
@@ -144,10 +145,12 @@ export default function InformesPage() {
 
       const { data: empresaData } = await supabase
         .from('empresas')
-        .select('moneda, idioma')
+        .select('moneda, idioma, perfiles_empresa(codigo)')
         .eq('id', perfil.empresa_id)
         .maybeSingle();
 
+      const relacionPerfil = empresaData?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
+      setEsFamiliar((Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) === 'FAMILIAR');
       setMoneda(empresaData?.moneda ?? null);
       setIdioma(empresaData?.idioma ?? null);
 
@@ -348,7 +351,7 @@ export default function InformesPage() {
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} periodoInicial={periodoInicial} />
               )}
-              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} />}
+              {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} esFamiliar={esFamiliar} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
             </>
           )}
@@ -763,7 +766,7 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
    PESTAÑA · ESTADO DE RESULTADO
 ========================================================== */
 
-function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial }: { hojas: CuentaPlan[]; asientos: Asiento[]; empresaId: string | null; periodoInicial: string }) {
+function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFamiliar }: { hojas: CuentaPlan[]; asientos: Asiento[]; empresaId: string | null; periodoInicial: string; esFamiliar: boolean }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
@@ -797,6 +800,18 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial }: { 
   const totalGastos = gastos.reduce((s, f) => s + f.saldoFinal, 0);
   const resultado = totalIngresos - totalCostos - totalGastos;
   const rentabilidad = totalIngresos !== 0 ? (resultado / totalIngresos) * 100 : 0;
+
+  // Empresas: el estado se arma en tres escalones (bruto → operacional → neto).
+  // Los gastos financieros (6.4) e impuestos (6.5) quedan debajo del operacional.
+  const esNoOperativo = (fila: { cuenta: CuentaPlan }) => ['6.4.', '6.5.'].some((prefijo) => (fila.cuenta.codigo ?? '').startsWith(prefijo));
+  const gastosOperativos = gastos.filter((f) => !esNoOperativo(f));
+  const gastosNoOperativos = gastos.filter(esNoOperativo);
+  const totalGastosOperativos = gastosOperativos.reduce((s, f) => s + f.saldoFinal, 0);
+  const totalGastosNoOperativos = gastosNoOperativos.reduce((s, f) => s + f.saldoFinal, 0);
+  const resultadoBruto = totalIngresos - totalCostos;
+  const resultadoOperacional = resultadoBruto - totalGastosOperativos;
+  const porcentajeSobreIngresos = (valor: number) => (totalIngresos !== 0 ? (valor / totalIngresos) * 100 : 0);
+  const esPT = idioma === 'PT';
 
   // La tendencia mira siempre todo el histórico, sin importar el
   // período elegido arriba — es el panorama general de la empresa,
@@ -867,14 +882,34 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial }: { 
         <>
       <SeccionResultado titulo={t('ingresosTitulo')} emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
 
-      {/* Una empresa sin cuentas de Costo (Familiar, Servicios puro)
-          nunca va a tener nada acá — mostrar la sección igual sería
-          solo ruido ("Costos: $0" sin ninguna fila debajo). */}
-      {costos.length > 0 && (
-        <SeccionResultado titulo={t('costosTitulo')} emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
-      )}
+      {esFamiliar ? (
+        <SeccionResultado titulo={t('gastosTitulo')} emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
+      ) : (
+        <>
+          {/* Empresas: las tres líneas de resultado salen siempre, en cero si no hay nada que restar. */}
+          <SeccionResultado titulo={t('costosTitulo')} emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
+          <SubtotalResultado titulo={esPT ? 'Resultado bruto' : 'Resultado bruto'} valor={resultadoBruto} porcentaje={porcentajeSobreIngresos(resultadoBruto)} />
 
-      <SeccionResultado titulo={t('gastosTitulo')} emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
+          <SeccionResultado
+            titulo={esPT ? 'Despesas operacionais' : 'Gastos operacionales'}
+            emoji="🧾"
+            filas={gastosOperativos}
+            total={totalGastosOperativos}
+            color="#c2410c"
+            resta
+          />
+          <SubtotalResultado titulo={esPT ? 'Resultado operacional' : 'Resultado operacional'} valor={resultadoOperacional} porcentaje={porcentajeSobreIngresos(resultadoOperacional)} />
+
+          <SeccionResultado
+            titulo={esPT ? 'Despesas financeiras e impostos' : 'Gastos financieros e impuestos'}
+            emoji="🏦"
+            filas={gastosNoOperativos}
+            total={totalGastosNoOperativos}
+            color="#c2410c"
+            resta
+          />
+        </>
+      )}
 
       <div
         style={{
@@ -891,7 +926,9 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial }: { 
       >
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            {msgResultadoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))}
+            {esFamiliar
+              ? msgResultadoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))
+              : `${esPT ? 'RESULTADO LÍQUIDO' : 'RESULTADO NETO'} — ${esTodos ? (esPT ? 'histórico' : 'histórico') : formatearPeriodo(periodo, idioma)}`}
           </div>
 
           <div style={{ fontSize: 24, fontWeight: 800, color: resultado >= 0 ? COLORES.verde : '#dc2626' }}>
@@ -1024,6 +1061,33 @@ function GraficoTendenciaResultado({
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+function SubtotalResultado({ titulo, valor, porcentaje }: { titulo: string; valor: number; porcentaje: number }) {
+  const simbolo = useContext(SimboloContext);
+
+  return (
+    <div
+      style={{
+        marginBottom: 16,
+        padding: '12px 16px',
+        borderRadius: 12,
+        background: valor >= 0 ? '#edf6f0' : '#fef2f2',
+        border: `1px solid ${valor >= 0 ? '#cfe5d6' : '#fecaca'}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
+      }}
+    >
+      <strong style={{ color: COLORES.azul, fontSize: 14 }}>= {titulo}</strong>
+      <span style={{ fontWeight: 800, fontSize: 16, color: valor >= 0 ? COLORES.verde : '#dc2626', whiteSpace: 'nowrap' }}>
+        {simbolo} {formatearNumeroEntero(valor)}
+        <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 700, color: COLORES.gris }}>{porcentaje.toFixed(1)}%</span>
+      </span>
     </div>
   );
 }
