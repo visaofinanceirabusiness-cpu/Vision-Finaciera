@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, saldoInicialDePeriodo, type AsientoFlujo, type CuentaFlujo } from './flujoCaja';
+import { armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, promedioSalidasMensuales, saldoAlCierreDePeriodo, saldoInicialDePeriodo, type AsientoFlujo, type CuentaFlujo } from './flujoCaja';
 
 const cuentas: CuentaFlujo[] = [
   { nombre: 'Caja', codigo: '1.1.1.0.1' },
@@ -77,5 +77,42 @@ describe('saldo deseado', () => {
     expect(diferenciaConSaldoDeseado(1000, 400)).toEqual({ tipo: 'SOBRA', monto: 600 });
     expect(diferenciaConSaldoDeseado(300, 400)).toEqual({ tipo: 'FALTA', monto: 100 });
     expect(diferenciaConSaldoDeseado(400, 400)).toEqual({ tipo: 'EXACTO', monto: 0 });
+  });
+});
+
+describe('Familia', () => {
+  const plan: CuentaFlujo[] = [
+    { nombre: 'Efectivo', codigo: '1.1.1.0.1' },
+    { nombre: 'Plazo Fijo', codigo: '1.2.1.0.1' },
+    { nombre: 'Vehículos', codigo: '1.3.1.0.1' },
+    { nombre: 'Sueldo', codigo: '4.1.0.0.1' },
+    { nombre: 'Supermercado', codigo: '6.1.1.0.1' },
+  ];
+  const caja = new Set(['Efectivo']);
+  const movs = [
+    a('2026-08-01', 'Efectivo', 'Sueldo', 1000),
+    a('2026-08-05', 'Supermercado', 'Efectivo', 300),
+    a('2026-08-06', 'Plazo Fijo', 'Efectivo', 200),
+    a('2026-09-01', 'Efectivo', 'Sueldo', 1000),
+    a('2026-09-05', 'Supermercado', 'Efectivo', 500),
+    a('2026-09-10', 'Vehículos', 'Efectivo', 400),
+    a('2026-10-01', 'Supermercado', 'Efectivo', 999),
+  ];
+
+  it('separa ahorro (1.2) de bienes (1.3)', () => {
+    const clasificar = crearClasificador(plan, movs, caja, true);
+    expect(clasificar('Plazo Fijo')).toBe('INVERSION');
+    expect(clasificar('Vehículos')).toBe('BIENES');
+    expect(crearClasificador(plan, movs, caja, false)('Vehículos')).toBe('INVERSION');
+  });
+
+  it('el colchón sugerido es el promedio de salidas sin ahorro ni bienes', () => {
+    const clasificar = crearClasificador(plan, movs, caja, true);
+    expect(promedioSalidasMensuales(movimientosDeCaja(movs, caja), clasificar, '2026-10')).toBe((300 + 500) / 2);
+  });
+
+  it('el saldo de ahorros al cierre suma lo aportado', () => {
+    expect(saldoAlCierreDePeriodo([{ nombre: 'Plazo Fijo', saldo_inicial: 50 }], movs, '2026-08')).toBe(250);
+    expect(saldoAlCierreDePeriodo([{ nombre: 'Plazo Fijo', saldo_inicial: 50 }], movs, 'TODOS')).toBe(250);
   });
 });
