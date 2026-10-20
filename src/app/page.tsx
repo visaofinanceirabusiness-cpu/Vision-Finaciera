@@ -33,6 +33,8 @@ import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
 import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobby';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
+import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
+import { datosSimulados } from '@/lib/tutorialSimulacion';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
 import { PanelNoticias } from '@/components/panel/PanelNoticias';
@@ -156,6 +158,7 @@ export default function InicioPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [miniJuegoAbierto, setMiniJuegoAbierto] = useState(false);
+  const espectador = useEspectador();
   const [estadoSolicitud, setEstadoSolicitud] = useState<
     'PENDIENTE' | 'RECHAZADA' | null
   >(null);
@@ -916,15 +919,21 @@ export default function InicioPage() {
 
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
-        {perfil && <LanzamientoRapidoLobby idioma={idioma} />}
+        {perfil && (
+          <BloqueoDemo>
+            <LanzamientoRapidoLobby idioma={idioma} />
+          </BloqueoDemo>
+        )}
 
         {perfil && (
-          <SabioBotLobby
-            empresaId={perfil.empresa_id}
-            idioma={idioma}
-            colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
-            alerta={alertaSabio}
-          />
+          <BloqueoDemo>
+            <SabioBotLobby
+              empresaId={perfil.empresa_id}
+              idioma={idioma}
+              colores={{ azul: colores.azul, verde: colores.verde, gris: colores.acento, blanco: colores.blanco }}
+              alerta={alertaSabio}
+            />
+          </BloqueoDemo>
         )}
 
         {perfil && (
@@ -938,6 +947,8 @@ export default function InicioPage() {
             esFamiliar={esFamiliar}
             simbolo={simboloMoneda(empresa?.moneda ?? null)}
             colores={{ azul: colores.azul, verde: colores.verde, acento: colores.acento, blanco: colores.blanco }}
+            // El espectador juega de verdad pero en simulación: no consulta ni escribe nada.
+            simulacion={espectador ? datosSimulados('MIXTO', espectador.idioma) : undefined}
             onCerrar={() => setMiniJuegoAbierto(false)}
           />
         )}

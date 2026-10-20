@@ -4,6 +4,7 @@ import React from 'react';
 import { RegistrarServiceWorker } from '@/components/RegistrarServiceWorker';
 import { GuardiaSesion } from '@/components/GuardiaSesion';
 import { TemaGlobal } from '@/components/TemaGlobal';
+import { ProveedorEspectador } from '@/components/demo/ProveedorEspectador';
 
 export const metadata: Metadata = {
   title: 'Visão Financeira',
@@ -41,6 +42,7 @@ export default function RootLayout({
         <RegistrarServiceWorker />
         <GuardiaSesion />
         <TemaGlobal />
+        <ProveedorEspectador />
         {children}
       </body>
     </html>
