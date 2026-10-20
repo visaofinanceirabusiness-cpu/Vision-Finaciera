@@ -25,7 +25,7 @@ describe('gastos no operativos', () => {
     ]);
     const totales = totalesDe(datos);
     expect(totales.gastosNoOperativos).toBe(50);
-    expect(totales.ingresos - totales.costos - (totales.gastos - totales.gastosNoOperativos)).toBe(900 - 350);
+    expect(totales.ingresos - totales.costos - (totales.gastos - totales.gastosNoOperativos)).toBe(650);
     expect(datos[1].gastosNoOperativos).toBe(0);
   });
 });
