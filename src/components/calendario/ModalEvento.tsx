@@ -4,6 +4,7 @@
 // controlado desde afuera, overlay + tarjeta centrada.
 
 import { useState } from 'react';
+import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import {
   CATEGORIAS_EVENTO,
   type CategoriaEvento,
@@ -59,6 +60,8 @@ export function ModalEvento({
   onEliminarSerie?: () => Promise<void>;
   onCancelar: () => void;
 }) {
+  // En la demo el espectador crea y edita, pero no borra (ni lo suyo ni lo de quien presenta).
+  const espectador = useEspectador();
   const esPT = idioma === 'PT';
   const diasSemanaCorto = esPT ? DIAS_SEMANA_CORTO_PT : DIAS_SEMANA_CORTO_ES;
 
@@ -366,7 +369,7 @@ export function ModalEvento({
             {esPT ? 'Cancelar' : 'Cancelar'}
           </button>
 
-          {evento && (
+          {evento && !espectador && (
             <button
               onClick={() => confirmarEliminar(false)}
               disabled={eliminando}
@@ -385,7 +388,7 @@ export function ModalEvento({
             </button>
           )}
 
-          {evento?.serie_id && onEliminarSerie && (
+          {evento?.serie_id && onEliminarSerie && !espectador && (
             <button
               onClick={() => confirmarEliminar(true)}
               disabled={eliminando}

@@ -23,6 +23,7 @@ import {
   nombreCategoria,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
+import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { fechasEspecialesDelPais, iconoFechaEspecial, mapaFechasEspeciales, paisPorMoneda } from '@/lib/fechasEspeciales';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
@@ -92,6 +93,7 @@ export function CalendarioOrganizador({
   moneda?: string | null;
 }) {
   const esPT = idioma === 'PT';
+  const espectador = useEspectador();
   const meses = esPT ? MESES_PT : MESES_ES;
   const diasSemana = esPT ? DIAS_SEMANA_PT : DIAS_SEMANA_ES;
   const hoy = new Date();
@@ -279,6 +281,7 @@ export function CalendarioOrganizador({
 
   return (
     <section
+      data-seguimiento="Calendario"
       style={{
         position: 'relative',
         background: colores.blanco,
@@ -678,12 +681,14 @@ export function CalendarioOrganizador({
                   >
                     {a.texto}
                   </span>
+                  {!espectador && (
                   <button
                     onClick={() => borrarAnotacion(a.id)}
                     style={{ border: 'none', background: 'transparent', color: '#7a5c00', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
                   >
                     ✕
                   </button>
+                  )}
                 </div>
               ))}
 

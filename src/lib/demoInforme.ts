@@ -36,6 +36,49 @@ export type FilaEspectador = EspectadorDemo & {
   vistasPorRuta: Record<string, number>;
 };
 
+// Lo que hacen en el calendario, las noticias y las cotizaciones (zonas marcadas con data-seguimiento).
+export type ParticipacionDemo = {
+  calendario: { creados: number; editados: number; intentosBorrar: number; personas: number; ultimos: { texto: string; cuando: string }[] };
+  noticias: { texto: string; veces: number; personas: number }[];
+  cotizaciones: { texto: string; veces: number; personas: number }[];
+};
+
+function contarPorZona(eventos: EventoDemo[], zona: string): { texto: string; veces: number; personas: number }[] {
+  const prefijo = `${zona} › `;
+  const mapa = new Map<string, { veces: number; quienes: Set<string> }>();
+  for (const e of eventos) {
+    if ((e.tipo !== 'CLICK' && e.tipo !== 'CAMBIO') || !e.detalle?.startsWith(prefijo)) continue;
+    const texto = e.detalle.slice(prefijo.length);
+    if (!texto) continue;
+    const actual = mapa.get(texto) ?? { veces: 0, quienes: new Set<string>() };
+    actual.veces += 1;
+    actual.quienes.add(e.user_id);
+    mapa.set(texto, actual);
+  }
+  return Array.from(mapa.entries())
+    .map(([texto, v]) => ({ texto, veces: v.veces, personas: v.quienes.size }))
+    .sort((a, b) => b.veces - a.veces);
+}
+
+export function armarParticipacion(eventos: EventoDemo[]): ParticipacionDemo {
+  const calendario = eventos.filter((e) => e.tipo === 'CALENDARIO');
+  return {
+    calendario: {
+      creados: calendario.filter((e) => e.detalle?.startsWith('creó')).length,
+      editados: calendario.filter((e) => e.detalle?.startsWith('editó')).length,
+      intentosBorrar: eventos.filter((e) => e.tipo === 'BLOQUEADO' && e.detalle?.startsWith('intentó eliminar')).length,
+      personas: new Set(calendario.map((e) => e.user_id)).size,
+      ultimos: calendario
+        .slice()
+        .sort((a, b) => b.creado_en.localeCompare(a.creado_en))
+        .slice(0, 8)
+        .map((e) => ({ texto: e.detalle ?? '', cuando: e.creado_en })),
+    },
+    noticias: contarPorZona(eventos, 'Noticias'),
+    cotizaciones: contarPorZona(eventos, 'Cotizaciones'),
+  };
+}
+
 export type ResumenDemo = {
   total: number;
   enLinea: number;

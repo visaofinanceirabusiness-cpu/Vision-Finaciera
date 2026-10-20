@@ -83,6 +83,17 @@ export function mensajeSoloLectura(idioma: Idioma): string {
     : 'Modo demo: solo podés mirar. Esta acción está disponible en el sistema completo.';
 }
 
+export const EVENTO_ACCION_DEMO = 'demo:accion';
+
+// Tablas donde el espectador participa (crea y edita), pero nunca borra: así siente que forma parte.
+export const TABLAS_CALENDARIO_DEMO = ['eventos_calendario', 'calendario_anotaciones'];
+
+export function mensajeNoBorrarEnDemo(idioma: Idioma): string {
+  return idioma === 'PT'
+    ? 'Na demonstração você pode criar e editar eventos, mas não excluir.'
+    : 'En la demo podés crear y editar eventos, pero no eliminarlos.';
+}
+
 export function mensajePantallaBloqueada(idioma: Idioma): string {
   return idioma === 'PT'
     ? '🔒 Esta tela será liberada em breve (ou faz parte do sistema completo).'
