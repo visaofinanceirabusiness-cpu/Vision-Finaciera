@@ -40,10 +40,13 @@ export function EvolucionFinanciera({
   datos,
   simbolo = 'R$',
   idioma = 'ES',
+  esEmpresa = false,
 }: {
   datos: PuntoEvolucion[];
   simbolo?: string;
   idioma?: string;
+  // Empresas (no Familia): Detalhes suma la cascada bruto → operacional → neto.
+  esEmpresa?: boolean;
 }) {
   const esPT = idioma === 'PT';
   const t = (es: string, pt: string) => (esPT ? pt : es);
@@ -274,7 +277,7 @@ export function EvolucionFinanciera({
       </div>
 
       {vista === 'DETALLES' ? (
-        <VistaDetalles serie={serie} totales={totales} conCostos={conCostos} simbolo={simbolo} idioma={idioma} etiqueta={etiqueta} />
+        <VistaDetalles serie={serie} totales={totales} conCostos={conCostos} esEmpresa={esEmpresa} simbolo={simbolo} idioma={idioma} etiqueta={etiqueta} />
       ) : (
         <>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>

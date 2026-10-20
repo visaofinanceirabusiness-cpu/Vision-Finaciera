@@ -1416,7 +1416,7 @@ export default function MiNegocioPage() {
               </div>
             )}
 
-            <EvolucionFinanciera datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} />
+            <EvolucionFinanciera datos={indicadores?.evolucionLucro ?? []} simbolo={simbolo} idioma={idioma} esEmpresa={!esFamiliar} />
           </section>
         )}
 

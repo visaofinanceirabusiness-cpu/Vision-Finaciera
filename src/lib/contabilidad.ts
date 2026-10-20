@@ -72,6 +72,8 @@ export type PuntoLucroMes = {
   ingresos: number;
   costos: number;
   gastos: number;
+  // De los gastos, los financieros e impuestos (6.4 y 6.5): separan el resultado operacional del neto.
+  gastosNoOperativos: number;
 };
 
 import type { FotoMes } from './indicadoresFinancieros';
@@ -613,6 +615,11 @@ export async function obtenerIndicadores(
       ingresos: redondear(totalTipo('INGRESO')),
       costos: redondear(totalTipo('COSTO')),
       gastos: redondear(totalTipo('GASTO')),
+      gastosNoOperativos: redondear(
+        hojas
+          .filter((cuenta) => cuenta.tipo_saldo === 'GASTO' && ['6.4.', '6.5.'].some((p) => (cuenta.codigo ?? '').startsWith(p)))
+          .reduce((suma, cuenta) => suma + saldoDe(cuenta, acumuladoMes, false), 0)
+      ),
     };
   });
 

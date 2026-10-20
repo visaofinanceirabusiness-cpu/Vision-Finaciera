@@ -10,6 +10,8 @@ export type PuntoEvolucion = {
   ingresos: number;
   gastos: number;
   costos?: number;
+  // Financieros e impuestos, ya incluidos en gastos.
+  gastosNoOperativos?: number;
 };
 
 export type PuntoEvolucionCalculado = Required<PuntoEvolucion> & {
@@ -22,10 +24,12 @@ const aCentavos = (valor: number) => Math.round((valor + Number.EPSILON) * 100) 
 export function calcularEvolucion(datos: PuntoEvolucion[]): PuntoEvolucionCalculado[] {
   return datos.map((dato) => {
     const costos = dato.costos ?? 0;
+    const gastosNoOperativos = dato.gastosNoOperativos ?? 0;
 
     return {
       ...dato,
       costos,
+      gastosNoOperativos,
       resultado: aCentavos(dato.ingresos - costos - dato.gastos),
       margenBruto: aCentavos(dato.ingresos - costos),
     };
