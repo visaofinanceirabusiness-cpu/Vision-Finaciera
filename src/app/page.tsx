@@ -709,11 +709,19 @@ export default function InicioPage() {
               gap: 16,
             }}
           >
+            {/* Logo / foto de la empresa: marco grande que se llena por completo.
+                La imagen se ve entera (contain, sin márgenes) sobre una copia suya
+                difuminada que rellena lo que sobra, así nunca queda un borde vacío
+                ni se recorta un logo ancho. */}
+            <style>{`
+              .logo-empresa-marco { width: 120px; height: 120px; }
+              @media (max-width: 480px) { .logo-empresa-marco { width: 96px; height: 96px; } }
+            `}</style>
             <div
+              className="logo-empresa-marco"
               style={{
-                width: 78,
-                height: 78,
-                borderRadius: 20,
+                position: 'relative',
+                borderRadius: 24,
                 background: colores.blanco,
                 border: `2px solid ${colores.acento}`,
                 display: 'flex',
@@ -721,28 +729,46 @@ export default function InicioPage() {
                 justifyContent: 'center',
                 overflow: 'hidden',
                 boxShadow:
-                  '0 8px 20px rgba(31,58,95,0.10)',
+                  '0 10px 26px rgba(31,58,95,0.16)',
                 flexShrink: 0,
               }}
             >
               {logoDisponible ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={empresa!.logo_url!}
-                  alt={`Logo de ${
-                    empresa?.nombre ?? 'empresa'
-                  }`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    padding: 6,
-                  }}
-                />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={empresa!.logo_url!}
+                    alt=""
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      filter: 'blur(14px) saturate(1.1)',
+                      transform: 'scale(1.25)',
+                      opacity: 0.55,
+                    }}
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={empresa!.logo_url!}
+                    alt={`Logo de ${
+                      empresa?.nombre ?? 'empresa'
+                    }`}
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </>
               ) : (
                 <span
                   style={{
-                    fontSize: 30,
+                    fontSize: 44,
                     fontWeight: 800,
                     color: colores.azul,
                   }}
