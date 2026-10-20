@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { VolverLobby } from '@/components/nav/VolverLobby';
 import { supabase } from '@/lib/supabase';
 import { eliminarOperacion } from '@/lib/motor';
 
@@ -231,9 +232,7 @@ function Pantalla({
     <div style={fondo}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <header style={encabezado}>
-          <Link href='/?vista=empresa' style={volver}>
-            ← Volver a Mi Negocio
-          </Link>
+          <VolverLobby>← Volver a Mi Negocio</VolverLobby>
 
           <p style={eyebrow}>GESTIÓN FINANCIERA</p>
 

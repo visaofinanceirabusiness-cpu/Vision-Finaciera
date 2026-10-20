@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { VolverLobby } from '@/components/nav/VolverLobby';
 import { supabase } from '@/lib/supabase';
 import { empresaTienePlanAccion } from '@/lib/perfilCapacidades';
 import { MensajeContactarAsesor } from '@/components/panel/MensajeContactarAsesor';
@@ -254,7 +255,7 @@ export default function PlanAccionPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
             <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-              <Link href="/?vista=empresa" style={volver}>← Volver a Mi Negocio</Link>
+              <VolverLobby>← Volver a Mi Negocio</VolverLobby>
               <div style={eyebrow}>PLAN COMERCIAL</div>
               <h1 style={{ margin: 0, fontSize: 30 }}>Plan de Acción de 30 Días</h1>
               <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>

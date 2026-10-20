@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { VolverLobby } from '@/components/nav/VolverLobby';
 import { supabase } from '@/lib/supabase';
 import { inicializarEmpresaDesdePerfil } from '@/lib/perfiles';
 import { generarMatrizOperaciones } from '@/lib/motor';
@@ -218,9 +219,7 @@ export default function ConfiguracoesPage() {
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
             <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-              <Link href="/?vista=empresa" style={volver}>
-                {t('volver')}
-              </Link>
+              <VolverLobby>{t('volver')}</VolverLobby>
 
               <div style={eyebrow}>{t('eyebrow')}</div>
 
