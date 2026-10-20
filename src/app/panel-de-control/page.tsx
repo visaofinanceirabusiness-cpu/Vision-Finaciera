@@ -1101,7 +1101,6 @@ export default function MiNegocioPage() {
           />
         )}
 
-        {selectorPeriodo}
 
         {perfil?.empresa_id && (
           <div
@@ -1166,6 +1165,9 @@ export default function MiNegocioPage() {
             </PanelFlujo>
           </div>
         )}
+
+        {/* Justo arriba del Resumen Ejecutivo: es el período que ese resumen (y los objetivos e indicadores) usan. */}
+        {selectorPeriodo}
 
         {configuracion?.mostrar_graficos && (
           <section
