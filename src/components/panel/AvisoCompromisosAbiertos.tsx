@@ -52,14 +52,19 @@ export function AvisoCompromisosAbiertos({
         ))}
       </div>
       <div style={{ marginBottom: 10 }}>
-        {esPT
-          ? `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, registre contra a conta do compromisso para não contar duas vezes.`
-          : `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, registralo contra la cuenta del compromiso para que no se cuente dos veces.`}
+        {items.every((i) => !i.devengado)
+          ? esPT
+            ? `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, escolha abaixo e ele fica marcado como cumprido ao registrar.`
+            : `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, elegilo abajo y queda marcado como cumplido al registrar.`
+          : esPT
+            ? `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, registre contra a conta do compromisso para não contar duas vezes.`
+            : `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, registralo contra la cuenta del compromiso para que no se cuente dos veces.`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((i) => (
           <button key={i.recordatorioId} type="button" onClick={() => onElegir(i)} style={boton}>
-            {cobro ? (esPT ? 'Receber' : 'Cobrar') : esPT ? 'Pagar' : 'Pagar'} → {i.categoriaLiquidacion}
+            {cobro ? (esPT ? 'Receber' : 'Cobrar') : esPT ? 'Pagar' : 'Pagar'}
+            {i.devengado ? ` → ${i.categoriaLiquidacion}` : ` «${i.nombre}»`}
           </button>
         ))}
         {onSeguir && (
