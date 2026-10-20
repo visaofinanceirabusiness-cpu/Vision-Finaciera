@@ -1,5 +1,11 @@
 // lib/compromisosAbiertos.ts
 //
+// Además de los recurrentes, entran las cuotas pendientes de pasivos (tarjeta,
+// préstamo, proveedores) y de cuentas a cobrar (clientes) vencidas o de este mes:
+// se pagan/cobran contra la categoría de liquidación de su cuenta y, como la cuota
+// no tiene medio de pago propio, ese medio lo elige la persona. Aceptan pagos
+// parciales: la cuota sigue pendiente por el saldo hasta completar el total.
+//
 // Lo que el negocio tiene para cobrar o pagar este mes a partir de ingresos y
 // gastos recurrentes, visto desde los métodos de carga (Mini-Juego, Sabio Bot,
 // Central y Lanzamiento Rápido):
@@ -22,7 +28,10 @@ import {
   registrarPagoParcial,
   saldoPendiente,
 } from './gastosRecurrentes';
-import { resolverCuentaCompromiso } from './cuentasCompromiso';
+import { buscarCuentaCompromisoPorNombre, resolverCuentaCompromiso } from './cuentasCompromiso';
+import { listarCuotasPendientes, saldoCuotaPasivo } from './cuotas';
+import { listarCuotasCobroPendientes, saldoCuotaCobro } from './cuotasCobro';
+import { fechaLocalHoy } from './fecha';
 import { supabase } from './supabase';
 
 export type CompromisoAbierto = {
@@ -35,9 +44,24 @@ export type CompromisoAbierto = {
   cuenta: string;
   lado: 'COBRAR' | 'PAGAR';
   devengado: boolean;
+  // Vacío en las cuotas: el medio lo elige la persona al cargar.
   formaPago: string;
   fechaVencimiento: string;
+  tipo: 'RECORDATORIO' | 'CUOTA';
 };
+
+export function estaVencido(fechaVencimiento: string): boolean {
+  return fechaVencimiento < fechaLocalHoy();
+}
+
+const MESES_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+// 'YYYY-MM-DD' → "oct 2026": el periodo al que pertenece el vencimiento.
+export function etiquetaPeriodo(fechaVencimiento: string, idioma: string): string {
+  const [anio, mes] = fechaVencimiento.split('-').map(Number);
+  return `${(idioma === 'PT' ? MESES_PT : MESES_ES)[mes - 1]} ${anio}`;
+}
 
 type Pendiente = {
   id: string;
@@ -84,7 +108,7 @@ async function armarCompromisos(empresaId: string, lado: 'COBRAR' | 'PAGAR', cat
   const resultado: CompromisoAbierto[] = [];
 
   for (const p of pendientes) {
-    const base = { recordatorioId: p.id, nombre: p.nombre, saldo: p.saldo, lado, formaPago: p.formaPago, fechaVencimiento: p.fechaVencimiento };
+    const base = { recordatorioId: p.id, nombre: p.nombre, saldo: p.saldo, lado, formaPago: p.formaPago, fechaVencimiento: p.fechaVencimiento, tipo: 'RECORDATORIO' as const };
 
     if (p.estado === 'DEVENGADA') {
       if (!p.cuentaId) continue;
@@ -98,6 +122,59 @@ async function armarCompromisos(empresaId: string, lado: 'COBRAR' | 'PAGAR', cat
     } else if (p.estado === null) {
       resultado.push({ ...base, categoriaLiquidacion: p.categoria, cuenta: '', devengado: false });
     }
+  }
+
+  return [...resultado, ...(await armarCuotas(empresaId, lado, categoria).catch(() => []))];
+}
+
+function finDeMesActual(): string {
+  const hoy = new Date();
+  const ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  return `${ultimo.getFullYear()}-${String(ultimo.getMonth() + 1).padStart(2, '0')}-${String(ultimo.getDate()).padStart(2, '0')}`;
+}
+
+async function armarCuotas(empresaId: string, lado: 'COBRAR' | 'PAGAR', categoria?: string): Promise<CompromisoAbierto[]> {
+  const hasta = finDeMesActual();
+
+  const cuotas: Array<{ id: string; formaPagoNombre: string; numero: number; total: number; saldo: number; fecha: string }> =
+    lado === 'COBRAR'
+      ? (await listarCuotasCobroPendientes(empresaId)).map((c) => ({
+          id: c.id, formaPagoNombre: c.forma_pago_nombre, numero: c.numero_cuota, total: c.total_cuotas, saldo: saldoCuotaCobro(c), fecha: c.fecha_vencimiento,
+        }))
+      : (await listarCuotasPendientes(empresaId)).map((c) => ({
+          id: c.id, formaPagoNombre: c.forma_pago_nombre, numero: c.numero_cuota, total: c.total_cuotas, saldo: saldoCuotaPasivo(c), fecha: c.fecha_vencimiento,
+        }));
+
+  // Vencidas de cualquier mes y las de este mes; las futuras todavía no corren.
+  const aplicables = cuotas.filter((c) => c.saldo > 0.01 && c.fecha <= hasta);
+  if (aplicables.length === 0) return [];
+
+  const { data: empresa } = await supabase.from('empresas').select('idioma').eq('id', empresaId).maybeSingle();
+  const palabra = empresa?.idioma === 'PT' ? 'Parcela' : 'Cuota';
+
+  const cuentas = new Map<string, Awaited<ReturnType<typeof buscarCuentaCompromisoPorNombre>>>();
+  for (const nombre of new Set(aplicables.map((c) => c.formaPagoNombre))) {
+    cuentas.set(nombre, await buscarCuentaCompromisoPorNombre(empresaId, nombre, lado).catch(() => null));
+  }
+
+  const resultado: CompromisoAbierto[] = [];
+
+  for (const c of aplicables) {
+    const cuenta = cuentas.get(c.formaPagoNombre);
+    if (!cuenta || (categoria !== undefined && cuenta.categoriaLiquidacion !== categoria)) continue;
+
+    resultado.push({
+      recordatorioId: c.id,
+      nombre: `${palabra} ${c.numero}/${c.total} — ${c.formaPagoNombre}`,
+      saldo: c.saldo,
+      categoriaLiquidacion: cuenta.categoriaLiquidacion,
+      cuenta: cuenta.cuentaNombre,
+      lado,
+      devengado: false,
+      formaPago: '',
+      fechaVencimiento: c.fecha,
+      tipo: 'CUOTA',
+    });
   }
 
   return resultado;
@@ -132,7 +209,7 @@ export function operacionDeCompromiso(item: Pick<CompromisoAbierto, 'lado'>): 'C
 // los asocia conciliarTrasRegistrar.
 export async function cerrarPendienteConOperacion(
   empresaId: string,
-  item: Pick<CompromisoAbierto, 'recordatorioId' | 'lado' | 'devengado'>,
+  item: Pick<CompromisoAbierto, 'recordatorioId' | 'lado' | 'devengado' | 'tipo'>,
   idOperacion: string,
   monto: number,
   fecha: string
@@ -140,7 +217,9 @@ export async function cerrarPendienteConOperacion(
   if (item.devengado) return;
 
   try {
-    if (item.lado === 'COBRAR') {
+    if (item.tipo === 'CUOTA') {
+      await aplicarACuota(empresaId, item, idOperacion, monto, fecha);
+    } else if (item.lado === 'COBRAR') {
       const recordatorio = await obtenerRecordatorioIngreso(item.recordatorioId);
       if (recordatorio) await registrarCobroParcial(empresaId, recordatorio, idOperacion, monto, fecha);
     } else {
@@ -153,9 +232,64 @@ export async function cerrarPendienteConOperacion(
   }
 }
 
+const TABLAS_CUOTA = {
+  PAGAR: { tabla: 'cuotas_pasivo', lineas: 'cuotas_pasivo_pagos', movido: 'monto_pagado', cumplida: 'pagada', fechaCumplida: 'fecha_pago' },
+  COBRAR: { tabla: 'cuotas_cobro', lineas: 'cuotas_cobro_cobros', movido: 'monto_cobrado', cumplida: 'cobrada', fechaCumplida: 'fecha_cobro' },
+} as const;
+
+// Un pago/cobro (total o parcial) contra una cuota: queda su línea y la cuota sigue
+// pendiente por el saldo hasta que se completa el total. Lo que se pase del saldo
+// no se aplica a otra cuota.
+async function aplicarACuota(
+  empresaId: string,
+  item: Pick<CompromisoAbierto, 'recordatorioId' | 'lado'>,
+  idOperacion: string,
+  monto: number,
+  fecha: string
+): Promise<void> {
+  const cfg = TABLAS_CUOTA[item.lado];
+
+  const { data: fila, error } = await supabase
+    .from(cfg.tabla)
+    .select(`monto, ${cfg.movido}, evento_calendario_id`)
+    .eq('id', item.recordatorioId)
+    .single();
+
+  if (error) throw error;
+
+  const registro = fila as unknown as Record<string, number | string | null>;
+  const saldo = Math.max(0, Number(registro.monto) - Number(registro[cfg.movido] ?? 0));
+  const aplicado = Math.min(Number(monto), saldo);
+  if (aplicado <= 0) return;
+
+  const { error: errorLinea } = await supabase.from(cfg.lineas).insert({
+    cuota_id: item.recordatorioId,
+    empresa_id: empresaId,
+    id_operacion: idOperacion,
+    monto: aplicado,
+    fecha,
+  });
+  if (errorLinea) throw errorLinea;
+
+  const nuevoMovido = Number(registro[cfg.movido] ?? 0) + aplicado;
+  const cumplida = Number(registro.monto) - nuevoMovido <= 0.01;
+
+  const { error: errorCuota } = await supabase
+    .from(cfg.tabla)
+    .update({ [cfg.movido]: nuevoMovido, [cfg.cumplida]: cumplida, [cfg.fechaCumplida]: cumplida ? fecha : null })
+    .eq('id', item.recordatorioId);
+  if (errorCuota) throw errorCuota;
+
+  if (cumplida && registro.evento_calendario_id) {
+    await supabase.from('eventos_calendario').delete().eq('id', registro.evento_calendario_id as string);
+  }
+}
+
 const LADOS_REABRIR = [
-  { tabla: 'gastos_recurrentes_recordatorios', lineas: 'gastos_recurrentes_recordatorios_pagos', movido: 'monto_pagado' },
-  { tabla: 'ingresos_recurrentes_recordatorios', lineas: 'ingresos_recurrentes_recordatorios_cobros', movido: 'monto_cobrado' },
+  { tabla: 'gastos_recurrentes_recordatorios', lineas: 'gastos_recurrentes_recordatorios_pagos', movido: 'monto_pagado', fk: 'recordatorio_id', cumplida: 'registrado', fechaCumplida: null },
+  { tabla: 'ingresos_recurrentes_recordatorios', lineas: 'ingresos_recurrentes_recordatorios_cobros', movido: 'monto_cobrado', fk: 'recordatorio_id', cumplida: 'registrado', fechaCumplida: null },
+  { tabla: 'cuotas_pasivo', lineas: 'cuotas_pasivo_pagos', movido: 'monto_pagado', fk: 'cuota_id', cumplida: 'pagada', fechaCumplida: 'fecha_pago' },
+  { tabla: 'cuotas_cobro', lineas: 'cuotas_cobro_cobros', movido: 'monto_cobrado', fk: 'cuota_id', cumplida: 'cobrada', fechaCumplida: 'fecha_cobro' },
 ] as const;
 
 // Deshacer una operación (Lanzamiento Rápido) también tiene que devolver a
@@ -165,15 +299,18 @@ export async function reabrirPendientesDeOperacion(empresaId: string, idOperacio
   for (const lado of LADOS_REABRIR) {
     const { data: lineas } = await supabase
       .from(lado.lineas)
-      .select('id, recordatorio_id, monto')
+      .select(`id, ${lado.fk}, monto`)
       .eq('empresa_id', empresaId)
       .eq('id_operacion', idOperacion);
 
-    for (const linea of lineas ?? []) {
+    for (const filaLinea of lineas ?? []) {
+      const linea = filaLinea as unknown as Record<string, string | number>;
+      const idPadre = linea[lado.fk] as string;
+
       const { data: fila } = await supabase
         .from(lado.tabla)
-        .select(`${lado.movido}, estado`)
-        .eq('id', linea.recordatorio_id)
+        .select(lado.fk === 'cuota_id' ? lado.movido : `${lado.movido}, estado`)
+        .eq('id', idPadre)
         .maybeSingle();
 
       await supabase.from(lado.lineas).delete().eq('id', linea.id);
@@ -183,11 +320,12 @@ export async function reabrirPendientesDeOperacion(empresaId: string, idOperacio
       const registro = fila as unknown as Record<string, number | string | null>;
       const cambios: Record<string, unknown> = {
         [lado.movido]: Math.max(0, Number(registro[lado.movido] ?? 0) - Number(linea.monto)),
-        registrado: false,
+        [lado.cumplida]: false,
+        ...(lado.fechaCumplida ? { [lado.fechaCumplida]: null } : {}),
       };
       if (registro.estado === 'SALDADA') cambios.estado = 'DEVENGADA';
 
-      await supabase.from(lado.tabla).update(cambios).eq('id', linea.recordatorio_id);
+      await supabase.from(lado.tabla).update(cambios).eq('id', idPadre);
     }
   }
 }

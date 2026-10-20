@@ -19,7 +19,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { listarTodasLasCuotas, marcarCuotaPagada, type CuotaPasivo } from '@/lib/cuotas';
+import { listarTodasLasCuotas, marcarCuotaPagada, saldoCuotaPasivo, type CuotaPasivo } from '@/lib/cuotas';
 import {
   listarGastosRecurrentes,
   listarRecordatoriosConHistorial,
@@ -173,7 +173,7 @@ export function MisVencimientos({
     .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento));
   const recordatoriosPagados = recordatoriosDelPeriodo.filter((r) => r.registrado);
 
-  const totalPasivos = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalPasivos = cuotasPendientes.reduce((suma, cuota) => suma + saldoCuotaPasivo(cuota), 0);
   const totalGastosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendiente(r), 0);
   const totalGeneral = totalPasivos + totalGastosRecurrentes;
 
@@ -303,7 +303,7 @@ export function MisVencimientos({
               </p>
             ) : (
               Array.from(gruposPasivo.entries()).map(([nombrePasivo, cuotasDelPasivo]) => {
-                const subtotalPasivo = cuotasDelPasivo.reduce((suma, cuota) => suma + cuota.monto, 0);
+                const subtotalPasivo = cuotasDelPasivo.reduce((suma, cuota) => suma + saldoCuotaPasivo(cuota), 0);
 
                 return (
                 <div key={nombrePasivo} style={{ marginBottom: 10 }}>
@@ -352,7 +352,10 @@ export function MisVencimientos({
                           }}
                         >
                           <strong style={{ fontSize: 12.5, color: '#c2410c', whiteSpace: 'nowrap' }}>
-                            {simbolo} {cuota.monto.toFixed(2)}
+                            {simbolo} {saldoCuotaPasivo(cuota).toFixed(2)}
+                            {cuota.monto_pagado > 0 && (
+                              <span style={{ fontWeight: 500, color: '#6b7280' }}> {esPT ? 'de' : 'de'} {cuota.monto.toFixed(2)}</span>
+                            )}
                           </strong>
                           {!soloLectura && (
                           <button

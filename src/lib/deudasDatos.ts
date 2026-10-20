@@ -5,7 +5,7 @@
 
 import { supabase } from './supabase';
 import { obtenerSaldoCuenta } from './motor';
-import { listarCuotasPendientes } from './cuotas';
+import { listarCuotasPendientes, saldoCuotaPasivo } from './cuotas';
 import { listarRecordatoriosConHistorial, saldoPendiente } from './gastosRecurrentes';
 import { nombresCuentasCompromiso } from './cuentasCompromiso';
 import { obtenerConfigAPagar } from './cuentaAPagar';
@@ -55,7 +55,7 @@ export async function cargarDeudas(empresaId: string, hoy: string): Promise<Deud
   const vencimientos: VencimientoDeuda[] = [
     ...cuotas.flatMap((cuota) => {
       const cuentaId = cuentaDeFormaNombre.get(cuota.forma_pago_nombre);
-      return cuentaId ? [{ cuentaId, fecha: cuota.fecha_vencimiento, monto: Number(cuota.monto) }] : [];
+      return cuentaId ? [{ cuentaId, fecha: cuota.fecha_vencimiento, monto: saldoCuotaPasivo(cuota) }] : [];
     }),
     ...recordatorios
       .filter((r) => r.estado === 'DEVENGADA' && !r.registrado)

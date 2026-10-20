@@ -4,8 +4,8 @@
 // y plantillas) y se los pasa a la lógica pura de flujoProyectado.ts.
 
 import { listarCuentasDeDinero } from './saludCaja';
-import { listarTodasLasCuotas } from './cuotas';
-import { listarTodasLasCuotasCobro } from './cuotasCobro';
+import { listarTodasLasCuotas, saldoCuotaPasivo } from './cuotas';
+import { listarTodasLasCuotasCobro, saldoCuotaCobro } from './cuotasCobro';
 import { listarGastosRecurrentes, listarRecordatoriosConHistorial, saldoPendiente } from './gastosRecurrentes';
 import { listarIngresosRecurrentes, listarRecordatoriosIngresosConHistorial, saldoPendienteCobro } from './ingresosRecurrentes';
 import {
@@ -52,7 +52,7 @@ export async function cargarFlujoProyectado(empresaId: string, hoy: string, mese
       .filter((c) => !c.pagada)
       .map((c): EventoFlujo => ({
         fecha: c.fecha_vencimiento,
-        monto: Number(c.monto),
+        monto: saldoCuotaPasivo(c),
         tipo: 'PAGO',
         origen: 'CUOTA',
         nombre: `${c.forma_pago_nombre} ${c.numero_cuota}/${c.total_cuotas}`,
@@ -61,7 +61,7 @@ export async function cargarFlujoProyectado(empresaId: string, hoy: string, mese
       .filter((c) => !c.cobrada)
       .map((c): EventoFlujo => ({
         fecha: c.fecha_vencimiento,
-        monto: Number(c.monto),
+        monto: saldoCuotaCobro(c),
         tipo: 'COBRO',
         origen: 'CUOTA',
         nombre: `${c.forma_pago_nombre} ${c.numero_cuota}/${c.total_cuotas}`,

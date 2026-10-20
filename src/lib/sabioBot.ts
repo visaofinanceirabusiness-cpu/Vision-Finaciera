@@ -33,7 +33,7 @@
 // nombreOperacionDisplay, igual que en Contabilidad.
 
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
-import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from './compromisosAbiertos';
+import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, estaVencido, etiquetaPeriodo, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from './compromisosAbiertos';
 import { supabase } from './supabase';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
@@ -91,6 +91,9 @@ type Datos = {
   compromisosAviso?: CompromisoAbierto[];
   pendientesLista?: CompromisoAbierto[];
   pendiente?: CompromisoAbierto;
+  // Detalle y monto sugeridos por el pendiente elegido: en el paso DETALLE alcanza con escribir "ok".
+  detalleSugerido?: string;
+  montoSugerido?: number;
   esStock?: boolean;
   // Paso CUOTAS: la forma de pago elegida admite cuotas (deuda o cuenta por cobrar).
   tipoCuotas?: Exclude<TipoCuotas, null>;
@@ -235,7 +238,7 @@ async function iniciar(empresaId: string): Promise<string> {
     opciones,
   };
 
-  const pendientes = (await pendientesParaCargar(empresaId).catch(() => [])).slice(0, 8);
+  const pendientes = await pendientesParaCargar(empresaId).catch(() => []);
 
   if (pendientes.length > 0) {
     await guardarConversacion(empresaId, 'PENDIENTE', { ...datos, pendientesLista: pendientes });
@@ -243,7 +246,7 @@ async function iniciar(empresaId: string): Promise<string> {
     const simbolo = datos.simbolo ?? 'R$';
     const lista = pendientes.map(
       (p) =>
-        `${p.lado === 'COBRAR' ? t(idioma, 'Cobrar', 'Receber') : 'Pagar'} · ${p.nombre} — ${simbolo} ${formatearNumeroEntero(p.saldo)}`
+        `${p.lado === 'COBRAR' ? t(idioma, 'Cobrar', 'Receber') : 'Pagar'} · ${p.nombre} — ${simbolo} ${formatearNumeroEntero(p.saldo)} (${estaVencido(p.fechaVencimiento) ? '⚠️ ' : ''}${etiquetaPeriodo(p.fechaVencimiento, idioma ?? 'ES')})`
     );
 
     return `🦉 ${t(idioma, `¡Hola! Soy Sabio. Este mes tenés ${pendientes.length === 1 ? '1 pendiente' : `${pendientes.length} pendientes`}:`, `Olá! Eu sou o Sabio. Neste mês você tem ${pendientes.length === 1 ? '1 pendência' : `${pendientes.length} pendências`}:`)}\n\n${numerarLista([...lista, t(idioma, 'Cargar otra operación', 'Registrar outra operação')])}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
@@ -290,10 +293,20 @@ async function avanzarAProductoODetalle(empresaId: string, datos: Datos): Promis
 
   if (!datos.esStock) {
     await guardarConversacion(empresaId, 'DETALLE', { ...datos, opciones: [] });
-    return t(
-      idioma,
-      'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"',
-      'Me conte o detalhe e o valor, separados por vírgula.\nEx: "Uber para o centro, 25"'
+    const sugerencia =
+      datos.detalleSugerido && datos.montoSugerido
+        ? t(
+            idioma,
+            `\n\nSugerido: "${datos.detalleSugerido}, ${formatearNumeroEntero(datos.montoSugerido)}". Escribí "ok" para usarlo, o el monto que pagás/cobrás ahora (si es menos, queda saldo).`,
+            `\n\nSugerido: "${datos.detalleSugerido}, ${formatearNumeroEntero(datos.montoSugerido)}". Digite "ok" para usar, ou o valor que paga/recebe agora (se for menos, fica saldo).`
+          )
+        : '';
+    return (
+      t(
+        idioma,
+        'Contame el detalle y el monto, separados por coma.\nEj: "Uber al centro, 25"',
+        'Me conte o detalhe e o valor, separados por vírgula.\nEx: "Uber para o centro, 25"'
+      ) + sugerencia
     );
   }
 
@@ -609,6 +622,26 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
 
     const elegido = lista[n - 1];
     const monto = Number(elegido.saldo.toFixed(2));
+
+    // Las cuotas no traen medio de pago: se sigue por el paso de la forma de pago.
+    if (!elegido.formaPago) {
+      return avanzarDesdeCategoria(
+        empresaId,
+        {
+          ...datos,
+          pendientesLista: undefined,
+          fecha: fechaLocalHoy(),
+          operacion: operacionDeCompromiso(elegido),
+          pendiente: elegido,
+          detalleSugerido: elegido.nombre,
+          montoSugerido: monto,
+        },
+        elegido.categoriaLiquidacion,
+        idioma,
+        true
+      );
+    }
+
     const nuevosDatos: Datos = {
       ...datos,
       pendientesLista: undefined,
@@ -654,7 +687,14 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
 
     const elegida = n <= categoriasCompromiso.length ? categoriasCompromiso[n - 1] : (datos.categoriaOriginal ?? '');
     const compromiso = n <= categoriasCompromiso.length ? datos.compromisosAviso?.[n - 1] : undefined;
-    return avanzarDesdeCategoria(empresaId, { ...datos, pendiente: compromiso && !compromiso.devengado ? compromiso : undefined }, elegida, idioma, true);
+    const simple = compromiso && !compromiso.devengado ? compromiso : undefined;
+    return avanzarDesdeCategoria(
+      empresaId,
+      { ...datos, pendiente: simple, detalleSugerido: simple?.nombre, montoSugerido: simple ? Number(simple.saldo.toFixed(2)) : undefined },
+      elegida,
+      idioma,
+      true
+    );
   }
 
   if (paso === 'CATEGORIA') {
@@ -839,7 +879,12 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // 5. DETALLE + MONTO
   // ---------------------------------------------------
   if (paso === 'DETALLE') {
-    const ultimaComa = texto.lastIndexOf(',');
+    // Con un pendiente elegido: "ok" usa lo sugerido y un número solo cambia el monto (pago parcial).
+    const esOk = ['ok', 'si', 'sí', 'sim'].includes(textoNormalizado);
+    const montoSolo = Number(texto.trim().replace(',', '.'));
+    const usaSugerido = Boolean(datos.detalleSugerido && datos.montoSugerido) && (esOk || (Number.isFinite(montoSolo) && montoSolo > 0));
+    const textoDetalle = usaSugerido ? `${datos.detalleSugerido}, ${esOk ? datos.montoSugerido : montoSolo}` : texto;
+    const ultimaComa = textoDetalle.lastIndexOf(',');
 
     if (ultimaComa === -1) {
       return t(
@@ -849,8 +894,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       );
     }
 
-    const detalle = texto.slice(0, ultimaComa).trim();
-    const montoTexto = texto.slice(ultimaComa + 1).trim().replace(',', '.');
+    const detalle = textoDetalle.slice(0, ultimaComa).trim();
+    const montoTexto = textoDetalle.slice(ultimaComa + 1).trim().replace(',', '.');
     const monto = Number(montoTexto);
 
     if (!detalle || !Number.isFinite(monto) || monto <= 0) {

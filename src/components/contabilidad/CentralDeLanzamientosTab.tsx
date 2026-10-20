@@ -6,7 +6,7 @@
 // en su propio archivo (Fase 2 de mantenimiento).
 
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
-import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from '@/components/panel/PendientesParaCargar';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -103,6 +103,7 @@ export function CentralDeLanzamientosTab({
   valoresIniciales,
   recordatorioGastoRecurrente,
   recordatorioIngresoRecurrente,
+  pendienteInicial,
   onGuardado,
   onCancelar,
 }: {
@@ -114,6 +115,8 @@ export function CentralDeLanzamientosTab({
   recordatorioGastoRecurrente?: RecordatorioGastoRecurrente;
   // Lo mismo para un ingreso recurrente (cobro) que se llega a registrar desde un pendiente.
   recordatorioIngresoRecurrente?: RecordatorioIngresoRecurrente;
+  // Cuota (o recordatorio simple) con la que se llega precargada: se cierra al guardar.
+  pendienteInicial?: CompromisoAbierto;
   onGuardado?: () => void;
   onCancelar?: () => void;
 } = {}) {
@@ -153,7 +156,7 @@ export function CentralDeLanzamientosTab({
   // Aviso "ya lo devengaste": la categoría elegida tiene compromisos devengados con saldo.
   const [compromisosAbiertos, setCompromisosAbiertos] = useState<CompromisoAbierto[]>([]);
   // Recordatorio simple (sin devengo) que al guardar queda cumplido con esta operación.
-  const [pendienteElegido, setPendienteElegido] = useState<CompromisoAbierto | null>(null);
+  const [pendienteElegido, setPendienteElegido] = useState<CompromisoAbierto | null>(pendienteInicial ?? null);
 
   // Si la categoría elegida mueve stock (según la Matriz de Operações)
   // o no — una Venta/Compra/Pérdida de una categoría de servicio
@@ -417,7 +420,8 @@ export function CentralDeLanzamientosTab({
   }, [categoria]);
 
   useEffect(() => {
-    setPendienteElegido(null);
+    // Se conserva mientras siga siendo la categoría del pendiente (el efecto corre varias veces al montar).
+    setPendienteElegido((actual) => (actual && actual.categoriaLiquidacion === categoria && operacionDeCompromiso(actual) === operacion ? actual : null));
 
     if (!empresaId || modoEdicion || !categoria || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
       setCompromisosAbiertos([]);
@@ -1576,7 +1580,9 @@ export function CentralDeLanzamientosTab({
           simbolo={simbolo}
           onElegir={(item) =>
             router.push(
-              `/contabilidad?${item.lado === 'COBRAR' ? 'ingresoRecurrenteRecordatorioId' : 'gastoRecurrenteRecordatorioId'}=${item.recordatorioId}`
+              item.tipo === 'CUOTA'
+                ? `/contabilidad?cuotaId=${item.recordatorioId}&cuotaLado=${item.lado}`
+                : `/contabilidad?${item.lado === 'COBRAR' ? 'ingresoRecurrenteRecordatorioId' : 'gastoRecurrenteRecordatorioId'}=${item.recordatorioId}`
             )
           }
         />

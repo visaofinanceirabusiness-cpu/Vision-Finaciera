@@ -18,7 +18,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { crearCategoriaIngreso } from '@/lib/categorias';
 import { generarMatrizOperaciones } from '@/lib/motor';
-import { listarTodasLasCuotasCobro, marcarCuotaCobrada, type CuotaCobro } from '@/lib/cuotasCobro';
+import { listarTodasLasCuotasCobro, marcarCuotaCobrada, saldoCuotaCobro, type CuotaCobro } from '@/lib/cuotasCobro';
 import {
   listarIngresosRecurrentes,
   listarRecordatoriosIngresosConHistorial,
@@ -203,7 +203,7 @@ export function MisIngresos({
     .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento));
   const recordatoriosCobrados = recordatoriosDelPeriodo.filter((r) => r.registrado);
 
-  const totalCuentasPorCobrar = cuotasPendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
+  const totalCuentasPorCobrar = cuotasPendientes.reduce((suma, cuota) => suma + saldoCuotaCobro(cuota), 0);
   const totalIngresosRecurrentes = recordatoriosPendientes.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
   const totalGeneral = totalCuentasPorCobrar + totalIngresosRecurrentes;
 
@@ -328,7 +328,7 @@ export function MisIngresos({
               </p>
             ) : (
               Array.from(gruposCuentaPorCobrar.entries()).map(([nombreCuenta, cuotasDeLaCuenta]) => {
-                const subtotal = cuotasDeLaCuenta.reduce((suma, cuota) => suma + cuota.monto, 0);
+                const subtotal = cuotasDeLaCuenta.reduce((suma, cuota) => suma + saldoCuotaCobro(cuota), 0);
 
                 return (
                   <div key={nombreCuenta} style={{ marginBottom: 10 }}>
@@ -377,7 +377,10 @@ style={{
                             }}
                           >
                             <strong style={{ fontSize: 12.5, color: '#15803d', whiteSpace: 'nowrap' }}>
-                              {simbolo} {cuota.monto.toFixed(2)}
+                              {simbolo} {saldoCuotaCobro(cuota).toFixed(2)}
+                              {cuota.monto_cobrado > 0 && (
+                                <span style={{ fontWeight: 500, color: '#6b7280' }}> {esPT ? 'de' : 'de'} {cuota.monto.toFixed(2)}</span>
+                              )}
                             </strong>
                             {!soloLectura && (
                             <button
