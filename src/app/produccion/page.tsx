@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { VolverLobby } from '@/components/nav/VolverLobby';
 import { supabase } from '@/lib/supabase';
 import {
   calcularConsumo,
@@ -285,18 +286,7 @@ export default function ProduccionPage() {
         {/* ENCABEZADO */}
         <header style={encabezado}>
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <Link
-              href="/?vista=empresa"
-              style={{
-                color: '#cbd5e1',
-                fontSize: 13,
-                textDecoration: 'none',
-                display: 'inline-block',
-                marginBottom: 14,
-              }}
-            >
-              &larr; {t('volver')}
-            </Link>
+            <VolverLobby marginBottom={14}>&larr; {t('volver')}</VolverLobby>
 
             <p
               style={{

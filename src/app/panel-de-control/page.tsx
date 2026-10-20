@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { VolverLobby } from '@/components/nav/VolverLobby';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -644,9 +645,7 @@ export default function MiNegocioPage() {
         <header style={encabezadoEstandar}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
             <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-              <Link href="/?vista=empresa" style={volverEstandar}>
-                {t('volver')}
-              </Link>
+              <VolverLobby>{t('volver')}</VolverLobby>
 
               <div style={eyebrowEstandar}>{t('eyebrowGestionFinanciera')}</div>
 
