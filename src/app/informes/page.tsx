@@ -1213,7 +1213,9 @@ function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT, esFamiliar, sugeri
     }
   }
 
-  const diferencia = guardado > 0 ? diferenciaConSaldoDeseado(saldoFinal, guardado) : null;
+  // La diferencia sale de lo escrito, así informa aunque todavía no se haya podido guardar.
+  const valorEscrito = Number(texto.replace(',', '.'));
+  const diferencia = Number.isFinite(valorEscrito) && valorEscrito > 0 ? diferenciaConSaldoDeseado(saldoFinal, valorEscrito) : null;
 
   return (
     <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#fff' }}>
