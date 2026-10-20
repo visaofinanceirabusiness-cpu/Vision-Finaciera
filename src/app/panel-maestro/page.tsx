@@ -674,6 +674,13 @@ export default function PanelMaestroPage() {
             />
 
             <TarjetaHerramientaMaestro
+              href="/panel-maestro/demo-en-vivo"
+              emoji="🎓"
+              titulo="Demo en vivo — qué hacen los espectadores"
+              color="#0d9488"
+            />
+
+            <TarjetaHerramientaMaestro
               href="/panel-maestro/probar-tutorial"
               emoji="🧪"
               titulo="Probar tutorial de empresas nuevas"
