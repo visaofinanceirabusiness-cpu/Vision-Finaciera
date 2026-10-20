@@ -31,7 +31,7 @@ import {
   invalidarCache,
   type MetaEmpresa,
 } from '@/lib/lanzamientoRapidoDatos';
-import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { compromisosAbiertosDeCategoria, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { OPERACIONES_RAPIDAS, parsearMonto as parsearMontoFav } from '@/lib/lanzamientoRapido';
 import { obtenerCategoriasJuego } from '@/lib/miniJuego';
@@ -80,6 +80,10 @@ export default function LanzamientoRapidoPage() {
   // Aviso "ya lo devengaste" de la tarjeta abierta, y la categoría del compromiso si se eligió.
   const [avisos, setAvisos] = useState<CompromisoAbierto[]>([]);
   const [categoriaAlt, setCategoriaAlt] = useState<string | null>(null);
+  // Recordatorio simple elegido en el aviso: queda cumplido al registrar.
+  const [pendienteAviso, setPendienteAviso] = useState<CompromisoAbierto | null>(null);
+  // Cobros y pagos recurrentes del mes; van como tarjetas primero, sin caché porque cambian al cargarse.
+  const [pendientes, setPendientes] = useState<CompromisoAbierto[]>([]);
   const abiertaRef = useRef<string | null>(null);
 
   const [frase, setFrase] = useState<string | null>(null);
@@ -161,6 +165,25 @@ export default function LanzamientoRapidoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  useEffect(() => {
+    if (!empresaId) return;
+    pendientesParaCargar(empresaId).then(setPendientes).catch(() => setPendientes([]));
+  }, [empresaId]);
+
+  const tarjetasPendientes: TarjetaRapida[] = pendientes.map((p) => ({
+    clave: `pend|${p.lado}|${p.recordatorioId}`,
+    operacion: operacionDeCompromiso(p),
+    categoria: p.categoriaLiquidacion,
+    formaPago: p.formaPago,
+    usos: 0,
+    ultimoValor: p.saldo,
+    mediana: 0,
+    ultimoHistorico: p.nombre,
+    ultimoProveedor: p.nombre,
+    pendiente: p,
+  }));
+  const todasLasTarjetas = [...tarjetasPendientes, ...tarjetas];
+
   async function alternarFavorita(t: TarjetaRapida) {
     if (!empresaId) return;
     setError('');
@@ -208,7 +231,8 @@ export default function LanzamientoRapidoPage() {
     abiertaRef.current = t.clave;
     setAvisos([]);
     setCategoriaAlt(null);
-    if (empresaId && (t.operacion === 'COBRO' || t.operacion === 'PAGO')) {
+    setPendienteAviso(null);
+    if (empresaId && !t.pendiente && (t.operacion === 'COBRO' || t.operacion === 'PAGO')) {
       compromisosAbiertosDeCategoria(empresaId, t.operacion, t.categoria)
         .then((items) => {
           if (abiertaRef.current === t.clave) setAvisos(items);
@@ -258,12 +282,13 @@ export default function LanzamientoRapidoPage() {
     setErrorTarjeta('');
 
     try {
-      const id = await registrarLanzamiento(empresaId, categoriaAlt ? { ...t, categoria: categoriaAlt } : t,
+      const id = await registrarLanzamiento(empresaId, { ...t, ...(categoriaAlt ? { categoria: categoriaAlt } : {}), pendiente: t.pendiente ?? pendienteAviso ?? undefined },
         monto,
         fecha,
         tipoCuotas && enCuotas ? { tipo: tipoCuotas, cantidad: cuotasElegidas, idioma: meta.idioma } : undefined
       );
       invalidarCache(empresaId);
+      if (t.pendiente || pendienteAviso) pendientesParaCargar(empresaId).then(setPendientes).catch(() => null);
       const resumen = `${nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)} · ${t.categoria} · ${simbolo} ${formatearNumeroEntero(monto)}`;
 
       setUltimo({ id, resumen });
@@ -293,6 +318,7 @@ export default function LanzamientoRapidoPage() {
     try {
       await deshacerLanzamiento(empresaId, id);
       invalidarCache(empresaId);
+      pendientesParaCargar(empresaId).then(setPendientes).catch(() => null);
       setFrase(tr('Deshecho. Esa ola no cuenta.', 'Desfeito. Essa onda não conta.'));
       setVanHoy(await contarJugadasHoy(empresaId).catch(() => null));
     } catch (e) {
@@ -384,13 +410,13 @@ export default function LanzamientoRapidoPage() {
           </div>
         )}
 
-        {tarjetas.length === 0 && !error && (
+        {todasLasTarjetas.length === 0 && !error && (
           <p style={{ color: COLORES.gris, textAlign: 'center', padding: 24 }}>
             {tr('Todavía no hay operaciones repetidas en los últimos 60 días. Cargá algunas y acá van a aparecer, o sumá una favorita con el +.', 'Ainda não há operações repetidas nos últimos 60 dias. Registre algumas e elas aparecerão aqui, ou adicione um favorito com o +.')}
           </p>
         )}
         <div className="lanzamiento-rapido-grilla">
-            {tarjetas.map((t) => {
+            {todasLasTarjetas.map((t) => {
               const estilo = ESTILO_OPERACION[t.operacion] ?? ESTILO_OPERACION.PAGO;
               const esAbierta = abierta === t.clave;
 
@@ -406,6 +432,7 @@ export default function LanzamientoRapidoPage() {
                     gridColumn: esAbierta ? '1 / -1' : undefined,
                   }}
                 >
+                  {!t.pendiente && (
                   <button
                     type="button"
                     onClick={() => alternarFavorita(t)}
@@ -415,6 +442,7 @@ export default function LanzamientoRapidoPage() {
                   >
                     {t.favorita ? '❤️' : '🤍'}
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => abrirTarjeta(t)}
@@ -429,7 +457,7 @@ export default function LanzamientoRapidoPage() {
                     <div style={{ fontSize: 18, fontWeight: 800, color: estilo.color, marginTop: 8 }}>
                       {t.ultimoValor > 0 ? `${simbolo} ${formatearNumeroEntero(t.ultimoValor)}` : '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.usos > 0 ? `${t.usos} ${t.usos === 1 ? tr('uso', 'uso') : tr('usos', 'usos')}` : tr('sin usos recientes', 'sem usos recentes')}</div>
+                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.pendiente ? `📌 ${tr('Pendiente', 'Pendente')} · ${t.pendiente.nombre}` : t.usos > 0 ? `${t.usos} ${t.usos === 1 ? tr('uso', 'uso') : tr('usos', 'usos')}` : tr('sin usos recientes', 'sem usos recentes')}</div>
                   </button>
 
                   {esAbierta && (
@@ -484,9 +512,11 @@ export default function LanzamientoRapidoPage() {
                         </div>
                       )}
 
-                      {categoriaAlt ? (
+                      {categoriaAlt || pendienteAviso ? (
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
-                          {tr('Se registra contra:', 'Será registrado contra:')} {categoriaAlt}
+                          {pendienteAviso
+                            ? `${tr('Queda cumplido:', 'Fica cumprido:')} «${pendienteAviso.nombre}»`
+                            : `${tr('Se registra contra:', 'Será registrado contra:')} ${categoriaAlt}`}
                         </p>
                       ) : (
                         <AvisoCompromisosAbiertos
@@ -494,7 +524,10 @@ export default function LanzamientoRapidoPage() {
                           operacion={t.operacion}
                           idioma={meta.idioma}
                           simbolo={simbolo}
-                          onElegir={(item) => setCategoriaAlt(item.categoriaLiquidacion)}
+                          onElegir={(item) => {
+                            if (item.devengado) setCategoriaAlt(item.categoriaLiquidacion);
+                            else setPendienteAviso(item);
+                          }}
                         />
                       )}
 

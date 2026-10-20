@@ -33,8 +33,9 @@ import { saldosDeCategorias, saldosDeMedios, saldosDeStock } from '@/lib/saldoCu
 import { nombreOperacionDisplay } from '@/lib/i18n';
 import { BloqueResumenJugada, CelebracionMiniJuego, type ResumenJugada } from './CelebracionMiniJuego';
 import type { DatosSimulados } from '@/lib/tutorialSimulacion';
-import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
+import { PendientesParaCargar } from './PendientesParaCargar';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -145,6 +146,10 @@ export function MiniJuego({
   const [jugadasSimuladas, setJugadasSimuladas] = useState(0);
   // Aviso "ya lo devengaste": la categoría tocada tiene compromisos devengados con saldo.
   const [avisoCompromisos, setAvisoCompromisos] = useState<{ categoria: string; items: CompromisoAbierto[] } | null>(null);
+  // Recordatorio simple (sin devengo) que esta jugada va a dejar cumplido al grabar.
+  const [pendienteElegido, setPendienteElegido] = useState<CompromisoAbierto | null>(null);
+  // Si vino de la lista de pendientes (salta categoría y medio), Volver sale de la jugada.
+  const [desdePendientes, setDesdePendientes] = useState(false);
 
   useEffect(() => {
     if (!operacion) return;
@@ -271,7 +276,27 @@ export function MiniJuego({
     }
   }
 
+  function elegirPendiente(item: CompromisoAbierto) {
+    setAvisoCompromisos(null);
+    setOperacion(operacionDeCompromiso(item));
+    setCategoria(item.categoriaLiquidacion);
+    setFormaPago(item.formaPago);
+    setClienteProveedor(item.nombre);
+    setProductoId('');
+    setProductoNombre('');
+    setUnidadMedida('');
+    setCantidad('');
+    setMonto(String(Number(item.saldo.toFixed(2))));
+    setBusqueda('');
+    setError('');
+    setPendienteElegido(item.devengado ? null : item);
+    setDesdePendientes(true);
+    setPaso('monto');
+  }
+
   function elegirOperacion(op: string) {
+    setPendienteElegido(null);
+    setDesdePendientes(false);
     setAvisoCompromisos(null);
     setOperacion(op);
     setCategoria('');
@@ -291,6 +316,7 @@ export function MiniJuego({
   }
 
   async function tocarCategoria(cat: string) {
+    setPendienteElegido(null);
     if (simulacion || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
       elegirCategoria(cat);
       return;
@@ -414,6 +440,10 @@ export function MiniJuego({
   }
 
   function volver() {
+    if (paso === 'monto' && desdePendientes) {
+      reiniciarJuego();
+      return;
+    }
     setAvisoCompromisos(null);
     setError('');
     setBusqueda('');
@@ -428,6 +458,9 @@ export function MiniJuego({
   }
 
   function reiniciarJuego() {
+    setPendienteElegido(null);
+    setDesdePendientes(false);
+    setAvisoCompromisos(null);
     setFecha(fechaLocalHoy());
     setOperacion('');
     setCategoria('');
@@ -533,6 +566,10 @@ export function MiniJuego({
         clienteProveedor: clienteProveedor.trim(),
         lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
       });
+      // Después de la asociación explícita (así la conciliación no cuenta dos veces).
+      if (resultado && pendienteElegido) {
+        await cerrarPendienteConOperacion(empresaId, pendienteElegido, resultado.idOperacion, resultado.total, fecha);
+      }
       if (!simulacion) conciliarTrasRegistrar(empresaId);
 
       if (resultado && tipoCuotas && enCuotas) {
@@ -790,6 +827,9 @@ export function MiniJuego({
 
         {paso === 'operacion' && (
           <>
+            {!simulacion && !tutorial && !operacionForzada && (
+              <PendientesParaCargar empresaId={empresaId} idioma={idioma} simbolo={simbolo} onElegir={elegirPendiente} oscuro />
+            )}
             {OPERACIONES_JUEGO.length > MINIMO_PARA_BUSCADOR && buscador}
             {operacionesFiltradas.length === 0 ? (
               <p style={{ color: '#fff', textAlign: 'center', fontSize: 13 }}>
@@ -826,7 +866,10 @@ export function MiniJuego({
                     operacion={operacion}
                     idioma={idioma}
                     simbolo={simbolo}
-                    onElegir={(item) => elegirCategoria(item.categoriaLiquidacion)}
+                    onElegir={(item) => {
+                      elegirCategoria(item.categoriaLiquidacion);
+                      setPendienteElegido(item.devengado ? null : item);
+                    }}
                     onSeguir={() => elegirCategoria(avisoCompromisos.categoria)}
                   />
                 ) : null}

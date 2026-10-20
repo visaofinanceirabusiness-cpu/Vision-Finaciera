@@ -6,8 +6,9 @@
 // en su propio archivo (Fase 2 de mantenimiento).
 
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
-import { compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
+import { PendientesParaCargar } from '@/components/panel/PendientesParaCargar';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +32,7 @@ import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCat
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
 import { registrarPagoParcial, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
+import { registrarCobroParcial, type RecordatorioIngresoRecurrente } from '@/lib/ingresosRecurrentes';
 import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
 import { EscanerCodigoBarras } from '@/components/panel/EscanerCodigoBarras';
 import { MiniJuego } from '@/components/panel/MiniJuego';
@@ -100,6 +102,7 @@ export function CentralDeLanzamientosTab({
   idOperacionEditar,
   valoresIniciales,
   recordatorioGastoRecurrente,
+  recordatorioIngresoRecurrente,
   onGuardado,
   onCancelar,
 }: {
@@ -109,6 +112,8 @@ export function CentralDeLanzamientosTab({
   // guardar con éxito, se resta el monto cargado del saldo pendiente
   // de este recordatorio (ver handleRegistrar y registrarPagoParcial).
   recordatorioGastoRecurrente?: RecordatorioGastoRecurrente;
+  // Lo mismo para un ingreso recurrente (cobro) que se llega a registrar desde un pendiente.
+  recordatorioIngresoRecurrente?: RecordatorioIngresoRecurrente;
   onGuardado?: () => void;
   onCancelar?: () => void;
 } = {}) {
@@ -147,6 +152,8 @@ export function CentralDeLanzamientosTab({
   const [categoria, setCategoria] = useState(valoresIniciales?.categoria ?? '');
   // Aviso "ya lo devengaste": la categoría elegida tiene compromisos devengados con saldo.
   const [compromisosAbiertos, setCompromisosAbiertos] = useState<CompromisoAbierto[]>([]);
+  // Recordatorio simple (sin devengo) que al guardar queda cumplido con esta operación.
+  const [pendienteElegido, setPendienteElegido] = useState<CompromisoAbierto | null>(null);
 
   // Si la categoría elegida mueve stock (según la Matriz de Operações)
   // o no — una Venta/Compra/Pérdida de una categoría de servicio
@@ -410,6 +417,8 @@ export function CentralDeLanzamientosTab({
   }, [categoria]);
 
   useEffect(() => {
+    setPendienteElegido(null);
+
     if (!empresaId || modoEdicion || !categoria || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
       setCompromisosAbiertos([]);
       return;
@@ -1327,6 +1336,18 @@ export function CentralDeLanzamientosTab({
         }
       }
 
+      if (recordatorioIngresoRecurrente) {
+        try {
+          await registrarCobroParcial(empresaId, recordatorioIngresoRecurrente, resultado.idOperacion, resultado.total, formulario.fecha);
+        } catch (errorRecordatorio) {
+          console.warn('No se pudo actualizar el saldo del ingreso recurrente:', errorRecordatorio);
+        }
+      }
+
+      if (pendienteElegido) {
+        await cerrarPendienteConOperacion(empresaId, pendienteElegido, resultado.idOperacion, resultado.total, formulario.fecha);
+      }
+
       // Después de la asociación explícita de arriba (así no se cuenta dos veces).
       conciliarTrasRegistrar(empresaId);
 
@@ -1548,6 +1569,19 @@ export function CentralDeLanzamientosTab({
         </p>
       )}
 
+      {!modoEdicion && !valoresIniciales && empresaId && (
+        <PendientesParaCargar
+          empresaId={empresaId}
+          idioma={idioma ?? 'ES'}
+          simbolo={simbolo}
+          onElegir={(item) =>
+            router.push(
+              `/contabilidad?${item.lado === 'COBRAR' ? 'ingresoRecurrenteRecordatorioId' : 'gastoRecurrenteRecordatorioId'}=${item.recordatorioId}`
+            )
+          }
+        />
+      )}
+
       <div style={grid2}>
         <Campo label={t('labelFecha')}>
           <input
@@ -1606,16 +1640,28 @@ export function CentralDeLanzamientosTab({
 
           {saldoDestino && <TextoSaldo idioma={idioma} simbolo={simbolo} fecha={fecha} saldo={saldoDestino} />}
 
-          {compromisosAbiertos.length > 0 && (
+          {compromisosAbiertos.length > 0 && !pendienteElegido && (
             <div style={{ marginTop: 10 }}>
               <AvisoCompromisosAbiertos
                 items={compromisosAbiertos}
                 operacion={operacion}
                 idioma={idioma ?? 'ES'}
                 simbolo={simbolo}
-                onElegir={(item) => setCategoria(item.categoriaLiquidacion)}
+                onElegir={(item) => {
+                  if (item.devengado) setCategoria(item.categoriaLiquidacion);
+                  else setPendienteElegido(item);
+                }}
               />
             </div>
+          )}
+
+          {pendienteElegido && (
+            <p style={{ marginTop: 10, fontSize: 12.5, color: '#166534', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px' }}>
+              {idioma === 'PT' ? `✔ Ao registrar, «${pendienteElegido.nombre}» fica cumprido.` : `✔ Al registrar, «${pendienteElegido.nombre}» queda cumplido.`}{' '}
+              <button type="button" onClick={() => setPendienteElegido(null)} style={{ border: 'none', background: 'transparent', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: 12.5 }}>
+                {idioma === 'PT' ? 'Não é isso' : 'No es ese'}
+              </button>
+            </p>
           )}
         </Campo>
 

@@ -33,7 +33,7 @@
 // nombreOperacionDisplay, igual que en Contabilidad.
 
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
-import { compromisosAbiertosDeCategoria } from './compromisosAbiertos';
+import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from './compromisosAbiertos';
 import { supabase } from './supabase';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
@@ -45,6 +45,7 @@ import { crearOUsarContactoPorTelefono } from './clientes';
 import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
 
 type Paso =
+  | 'PENDIENTE'
   | 'FECHA'
   | 'OPERACION'
   | 'CATEGORIA'
@@ -85,6 +86,11 @@ type Datos = {
   // liquidación se puede redirigir (opciones 1..N; la última es seguir igual).
   categoriaOriginal?: string;
   categoriasCompromiso?: string[];
+  // Lo que se eligió en el aviso o en la lista de pendientes: al grabar, el
+  // recordatorio simple queda cumplido con esta operación.
+  compromisosAviso?: CompromisoAbierto[];
+  pendientesLista?: CompromisoAbierto[];
+  pendiente?: CompromisoAbierto;
   esStock?: boolean;
   // Paso CUOTAS: la forma de pago elegida admite cuotas (deuda o cuenta por cobrar).
   tipoCuotas?: Exclude<TipoCuotas, null>;
@@ -229,9 +235,27 @@ async function iniciar(empresaId: string): Promise<string> {
     opciones,
   };
 
+  const pendientes = (await pendientesParaCargar(empresaId).catch(() => [])).slice(0, 8);
+
+  if (pendientes.length > 0) {
+    await guardarConversacion(empresaId, 'PENDIENTE', { ...datos, pendientesLista: pendientes });
+
+    const simbolo = datos.simbolo ?? 'R$';
+    const lista = pendientes.map(
+      (p) =>
+        `${p.lado === 'COBRAR' ? t(idioma, 'Cobrar', 'Receber') : 'Pagar'} · ${p.nombre} — ${simbolo} ${formatearNumeroEntero(p.saldo)}`
+    );
+
+    return `🦉 ${t(idioma, `¡Hola! Soy Sabio. Este mes tenés ${pendientes.length === 1 ? '1 pendiente' : `${pendientes.length} pendientes`}:`, `Olá! Eu sou o Sabio. Neste mês você tem ${pendientes.length === 1 ? '1 pendência' : `${pendientes.length} pendências`}:`)}\n\n${numerarLista([...lista, t(idioma, 'Cargar otra operación', 'Registrar outra operação')])}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
+  }
+
   await guardarConversacion(empresaId, 'FECHA', datos);
 
-  return `🦉 ${t(idioma, '¡Hola! Soy Sabio. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio. Qual é a data da operação?')}\n\n${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
+  return `🦉 ${t(idioma, '¡Hola! Soy Sabio. ¿Qué fecha tiene la operación?', 'Olá! Eu sou o Sabio. Qual é a data da operação?')}\n\n${mensajePedirFecha(idioma)}`;
+}
+
+function mensajePedirFecha(idioma: string | undefined): string {
+  return `${t(idioma, 'Escribí "hoy", "ayer", o una fecha (ej: 8/9 o 08/09/2026).', 'Digite "hoje", "ontem", ou uma data (ex: 8/9 ou 08/09/2026).')}\n\n${t(idioma, '(Escribí "cancelar" en cualquier momento para salir)', '(Digite "cancelar" a qualquer momento para sair)')}`;
 }
 
 function mensajeElegirOperacion(idioma: string | undefined, opciones: string[], esFamiliar?: boolean): string {
@@ -356,11 +380,13 @@ async function avanzarDesdeCategoria(
       const simbolo = datos.simbolo ?? 'R$';
       const categoriasCompromiso = compromisos.map((c) => c.categoriaLiquidacion);
 
-      await guardarConversacion(empresaId, 'AVISO_COMPROMISO', { ...datos, categoriaOriginal: categoria, categoriasCompromiso });
+      await guardarConversacion(empresaId, 'AVISO_COMPROMISO', { ...datos, categoriaOriginal: categoria, categoriasCompromiso, compromisosAviso: compromisos });
 
       const lista = compromisos.map((c) => `• ${c.nombre} — ${simbolo} ${formatearNumeroEntero(c.saldo)}`).join('\n');
       const opciones = [
-        ...categoriasCompromiso.map((c) => `${cobro ? t(idioma, 'Cobrar', 'Receber') : t(idioma, 'Pagar', 'Pagar')} → ${c}`),
+        ...compromisos.map(
+          (c) => `${cobro ? t(idioma, 'Cobrar', 'Receber') : 'Pagar'}${c.devengado ? ` → ${c.categoriaLiquidacion}` : ` «${c.nombre}»`}`
+        ),
         t(idioma, `Es otra cosa, seguir con "${categoria}"`, `É outra coisa, continuar com "${categoria}"`),
       ];
 
@@ -368,11 +394,19 @@ async function avanzarDesdeCategoria(
         idioma,
         `⚠️ Este mes ya tenés ${cobro ? 'por cobrar' : 'por pagar'}:`,
         `⚠️ Você já tem ${cobro ? 'a receber' : 'a pagar'} neste mês:`
-      )}\n${lista}\n\n${t(
-        idioma,
-        `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, registralo contra la cuenta del compromiso para que no se cuente dos veces.`,
-        `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, registre contra a conta do compromisso para não contar duas vezes.`
-      )}\n\n${numerarLista(opciones)}`;
+      )}\n${lista}\n\n${
+        compromisos.every((c) => !c.devengado)
+          ? t(
+              idioma,
+              `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, elegilo y queda marcado como cumplido al registrar.`,
+              `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, escolha e ele fica marcado como cumprido ao registrar.`
+            )
+          : t(
+              idioma,
+              `Si es eso lo que estás ${cobro ? 'cobrando' : 'pagando'}, registralo contra la cuenta del compromiso para que no se cuente dos veces.`,
+              `Se é isso que você está ${cobro ? 'recebendo' : 'pagando'}, registre contra a conta do compromisso para não contar duas vezes.`
+            )
+      }\n\n${numerarLista(opciones)}`;
     }
   }
 
@@ -556,6 +590,56 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   // ---------------------------------------------------
   // 2. CATEGORÍA
   // ---------------------------------------------------
+  if (paso === 'PENDIENTE') {
+    const lista = datos.pendientesLista ?? [];
+    const n = parseNumero(texto, lista.length + 1);
+
+    if (n === null) {
+      return t(
+        idioma,
+        `No entendí. Respondé con un número del 1 al ${lista.length + 1}, o "cancelar".`,
+        `Não entendi. Responda com um número de 1 a ${lista.length + 1}, ou "cancelar".`
+      );
+    }
+
+    if (n > lista.length) {
+      await guardarConversacion(empresaId, 'FECHA', { ...datos, pendientesLista: undefined });
+      return `${t(idioma, '¿Qué fecha tiene la operación?', 'Qual é a data da operação?')}\n\n${mensajePedirFecha(idioma)}`;
+    }
+
+    const elegido = lista[n - 1];
+    const monto = Number(elegido.saldo.toFixed(2));
+    const nuevosDatos: Datos = {
+      ...datos,
+      pendientesLista: undefined,
+      fecha: fechaLocalHoy(),
+      operacion: operacionDeCompromiso(elegido),
+      categoria: elegido.categoriaLiquidacion,
+      formaPago: elegido.formaPago,
+      contacto: elegido.nombre,
+      historico: elegido.nombre,
+      monto,
+      esStock: false,
+      pendiente: elegido.devengado ? undefined : elegido,
+    };
+    await guardarConversacion(empresaId, 'CONFIRMAR', nuevosDatos);
+
+    const simbolo = datos.simbolo ?? 'R$';
+    const etiquetaContactoTexto = etiquetaContacto(idioma, nuevosDatos.operacion ?? '');
+    const etiquetaContactoTitulo = etiquetaContactoTexto.charAt(0).toUpperCase() + etiquetaContactoTexto.slice(1);
+
+    return (
+      `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
+      `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(nuevosDatos.fecha)}\n` +
+      `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, nuevosDatos.operacion ?? '', datos.esFamiliar)}\n` +
+      `${etiquetaCategoria(idioma, nuevosDatos.operacion)}: ${nuevosDatos.categoria}\n` +
+      `${etiquetaFormaPago(idioma, nuevosDatos.operacion)}: ${nuevosDatos.formaPago}\n${etiquetaContactoTitulo}: ${elegido.nombre}\n` +
+      `${t(idioma, 'Detalle', 'Detalhe')}: ${elegido.nombre}\n` +
+      `${t(idioma, 'Monto', 'Valor')}: ${simbolo} ${formatearNumeroEntero(monto)}\n\n` +
+      `1) ${t(idioma, 'Confirmar', 'Confirmar')}\n2) ${t(idioma, 'Cancelar', 'Cancelar')}`
+    );
+  }
+
   if (paso === 'AVISO_COMPROMISO') {
     const categoriasCompromiso = datos.categoriasCompromiso ?? [];
     const n = parseNumero(texto, categoriasCompromiso.length + 1);
@@ -569,7 +653,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
     }
 
     const elegida = n <= categoriasCompromiso.length ? categoriasCompromiso[n - 1] : (datos.categoriaOriginal ?? '');
-    return avanzarDesdeCategoria(empresaId, datos, elegida, idioma, true);
+    const compromiso = n <= categoriasCompromiso.length ? datos.compromisosAviso?.[n - 1] : undefined;
+    return avanzarDesdeCategoria(empresaId, { ...datos, pendiente: compromiso && !compromiso.devengado ? compromiso : undefined }, elegida, idioma, true);
   }
 
   if (paso === 'CATEGORIA') {
@@ -829,6 +914,9 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         socio: '',
         lineas,
       });
+      if (datos.pendiente) {
+        await cerrarPendienteConOperacion(empresaId, datos.pendiente, resultado.idOperacion, resultado.total, datos.fecha ?? fechaLocalHoy());
+      }
       conciliarTrasRegistrar(empresaId);
 
       if (datos.tipoCuotas && datos.cuotas && datos.cuotas >= 1) {

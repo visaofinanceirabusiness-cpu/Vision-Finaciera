@@ -4,6 +4,8 @@
 // las operaciones recientes y las reglas de seguridad del monto. No toca la
 // base ni el motor — el registro real sigue siendo registrarOperacion.
 
+import type { CompromisoAbierto } from './compromisosAbiertos';
+
 export type OperacionReciente = {
   id_operacion: string;
   fecha: string;
@@ -27,6 +29,8 @@ export type TarjetaRapida = {
   ultimoHistorico: string;
   ultimoProveedor: string;
   favorita?: boolean;
+  // Tarjeta que viene de un cobro/pago recurrente pendiente del mes (no del historial).
+  pendiente?: CompromisoAbierto;
 };
 
 export type FavoritaRapida = {

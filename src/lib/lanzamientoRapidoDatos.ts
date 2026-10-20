@@ -6,6 +6,7 @@
 
 import { crearCuotasDeOperacion, type TipoCuotas } from './cuotasOperacion';
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
+import { cerrarPendienteConOperacion, reabrirPendientesDeOperacion } from './compromisosAbiertos';
 import { supabase } from './supabase';
 import { fechaLocalHoy } from './fecha';
 import { registrarOperacion, eliminarOperacion } from './motor';
@@ -135,6 +136,10 @@ export async function registrarLanzamiento(
     lineas: [{ producto: '', cantidad: 1, monto }],
   });
 
+  if (tarjeta.pendiente) {
+    await cerrarPendienteConOperacion(empresaId, tarjeta.pendiente, resultado.idOperacion, resultado.total, fecha);
+  }
+
   conciliarTrasRegistrar(empresaId);
 
   if (cuotas && cuotas.cantidad >= 1) {
@@ -152,4 +157,5 @@ export async function registrarLanzamiento(
 
 export async function deshacerLanzamiento(empresaId: string, idOperacion: string): Promise<void> {
   await eliminarOperacion(empresaId, idOperacion);
+  await reabrirPendientesDeOperacion(empresaId, idOperacion).catch((e) => console.warn('No se pudo reabrir el pendiente:', e));
 }

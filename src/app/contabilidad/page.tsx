@@ -23,6 +23,8 @@ import { crearTraductor } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { obtenerRecordatorio, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { configParaSaldar } from '@/lib/cuentaAPagar';
+import { configParaCobrar } from '@/lib/cuentaACobrar';
+import { obtenerRecordatorioIngreso, saldoPendienteCobro, type RecordatorioIngresoRecurrente } from '@/lib/ingresosRecurrentes';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { diccionarioContabilidad, frasesSabioContabilidad } from './i18n';
@@ -68,12 +70,14 @@ function ContabilidadPageInterno() {
   const recordatorioIdUrl = searchParams.get('gastoRecurrenteRecordatorioId');
   const [recordatorioGastoRecurrente, setRecordatorioGastoRecurrente] = useState<RecordatorioGastoRecurrente | undefined>(undefined);
   const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
-  const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl);
+  const ingresoIdUrl = searchParams.get('ingresoRecurrenteRecordatorioId');
+  const [recordatorioIngresoRecurrente, setRecordatorioIngresoRecurrente] = useState<RecordatorioIngresoRecurrente | undefined>(undefined);
+  const [prefillListo, setPrefillListo] = useState(!recordatorioIdUrl && !ingresoIdUrl);
 
   const t = crearTraductor(diccionarioContabilidad, idioma);
 
   useEffect(() => {
-    if (!recordatorioIdUrl) {
+    if (!recordatorioIdUrl && !ingresoIdUrl) {
       setPrefillListo(true);
       return;
     }
@@ -85,8 +89,33 @@ function ContabilidadPageInterno() {
     // ya se estaba en /contabilidad no remonta el componente por sí
     // solo.
     setPrefillListo(false);
+    setRecordatorioGastoRecurrente(undefined);
+    setRecordatorioIngresoRecurrente(undefined);
 
-    obtenerRecordatorio(recordatorioIdUrl)
+    if (!recordatorioIdUrl && ingresoIdUrl) {
+      obtenerRecordatorioIngreso(ingresoIdUrl)
+        .then(async (recordatorio) => {
+          if (!recordatorio) return;
+
+          const configACobrar = recordatorio.estado === 'DEVENGADA' ? await configParaCobrar(recordatorio.empresa_id, recordatorio.cuenta_devengo_forma_pago_id) : null;
+
+          setRecordatorioIngresoRecurrente(recordatorio);
+          setValoresInicialesGasto({
+            fecha: fechaLocalHoy(),
+            operacion: 'COBRO',
+            categoria: configACobrar ? configACobrar.categoriaLiquidacion : recordatorio.categoria,
+            formaPago: recordatorio.forma_pago,
+            historico: recordatorio.nombre,
+            clienteProveedor: '',
+            lineas: [{ producto: '', cantidad: 1, monto: saldoPendienteCobro(recordatorio), unidadCarga: '' }],
+          });
+        })
+        .catch((e) => console.error('No se pudo precargar el recordatorio del ingreso recurrente:', e))
+        .finally(() => setPrefillListo(true));
+      return;
+    }
+
+    obtenerRecordatorio(recordatorioIdUrl as string)
       .then(async (recordatorio) => {
         if (!recordatorio) return;
 
@@ -107,7 +136,7 @@ function ContabilidadPageInterno() {
       })
       .catch((e) => console.error('No se pudo precargar el recordatorio del gasto recurrente:', e))
       .finally(() => setPrefillListo(true));
-  }, [recordatorioIdUrl]);
+  }, [recordatorioIdUrl, ingresoIdUrl]);
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -253,6 +282,7 @@ function ContabilidadPageInterno() {
             <CentralDeLanzamientosTab
               valoresIniciales={valoresInicialesGasto}
               recordatorioGastoRecurrente={recordatorioGastoRecurrente}
+              recordatorioIngresoRecurrente={recordatorioIngresoRecurrente}
             />
           )}
           {pestana === 'registros' && <RegistroOperacionesTab />}
