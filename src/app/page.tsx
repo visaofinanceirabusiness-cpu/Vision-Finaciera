@@ -36,6 +36,7 @@ import { MiniJuego } from '@/components/panel/MiniJuego';
 import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
 import { ControlDemoLobby } from '@/components/demo/ControlDemoLobby';
 import { datosSimulados } from '@/lib/tutorialSimulacion';
+import { SECCION_PANEL } from '@/lib/modoEspectador';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
 import { PanelNoticias } from '@/components/panel/PanelNoticias';
@@ -918,7 +919,11 @@ export default function InicioPage() {
 
         {perfil && !espectador && <ControlDemoLobby empresaId={perfil.empresa_id} idioma={idioma} />}
 
-        {perfil && <PanelControlLobby idioma={idioma} />}
+        {perfil && (
+          <BloqueoDemo seccion={SECCION_PANEL}>
+            <PanelControlLobby idioma={idioma} />
+          </BloqueoDemo>
+        )}
 
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
