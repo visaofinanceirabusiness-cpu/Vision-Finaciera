@@ -9,7 +9,7 @@ import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from '@/components/panel/PendientesParaCargar';
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
@@ -22,6 +22,7 @@ import {
 import { crearCuentaParaMedioPago, crearFormaPago, crearPasivo, habilitarLiquidacionCuentaCobrar } from '@/lib/categorias';
 import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { formatearNumeroEntero } from '@/lib/moneda';
+import { CartelPrecioSugerido } from '@/components/ventas/CartelPrecioSugerido';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { crearTraductor, nombreOperacionDisplay } from '@/lib/i18n';
 import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
@@ -1886,7 +1887,8 @@ export function CentralDeLanzamientosTab({
           </p>
 
           {lineas.map((linea, i) => (
-            <div key={i} style={filaProducto}>
+            <Fragment key={i}>
+            <div style={filaProducto}>
               {operacionesConProducto ? (
                 <select
                   value={linea.producto}
@@ -1993,6 +1995,27 @@ export function CentralDeLanzamientosTab({
                 </button>
               )}
             </div>
+
+            {operacion === 'VENTA' && categoriaEsProducto && linea.producto && (() => {
+              const unidadGeneral = productos.find((p) => p.id === linea.producto)?.unidad_medida ?? '';
+              const cantidadBase =
+                linea.unidadCarga && unidadGeneral && linea.unidadCarga !== unidadGeneral
+                  ? convertirCantidad(Number(linea.cantidad), linea.unidadCarga, unidadGeneral)
+                  : Number(linea.cantidad);
+
+              return (
+                <CartelPrecioSugerido
+                  empresaId={empresaId ?? ''}
+                  productoId={linea.producto}
+                  fecha={fecha}
+                  idioma={idioma ?? 'ES'}
+                  simbolo={simbolo}
+                  cantidad={cantidadBase || 0}
+                  onUsar={(total) => actualizarLinea(i, 'monto', String(total))}
+                />
+              );
+            })()}
+            </Fragment>
           ))}
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>

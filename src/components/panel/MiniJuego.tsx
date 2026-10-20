@@ -12,6 +12,7 @@
 // lógica contable nueva: cero riesgo de que un asiento salga mal por
 // este camino que no salga también por los otros dos.
 
+import { CartelPrecioSugerido } from '@/components/ventas/CartelPrecioSugerido';
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
@@ -1178,6 +1179,19 @@ export function MiniJuego({
             >
               {simbolo} {monto || '0'}
             </div>
+
+            {!simulacion && operacion === 'VENTA' && necesitaProducto && productoId && (
+              <CartelPrecioSugerido
+                empresaId={empresaId}
+                productoId={productoId}
+                fecha={fecha}
+                idioma={idioma}
+                simbolo={simbolo}
+                cantidad={Number(cantidad) || 0}
+                onUsar={(total) => setMonto(String(total))}
+                oscuro
+              />
+            )}
 
             {tipoCuotas && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14, color: '#fff' }}>
