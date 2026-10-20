@@ -15,7 +15,7 @@
 //     próximos pasos.
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { BLOQUES_FLUJO, armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, saldoInicialDePeriodo, type BloqueFlujo } from '@/lib/flujoCaja';
+import { BLOQUES_FLUJO, armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, promedioSalidasMensuales, saldoAlCierreDePeriodo, saldoInicialDePeriodo, type BloqueFlujo } from '@/lib/flujoCaja';
 import { guardarSaldoDeseado, obtenerSaldoDeseado, periodoAnterior } from '@/lib/flujoCajaMeta';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -1161,7 +1161,7 @@ function LineaSaldo({ titulo, valor, destacada = false }: { titulo: string; valo
 }
 
 // Saldo deseado del mes: manual, editable mes a mes, informativo (no genera asientos).
-function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT }: { empresaId: string; periodo: string; saldoFinal: number; esPT: boolean }) {
+function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT, esFamiliar, sugerido }: { empresaId: string; periodo: string; saldoFinal: number; esPT: boolean; esFamiliar: boolean; sugerido: number }) {
   const simbolo = useContext(SimboloContext);
   const [guardado, setGuardado] = useState(0);
   const [texto, setTexto] = useState('0');
@@ -1219,7 +1219,7 @@ function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT }: { empresaId: str
     <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <label style={{ fontSize: 13.5, fontWeight: 800, color: COLORES.azul }} htmlFor="saldo-deseado">
-          {esPT ? 'Saldo desejado' : 'Saldo deseado'}
+          {esFamiliar ? (esPT ? 'Colchão do mês' : 'Colchón del mes') : esPT ? 'Saldo desejado' : 'Saldo deseado'}
         </label>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1249,6 +1249,19 @@ function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT }: { empresaId: str
         </button>
       )}
 
+      {esFamiliar && sugerido > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setTexto(String(sugerido));
+            guardar(sugerido);
+          }}
+          style={{ marginTop: 8, marginLeft: guardado === 0 ? 14 : 0, border: 'none', background: 'transparent', color: COLORES.azul, textDecoration: 'underline', cursor: 'pointer', fontSize: 12.5, padding: 0 }}
+        >
+          {esPT ? `Sugerir: 1 mês de gastos (${simbolo} ${formatearNumeroEntero(sugerido)})` : `Sugerir: 1 mes de gastos (${simbolo} ${formatearNumeroEntero(sugerido)})`}
+        </button>
+      )}
+
       {diferencia && (
         <div
           style={{
@@ -1259,12 +1272,12 @@ function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT }: { empresaId: str
           }}
         >
           {diferencia.tipo === 'FALTA'
-            ? `${esPT ? 'Falta para chegar' : 'Falta para llegar'}: ${simbolo} ${formatearNumeroEntero(diferencia.monto)}`
+            ? `${esFamiliar ? (esPT ? 'Falta para o seu colchão' : 'Te falta para tu colchón') : esPT ? 'Falta para chegar' : 'Falta para llegar'}: ${simbolo} ${formatearNumeroEntero(diferencia.monto)}`
             : diferencia.tipo === 'SOBRA'
-              ? `${esPT ? 'Disponível para aplicar' : 'Disponible para aplicar'}: ${simbolo} ${formatearNumeroEntero(diferencia.monto)}`
+              ? `${esFamiliar ? (esPT ? 'Você pode destinar à poupança ou investimento' : 'Podés destinar a ahorro o inversión') : esPT ? 'Disponível para aplicar' : 'Disponible para aplicar'}: ${simbolo} ${formatearNumeroEntero(diferencia.monto)}`
               : esPT
-                ? 'Você está exatamente no saldo desejado.'
-                : 'Estás justo en el saldo deseado.'}
+                ? esFamiliar ? 'Seu colchão está exatamente coberto.' : 'Você está exatamente no saldo desejado.'
+                : esFamiliar ? 'Tu colchón está justo cubierto.' : 'Estás justo en el saldo deseado.'}
         </div>
       )}
 
@@ -1463,7 +1476,7 @@ function FlujoDeCajaTab({
     return mapa;
   }, [hojas, asientos, nombresPorCobrar]);
 
-  const clasificar = useMemo(() => crearClasificador(hojas, asientos, nombresCaja), [hojas, asientos, nombresCaja]);
+  const clasificar = useMemo(() => crearClasificador(hojas, asientos, nombresCaja, esFamiliar), [hojas, asientos, nombresCaja, esFamiliar]);
 
   const flujo = useMemo(
     () =>
@@ -1487,7 +1500,7 @@ function FlujoDeCajaTab({
     const juntar = (lado: 'entradas' | 'salidas') => {
       const mapa = new Map<string, number>();
       for (const b of BLOQUES_FLUJO) {
-        if (b === 'INVERSION') continue;
+        if (b === 'INVERSION' || b === 'BIENES') continue;
         for (const f of flujo.bloques[b][lado]) mapa.set(f.nombre, (mapa.get(f.nombre) ?? 0) + f.valor);
       }
       return Array.from(mapa.entries())
@@ -1503,6 +1516,19 @@ function FlujoDeCajaTab({
       totalSalidas: salidas.reduce((s, f) => s + f.valor, 0),
     };
   }, [flujo]);
+
+  // Familia: cuánto hay guardado en Ahorros e Inversiones (1.2) y cuánto se ahorró del ingreso.
+  const cuentasAhorro = useMemo(() => (esFamiliar ? hojas.filter((c) => (c.codigo ?? '').startsWith('1.2.')) : []), [esFamiliar, hojas]);
+  const ahorroInicial = useMemo(() => saldoInicialDePeriodo(cuentasAhorro, asientos, periodo), [cuentasAhorro, asientos, periodo]);
+  const ahorroFinal = useMemo(() => saldoAlCierreDePeriodo(cuentasAhorro, asientos, periodo), [cuentasAhorro, asientos, periodo]);
+  const ingresosDelPeriodo = flujo.bloques.COMERCIAL.totalEntradas;
+  const ahorradoNeto = flujo.bloques.INVERSION.totalSalidas - flujo.bloques.INVERSION.totalEntradas;
+  const tasaAhorro = ingresosDelPeriodo > 0 ? (ahorradoNeto / ingresosDelPeriodo) * 100 : null;
+
+  const colchonSugerido = useMemo(
+    () => (esFamiliar ? promedioSalidasMensuales(movimientosDeCaja(asientos, nombresCaja), clasificar, periodo) : 0),
+    [esFamiliar, asientos, nombresCaja, clasificar, periodo]
+  );
 
   // Igual que en Estado de Resultado: la tendencia mira todo el
   // histórico, sin importar el período elegido arriba.
@@ -1531,6 +1557,11 @@ function FlujoDeCajaTab({
       emoji: '💳',
       actividades: esPT ? 'Atividades financeiras' : 'Actividades financieras',
       flujo: esPT ? 'Fluxo financeiro' : 'Flujo financiero',
+    },
+    BIENES: {
+      emoji: '🏠',
+      actividades: esPT ? 'Bens e propriedades' : 'Bienes y propiedades',
+      flujo: esPT ? 'Fluxo de bens' : 'Flujo de bienes',
     },
     OTROS: {
       emoji: '📌',
@@ -1578,23 +1609,41 @@ function FlujoDeCajaTab({
         <ToggleVistaInforme vista={vista} onChange={setVista} esPT={esPT} />
       </div>
 
-      <LineaSaldo titulo={esPT ? 'Saldo inicial (fechamento do mês anterior)' : 'Saldo inicial (cierre del mes anterior)'} valor={saldoInicial} />
+      <LineaSaldo titulo={esFamiliar ? (esPT ? 'Com quanto você começou (dinheiro disponível)' : 'Con cuánto arrancaste (plata disponible)') : esPT ? 'Saldo inicial (fechamento do mês anterior)' : 'Saldo inicial (cierre del mes anterior)'} valor={saldoInicial} />
 
       {esFamiliar ? (
         <>
           <SeccionMontos titulo={t('entradasDeCaja')} emoji="⬇️" filas={filas(familia.entradas)} total={familia.totalEntradas} color={COLORES.verde} soloTotal={soloTotal} />
           <SeccionMontos titulo={t('salidasDeCaja')} emoji="⬆️" filas={filas(familia.salidas)} total={familia.totalSalidas} color="#c2410c" resta soloTotal={soloTotal} />
 
-          {(flujo.bloques.INVERSION.entradas.length > 0 || flujo.bloques.INVERSION.salidas.length > 0) && (
+          <div style={{ marginTop: 8, marginBottom: 8 }}>
+            <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>{t('subtituloAhorroInversion')}</p>
+            <SeccionMontos titulo={esPT ? 'Você aplicou em poupança e investimentos' : 'Aportaste a ahorro e inversión'} emoji="🏦" filas={filas(flujo.bloques.INVERSION.salidas)} total={flujo.bloques.INVERSION.totalSalidas} color={COLORES.azul} resta soloTotal={soloTotal} />
+            <SeccionMontos titulo={esPT ? 'Você resgatou de poupança e investimentos' : 'Rescataste de ahorro e inversión'} emoji="🏦" filas={filas(flujo.bloques.INVERSION.entradas)} total={flujo.bloques.INVERSION.totalEntradas} color={COLORES.azul} soloTotal={soloTotal} />
+            <LineaSaldo
+              titulo={esPT ? '= Você poupou neste período' : '= Ahorraste en el período'}
+              valor={ahorradoNeto}
+              destacada
+            />
+            {tasaAhorro !== null && (
+              <p style={{ fontSize: 13, color: COLORES.azul, fontWeight: 700, margin: '0 2px 12px' }}>
+                {esPT ? 'Taxa de poupança' : 'Tasa de ahorro'}: {tasaAhorro.toFixed(1)}% {esPT ? 'da sua renda' : 'de tus ingresos'}
+              </p>
+            )}
+          </div>
+
+          {(flujo.bloques.BIENES.entradas.length > 0 || flujo.bloques.BIENES.salidas.length > 0) && (
             <div style={{ marginTop: 8, marginBottom: 8 }}>
-              <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>{t('subtituloAhorroInversion')}</p>
-              <SeccionMontos titulo={t('retirosAhorroInversion')} emoji="🏦" filas={filas(flujo.bloques.INVERSION.entradas)} total={flujo.bloques.INVERSION.totalEntradas} color={COLORES.azul} soloTotal={soloTotal} />
-              <SeccionMontos titulo={t('aportesAhorroInversion')} emoji="🏦" filas={filas(flujo.bloques.INVERSION.salidas)} total={flujo.bloques.INVERSION.totalSalidas} color={COLORES.azul} resta soloTotal={soloTotal} />
+              <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
+                {esPT ? 'Compras e vendas de bens e propriedades: não contam como poupança.' : 'Compras y ventas de bienes y propiedades: no cuentan como ahorro.'}
+              </p>
+              <SeccionMontos titulo={esPT ? 'Compras de bens' : 'Compras de bienes'} emoji="🏠" filas={filas(flujo.bloques.BIENES.salidas)} total={flujo.bloques.BIENES.totalSalidas} color="#c2410c" resta soloTotal={soloTotal} />
+              <SeccionMontos titulo={esPT ? 'Vendas de bens' : 'Ventas de bienes'} emoji="🏠" filas={filas(flujo.bloques.BIENES.entradas)} total={flujo.bloques.BIENES.totalEntradas} color={COLORES.verde} soloTotal={soloTotal} />
             </div>
           )}
         </>
       ) : (
-        BLOQUES_FLUJO.filter((b) => b !== 'OTROS' || flujo.bloques.OTROS.entradas.length > 0 || flujo.bloques.OTROS.salidas.length > 0).map((b) => {
+        BLOQUES_FLUJO.filter((b) => (b !== 'OTROS' && b !== 'BIENES') || flujo.bloques[b].entradas.length > 0 || flujo.bloques[b].salidas.length > 0).map((b) => {
           const bloque = flujo.bloques[b];
 
           return (
@@ -1634,10 +1683,20 @@ function FlujoDeCajaTab({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <LineaSaldo titulo={esPT ? 'Saldo final (saldo inicial + fluxo líquido)' : 'Saldo final (saldo inicial + flujo neto)'} valor={saldoFinal} destacada />
+        <LineaSaldo titulo={esFamiliar ? (esPT ? 'Com quanto você fecha (dinheiro disponível)' : 'Con cuánto cerrás (plata disponible)') : esPT ? 'Saldo final (saldo inicial + fluxo líquido)' : 'Saldo final (saldo inicial + flujo neto)'} valor={saldoFinal} destacada />
       </div>
 
-      {empresaId && !esTodos && <SaldoDeseado empresaId={empresaId} periodo={periodo} saldoFinal={saldoFinal} esPT={esPT} />}
+      {esFamiliar && (
+        <div style={{ marginTop: 12 }}>
+          <LineaSaldo titulo={esPT ? 'Poupança e investimentos — início do período' : 'Ahorros e inversiones — inicio del período'} valor={ahorroInicial} />
+          <LineaSaldo titulo={esPT ? 'Poupança e investimentos — fim do período' : 'Ahorros e inversiones — cierre del período'} valor={ahorroFinal} />
+          <LineaSaldo titulo={esPT ? 'Dinheiro líquido total (disponível + poupança)' : 'Plata líquida total (disponible + ahorros)'} valor={saldoFinal + ahorroFinal} destacada />
+        </div>
+      )}
+
+      {empresaId && !esTodos && (
+        <SaldoDeseado empresaId={empresaId} periodo={periodo} saldoFinal={saldoFinal} esPT={esPT} esFamiliar={esFamiliar} sugerido={colchonSugerido} />
+      )}
 
       <SeccionTendencia titulo={t('tendenciaCajaTitulo')} datos={tendenciaCaja} idioma={idioma} />
     </div>

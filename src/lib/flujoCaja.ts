@@ -10,9 +10,10 @@
 //   Otros      → lo que no encaja, para que nada quede fuera
 // Todo es lectura de asientos: no toca el motor ni genera nada.
 
-export type BloqueFlujo = 'COMERCIAL' | 'OPERATIVO' | 'INVERSION' | 'FINANCIERO' | 'OTROS';
+// BIENES solo existe en Familia (1.3 = Bienes y Propiedades): comprar un auto no es ahorrar.
+export type BloqueFlujo = 'COMERCIAL' | 'OPERATIVO' | 'INVERSION' | 'FINANCIERO' | 'BIENES' | 'OTROS';
 
-export const BLOQUES_FLUJO: BloqueFlujo[] = ['COMERCIAL', 'OPERATIVO', 'INVERSION', 'FINANCIERO', 'OTROS'];
+export const BLOQUES_FLUJO: BloqueFlujo[] = ['COMERCIAL', 'OPERATIVO', 'INVERSION', 'FINANCIERO', 'BIENES', 'OTROS'];
 
 export type CuentaFlujo = { nombre: string; codigo: string; tipo_saldo?: string | null };
 export type AsientoFlujo = { fecha: string; debito: string | null; credito: string | null; importe: number };
@@ -39,7 +40,9 @@ const aCentavos = (valor: number) => Math.round((valor + Number.EPSILON) * 100) 
 const PROVEEDORES = '2.1.1.0.1';
 const FINANCIERAS_FIJAS = ['2.1.1.0.2', '2.1.1.0.3'];
 
-function bloquePorCodigo(codigo: string): BloqueFlujo | 'ORIGEN' {
+function bloquePorCodigo(codigo: string, esFamiliar = false): BloqueFlujo | 'ORIGEN' {
+  // En el plan de Familia 1.2 son Ahorros e Inversiones y 1.3 Bienes y Propiedades.
+  if (esFamiliar && codigo.startsWith('1.3.')) return 'BIENES';
   if (codigo.startsWith('4.') || codigo.startsWith('5.') || codigo.startsWith('1.1.2.') || codigo.startsWith('1.1.3.')) return 'COMERCIAL';
   if (codigo.startsWith('1.2.') || codigo.startsWith('1.3.')) return 'INVERSION';
   if (codigo.startsWith('6.4.')) return 'FINANCIERO';
@@ -54,17 +57,17 @@ function bloquePorCodigo(codigo: string): BloqueFlujo | 'ORIGEN' {
 // Un pasivo propio ("Alquiler a pagar") se clasifica por aquello con lo que nació:
 // pagarlo cierra un gasto (operativo), una compra (comercial), un activo (inversión)
 // o una deuda tomada en plata (financiero).
-export function crearClasificador(cuentas: CuentaFlujo[], asientos: AsientoFlujo[], nombresCaja: Set<string>) {
+export function crearClasificador(cuentas: CuentaFlujo[], asientos: AsientoFlujo[], nombresCaja: Set<string>, esFamiliar = false) {
   const porNombre = new Map(cuentas.map((c) => [c.nombre, c]));
   const origen = new Map<string, BloqueFlujo>();
 
   const pesos = new Map<string, Map<BloqueFlujo, number>>();
   for (const a of asientos) {
     const pasivo = a.credito ? porNombre.get(a.credito) : undefined;
-    if (!pasivo || bloquePorCodigo(pasivo.codigo) !== 'ORIGEN' || !a.debito) continue;
+    if (!pasivo || bloquePorCodigo(pasivo.codigo, esFamiliar) !== 'ORIGEN' || !a.debito) continue;
 
     const contra = porNombre.get(a.debito);
-    const bloque = nombresCaja.has(a.debito) ? 'FINANCIERO' : contra ? bloquePorCodigo(contra.codigo) : 'OTROS';
+    const bloque = nombresCaja.has(a.debito) ? 'FINANCIERO' : contra ? bloquePorCodigo(contra.codigo, esFamiliar) : 'OTROS';
     const acumulado = pesos.get(pasivo.nombre) ?? new Map<BloqueFlujo, number>();
     const clave: BloqueFlujo = bloque === 'ORIGEN' ? 'FINANCIERO' : bloque;
     acumulado.set(clave, (acumulado.get(clave) ?? 0) + a.importe);
@@ -79,7 +82,7 @@ export function crearClasificador(cuentas: CuentaFlujo[], asientos: AsientoFlujo
     const cuenta = nombreCuenta ? porNombre.get(nombreCuenta) : undefined;
     if (!cuenta) return 'OTROS';
 
-    const bloque = bloquePorCodigo(cuenta.codigo);
+    const bloque = bloquePorCodigo(cuenta.codigo, esFamiliar);
     return bloque === 'ORIGEN' ? (origen.get(cuenta.nombre) ?? 'FINANCIERO') : bloque;
   };
 }
@@ -173,4 +176,44 @@ export function diferenciaConSaldoDeseado(saldoFinal: number, saldoDeseado: numb
   if (diferencia > 0) return { tipo: 'SOBRA', monto: diferencia };
   if (diferencia < 0) return { tipo: 'FALTA', monto: -diferencia };
   return { tipo: 'EXACTO', monto: 0 };
+}
+
+// Saldo (naturaleza deudora: caja, ahorros) de unas cuentas al cierre del período elegido;
+// con todos los períodos, al día de hoy.
+export function saldoAlCierreDePeriodo(cuentas: CajaFlujo[], asientos: AsientoFlujo[], periodo: string): number {
+  const nombres = new Set(cuentas.map((c) => c.nombre));
+  let movimiento = 0;
+
+  for (const a of asientos) {
+    if (periodo !== 'TODOS' && a.fecha.slice(0, 7) > periodo) continue;
+    if (a.debito && nombres.has(a.debito)) movimiento += a.importe;
+    if (a.credito && nombres.has(a.credito)) movimiento -= a.importe;
+  }
+
+  return aCentavos(cuentas.reduce((s, c) => s + Number(c.saldo_inicial ?? 0), 0) + movimiento);
+}
+
+// "Un mes de gastos": promedio de lo que salió de caja (sin ahorro ni compra de bienes)
+// en los hasta `meses` meses anteriores al período, contando solo los que tuvieron salidas.
+export function promedioSalidasMensuales(
+  movimientos: MovimientoCaja[],
+  clasificar: (nombreCuenta: string | null) => BloqueFlujo,
+  periodo: string,
+  meses = 3
+): number {
+  const porMes = new Map<string, number>();
+
+  for (const m of movimientos) {
+    const clave = m.fecha.slice(0, 7);
+    if (m.entrada || (periodo !== 'TODOS' && clave >= periodo)) continue;
+
+    const bloque = clasificar(m.contraparte);
+    if (bloque === 'INVERSION' || bloque === 'BIENES') continue;
+    porMes.set(clave, (porMes.get(clave) ?? 0) + m.importe);
+  }
+
+  const ultimos = Array.from(porMes.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, meses);
+  if (ultimos.length === 0) return 0;
+
+  return aCentavos(ultimos.reduce((s, [, v]) => s + v, 0) / ultimos.length);
 }
