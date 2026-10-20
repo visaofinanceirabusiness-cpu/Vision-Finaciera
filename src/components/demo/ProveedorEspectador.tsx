@@ -249,10 +249,12 @@ export function ProveedorEspectador() {
 }
 
 // Envuelve algo que el espectador ve pero no puede usar: lo tapa con un candado y avisa al tocarlo.
-export function BloqueoDemo({ children, radio = 24 }: { children: React.ReactNode; radio?: number }) {
+// Con `seccion`, solo queda bloqueado mientras quien presenta no la habilite (ej. el banner del Panel de Control).
+export function BloqueoDemo({ children, radio = 24, seccion }: { children: React.ReactNode; radio?: number; seccion?: string }) {
   const espectador = useEspectador();
+  const demo = useEstadoDemo();
 
-  if (!espectador) return <>{children}</>;
+  if (!espectador || (seccion && demo.habilitadas.includes(seccion))) return <>{children}</>;
 
   return (
     <div style={{ position: 'relative' }}>
