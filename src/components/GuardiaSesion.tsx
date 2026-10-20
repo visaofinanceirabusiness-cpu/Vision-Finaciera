@@ -22,7 +22,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motivoSinPerfil } from '@/lib/estadoCuenta';
 
-const RUTAS_PUBLICAS = ['/login', '/crear-cuenta', '/recuperar-senha', '/restablecer-senha', '/aceptar-convite'];
+const RUTAS_PUBLICAS = ['/demo', '/login', '/crear-cuenta', '/recuperar-senha', '/restablecer-senha', '/aceptar-convite'];
 const INTERVALO_MS = 60_000;
 
 export function GuardiaSesion() {
