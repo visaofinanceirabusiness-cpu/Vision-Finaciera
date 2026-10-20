@@ -17,7 +17,6 @@ export function VistaDetalles({
   serie,
   totales,
   conCostos,
-  esEmpresa,
   simbolo,
   idioma,
   etiqueta,
@@ -25,7 +24,6 @@ export function VistaDetalles({
   serie: PuntoAgrupado[];
   totales: Omit<PuntoAgrupado, 'clave'>;
   conCostos: boolean;
-  esEmpresa: boolean;
   simbolo: string;
   idioma: string;
   etiqueta: (clave: string, larga?: boolean) => string;
@@ -42,21 +40,6 @@ export function VistaDetalles({
     { id: 'gastos', titulo: t('Gastos', 'Despesas') },
     { id: 'resultado', titulo: t('Resultado', 'Resultado') },
     ...(conCostos ? [{ id: 'margenBruto' as const, titulo: t('Margen bruto', 'Margem bruta') }] : []),
-  ];
-
-  // Cascada de empresas: siempre las tres líneas de resultado, aunque no haya
-  // nada que restar (queda en cero).
-  const bruto = totales.ingresos - totales.costos;
-  const operacional = bruto - (totales.gastos - totales.gastosNoOperativos);
-  const neto = totales.resultado;
-  const cascada: { clave: string; nombre: string; valor: number; esResultado: boolean }[] = [
-    { clave: 'ingresos', nombre: t('Ingresos', 'Receitas'), valor: totales.ingresos, esResultado: false },
-    { clave: 'costos', nombre: t('− Costos', '− Custos'), valor: totales.costos, esResultado: false },
-    { clave: 'bruto', nombre: t('Resultado bruto', 'Resultado bruto'), valor: bruto, esResultado: true },
-    { clave: 'operativos', nombre: t('− Gastos operacionales', '− Despesas operacionais'), valor: totales.gastos - totales.gastosNoOperativos, esResultado: false },
-    { clave: 'operacional', nombre: t('Resultado operacional', 'Resultado operacional'), valor: operacional, esResultado: true },
-    { clave: 'financieros', nombre: t('− Financieros e impuestos', '− Financeiros e impostos'), valor: totales.gastosNoOperativos, esResultado: false },
-    { clave: 'neto', nombre: t('Resultado neto', 'Resultado líquido'), valor: neto, esResultado: true },
   ];
 
   const celda = (valor: number, negrita = false): React.CSSProperties => ({
@@ -143,35 +126,6 @@ export function VistaDetalles({
           </tfoot>
         </table>
       </div>
-
-      {esEmpresa && (
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: AZUL }}>{t('Del ingreso al resultado', 'Da receita ao resultado')}</div>
-          <div style={{ fontSize: 12.5, color: '#6e7781', marginBottom: 8 }}>{t('Bruto, operacional y neto del período elegido', 'Bruto, operacional e líquido do período escolhido')}</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {cascada.map((fila) => (
-              <div
-                key={fila.clave}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: fila.esResultado ? '9px 10px' : '6px 10px',
-                  marginTop: fila.esResultado ? 2 : 0,
-                  borderRadius: 8,
-                  background: fila.esResultado ? '#eef4fb' : 'transparent',
-                  fontSize: fila.esResultado ? 15 : 14,
-                  fontWeight: fila.esResultado ? 800 : 500,
-                  color: fila.esResultado ? AZUL : '#374151',
-                }}
-              >
-                <span>{fila.nombre}</span>
-                <span style={{ whiteSpace: 'nowrap', color: fila.valor < 0 ? COLOR.gastos : fila.esResultado ? AZUL : '#111827' }}>{formatoMoneda(fila.valor)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, color: AZUL }}>{quedaPositivo ? t('¿A dónde van los ingresos?', 'Para onde vão as receitas?') : t('¿A dónde van los egresos?', 'Para onde vão as saídas?')}</div>

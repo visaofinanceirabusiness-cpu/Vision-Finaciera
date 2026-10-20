@@ -16,7 +16,6 @@ export type PuntoAgrupado = {
   ingresos: number;
   costos: number;
   gastos: number;
-  gastosNoOperativos: number;
   resultado: number;
   margenBruto: number;
 };
@@ -46,7 +45,7 @@ export function rellenarMeses(datos: PuntoEvolucion[]): PuntoEvolucionCalculado[
 
   for (let n = desde; n <= hasta; n++) {
     const clave = claveDeNumero(n);
-    completos.push(porClave.get(clave) ?? { mes: '', clave, ingresos: 0, gastos: 0, costos: 0, gastosNoOperativos: 0 });
+    completos.push(porClave.get(clave) ?? { mes: '', clave, ingresos: 0, gastos: 0, costos: 0 });
   }
 
   return calcularEvolucion(completos);
@@ -71,12 +70,11 @@ export function agrupar(datos: PuntoEvolucionCalculado[], granularidad: Granular
 
   for (const d of datos) {
     const clave = claveAgrupada(d.clave, granularidad);
-    const actual = grupos.get(clave) ?? { clave, ingresos: 0, costos: 0, gastos: 0, gastosNoOperativos: 0, resultado: 0, margenBruto: 0 };
+    const actual = grupos.get(clave) ?? { clave, ingresos: 0, costos: 0, gastos: 0, resultado: 0, margenBruto: 0 };
 
     actual.ingresos += d.ingresos;
     actual.costos += d.costos;
     actual.gastos += d.gastos;
-    actual.gastosNoOperativos += d.gastosNoOperativos;
     actual.resultado += d.resultado;
     actual.margenBruto += d.margenBruto;
     grupos.set(clave, actual);
@@ -89,7 +87,6 @@ export function agrupar(datos: PuntoEvolucionCalculado[], granularidad: Granular
       ingresos: aCentavos(g.ingresos),
       costos: aCentavos(g.costos),
       gastos: aCentavos(g.gastos),
-      gastosNoOperativos: aCentavos(g.gastosNoOperativos),
       resultado: aCentavos(g.resultado),
       margenBruto: aCentavos(g.margenBruto),
     }));
@@ -98,8 +95,8 @@ export function agrupar(datos: PuntoEvolucionCalculado[], granularidad: Granular
 export function totalesDe(datos: PuntoEvolucionCalculado[]): Omit<PuntoAgrupado, 'clave'> {
   const t = agrupar(datos.map((d) => ({ ...d, clave: '2000-01' })), 'MES')[0];
   return t
-    ? { ingresos: t.ingresos, costos: t.costos, gastos: t.gastos, gastosNoOperativos: t.gastosNoOperativos, resultado: t.resultado, margenBruto: t.margenBruto }
-    : { ingresos: 0, costos: 0, gastos: 0, gastosNoOperativos: 0, resultado: 0, margenBruto: 0 };
+    ? { ingresos: t.ingresos, costos: t.costos, gastos: t.gastos, resultado: t.resultado, margenBruto: t.margenBruto }
+    : { ingresos: 0, costos: 0, gastos: 0, resultado: 0, margenBruto: 0 };
 }
 
 // Rango de igual largo inmediatamente anterior (para "vs período anterior").

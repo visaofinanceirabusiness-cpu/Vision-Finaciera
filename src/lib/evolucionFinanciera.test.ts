@@ -17,19 +17,6 @@ describe('rellenarMeses', () => {
   });
 });
 
-describe('gastos no operativos', () => {
-  it('se suman al agrupar y quedan en cero si no hay', () => {
-    const datos = rellenarMeses([
-      { mes: '', clave: '2026-01', ingresos: 1000, costos: 400, gastos: 300, gastosNoOperativos: 50 },
-      mes('2026-02', 500, 100, 100),
-    ]);
-    const totales = totalesDe(datos);
-    expect(totales.gastosNoOperativos).toBe(50);
-    expect(totales.ingresos - totales.costos - (totales.gastos - totales.gastosNoOperativos)).toBe(900 - 350);
-    expect(datos[1].gastosNoOperativos).toBe(0);
-  });
-});
-
 describe('agrupar', () => {
   const datos = rellenarMeses([mes('2025-11', 10), mes('2025-12', 20), mes('2026-01', 30, 5, 5), mes('2026-07', 70)]);
 
