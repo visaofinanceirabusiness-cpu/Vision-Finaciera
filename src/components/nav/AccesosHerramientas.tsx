@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { CAJA_SABIO } from '@/components/panel/SabioWidget';
 import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
+import { useEstadoDemo } from '@/lib/demoEstado';
 import { EVENTO_PANTALLA_BLOQUEADA, rutaPermitidaEnDemo } from '@/lib/modoEspectador';
 
 type Herramienta = {
@@ -48,6 +49,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
 export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscuro' | 'claro' }) {
   const pathname = usePathname();
   const espectador = useEspectador();
+  const demo = useEstadoDemo();
   const [disponibles, setDisponibles] = useState<Herramienta[]>([]);
   const [esPT, setEsPT] = useState(false);
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
@@ -171,7 +173,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         {disponibles.map((herramienta) => {
           const activa = pathname === herramienta.href;
           // En la demo se ven todas las herramientas, pero solo se abren las permitidas.
-          const bloqueada = Boolean(espectador) && !rutaPermitidaEnDemo(herramienta.href);
+          const bloqueada = Boolean(espectador) && !rutaPermitidaEnDemo(herramienta.href, demo.habilitadas);
 
           return (
             <Link

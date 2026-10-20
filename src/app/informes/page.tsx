@@ -16,6 +16,9 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { BLOQUES_FLUJO, armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, promedioSalidasMensuales, saldoAlCierreDePeriodo, saldoInicialDePeriodo, type BloqueFlujo } from '@/lib/flujoCaja';
+import { useEspectador } from '@/components/demo/ProveedorEspectador';
+import { useEstadoDemo } from '@/lib/demoEstado';
+import { EVENTO_PANTALLA_BLOQUEADA, pestanaInformeHabilitada } from '@/lib/modoEspectador';
 import { guardarSaldoDeseado, obtenerSaldoDeseado, periodoAnterior } from '@/lib/flujoCajaMeta';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -107,6 +110,26 @@ export default function InformesPage() {
   }, []);
 
   const t = crearTraductor(diccionarioInformes, idioma);
+
+  // En la demo, cada informe lo libera quien presenta: los demás se ven con candado.
+  const espectador = useEspectador();
+  const demo = useEstadoDemo();
+  const bloqueada = (id: Pestana) => Boolean(espectador) && !pestanaInformeHabilitada(id, demo.habilitadas);
+  const irA = (id: Pestana) => {
+    if (bloqueada(id)) {
+      window.dispatchEvent(new Event(EVENTO_PANTALLA_BLOQUEADA));
+      return;
+    }
+    setPestana(id);
+  };
+
+  // Cuando se libera un informe y el que estaba abierto sigue bloqueado, se pasa al habilitado.
+  useEffect(() => {
+    if (!espectador || !demo.cargado || !bloqueada(pestana)) return;
+    const habilitada = (['balance', 'resultado', 'flujo', 'mayor', 'sumas'] as Pestana[]).find((id) => !bloqueada(id));
+    if (habilitada) setPestana(habilitada);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [espectador, demo.cargado, demo.habilitadas, pestana]);
 
   useEffect(() => {
     async function cargar() {
@@ -313,38 +336,42 @@ export default function InformesPage() {
               flexWrap: 'wrap',
             }}
           >
-            <button type="button" onClick={() => setPestana('mayor')} style={tabStyle(pestana === 'mayor')}>
-              {t('tabMayor')}
+            <button type="button" onClick={() => irA('mayor')} style={tabStyle(pestana === 'mayor')}>
+              {bloqueada('mayor') ? '🔒 ' : ''}{t('tabMayor')}
             </button>
 
-            <button type="button" onClick={() => setPestana('flujo')} style={tabStyle(pestana === 'flujo')}>
-              {t('tabFlujo')}
+            <button type="button" onClick={() => irA('flujo')} style={tabStyle(pestana === 'flujo')}>
+              {bloqueada('flujo') ? '🔒 ' : ''}{t('tabFlujo')}
             </button>
 
             <button
               type="button"
-              onClick={() => setPestana('resultado')}
+              onClick={() => irA('resultado')}
               style={tabStyle(pestana === 'resultado')}
             >
-              {t('tabResultado')}
+              {bloqueada('resultado') ? '🔒 ' : ''}{t('tabResultado')}
             </button>
 
-            <button type="button" onClick={() => setPestana('sumas')} style={tabStyle(pestana === 'sumas')}>
-              {t('tabSumas')}
+            <button type="button" onClick={() => irA('sumas')} style={tabStyle(pestana === 'sumas')}>
+              {bloqueada('sumas') ? '🔒 ' : ''}{t('tabSumas')}
             </button>
 
             <button
               type="button"
-              onClick={() => setPestana('balance')}
+              onClick={() => irA('balance')}
               style={tabStyle(pestana === 'balance')}
             >
-              {t('tabBalance')}
+              {bloqueada('balance') ? '🔒 ' : ''}{t('tabBalance')}
             </button>
           </div>
 
           {error && <div style={errorStyle}>{error}</div>}
 
-          {cargando ? (
+          {bloqueada(pestana) ? (
+            <div style={{ ...cargandoStyle, fontSize: 16 }}>
+              {idioma === 'PT' ? '🔒 Este relatório será liberado em breve.' : '🔒 Este informe se habilitará en breve.'}
+            </div>
+          ) : cargando ? (
             <div style={cargandoStyle}>{t('cargandoInformes')}</div>
           ) : (
             <>

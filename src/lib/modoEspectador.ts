@@ -21,12 +21,31 @@ export type EstadoEspectador = {
 
 const CLAVE = 'demo:espectador';
 
-// Lo único que el espectador puede abrir; el resto del sistema lo ve (bloqueado) en el lobby.
-export const RUTAS_DEMO_PERMITIDAS = ['/', '/panel-de-control', '/informes', '/contabilidad', '/finanzas', '/demo', '/login'];
+// Qué puede abrir el espectador: el lobby (con el Mini-Juego simulado) siempre; el resto lo libera
+// quien presenta, de a una (demo_accesos.habilitadas). Lo demás del sistema se ve, pero bloqueado.
+export const SECCION_PANEL = 'PANEL';
+export const SECCION_CONTABILIDAD = 'CONTABILIDAD';
+export const SECCION_FINANZAS = 'FINANZAS';
+export const PREFIJO_INFORME = 'INFORMES_'; // + id de la pestaña: BALANCE, RESULTADO, FLUJO, MAYOR, SUMAS
 
-export function rutaPermitidaEnDemo(ruta: string | null | undefined): boolean {
-  if (!ruta) return true;
-  return RUTAS_DEMO_PERMITIDAS.some((permitida) => ruta === permitida || (permitida !== '/' && ruta.startsWith(`${permitida}/`)));
+const SIEMPRE_PERMITIDAS = ['/', '/demo', '/login'];
+
+const SECCION_DE_RUTA: Record<string, string> = {
+  '/panel-de-control': SECCION_PANEL,
+  '/contabilidad': SECCION_CONTABILIDAD,
+  '/finanzas': SECCION_FINANZAS,
+};
+
+export function rutaPermitidaEnDemo(ruta: string | null | undefined, habilitadas: string[]): boolean {
+  if (!ruta || SIEMPRE_PERMITIDAS.some((p) => ruta === p || (p !== '/' && ruta.startsWith(`${p}/`)))) return true;
+  if (ruta === '/informes' || ruta.startsWith('/informes/')) return habilitadas.some((h) => h.startsWith(PREFIJO_INFORME));
+
+  const base = Object.keys(SECCION_DE_RUTA).find((r) => ruta === r || ruta.startsWith(`${r}/`));
+  return base ? habilitadas.includes(SECCION_DE_RUTA[base]) : false;
+}
+
+export function pestanaInformeHabilitada(pestana: string, habilitadas: string[]): boolean {
+  return habilitadas.includes(`${PREFIJO_INFORME}${pestana.toUpperCase()}`);
 }
 
 export function leerEspectador(): EstadoEspectador | null {
@@ -66,8 +85,8 @@ export function mensajeSoloLectura(idioma: Idioma): string {
 
 export function mensajePantallaBloqueada(idioma: Idioma): string {
   return idioma === 'PT'
-    ? '🔒 Esta tela faz parte do sistema completo, mas não está disponível na demonstração.'
-    : '🔒 Esta pantalla es parte del sistema completo, pero no está disponible en la demo.';
+    ? '🔒 Esta tela será liberada em breve (ou faz parte do sistema completo).'
+    : '🔒 Esta pantalla se habilitará en breve (o es parte del sistema completo).';
 }
 
 export const EVENTO_PANTALLA_BLOQUEADA = 'demo:pantalla-bloqueada';

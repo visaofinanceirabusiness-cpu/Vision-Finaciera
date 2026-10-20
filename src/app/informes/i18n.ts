@@ -267,9 +267,9 @@ export function msgResultadoLabel(idioma: string | null | undefined, esTodos: bo
 
 export function msgFlujoNetoLabel(idioma: string | null | undefined, esTodos: boolean, periodoEtiqueta: string): string {
   if (esTodos) {
-    return 'FLUJO NETO (histórico)';
+    return esPT(idioma) ? 'FLUXO LÍQUIDO (histórico)' : 'FLUJO NETO (histórico)';
   }
-  return `FLUJO NETO — ${periodoEtiqueta}`;
+  return `${esPT(idioma) ? 'FLUXO LÍQUIDO' : 'FLUJO NETO'} — ${periodoEtiqueta}`;
 }
 
 export function msgEcuacionCierra(idioma: string | null | undefined, activo: string, pasivoPatrimonio: string): string {

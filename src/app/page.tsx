@@ -34,6 +34,7 @@ import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobb
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
+import { ControlDemoLobby } from '@/components/demo/ControlDemoLobby';
 import { datosSimulados } from '@/lib/tutorialSimulacion';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
@@ -914,6 +915,8 @@ export default function InicioPage() {
             ícono en vez de formulario/chat) con un festejo en cada
             jugada cargada.
         ================================================== */}
+
+        {perfil && !espectador && <ControlDemoLobby empresaId={perfil.empresa_id} idioma={idioma} />}
 
         {perfil && <PanelControlLobby idioma={idioma} />}
 
