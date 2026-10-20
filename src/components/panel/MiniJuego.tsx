@@ -13,6 +13,8 @@
 // este camino que no salga también por los otros dos.
 
 import { CartelPrecioSugerido } from '@/components/ventas/CartelPrecioSugerido';
+import { GruposProductos } from '@/components/ventas/GruposProductos';
+import { puedeAgregarLinea, reemplazarLinea, sumarLinea, textoLinea, totalLineas, MAX_LINEAS_JUEGO, type LineaJuego } from '@/lib/lineasProducto';
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
@@ -53,7 +55,7 @@ function operacionNecesitaProducto(operacion: string, formaPago: string, categor
   return (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) || (operacion === 'INVERSION' && formaPago === 'Mercadería');
 }
 
-type Paso = 'operacion' | 'categoria' | 'formaPago' | 'contacto' | 'producto' | 'cantidad' | 'monto' | 'resumen' | 'guardando';
+type Paso = 'operacion' | 'categoria' | 'formaPago' | 'contacto' | 'producto' | 'cantidad' | 'monto' | 'canasta' | 'resumen' | 'guardando';
 
 // El Sabio Lúdico no habla — reacciona con un símbolo (no un diálogo)
 // y una "pose" distinta (nomás con transform, no hay dibujo aparte
@@ -66,6 +68,7 @@ const REACCION_POR_PASO: Record<Paso, { simbolo: string; pose: string }> = {
   producto: { simbolo: '❓', pose: 'rotate(4deg)' },
   cantidad: { simbolo: '🔢', pose: 'scale(1.06)' },
   monto: { simbolo: '💰', pose: 'rotate(-5deg) scale(1.08)' },
+  canasta: { simbolo: '🛒', pose: 'rotate(4deg) scale(1.05)' },
   resumen: { simbolo: '🧐', pose: 'rotate(3deg) scale(1.06)' },
   guardando: { simbolo: '⏳', pose: 'scale(0.95)' },
 };
@@ -125,6 +128,9 @@ export function MiniJuego({
   const [unidadMedida, setUnidadMedida] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [monto, setMonto] = useState('');
+  // Productos ya cargados de esta jugada (Compra/Venta/Pérdida admiten varios por operación).
+  const [lineas, setLineas] = useState<LineaJuego[]>([]);
+  const [editandoIndice, setEditandoIndice] = useState<number | null>(null);
   const [clienteProveedor, setClienteProveedor] = useState('');
   const [nombreContacto, setNombreContacto] = useState('');
   const [telefonoContacto, setTelefonoContacto] = useState('');
@@ -288,6 +294,8 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto(String(Number(item.saldo.toFixed(2))));
+    setLineas([]);
+    setEditandoIndice(null);
     setBusqueda('');
     setError('');
     setPendienteElegido(item.devengado ? null : item);
@@ -313,6 +321,8 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto('');
+    setLineas([]);
+    setEditandoIndice(null);
     setBusqueda('');
     setPaso('categoria');
   }
@@ -347,6 +357,8 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto('');
+    setLineas([]);
+    setEditandoIndice(null);
     setBusqueda('');
     setPaso('formaPago');
   }
@@ -422,6 +434,63 @@ export function MiniJuego({
     setPaso('cantidad');
   }
 
+  function limpiarProductoActual() {
+    setProductoId('');
+    setProductoNombre('');
+    setUnidadMedida('');
+    setCantidad('');
+    setMonto('');
+  }
+
+  function cargarLineaEnPantalla(linea: LineaJuego) {
+    setProductoId(linea.productoId);
+    setProductoNombre(linea.nombre);
+    setUnidadMedida(linea.unidad);
+    setCantidad(String(linea.cantidad));
+    setMonto(String(linea.monto));
+  }
+
+  // Pasa el producto en pantalla a la lista de la jugada y muestra la lista.
+  function agregarProductoALista() {
+    const total = Number(monto);
+    const cantidadNum = Number(cantidad);
+
+    if (!total || total <= 0) {
+      setError(esPT ? 'O valor tem que ser maior que zero.' : 'El monto tiene que ser mayor a cero.');
+      return;
+    }
+
+    const linea: LineaJuego = { productoId, nombre: productoNombre, unidad: unidadMedida, cantidad: cantidadNum, monto: total };
+    setLineas((actual) => (editandoIndice !== null ? reemplazarLinea(actual, editandoIndice, linea) : sumarLinea(actual, linea)));
+    setEditandoIndice(null);
+    limpiarProductoActual();
+    setError('');
+    setPaso('canasta');
+  }
+
+  function agregarOtroProducto() {
+    if (!puedeAgregarLinea(lineas)) {
+      setError(esPT ? `Máximo de ${MAX_LINEAS_JUEGO} produtos por jogada.` : `Máximo ${MAX_LINEAS_JUEGO} productos por jugada.`);
+      return;
+    }
+    setError('');
+    setEditandoIndice(null);
+    limpiarProductoActual();
+    setBusqueda('');
+    setPaso('producto');
+  }
+
+  function editarLinea(indice: number) {
+    cargarLineaEnPantalla(lineas[indice]);
+    setEditandoIndice(indice);
+    setError('');
+    setPaso('cantidad');
+  }
+
+  function quitarLinea(indice: number) {
+    setLineas((actual) => actual.filter((_, i) => i !== indice));
+  }
+
   function tocarTecla(destino: 'monto' | 'cantidad', tecla: string) {
     const setter = destino === 'monto' ? setMonto : setCantidad;
     setter((actual) => {
@@ -454,9 +523,26 @@ export function MiniJuego({
     if (paso === 'categoria') setPaso('operacion');
     else if (paso === 'formaPago') setPaso('categoria');
     else if (paso === 'contacto') setPaso('formaPago');
-    else if (paso === 'producto') setPaso(tablaContacto ? 'contacto' : 'formaPago');
-    else if (paso === 'cantidad') setPaso('producto');
-    else if (paso === 'resumen') setPaso('monto');
+    else if (paso === 'producto') setPaso(lineas.length > 0 ? 'canasta' : tablaContacto ? 'contacto' : 'formaPago');
+    else if (paso === 'cantidad') {
+      if (editandoIndice !== null) {
+        setEditandoIndice(null);
+        limpiarProductoActual();
+        setPaso('canasta');
+      } else {
+        setPaso('producto');
+      }
+    } else if (paso === 'canasta') {
+      // Vuelve a la última línea para corregirla sin perder nada.
+      const ultimo = lineas.length - 1;
+      if (ultimo < 0) {
+        setPaso('producto');
+        return;
+      }
+      cargarLineaEnPantalla(lineas[ultimo]);
+      setEditandoIndice(ultimo);
+      setPaso('monto');
+    } else if (paso === 'resumen') setPaso(necesitaProducto ? 'canasta' : 'monto');
     else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : tablaContacto ? 'contacto' : 'formaPago');
   }
 
@@ -478,6 +564,8 @@ export function MiniJuego({
     setUnidadMedida('');
     setCantidad('');
     setMonto('');
+    setLineas([]);
+    setEditandoIndice(null);
     setError('');
     setBusqueda('');
     setPaso('operacion');
@@ -505,7 +593,7 @@ export function MiniJuego({
   // Valida lo tipeado y pasa a la pantalla de resumen: recién ahí, con el
   // botón Confirmar, se graba.
   function prepararJugada() {
-    const total = Number(monto);
+    const total = necesitaProducto ? totalLineas(lineas) : Number(monto);
 
     if (!total || total <= 0) {
       setError(esPT ? 'O valor tem que ser maior que zero.' : 'El monto tiene que ser mayor a cero.');
@@ -528,19 +616,19 @@ export function MiniJuego({
     return {
       emojiOperacion: iconoOperacion(operacion),
       operacion: nombreOperacionDisplay(idioma, operacion, esFamiliar),
-      monto: Number(monto),
+      monto: necesitaProducto ? totalLineas(lineas) : Number(monto),
       simbolo,
       fecha,
       categoria,
       formaPago,
       contacto: tablaContacto ? clienteProveedor.trim() || undefined : undefined,
-      producto: necesitaProducto && productoNombre ? `${productoNombre} (${cantidad} ${unidadMedida})` : undefined,
+      producto: necesitaProducto && lineas.length > 0 ? lineas.map(textoLinea).join(', ') : undefined,
       cuotas: tipoCuotas && enCuotas ? Number(cantidadCuotas) : undefined,
     };
   }
 
   async function confirmarJugada() {
-    const total = Number(monto);
+    const total = necesitaProducto ? totalLineas(lineas) : Number(monto);
 
     if (!total || total <= 0) {
       setError(esPT ? 'O valor tem que ser maior que zero.' : 'El monto tiene que ser mayor a cero.');
@@ -557,8 +645,10 @@ export function MiniJuego({
     setError('');
 
     try {
-      const cantidadNum = necesitaProducto ? Number(cantidad) || 1 : 1;
-      const montoParaMotor = necesitaProducto ? total / cantidadNum : total;
+      // El motor espera el monto por unidad de stock; acá cada línea trae su total.
+      const lineasMotor = necesitaProducto
+        ? lineas.map((l) => ({ producto: l.productoId, cantidad: l.cantidad, monto: l.monto / (l.cantidad || 1) }))
+        : [{ producto: '', cantidad: 1, monto: total }];
 
       const resultado = simulacion ? null : await registrarOperacion(empresaId, {
         fecha,
@@ -567,7 +657,7 @@ export function MiniJuego({
         formaPago,
         historico: categoria,
         clienteProveedor: clienteProveedor.trim(),
-        lineas: [{ producto: necesitaProducto ? productoId : '', cantidad: cantidadNum, monto: montoParaMotor }],
+        lineas: lineasMotor,
       });
       // Después de la asociación explícita (así la conciliación no cuenta dos veces).
       if (resultado && pendienteElegido) {
@@ -615,7 +705,8 @@ export function MiniJuego({
     contacto: tablaContacto === 'proveedores' ? (esPT ? 'Qual fornecedor?' : '¿Qué proveedor?') : esPT ? 'Qual cliente?' : '¿Qué cliente?',
     producto: esPT ? 'Qual produto?' : '¿Qué producto?',
     cantidad: esPT ? 'Quantas unidades?' : '¿Cuántas unidades?',
-    monto: necesitaProducto ? (esPT ? 'Quanto no total?' : '¿Cuánto salió en total?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
+    monto: necesitaProducto ? (esPT ? 'Quanto deu esse produto?' : '¿Cuánto salió este producto?') : esPT ? 'Quanto foi?' : '¿Cuánto fue?',
+    canasta: esPT ? 'Produtos da jogada' : 'Productos de la jugada',
     resumen: esPT ? 'Confirmamos a jogada?' : '¿Confirmamos la jugada?',
     guardando: esPT ? 'Registrando...' : 'Registrando...',
   };
@@ -691,6 +782,25 @@ export function MiniJuego({
       }}
     />
   );
+
+  const bloqueCuotas = tipoCuotas ? (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14, color: '#fff' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />
+          {esPT ? 'Em parcelas? Quantidade:' : '¿En cuotas? Cantidad:'}
+        </label>
+        {enCuotas && (
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={cantidadCuotas}
+            onChange={(e) => setCantidadCuotas(e.target.value)}
+            style={{ width: 70, padding: '6px 8px', borderRadius: 10, border: 'none', fontSize: 16, textAlign: 'center' }}
+          />
+        )}
+      </div>
+  ) : null;
 
   const reaccion = REACCION_POR_PASO[paso];
 
@@ -1047,19 +1157,30 @@ export function MiniJuego({
                     {esPT ? 'Nenhum resultado.' : 'Sin resultados.'}
                   </p>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 14 }}>
-                    {productosFiltrados.map((p) =>
-                      tarjeta(
-                        '📦',
-                        p.nombre,
-                        () => elegirProducto(p),
-                        p.id,
-                        simulacion
-                          ? undefined
-                          : `${esPT ? 'Estoque' : 'Stock'}: ${(saldosStock[p.id] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 })}${p.unidad_medida ? ` ${p.unidad_medida}` : ''}`
-                      )
-                    )}
-                  </div>
+                  <GruposProductos
+                    productos={productosFiltrados}
+                    saldos={saldosStock}
+                    operacion={operacion}
+                    ignorarSaldo={Boolean(simulacion)}
+                    idioma={idioma}
+                    hayBusqueda={busqueda.trim() !== ''}
+                    oscuro
+                    disposicion="grilla"
+                    renderProducto={(p, sinSaldo) => {
+                      const sub = simulacion
+                        ? undefined
+                        : `${esPT ? 'Estoque' : 'Stock'}: ${(saldosStock[p.id] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 })}${p.unidad_medida ? ` ${p.unidad_medida}` : ''}`;
+                      // Vender o dar de baja sin saldo no se puede: se ve pero no se elige.
+                      const bloqueado = sinSaldo && operacion !== 'COMPRA';
+                      return bloqueado ? (
+                        <div key={p.id} style={{ opacity: 0.45, pointerEvents: 'none' }}>
+                          {tarjeta('📦', p.nombre, () => undefined, p.id, sub)}
+                        </div>
+                      ) : (
+                        tarjeta('📦', p.nombre, () => elegirProducto(p), p.id, sub)
+                      );
+                    }}
+                  />
                 )}
               </>
             )}
@@ -1193,24 +1314,7 @@ export function MiniJuego({
               />
             )}
 
-            {tipoCuotas && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14, color: '#fff' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />
-                  {esPT ? 'Em parcelas? Quantidade:' : '¿En cuotas? Cantidad:'}
-                </label>
-                {enCuotas && (
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={cantidadCuotas}
-                    onChange={(e) => setCantidadCuotas(e.target.value)}
-                    style={{ width: 70, padding: '6px 8px', borderRadius: 10, border: 'none', fontSize: 16, textAlign: 'center' }}
-                  />
-                )}
-              </div>
-            )}
+            {!necesitaProducto && bloqueCuotas}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'borrar'].map((tecla) => (
@@ -1237,7 +1341,7 @@ export function MiniJuego({
             <button
               type="button"
               disabled={!monto}
-              onClick={prepararJugada}
+              onClick={necesitaProducto ? agregarProductoALista : prepararJugada}
               style={{
                 border: 'none',
                 background: colores.verde,
@@ -1248,6 +1352,78 @@ export function MiniJuego({
                 fontWeight: 800,
                 cursor: 'pointer',
                 opacity: monto ? 1 : 0.5,
+              }}
+            >
+              {necesitaProducto ? `🛒 ${esPT ? 'Adicionar à lista' : 'Agregar a la lista'}` : `🎲 ${esPT ? 'Jogada preparada!' : '¡Jugada preparada!'}`}
+            </button>
+          </div>
+        )}
+
+        {paso === 'canasta' && (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ background: '#fff', borderRadius: 20, padding: '12px 16px', marginBottom: 14 }}>
+              {lineas.map((l, i) => (
+                <div key={l.productoId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: i < lineas.length - 1 ? '1px solid #eef2f6' : 'none' }}>
+                  <button
+                    type="button"
+                    onClick={() => editarLinea(i)}
+                    style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', color: colores.azul, fontSize: 14, fontWeight: 700 }}
+                  >
+                    📦 {textoLinea(l)}
+                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#6e7781' }}>{formatearSaldo(l.monto)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={esPT ? 'Remover' : 'Quitar'}
+                    onClick={() => quitarLinea(i)}
+                    style={{ border: 'none', background: 'transparent', color: '#b91c1c', fontSize: 16, cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, fontSize: 16, fontWeight: 900, color: colores.azul }}>
+                <span>{esPT ? 'Total' : 'Total'}</span>
+                <span>{formatearSaldo(totalLineas(lineas))}</span>
+              </div>
+            </div>
+
+            {bloqueCuotas}
+
+            <button
+              type="button"
+              disabled={!puedeAgregarLinea(lineas)}
+              onClick={agregarOtroProducto}
+              style={{
+                border: '2px solid rgba(255,255,255,0.45)',
+                background: 'transparent',
+                color: '#fff',
+                borderRadius: 16,
+                padding: '13px 0',
+                fontSize: 15,
+                fontWeight: 800,
+                cursor: puedeAgregarLinea(lineas) ? 'pointer' : 'not-allowed',
+                opacity: puedeAgregarLinea(lineas) ? 1 : 0.5,
+                marginBottom: 10,
+              }}
+            >
+              ➕ {esPT ? 'Adicionar outro produto' : 'Agregar otro producto'} ({lineas.length}/{MAX_LINEAS_JUEGO})
+            </button>
+
+            <button
+              type="button"
+              disabled={lineas.length === 0}
+              onClick={prepararJugada}
+              style={{
+                border: 'none',
+                background: colores.verde,
+                color: '#fff',
+                borderRadius: 16,
+                padding: '16px 0',
+                fontSize: 17,
+                fontWeight: 800,
+                cursor: 'pointer',
+                opacity: lineas.length === 0 ? 0.5 : 1,
               }}
             >
               🎲 {esPT ? 'Jogada preparada!' : '¡Jugada preparada!'}

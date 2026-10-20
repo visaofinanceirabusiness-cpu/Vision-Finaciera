@@ -22,6 +22,7 @@ import {
 import { crearCuentaParaMedioPago, crearFormaPago, crearPasivo, habilitarLiquidacionCuentaCobrar } from '@/lib/categorias';
 import { convertirCantidad, opcionesUnidadCarga } from '@/lib/produccion';
 import { formatearNumeroEntero } from '@/lib/moneda';
+import { SelectorProductoDesplegable } from '@/components/ventas/GruposProductos';
 import { CartelPrecioSugerido } from '@/components/ventas/CartelPrecioSugerido';
 import { fechaLocalHoy } from '@/lib/fecha';
 import { crearTraductor, nombreOperacionDisplay } from '@/lib/i18n';
@@ -1890,26 +1891,18 @@ export function CentralDeLanzamientosTab({
             <Fragment key={i}>
             <div style={filaProducto}>
               {operacionesConProducto ? (
-                <select
-                  value={linea.producto}
-                  onChange={(e) => actualizarLinea(i, 'producto', e.target.value)}
-                  style={{ ...campoInput, flex: 2 }}
-                >
-                  <option value="">{t('productoPlaceholder')}</option>
-
-                  {productos
-                    .filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())
-                    .map((p) => (
-                      <option
-                        key={p.id}
-                        value={p.id}
-                        disabled={esSalidaStock && (saldoPorProductoAFecha[p.id] ?? 0) <= 0}
-                      >
-                        {p.nombre}
-                        {stockDisponible(idioma, saldoPorProductoAFecha[p.id] ?? 0)}
-                      </option>
-                    ))}
-                </select>
+                <SelectorProductoDesplegable
+                  productos={productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())}
+                  saldos={saldoPorProductoAFecha}
+                  operacion={operacion}
+                  valor={linea.producto}
+                  onElegir={(id) => actualizarLinea(i, 'producto', id)}
+                  placeholder={t('productoPlaceholder')}
+                  idioma={idioma ?? 'ES'}
+                  deshabilitarSinSaldo={esSalidaStock}
+                  etiquetaSaldo={(saldo) => stockDisponible(idioma, saldo)}
+                  estiloBoton={campoInput}
+                />
               ) : (
                 <input
                   type="text"

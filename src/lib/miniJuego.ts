@@ -27,12 +27,12 @@ export async function obtenerCategoriasJuego(empresaId: string, operacion: strin
   return Array.from(porNombre.entries()).map(([nombre, stock]) => ({ nombre, stock }));
 }
 
-export type ProductoJuego = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null };
+export type ProductoJuego = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null; tipo_producto?: string | null };
 
 export async function obtenerProductosJuego(empresaId: string): Promise<ProductoJuego[]> {
   const { data, error } = await supabase
     .from('productos')
-    .select('id, nombre, categoria, unidad_medida')
+    .select('id, nombre, categoria, unidad_medida, tipo_producto')
     .eq('empresa_id', empresaId);
 
   if (error) throw error;
