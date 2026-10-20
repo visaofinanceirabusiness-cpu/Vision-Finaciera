@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
   armarInforme,
+  armarParticipacion,
   eventosACsv,
   formatoDuracion,
   nombreRuta,
@@ -47,6 +48,20 @@ function Dato({ titulo, valor, detalle }: { titulo: string; valor: string | numb
       <div style={{ fontSize: 28, fontWeight: 900, color: COLORES.azul }}>{valor}</div>
       {detalle && <div style={{ fontSize: 12, color: COLORES.gris }}>{detalle}</div>}
     </div>
+  );
+}
+
+function ListaConteo({ filas, vacio }: { filas: { texto: string; veces: number; personas: number }[]; vacio: string }) {
+  if (filas.length === 0) return <p style={{ margin: 0, color: COLORES.gris, fontSize: 14 }}>{vacio}</p>;
+  return (
+    <>
+      {filas.slice(0, 10).map((f) => (
+        <div key={f.texto} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13.5, padding: '3px 0', color: '#374151' }}>
+          <span>{f.texto}</span>
+          <b style={{ color: COLORES.azul, whiteSpace: 'nowrap' }}>{f.veces}× · {f.personas} {f.personas === 1 ? 'persona' : 'personas'}</b>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -153,6 +168,7 @@ export default function DemoEnVivoPage() {
   }, [autorizado, cargar]);
 
   const informe = useMemo(() => armarInforme(espectadores, eventos, ultimaLectura), [espectadores, eventos, ultimaLectura]);
+  const participacion = useMemo(() => armarParticipacion(eventos), [eventos]);
 
   const ultimos = useMemo(() => {
     const nombres = new Map(espectadores.map((e) => [e.user_id, e.nombre]));
@@ -249,6 +265,29 @@ export default function DemoEnVivoPage() {
               </Panel>
             )}
 
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+              <Panel titulo="📅 Calendario">
+                <p style={{ margin: '0 0 8px', fontSize: 14, color: COLORES.azul, fontWeight: 700 }}>
+                  {participacion.calendario.creados} creados · {participacion.calendario.editados} editados · {participacion.calendario.intentosBorrar} intentos de eliminar (bloqueados)
+                </p>
+                {participacion.calendario.ultimos.length === 0 ? (
+                  <p style={{ margin: 0, color: COLORES.gris, fontSize: 14 }}>Todavía nadie tocó el calendario.</p>
+                ) : (
+                  participacion.calendario.ultimos.map((u, i) => (
+                    <div key={`${u.cuando}-${i}`} style={{ fontSize: 13.5, padding: '3px 0', color: '#374151' }}>
+                      <span style={{ color: COLORES.gris }}>{hora(u.cuando)}</span> · {u.texto}
+                    </div>
+                  ))
+                )}
+              </Panel>
+              <Panel titulo="📰 Noticias que abrieron">
+                <ListaConteo filas={participacion.noticias} vacio="Todavía sin lecturas." />
+              </Panel>
+              <Panel titulo="💱 Cotizaciones que miraron">
+                <ListaConteo filas={participacion.cotizaciones} vacio="Todavía sin consultas." />
+              </Panel>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
               <Panel titulo="Pantallas más vistas">
                 {informe.pantallas.length === 0 ? (
@@ -314,9 +353,9 @@ export default function DemoEnVivoPage() {
                     <span style={{ color: COLORES.gris, minWidth: 66 }}>{hora(e.creado_en)}</span>
                     <b style={{ color: COLORES.azul, minWidth: 110 }}>{e.nombre}</b>
                     <span style={{ minWidth: 86, fontWeight: 700, color: e.tipo === 'BLOQUEADO' ? '#b91c1c' : e.tipo === 'CLICK' ? COLORES.verde : COLORES.gris }}>
-                      {e.tipo === 'VISTA' ? 'abrió' : e.tipo === 'CLICK' ? 'tocó' : e.tipo === 'BLOQUEADO' ? 'bloqueado' : e.tipo}
+                      {e.tipo === 'VISTA' ? 'abrió' : e.tipo === 'CLICK' ? 'tocó' : e.tipo === 'CAMBIO' ? 'cambió' : e.tipo === 'CALENDARIO' ? 'calendario' : e.tipo === 'BLOQUEADO' ? 'bloqueado' : e.tipo}
                     </span>
-                    <span style={{ color: '#374151' }}>{e.tipo === 'CLICK' ? e.detalle : nombreRuta(e.ruta)}</span>
+                    <span style={{ color: '#374151' }}>{e.tipo === 'VISTA' ? nombreRuta(e.ruta) : (e.detalle ?? nombreRuta(e.ruta))}</span>
                   </div>
                 ))
               )}

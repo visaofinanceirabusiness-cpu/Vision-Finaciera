@@ -10,10 +10,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
+  EVENTO_ACCION_DEMO,
   EVENTO_PANTALLA_BLOQUEADA,
   guardarEspectador,
   leerEspectador,
   limpiarEspectador,
+  mensajeNoBorrarEnDemo,
   mensajePantallaBloqueada,
   rutaPermitidaEnDemo,
   type EstadoEspectador,
@@ -81,10 +83,10 @@ export function ProveedorEspectador() {
     document.title = `Visão Financeira - ${demo.empresa}`;
   }, [espectador, demo.empresa, pathname]);
 
-  const mostrarAviso = useCallback(() => {
+  const mostrarAviso = useCallback((texto?: string) => {
     const actual = leerEspectador();
     if (!actual) return;
-    setAviso(mensajePantallaBloqueada(actual.idioma));
+    setAviso(texto ?? mensajePantallaBloqueada(actual.idioma));
     window.setTimeout(() => setAviso(''), 5000);
   }, []);
 
@@ -121,7 +123,23 @@ export function ProveedorEspectador() {
     const alTocar = (evento: MouseEvent) => {
       const boton = (evento.target as HTMLElement | null)?.closest('button, a, [role="tab"]');
       const texto = boton?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 60);
-      if (texto) registrar('CLICK', texto);
+      // Calendario / Noticias / Cotizaciones marcan su raíz con data-seguimiento para saber dónde tocó.
+      const zona = boton?.closest('[data-seguimiento]')?.getAttribute('data-seguimiento');
+      if (texto) registrar('CLICK', zona ? `${zona} › ${texto}` : texto);
+    };
+
+    const alCambiar = (evento: Event) => {
+      const campo = evento.target as HTMLInputElement | HTMLSelectElement | null;
+      const zona = campo?.closest?.('[data-seguimiento]')?.getAttribute('data-seguimiento');
+      if (!zona || !campo) return;
+      const valor = campo instanceof HTMLSelectElement ? campo.selectedOptions[0]?.textContent : campo.type === 'checkbox' ? String(campo.checked) : '';
+      registrar('CAMBIO', `${zona} › ${(valor ?? '').trim().slice(0, 50)}`);
+    };
+
+    const alAccion = (evento: Event) => {
+      const { tipo, detalle } = (evento as CustomEvent<{ tipo: string; detalle: string }>).detail;
+      registrar(tipo, detalle);
+      if (tipo === 'BLOQUEADO') mostrarAviso(mensajeNoBorrarEnDemo(leerEspectador()?.idioma ?? 'PT'));
     };
 
     const alBloquear = () => {
@@ -130,6 +148,8 @@ export function ProveedorEspectador() {
     };
 
     document.addEventListener('click', alTocar, true);
+    document.addEventListener('change', alCambiar, true);
+    window.addEventListener(EVENTO_ACCION_DEMO, alAccion);
     window.addEventListener(EVENTO_PANTALLA_BLOQUEADA, alBloquear);
     // Latido cada ~30 s: quien presenta ve quién sigue conectado aunque no toque nada.
     let vuelta = 0;
@@ -145,6 +165,8 @@ export function ProveedorEspectador() {
 
     return () => {
       document.removeEventListener('click', alTocar, true);
+      document.removeEventListener('change', alCambiar, true);
+      window.removeEventListener(EVENTO_ACCION_DEMO, alAccion);
       window.removeEventListener(EVENTO_PANTALLA_BLOQUEADA, alBloquear);
       window.clearInterval(intervalo);
       window.removeEventListener('pagehide', alSalir);

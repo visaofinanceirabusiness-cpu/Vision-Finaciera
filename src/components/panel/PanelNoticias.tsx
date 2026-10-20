@@ -40,7 +40,7 @@ export function PanelNoticias({
   const titulares = datos?.[bloque] ?? [];
 
   return (
-    <div>
+    <div data-seguimiento="Noticias">
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ marginBottom: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: colores.verde }}>

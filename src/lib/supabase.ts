@@ -3,7 +3,15 @@
 // importan este archivo en vez de conectarse "a mano" cada vez.
 
 import { createClient } from '@supabase/supabase-js';
-import { aplicarIdiomaEspectador, leerEspectador, limpiarEspectador, mensajeSoloLectura } from './modoEspectador';
+import {
+  aplicarIdiomaEspectador,
+  EVENTO_ACCION_DEMO,
+  leerEspectador,
+  limpiarEspectador,
+  mensajeNoBorrarEnDemo,
+  mensajeSoloLectura,
+  TABLAS_CALENDARIO_DEMO,
+} from './modoEspectador';
 
 // Estas dos claves las vas a copiar desde Supabase:
 // Project Settings → API → "Project URL" y "anon public key"
@@ -25,7 +33,32 @@ async function fetchConModoEspectador(input: RequestInfo | URL, init?: RequestIn
   // El espectador registra su propia actividad y los rpc son consultas (la base cuida los que escriben).
   const esExcepcion = url.includes('/rest/v1/espectador_eventos') || url.includes('/rest/v1/rpc/');
 
-  if (esDatos && !esLectura && !esExcepcion) {
+  const tablaCalendario = TABLAS_CALENDARIO_DEMO.find((tabla) => url.includes(`/rest/v1/${tabla}`));
+  const esEscrituraCalendario = Boolean(tablaCalendario) && (metodo === 'POST' || metodo === 'PATCH');
+
+  if (esEscrituraCalendario) {
+    let titulo = '';
+    try {
+      const cuerpo = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
+      const fila = Array.isArray(cuerpo) ? cuerpo[0] : cuerpo;
+      titulo = String(fila?.titulo ?? fila?.texto ?? '').slice(0, 60);
+    } catch {
+      // sin título legible: se registra igual la acción
+    }
+    const accion = metodo === 'POST' ? 'creó' : 'editó';
+    const objeto = tablaCalendario === 'eventos_calendario' ? 'evento' : 'anotación';
+    window.dispatchEvent(new CustomEvent(EVENTO_ACCION_DEMO, { detail: { tipo: 'CALENDARIO', detalle: `${accion} ${objeto}${titulo ? `: ${titulo}` : ''}` } }));
+  }
+
+  if (tablaCalendario && metodo === 'DELETE') {
+    window.dispatchEvent(new CustomEvent(EVENTO_ACCION_DEMO, { detail: { tipo: 'BLOQUEADO', detalle: `intentó eliminar ${tablaCalendario === 'eventos_calendario' ? 'evento' : 'anotación'}` } }));
+    return new Response(JSON.stringify({ message: mensajeNoBorrarEnDemo(espectador.idioma), code: 'ESPECTADOR_SOLO_LECTURA' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (esDatos && !esLectura && !esExcepcion && !esEscrituraCalendario) {
     return new Response(JSON.stringify({ message: mensajeSoloLectura(espectador.idioma), code: 'ESPECTADOR_SOLO_LECTURA' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
