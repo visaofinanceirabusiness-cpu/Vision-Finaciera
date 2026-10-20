@@ -31,7 +31,7 @@ import {
   invalidarCache,
   type MetaEmpresa,
 } from '@/lib/lanzamientoRapidoDatos';
-import { compromisosAbiertosDeCategoria, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { compromisosAbiertosDeCategoria, estaVencido, etiquetaPeriodo, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { OPERACIONES_RAPIDAS, parsearMonto as parsearMontoFav } from '@/lib/lanzamientoRapido';
 import { obtenerCategoriasJuego } from '@/lib/miniJuego';
@@ -82,6 +82,9 @@ export default function LanzamientoRapidoPage() {
   const [categoriaAlt, setCategoriaAlt] = useState<string | null>(null);
   // Recordatorio simple elegido en el aviso: queda cumplido al registrar.
   const [pendienteAviso, setPendienteAviso] = useState<CompromisoAbierto | null>(null);
+  // Las cuotas pendientes no traen medio de pago: se elige en la tarjeta abierta.
+  const [mediosCuota, setMediosCuota] = useState<string[]>([]);
+  const [medioCuota, setMedioCuota] = useState('');
   // Cobros y pagos recurrentes del mes; van como tarjetas primero, sin caché porque cambian al cargarse.
   const [pendientes, setPendientes] = useState<CompromisoAbierto[]>([]);
   const abiertaRef = useRef<string | null>(null);
@@ -232,6 +235,15 @@ export default function LanzamientoRapidoPage() {
     setAvisos([]);
     setCategoriaAlt(null);
     setPendienteAviso(null);
+    setMedioCuota('');
+    setMediosCuota([]);
+    if (empresaId && t.pendiente && !t.formaPago) {
+      obtenerFormasPagoOperacion(empresaId, t.operacion, t.categoria)
+        .then((medios) => {
+          if (abiertaRef.current === t.clave) setMediosCuota(medios);
+        })
+        .catch(() => null);
+    }
     if (empresaId && !t.pendiente && (t.operacion === 'COBRO' || t.operacion === 'PAGO')) {
       compromisosAbiertosDeCategoria(empresaId, t.operacion, t.categoria)
         .then((items) => {
@@ -242,7 +254,7 @@ export default function LanzamientoRapidoPage() {
     setTipoCuotas(null);
     setEnCuotas(false);
     setCantidadCuotas('2');
-    if (empresaId) {
+    if (empresaId && t.formaPago) {
       tipoCuotasDeFormaPago(empresaId, t.operacion, t.formaPago)
         .then((tipo) => {
           if (abiertaRef.current === t.clave) setTipoCuotas(tipo);
@@ -268,6 +280,10 @@ export default function LanzamientoRapidoPage() {
       setErrorTarjeta(tr('Elegí la fecha.', 'Escolha a data.'));
       return;
     }
+    if (!t.formaPago && !medioCuota) {
+      setErrorTarjeta(tr('Elegí con qué medio.', 'Escolha o meio.'));
+      return;
+    }
     const cuotasElegidas = tipoCuotas && enCuotas ? Number(cantidadCuotas) : 0;
     if (tipoCuotas && enCuotas && (!Number.isInteger(cuotasElegidas) || cuotasElegidas < 1)) {
       setErrorTarjeta(tr('La cantidad de cuotas tiene que ser 1 o más.', 'A quantidade de parcelas tem que ser 1 ou mais.'));
@@ -282,7 +298,7 @@ export default function LanzamientoRapidoPage() {
     setErrorTarjeta('');
 
     try {
-      const id = await registrarLanzamiento(empresaId, { ...t, ...(categoriaAlt ? { categoria: categoriaAlt } : {}), pendiente: t.pendiente ?? pendienteAviso ?? undefined },
+      const id = await registrarLanzamiento(empresaId, { ...t, formaPago: t.formaPago || medioCuota, ...(categoriaAlt ? { categoria: categoriaAlt } : {}), pendiente: t.pendiente ?? pendienteAviso ?? undefined },
         monto,
         fecha,
         tipoCuotas && enCuotas ? { tipo: tipoCuotas, cantidad: cuotasElegidas, idioma: meta.idioma } : undefined
@@ -453,11 +469,11 @@ export default function LanzamientoRapidoPage() {
                       {nombreOperacionDisplay(meta.idioma, t.operacion, meta.esFamiliar)}
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 15, color: '#1f2937', margin: '2px 0' }}>{t.categoria}</div>
-                    <div style={{ fontSize: 12, color: COLORES.gris }}>{t.formaPago}</div>
+                    <div style={{ fontSize: 12, color: COLORES.gris }}>{t.formaPago || tr('Elegís el medio al abrir', 'Você escolhe o meio ao abrir')}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: estilo.color, marginTop: 8 }}>
                       {t.ultimoValor > 0 ? `${simbolo} ${formatearNumeroEntero(t.ultimoValor)}` : '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.pendiente ? `📌 ${tr('Pendiente', 'Pendente')} · ${t.pendiente.nombre}` : t.usos > 0 ? `${t.usos} ${t.usos === 1 ? tr('uso', 'uso') : tr('usos', 'usos')}` : tr('sin usos recientes', 'sem usos recentes')}</div>
+                    <div style={{ fontSize: 11, color: COLORES.gris }}>{t.pendiente ? `${estaVencido(t.pendiente.fechaVencimiento) ? '⚠️ ' : '📌 '}${tr('Pendiente', 'Pendente')} · ${etiquetaPeriodo(t.pendiente.fechaVencimiento, meta.idioma)} · ${t.pendiente.nombre}` : t.usos > 0 ? `${t.usos} ${t.usos === 1 ? tr('uso', 'uso') : tr('usos', 'usos')}` : tr('sin usos recientes', 'sem usos recentes')}</div>
                   </button>
 
                   {esAbierta && (
@@ -466,6 +482,21 @@ export default function LanzamientoRapidoPage() {
                         <div style={{ fontSize: 12, color: COLORES.gris }}>
                           {[t.ultimoHistorico, t.ultimoProveedor].filter(Boolean).join(' · ')}
                         </div>
+                      )}
+                      {!t.formaPago && (
+                        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+                          {tr('Medio', 'Meio')}
+                          <select
+                            value={medioCuota}
+                            onChange={(e) => setMedioCuota(e.target.value)}
+                            style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 16 }}
+                          >
+                            <option value="">{tr('Seleccionar...', 'Selecionar...')}</option>
+                            {mediosCuota.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        </label>
                       )}
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <label style={{ flex: '1 1 140px', fontSize: 12, fontWeight: 700, color: COLORES.gris }}>

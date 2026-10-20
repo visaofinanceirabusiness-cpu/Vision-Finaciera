@@ -25,7 +25,13 @@ export type CuotaPasivo = {
   fecha_vencimiento: string;
   pagada: boolean;
   fecha_pago: string | null;
+  // Lo ya pagado de esta cuota (pagos parciales): lo que falta es monto - monto_pagado.
+  monto_pagado: number;
 };
+
+export function saldoCuotaPasivo(cuota: Pick<CuotaPasivo, 'monto' | 'monto_pagado' | 'pagada'>): number {
+  return cuota.pagada ? 0 : Math.max(0, Number(cuota.monto) - Number(cuota.monto_pagado ?? 0));
+}
 
 function esPT(idioma: string | null | undefined) {
   return idioma === 'PT';
@@ -139,7 +145,7 @@ export async function crearCuotasPasivo(
 export async function listarCuotasPendientes(empresaId: string): Promise<CuotaPasivo[]> {
   const { data, error } = await supabase
     .from('cuotas_pasivo')
-    .select('id, id_operacion, forma_pago_nombre, numero_cuota, total_cuotas, monto, fecha_vencimiento, pagada, fecha_pago')
+    .select('id, id_operacion, forma_pago_nombre, numero_cuota, total_cuotas, monto, fecha_vencimiento, pagada, fecha_pago, monto_pagado')
     .eq('empresa_id', empresaId)
     .eq('pagada', false)
     .order('fecha_vencimiento', { ascending: true });
@@ -154,7 +160,7 @@ export async function listarCuotasPendientes(empresaId: string): Promise<CuotaPa
 export async function listarTodasLasCuotas(empresaId: string): Promise<CuotaPasivo[]> {
   const { data, error } = await supabase
     .from('cuotas_pasivo')
-    .select('id, id_operacion, forma_pago_nombre, numero_cuota, total_cuotas, monto, fecha_vencimiento, pagada, fecha_pago')
+    .select('id, id_operacion, forma_pago_nombre, numero_cuota, total_cuotas, monto, fecha_vencimiento, pagada, fecha_pago, monto_pagado')
     .eq('empresa_id', empresaId)
     .order('fecha_vencimiento', { ascending: true });
 
@@ -171,7 +177,7 @@ export async function listarTodasLasCuotas(empresaId: string): Promise<CuotaPasi
 export async function marcarCuotaPagada(cuotaId: string, pagada: boolean) {
   const { data: cuota, error: errorCuota } = await supabase
     .from('cuotas_pasivo')
-    .select('evento_calendario_id')
+    .select('evento_calendario_id, monto')
     .eq('id', cuotaId)
     .single();
 
@@ -184,6 +190,7 @@ export async function marcarCuotaPagada(cuotaId: string, pagada: boolean) {
     .update({
       pagada,
       fecha_pago: pagada ? new Date().toISOString().slice(0, 10) : null,
+      ...(pagada ? { monto_pagado: cuota.monto } : { monto_pagado: 0 }),
     })
     .eq('id', cuotaId);
 

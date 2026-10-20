@@ -4,9 +4,7 @@
 // métodos de carga: al elegir uno viene todo precargado y solo se confirma.
 
 import { useEffect, useState } from 'react';
-import { pendientesParaCargar, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
-
-const MAXIMO_VISIBLES = 5;
+import { estaVencido, etiquetaPeriodo, pendientesParaCargar, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 
 export function PendientesParaCargar({
   empresaId,
@@ -24,7 +22,6 @@ export function PendientesParaCargar({
 }) {
   const esPT = idioma === 'PT';
   const [items, setItems] = useState<CompromisoAbierto[]>([]);
-  const [verTodos, setVerTodos] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -44,8 +41,6 @@ export function PendientesParaCargar({
 
   if (items.length === 0) return null;
 
-  const visibles = verTodos ? items : items.slice(0, MAXIMO_VISIBLES);
-
   return (
     <div
       style={{
@@ -62,7 +57,7 @@ export function PendientesParaCargar({
         {esPT ? `📌 Você tem ${items.length} pendente${items.length === 1 ? '' : 's'} neste mês` : `📌 Tenés ${items.length} pendiente${items.length === 1 ? '' : 's'} este mes`}
       </strong>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-        {visibles.map((i) => (
+        {items.map((i) => (
           <button
             key={`${i.lado}-${i.recordatorioId}`}
             type="button"
@@ -79,18 +74,14 @@ export function PendientesParaCargar({
               textAlign: 'left',
             }}
           >
-            {i.lado === 'COBRAR' ? (esPT ? 'Receber' : 'Cobrar') : 'Pagar'} · {i.nombre} — {simbolo} {i.saldo.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+            <span style={{ display: 'block' }}>
+              {i.lado === 'COBRAR' ? (esPT ? 'Receber' : 'Cobrar') : 'Pagar'} · {i.nombre} — {simbolo} {i.saldo.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+            </span>
+            <span style={{ display: 'block', fontSize: 11.5, fontWeight: 800, marginTop: 2, color: estaVencido(i.fechaVencimiento) ? (oscuro ? '#fecaca' : '#b91c1c') : 'inherit' }}>
+              {estaVencido(i.fechaVencimiento) ? (esPT ? '⚠️ Vencida' : '⚠️ Vencida') : '📅'} · {etiquetaPeriodo(i.fechaVencimiento, idioma)}
+            </span>
           </button>
         ))}
-        {items.length > MAXIMO_VISIBLES && (
-          <button
-            type="button"
-            onClick={() => setVerTodos((v) => !v)}
-            style={{ border: 'none', background: 'transparent', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 12.5, textAlign: 'left', padding: 0 }}
-          >
-            {verTodos ? (esPT ? 'Ver menos' : 'Ver menos') : esPT ? `Ver os ${items.length} pendentes` : `Ver los ${items.length} pendientes`}
-          </button>
-        )}
       </div>
     </div>
   );

@@ -15,9 +15,9 @@
 // acá mismo.
 
 import { useEffect, useState } from 'react';
-import { listarTodasLasCuotasCobro, type CuotaCobro } from '@/lib/cuotasCobro';
+import { listarTodasLasCuotasCobro, saldoCuotaCobro, type CuotaCobro } from '@/lib/cuotasCobro';
 import { listarRecordatoriosIngresosConHistorial, saldoPendienteCobro, type RecordatorioIngresoRecurrente } from '@/lib/ingresosRecurrentes';
-import { listarTodasLasCuotas, type CuotaPasivo } from '@/lib/cuotas';
+import { listarTodasLasCuotas, saldoCuotaPasivo, type CuotaPasivo } from '@/lib/cuotas';
 import { listarRecordatoriosConHistorial, saldoPendiente, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { listarCuentasDeDinero, cambiarCuentaEnSaludCaja, type CuentaDeDinero } from '@/lib/saludCaja';
 import { fechaLocalHoy, periodosDisponibles } from '@/lib/fecha';
@@ -89,7 +89,7 @@ export function SaludDeCaja({
     (r) => !r.registrado && r.periodo === periodoSeleccionado
   );
   const totalPorCobrarPeriodo =
-    cuotasCobroPendientesPeriodo.reduce((suma, c) => suma + c.monto, 0) +
+    cuotasCobroPendientesPeriodo.reduce((suma, c) => suma + saldoCuotaCobro(c), 0) +
     recordatoriosIngresoPendientesPeriodo.reduce((suma, r) => suma + saldoPendienteCobro(r), 0);
 
   const cuotasPasivoPendientesPeriodo = cuotasPasivo.filter(
@@ -99,7 +99,7 @@ export function SaludDeCaja({
     (r) => !r.registrado && r.periodo === periodoSeleccionado
   );
   const totalNecesarioPeriodo =
-    cuotasPasivoPendientesPeriodo.reduce((suma, c) => suma + c.monto, 0) +
+    cuotasPasivoPendientesPeriodo.reduce((suma, c) => suma + saldoCuotaPasivo(c), 0) +
     recordatoriosGastoPendientesPeriodo.reduce((suma, r) => suma + saldoPendiente(r), 0);
 
   const cuentasIncluidas = cuentas.filter((c) => c.incluida);

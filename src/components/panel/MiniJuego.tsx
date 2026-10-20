@@ -281,7 +281,7 @@ export function MiniJuego({
     setOperacion(operacionDeCompromiso(item));
     setCategoria(item.categoriaLiquidacion);
     setFormaPago(item.formaPago);
-    setClienteProveedor(item.nombre);
+    setClienteProveedor(item.tipo === 'CUOTA' ? '' : item.nombre);
     setProductoId('');
     setProductoNombre('');
     setUnidadMedida('');
@@ -291,7 +291,8 @@ export function MiniJuego({
     setError('');
     setPendienteElegido(item.devengado ? null : item);
     setDesdePendientes(true);
-    setPaso('monto');
+    // Las cuotas no traen medio de pago: se elige antes de pasar al monto.
+    setPaso(item.formaPago ? 'monto' : 'formaPago');
   }
 
   function elegirOperacion(op: string) {
@@ -351,7 +352,8 @@ export function MiniJuego({
 
   async function elegirFormaPago(fp: string) {
     setFormaPago(fp);
-    setMonto('');
+    // Con un pendiente elegido el monto sugerido (su saldo) se conserva; se puede achicar para un pago parcial.
+    setMonto(pendienteElegido ? String(Number(pendienteElegido.saldo.toFixed(2))) : '');
     setBusqueda('');
 
     const tabla = tablaContactoJuego(operacion);
@@ -440,7 +442,7 @@ export function MiniJuego({
   }
 
   function volver() {
-    if (paso === 'monto' && desdePendientes) {
+    if ((paso === 'monto' || paso === 'formaPago') && desdePendientes) {
       reiniciarJuego();
       return;
     }

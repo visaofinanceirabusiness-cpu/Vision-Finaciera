@@ -6,7 +6,7 @@
 // sistema donde aparece la alerta (complementa, no reemplaza, el
 // aviso push del Calendário del lobby).
 
-import { listarCuotasPendientes } from './cuotas';
+import { listarCuotasPendientes, saldoCuotaPasivo } from './cuotas';
 import { listarRecordatoriosPendientes, saldoPendiente } from './gastosRecurrentes';
 import { listarRecordatoriosIngresosPendientes, saldoPendienteCobro } from './ingresosRecurrentes';
 import { fechaLocalHoy } from './fecha';
@@ -59,7 +59,7 @@ export async function obtenerAlertasFinancieras(
     const dias = diasHasta(cuota.fecha_vencimiento, hoy);
     if (dias > DIAS_ANTICIPACION) continue;
 
-    const monto = `${simbolo} ${cuota.monto.toFixed(2)}`;
+    const monto = `${simbolo} ${saldoCuotaPasivo(cuota).toFixed(2)}`;
     let texto: string;
 
     if (dias < 0) {

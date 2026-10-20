@@ -2,7 +2,7 @@
 
 // Aviso "ya lo devengaste": ver lib/compromisosAbiertos.ts.
 
-import type { CompromisoAbierto } from '@/lib/compromisosAbiertos';
+import { estaVencido, etiquetaPeriodo, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 
 export function AvisoCompromisosAbiertos({
   items,
@@ -41,13 +41,19 @@ export function AvisoCompromisosAbiertos({
     <div style={{ background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: 14, padding: '12px 14px', color: '#78350f', fontSize: 13.5, lineHeight: 1.45 }}>
       <strong>
         {esPT
-          ? `⚠️ Você já tem ${cobro ? 'a receber' : 'a pagar'} neste mês:`
-          : `⚠️ Este mes ya tenés ${cobro ? 'por cobrar' : 'por pagar'}:`}
+          ? `⚠️ Você tem ${cobro ? 'a receber' : 'a pagar'} pendente:`
+          : `⚠️ Tenés ${cobro ? 'por cobrar' : 'por pagar'} pendiente:`}
       </strong>
       <div style={{ margin: '6px 0 10px' }}>
         {items.map((i) => (
           <div key={i.recordatorioId}>
             {i.nombre} — {simbolo} {i.saldo.toFixed(2)}
+            {i.tipo === 'CUOTA' && (
+              <span style={{ fontWeight: 700, color: estaVencido(i.fechaVencimiento) ? '#b91c1c' : 'inherit' }}>
+                {' '}· {estaVencido(i.fechaVencimiento) ? '⚠️ ' : ''}
+                {etiquetaPeriodo(i.fechaVencimiento, idioma)}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -65,6 +71,7 @@ export function AvisoCompromisosAbiertos({
           <button key={i.recordatorioId} type="button" onClick={() => onElegir(i)} style={boton}>
             {cobro ? (esPT ? 'Receber' : 'Cobrar') : esPT ? 'Pagar' : 'Pagar'}
             {i.devengado ? ` → ${i.categoriaLiquidacion}` : ` «${i.nombre}»`}
+            {i.tipo === 'CUOTA' ? ` (${etiquetaPeriodo(i.fechaVencimiento, idioma)})` : ''}
           </button>
         ))}
         {onSeguir && (
