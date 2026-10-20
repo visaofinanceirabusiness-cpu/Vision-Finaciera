@@ -545,6 +545,32 @@ export default function MiNegocioPage() {
     );
 
 
+  const selectPeriodo = (
+    <select
+      value={periodoSeleccionado}
+      onChange={(e) => setPeriodoSeleccionado(e.target.value)}
+      style={{
+        minWidth: 210,
+        padding: '11px 14px',
+        borderRadius: 12,
+        border: `1px solid ${colores.acento}`,
+        background: '#fbfcfd',
+        color: colores.azul,
+        fontWeight: 700,
+        fontSize: 13,
+        cursor: 'pointer',
+      }}
+    >
+      {periodos.map((periodo) => (
+        <option key={periodo.valor} value={periodo.valor}>
+          {periodo.etiqueta}
+        </option>
+      ))}
+
+      <option value="TODOS">{t('todosLosPeriodos')}</option>
+    </select>
+  );
+
   const selectorPeriodo = (
         <section
       style={{
@@ -588,29 +614,7 @@ export default function MiNegocioPage() {
         </div>
       </div>
 
-      <select
-        value={periodoSeleccionado}
-        onChange={(e) => setPeriodoSeleccionado(e.target.value)}
-        style={{
-          minWidth: 210,
-          padding: '11px 14px',
-          borderRadius: 12,
-          border: `1px solid ${colores.acento}`,
-          background: '#fbfcfd',
-          color: colores.azul,
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: 'pointer',
-        }}
-      >
-        {periodos.map((periodo) => (
-          <option key={periodo.valor} value={periodo.valor}>
-            {periodo.etiqueta}
-          </option>
-        ))}
-
-        <option value="TODOS">{t('todosLosPeriodos')}</option>
-      </select>
+      {selectPeriodo}
     </section>
   );
 
@@ -1166,8 +1170,8 @@ export default function MiNegocioPage() {
           </div>
         )}
 
-        {/* Justo arriba del Resumen Ejecutivo: es el período que ese resumen (y los objetivos e indicadores) usan. */}
-        {selectorPeriodo}
+        {/* El selector de período vive dentro de la tarjeta del Resumen Ejecutivo; si ese bloque está apagado, queda suelto. */}
+        {!configuracion?.mostrar_graficos && selectorPeriodo}
 
         {configuracion?.mostrar_graficos && (
           <section
@@ -1225,18 +1229,20 @@ export default function MiNegocioPage() {
                 </p>
               </div>
 
-              <div
-                style={{
-                  padding: '9px 14px',
-                  borderRadius: 999,
-                  background: `${colores.azul}10`,
-                  color: colores.azul,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  textTransform: 'capitalize',
-                }}
-              >
-                {periodoTexto}
+              <div>
+                <div
+                  style={{
+                    marginBottom: 5,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 1.3,
+                    color: colores.verde,
+                  }}
+                >
+                  {t('eyebrowPeriodo')}
+                </div>
+
+                {selectPeriodo}
               </div>
             </div>
 
