@@ -48,7 +48,11 @@ export default function ContabilidadPage() {
 
 function ContabilidadPageInterno() {
   const router = useRouter();
-  const [pestana, setPestana] = useState<Pestana>('lanzamientos');
+  const searchParams = useSearchParams();
+  // Se entra por el Libro Diario; los enlaces que traen algo para cargar (recordatorio o cuota)
+  // (o el tutorial) abren Lanzamientos, que es donde se registra.
+  const vieneAregistrar = ['gastoRecurrenteRecordatorioId', 'ingresoRecurrenteRecordatorioId', 'cuotaId', 'tutorial'].some((clave) => searchParams.get(clave));
+  const [pestana, setPestana] = useState<Pestana>(vieneAregistrar ? 'lanzamientos' : 'libro');
   const [esAdmin, setEsAdmin] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
   const [esFamiliar, setEsFamiliar] = useState(false);
@@ -67,7 +71,6 @@ function ContabilidadPageInterno() {
   // click en "Registrar" quedaba con el id viejo (o ninguno) y el
   // formulario se abría completamente vacío, sin ni siquiera pedirle
   // el recordatorio al servidor.
-  const searchParams = useSearchParams();
   const recordatorioIdUrl = searchParams.get('gastoRecurrenteRecordatorioId');
   const [recordatorioGastoRecurrente, setRecordatorioGastoRecurrente] = useState<RecordatorioGastoRecurrente | undefined>(undefined);
   const [valoresInicialesGasto, setValoresInicialesGasto] = useState<ValoresIniciales | undefined>(undefined);
@@ -204,6 +207,10 @@ function ContabilidadPageInterno() {
           ?.perfiles_empresa?.codigo;
 
         setEsFamiliar(perfilCodigo === 'FAMILIAR');
+
+        // Empresa nueva: el tutorial guiado vive en Lanzamientos, no en el Libro Diario.
+        const onboardingCompleto = await empresaTieneOnboardingCompleto(perfil.empresa_id).catch(() => true);
+        if (!onboardingCompleto) setPestana('lanzamientos');
       }
     }
 
