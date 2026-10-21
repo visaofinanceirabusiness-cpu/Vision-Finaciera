@@ -27,6 +27,8 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { ResultadoPorNaturaleza } from '@/components/informes/ResultadoPorNaturaleza';
+import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
+import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
@@ -610,6 +612,10 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
   const t = crearTraductor(diccionarioInformes, idioma);
   const [cuentaId, setCuentaId] = useState('');
   const [mostrarCeros, setMostrarCeros] = useState(false);
+  // 'TODOS' o 'AAAA-MM'; y la contrapartida tocada en los indicadores (filtra la tabla).
+  const [mes, setMes] = useState('TODOS');
+  const [contrapartida, setContrapartida] = useState<string | null>(null);
+  const esPT = idioma === 'PT';
 
   // Las cuentas se identifican por nombre en los asientos, así que el
   // enlace del Panel de Control también viaja por nombre.
@@ -653,35 +659,15 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
       }));
   }, [opciones, t, idioma]);
 
-  const movimientos = useMemo(() => {
-    if (!cuenta) return [];
-
-    return asientos
-      .filter((a) => a.debito === cuenta.nombre || a.credito === cuenta.nombre)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.id_operacion ?? '').localeCompare(b.id_operacion ?? ''));
-  }, [cuenta, asientos]);
-
-  const filasConSaldo = useMemo(() => {
-    if (!cuenta) return [];
-
-    let saldo = Number(cuenta.saldo_inicial ?? 0);
-    const esAcreedora = cuenta.naturaleza === 'ACREEDORA';
-
-    return movimientos.map((mov) => {
-      const esDebe = mov.debito === cuenta.nombre;
-      const monto = esDebe ? mov.importe : -mov.importe;
-
-      saldo += esAcreedora ? -monto : monto;
-
-      return { ...mov, esDebe, saldo };
-    });
-  }, [movimientos, cuenta]);
-
-  const saldoActual = cuenta
-    ? filasConSaldo.length
-      ? filasConSaldo[filasConSaldo.length - 1].saldo
-      : Number(cuenta.saldo_inicial ?? 0)
-    : 0;
+  // El saldo actual es siempre el real de la cuenta; el mes solo recorta lo que se muestra.
+  const mayorTodos = useMemo(() => (cuenta ? armarMayor(cuenta, asientos, 'TODOS') : null), [cuenta, asientos]);
+  const mesElegido = mes === 'TODOS' || mayorTodos?.meses.includes(mes) ? mes : 'TODOS';
+  const mayor = useMemo(() => (cuenta ? armarMayor(cuenta, asientos, mesElegido) : null), [cuenta, asientos, mesElegido]);
+  const filasConSaldo = useMemo(
+    () => (mayor ? mayor.filas.filter((f) => !contrapartida || f.contrapartida === contrapartida) : []),
+    [mayor, contrapartida]
+  );
+  const saldoActual = mayorTodos?.saldoFinal ?? 0;
 
   return (
     <div>
@@ -691,7 +677,15 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
             {t('cuentaLabel')}
           </label>
 
-          <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campoInput}>
+          <select
+            value={cuentaId}
+            onChange={(e) => {
+              setCuentaId(e.target.value);
+              setMes('TODOS');
+              setContrapartida(null);
+            }}
+            style={campoInput}
+          >
             <option value="">{t('seleccionarCuenta')}</option>
 
             {gruposPorTipoSaldo.map((grupo) => (
@@ -705,6 +699,29 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
             ))}
           </select>
         </div>
+
+        {cuenta && mayorTodos && (
+          <div style={{ minWidth: 190 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
+              {esPT ? 'Mês' : 'Mes'}
+            </label>
+            <select
+              value={mesElegido}
+              onChange={(e) => {
+                setMes(e.target.value);
+                setContrapartida(null);
+              }}
+              style={campoInput}
+            >
+              <option value="TODOS">{t('todosLosPeriodos')}</option>
+              {mayorTodos.meses.map((clave) => (
+                <option key={clave} value={clave}>
+                  {formatearPeriodo(clave, idioma)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <BotonToggle
           activo={mostrarCeros}
@@ -733,7 +750,28 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
         )}
       </div>
 
-      {!cuenta ? (
+      {cuenta && mayor && (
+        <IndicadoresMayor
+          mayor={mayor}
+          esTodos={mesElegido === 'TODOS'}
+          idioma={idioma}
+          simbolo={simbolo}
+          contrapartidaActiva={contrapartida}
+          onContrapartida={setContrapartida}
+        />
+      )}
+
+      {contrapartida && (
+        <button
+          type="button"
+          onClick={() => setContrapartida(null)}
+          style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}
+        >
+          🔎 Contrapartida: {contrapartida} ✕
+        </button>
+      )}
+
+      {!cuenta || !mayor ? (
         <div style={vacioOperacion}>{t('elegirCuentaMovimiento')}</div>
       ) : (
         <div style={tablaContenedor}>
@@ -754,12 +792,12 @@ function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asi
                 <Td>—</Td>
                 <Td>—</Td>
                 <Td>
-                  <em>{t('saldoInicialItalic')}</em>
+                  <em>{mesElegido === 'TODOS' ? t('saldoInicialItalic') : 'Saldo anterior'}</em>
                 </Td>
                 <Td align="right">—</Td>
                 <Td align="right">—</Td>
                 <Td align="right">
-                  <strong>{simbolo} {formatearNumeroEntero(Number(cuenta.saldo_inicial ?? 0))}</strong>
+                  <strong>{simbolo} {formatearNumeroEntero(mayor.saldoAnterior)}</strong>
                 </Td>
               </tr>
 
