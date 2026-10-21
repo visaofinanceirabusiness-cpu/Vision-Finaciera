@@ -74,3 +74,58 @@ export function repartirMovimientos(
 
   return asignaciones;
 }
+
+// ---------------------------------------------------------------------------
+// Cuotas de pasivos / cuentas a cobrar
+// ---------------------------------------------------------------------------
+// Un pago (cobro) contra la cuenta del pasivo cargado "libre" —sin el botón Pagar de la
+// cuota— baja la deuda en el libro pero dejaba la cuota entera. Se reparte entre las cuotas
+// abiertas de esa cuenta, de la que vence primero a la última.
+//
+// Solo cuentan los movimientos cargados DESPUÉS de que existiera la cuota (lo anterior —pagos de
+// deudas sin cuotas, cuotas saldadas a mano— no se toca) y solo cuotas que vencen hasta el fin del
+// mes del pago: un pago de este mes no adelanta las cuotas de meses futuros.
+
+export type CuotaAbiertaConciliable = {
+  id: string;
+  // Cuenta contable del pasivo (o del activo a cobrar), tomada de la operación que originó la cuota.
+  cuenta: string;
+  vencimiento: string;
+  creadaEn: string;
+  saldo: number;
+};
+
+export type MovimientoLibreCuota = {
+  idOperacion: string;
+  cuenta: string;
+  fecha: string;
+  creadoEn: string;
+  monto: number;
+};
+
+export function repartirMovimientosEnCuotas(cuotas: CuotaAbiertaConciliable[], movimientos: MovimientoLibreCuota[]): Asignacion[] {
+  const saldos = new Map(cuotas.map((c) => [c.id, c.saldo]));
+  const asignaciones: Asignacion[] = [];
+  const ordenados = [...movimientos].sort((a, b) => a.creadoEn.localeCompare(b.creadoEn) || a.idOperacion.localeCompare(b.idOperacion));
+
+  for (const mov of ordenados) {
+    let restante = mov.monto;
+
+    const candidatas = cuotas
+      .filter((c) => c.cuenta === mov.cuenta && c.creadaEn <= mov.creadoEn && c.vencimiento <= `${mov.fecha.slice(0, 7)}-31`)
+      .sort((a, b) => a.vencimiento.localeCompare(b.vencimiento) || a.creadaEn.localeCompare(b.creadaEn));
+
+    for (const cuota of candidatas) {
+      if (restante <= TOLERANCIA) break;
+      const saldo = saldos.get(cuota.id) ?? 0;
+      if (saldo <= TOLERANCIA) continue;
+
+      const monto = Math.min(saldo, restante);
+      asignaciones.push({ recordatorioId: cuota.id, idOperacion: mov.idOperacion, monto, fecha: mov.fecha });
+      saldos.set(cuota.id, saldo - monto);
+      restante -= monto;
+    }
+  }
+
+  return asignaciones;
+}
