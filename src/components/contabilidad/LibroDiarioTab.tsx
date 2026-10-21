@@ -21,6 +21,17 @@ import {
 import { SimboloContext, EsFamiliarContext, IdiomaContext, COLORES } from './compartido';
 import { campoInput, tablaContenedorInterna, vacioOperacion, cuentaDebe, cuentaHaber } from './estilosCompartidos';
 import { Th, Td, Estado } from './celdas';
+import { IndicadoresLibroDiario } from './IndicadoresLibroDiario';
+import {
+  aplicarFiltroIndicador,
+  calcularIndicadores,
+  filtrarPorRango,
+  rangoAnterior,
+  rangoDelPeriodo,
+  type FiltroIndicador,
+  type PeriodoLibro,
+} from '@/lib/indicadoresLibroDiario';
+import { fechaLocalHoy } from '@/lib/fecha';
 
 /* ==========================================================
    PESTAÑA 3 · LIBRO DIARIO
@@ -64,6 +75,8 @@ export function LibroDiarioTab() {
   const [error, setError] = useState('');
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [nombreEmpresa, setNombreEmpresa] = useState('');
+  const [periodo, setPeriodo] = useState<PeriodoLibro>('MES');
+  const [filtroIndicador, setFiltroIndicador] = useState<FiltroIndicador | null>(null);
 
   async function cargar(empresaId: string) {
     setError('');
@@ -208,21 +221,30 @@ export function LibroDiarioTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  const hoy = fechaLocalHoy();
+  const rango = useMemo(() => rangoDelPeriodo(periodo, hoy), [periodo, hoy]);
+  const filasDelPeriodo = useMemo(() => filtrarPorRango(filas, rango), [filas, rango]);
+  const indicadores = useMemo(
+    () => calcularIndicadores(filasDelPeriodo, rango ? filtrarPorRango(filas, rangoAnterior(rango)) : null, rango, hoy),
+    [filasDelPeriodo, filas, rango, hoy]
+  );
+
   const visibles = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
+    const base = aplicarFiltroIndicador(filasDelPeriodo, filtroIndicador);
 
     if (!texto) {
-      return filas;
+      return base;
     }
 
-    return filas.filter((fila) =>
+    return base.filter((fila) =>
       [fila.id_operacion, fila.operacion, fila.historico, fila.cuenta_debito, fila.cuenta_credito, fila.estado, fila.tipo_registro]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
         .includes(texto)
     );
-  }, [filas, busqueda]);
+  }, [filasDelPeriodo, filtroIndicador, busqueda]);
 
   const grupos = useMemo(() => {
     const mapa = new Map<string, GrupoOperacion>();
@@ -274,6 +296,22 @@ export function LibroDiarioTab() {
           <Resumen titulo={t('resumenImportes')} valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
         </div>
       </div>
+
+      {!cargando && !error && (
+        <IndicadoresLibroDiario
+          indicadores={indicadores}
+          periodo={periodo}
+          onPeriodo={(nuevo) => {
+            setPeriodo(nuevo);
+            setFiltroIndicador(null);
+          }}
+          filtro={filtroIndicador}
+          onFiltro={setFiltroIndicador}
+          idioma={idioma ?? 'ES'}
+          esFamiliar={esFamiliar}
+          simbolo={simbolo}
+        />
+      )}
 
       {error && (
         <div
