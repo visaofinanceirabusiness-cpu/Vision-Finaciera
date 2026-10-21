@@ -240,7 +240,7 @@ const TABLAS_CUOTA = {
 // Un pago/cobro (total o parcial) contra una cuota: queda su línea y la cuota sigue
 // pendiente por el saldo hasta que se completa el total. Lo que se pase del saldo
 // no se aplica a otra cuota.
-async function aplicarACuota(
+export async function aplicarACuota(
   empresaId: string,
   item: Pick<CompromisoAbierto, 'recordatorioId' | 'lado'>,
   idOperacion: string,

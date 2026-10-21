@@ -7,7 +7,8 @@
 // que el botón Cobrar/Pagar; no toca el motor contable.
 
 import { supabase } from './supabase';
-import { repartirMovimientos, type FilaDevengada, type MovimientoLibro } from './conciliacionCompromisos';
+import { repartirMovimientos, repartirMovimientosEnCuotas, type CuotaAbiertaConciliable, type FilaDevengada, type MovimientoLibro, type MovimientoLibreCuota } from './conciliacionCompromisos';
+import { aplicarACuota } from './compromisosAbiertos';
 import { listarRecordatoriosIngresosPendientes, registrarCobroParcial } from './ingresosRecurrentes';
 import { listarRecordatoriosPendientes, registrarPagoParcial } from './gastosRecurrentes';
 
@@ -128,13 +129,127 @@ async function conciliarLado(empresaId: string, lado: Lado): Promise<number> {
   return asignaciones.length;
 }
 
+
+const CONFIG_CUOTAS = {
+  COBRAR: {
+    tabla: 'cuotas_cobro',
+    lineas: 'cuotas_cobro_cobros',
+    movido: 'monto_cobrado',
+    cumplida: 'cobrada',
+    operacion: 'COBRO',
+    // La cuenta de la deuda: la que origen y movimiento libre tocan del mismo lado.
+    cuentaOrigen: 'cuenta_debito',
+    cuentaMovimiento: 'cuenta_credito',
+  },
+  PAGAR: {
+    tabla: 'cuotas_pasivo',
+    lineas: 'cuotas_pasivo_pagos',
+    movido: 'monto_pagado',
+    cumplida: 'pagada',
+    operacion: 'PAGO',
+    cuentaOrigen: 'cuenta_credito',
+    cuentaMovimiento: 'cuenta_debito',
+  },
+} as const;
+
+// Un pago/cobro contra la cuenta de una deuda en cuotas, cargado por cualquier camino sin
+// asociarlo a la cuota, se aplica solo a las cuotas abiertas (la que vence primero), como un
+// pago parcial. Solo toma lo cargado después de que existiera la cuota.
+async function conciliarCuotasLado(empresaId: string, lado: Lado): Promise<number> {
+  const cfg = CONFIG_CUOTAS[lado];
+
+  const { data: abiertas, error: errorAbiertas } = await supabase
+    .from(cfg.tabla)
+    .select(`id, id_operacion, monto, ${cfg.movido}, fecha_vencimiento, created_at`)
+    .eq('empresa_id', empresaId)
+    .eq(cfg.cumplida, false);
+
+  if (errorAbiertas) throw errorAbiertas;
+
+  const filasAbiertas = (abiertas ?? []) as unknown as Array<Record<string, unknown>>;
+  if (filasAbiertas.length === 0) return 0;
+
+  const idsOrigen = Array.from(new Set(filasAbiertas.map((c) => c.id_operacion as string)));
+  const { data: origenes, error: errorOrigenes } = await supabase
+    .from('registro_operaciones')
+    .select(`id_operacion, ${cfg.cuentaOrigen}`)
+    .eq('empresa_id', empresaId)
+    .in('id_operacion', idsOrigen);
+
+  if (errorOrigenes) throw errorOrigenes;
+
+  const cuentaPorOperacion = new Map(
+    ((origenes ?? []) as unknown as Array<Record<string, string>>).map((o) => [o.id_operacion, o[cfg.cuentaOrigen]])
+  );
+
+  const cuotas: CuotaAbiertaConciliable[] = filasAbiertas
+    .filter((c) => cuentaPorOperacion.get(c.id_operacion as string))
+    .map((c) => ({
+      id: c.id as string,
+      cuenta: cuentaPorOperacion.get(c.id_operacion as string)!,
+      vencimiento: c.fecha_vencimiento as string,
+      creadaEn: c.created_at as string,
+      saldo: Math.max(0, Number(c.monto) - Number(c[cfg.movido] ?? 0)),
+    }));
+
+  const cuentas = Array.from(new Set(cuotas.map((c) => c.cuenta)));
+  if (cuentas.length === 0) return 0;
+
+  const desde = cuotas.map((c) => c.creadaEn).sort()[0];
+
+  const { data: libro, error: errorLibro } = await supabase
+    .from('registro_operaciones')
+    .select(`id_operacion, fecha, total, creado_en, ${cfg.cuentaMovimiento}`)
+    .eq('empresa_id', empresaId)
+    .eq('operacion', cfg.operacion)
+    .neq('estado', 'ANULADO')
+    .gte('creado_en', desde)
+    .in(cfg.cuentaMovimiento, cuentas);
+
+  if (errorLibro) throw errorLibro;
+  if ((libro ?? []).length === 0) return 0;
+
+  // Lo ya asociado a algo (cuotas, recordatorios recurrentes, devengos) no se vuelve a aplicar.
+  const lineasRecurrentes = lado === 'PAGAR' ? CONFIG.PAGAR : CONFIG.COBRAR;
+  const [propias, recurrentes, devengos] = await Promise.all([
+    supabase.from(cfg.lineas).select('id_operacion').eq('empresa_id', empresaId),
+    supabase.from(lineasRecurrentes.tablaLineas).select('id_operacion').eq('empresa_id', empresaId),
+    supabase.from(lineasRecurrentes.tabla).select('id_operacion').eq('empresa_id', empresaId).not('id_operacion', 'is', null),
+  ]);
+
+  for (const r of [propias, recurrentes, devengos]) if (r.error) throw r.error;
+
+  const asociadas = new Set<string>(
+    [...(propias.data ?? []), ...(recurrentes.data ?? []), ...(devengos.data ?? [])].map((f) => (f as { id_operacion: string }).id_operacion)
+  );
+
+  const movimientos: MovimientoLibreCuota[] = (libro as unknown as Array<Record<string, unknown>>)
+    .filter((op) => !asociadas.has(op.id_operacion as string))
+    .map((op) => ({
+      idOperacion: op.id_operacion as string,
+      cuenta: op[cfg.cuentaMovimiento] as string,
+      fecha: op.fecha as string,
+      creadoEn: op.creado_en as string,
+      monto: Number(op.total),
+    }));
+
+  const asignaciones = repartirMovimientosEnCuotas(cuotas, movimientos);
+
+  for (const a of asignaciones) {
+    await aplicarACuota(empresaId, { recordatorioId: a.recordatorioId, lado }, a.idOperacion, a.monto, a.fecha);
+  }
+
+  return asignaciones.length;
+}
+
 // Para llamar justo después de registrar una operación por cualquier camino:
 // si fue un cobro/pago contra una cuenta a cobrar/pagar, queda asociado al mes al
 // instante. Sin esperar y sin romper el registro si falla.
 export function conciliarTrasRegistrar(empresaId: string): void {
-  void Promise.all([conciliarCompromisos(empresaId, 'COBRAR'), conciliarCompromisos(empresaId, 'PAGAR')]).catch((e) =>
-    console.warn('No se pudo conciliar tras registrar:', e)
-  );
+  // Primero los recurrentes y recién después las cuotas, para que un mismo pago no se aplique a las dos cosas.
+  void Promise.all([conciliarCompromisos(empresaId, 'COBRAR'), conciliarCompromisos(empresaId, 'PAGAR')])
+    .then(() => Promise.all([conciliarCuotas(empresaId, 'COBRAR'), conciliarCuotas(empresaId, 'PAGAR')]))
+    .catch((e) => console.warn('No se pudo conciliar tras registrar:', e));
 }
 
 // Una sola corrida a la vez por empresa y lado (el lobby y la pantalla abierta
@@ -147,6 +262,16 @@ export function conciliarCompromisos(empresaId: string, lado: Lado): Promise<num
   if (previa) return previa;
 
   const corrida = conciliarLado(empresaId, lado).finally(() => enCurso.delete(clave));
+  enCurso.set(clave, corrida);
+  return corrida;
+}
+
+export function conciliarCuotas(empresaId: string, lado: Lado): Promise<number> {
+  const clave = `cuotas|${empresaId}|${lado}`;
+  const previa = enCurso.get(clave);
+  if (previa) return previa;
+
+  const corrida = conciliarCuotasLado(empresaId, lado).finally(() => enCurso.delete(clave));
   enCurso.set(clave, corrida);
   return corrida;
 }
