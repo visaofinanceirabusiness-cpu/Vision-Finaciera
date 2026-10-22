@@ -59,7 +59,6 @@ export default function Visao3DPage() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
   const [webgl, setWebgl] = useState(true);
-  const [arquitecto, setArquitecto] = useState(false);
   // Pantalla inmersiva: el edificio ocupa todo; los controles viven en un menú y el panel es una hoja plegable.
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -232,7 +231,7 @@ export default function Visao3DPage() {
   });
 
   return (
-    <main style={{ position: 'fixed', inset: 0, zIndex: 40, background: arquitecto ? '#eef2f7' : '#0b1424', color: '#fff', overflow: 'hidden' }}>
+    <main style={{ position: 'fixed', inset: 0, zIndex: 40, background: '#0b1424', color: '#fff', overflow: 'hidden' }}>
       <style>{`
         .visao3d-panel { position: absolute; left: 8px; right: 8px; bottom: 8px; }
         @media (min-width: 861px) { .visao3d-panel { left: auto; right: 14px; bottom: 14px; width: 380px; } }
@@ -257,7 +256,6 @@ export default function Visao3DPage() {
             onEntrar={entrar}
             formatear={dinero}
             movimientoReducido={movimientoReducido}
-            vistaArquitecto={arquitecto}
             nombreEmpresa={nombreEmpresa}
           />
         </div>
@@ -311,7 +309,7 @@ export default function Visao3DPage() {
         <div role="group" aria-label={esPT ? 'Ativo = Passivo + Patrimônio Líquido' : 'Activo = Pasivo + Patrimonio Neto'} style={{ position: 'absolute', top: 56, left: 12, right: 12, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', pointerEvents: 'none' }}>
           {edificio.raiz.hijos.map((grupo, i) => (
             <span key={grupo.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {i > 0 && <b style={{ fontSize: 15, opacity: 0.8, color: arquitecto ? '#0f172a' : '#fff' }}>{i === 1 ? '=' : '+'}</b>}
+              {i > 0 && <b style={{ fontSize: 15, opacity: 0.8, color: '#fff' }}>{i === 1 ? '=' : '+'}</b>}
               <button
                 type="button"
                 onClick={() => {
@@ -357,11 +355,6 @@ export default function Visao3DPage() {
               <button type="button" onClick={() => setVista('lista')} aria-pressed={vista === 'lista'} style={interruptor(vista === 'lista')}>
                 ☰ {esPT ? 'Lista' : 'Lista'}
               </button>
-              {vista === '3d' && (
-                <button type="button" onClick={() => setArquitecto((v) => !v)} aria-pressed={arquitecto} style={interruptor(arquitecto)}>
-                  📐 {esPT ? 'Arquiteto' : 'Arquitecto'}
-                </button>
-              )}
             </div>
           )}
           <button type="button" onClick={pantallaCompletaDelNavegador} style={interruptor(false)}>
@@ -376,7 +369,7 @@ export default function Visao3DPage() {
       )}
 
       {pista && vista === '3d' && !cargando && (
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 96, textAlign: 'center', fontSize: 11.5, color: arquitecto ? '#334155' : '#94a3b8', pointerEvents: 'none', padding: '0 16px' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 96, textAlign: 'center', fontSize: 11.5, color: '#94a3b8', pointerEvents: 'none', padding: '0 16px' }}>
           {esPT ? 'Arraste para girar · pinça para zoom · toque duas vezes para entrar' : 'Arrastrá para girar · pellizco para zoom · tocá dos veces para entrar'}
         </div>
       )}
