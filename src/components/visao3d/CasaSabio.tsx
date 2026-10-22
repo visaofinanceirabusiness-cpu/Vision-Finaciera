@@ -70,36 +70,50 @@ function Caja({ p, s, color, rot, rough = 0.8 }: { p: V3; s: V3; color: string; 
 }
 
 // Logo de Visão Financeira: dos tildes y la flecha verde que sube.
+// Logo real de Visão Financeira (coordenadas del arte original, 1256 px): dos tildes y la flecha en zigzag que sube.
+// `tilde` = color de los tildes (blanco sobre el saco/libro azul, azul sobre claro).
+const TILDE_IZQ: Array<[number, number]> = [[335, 318], [400, 318], [441, 392], [580, 270], [588, 182], [437, 482]];
+const TILDE_DER: Array<[number, number]> = [[465, 552], [528, 552], [580, 633], [805, 265], [863, 265], [580, 728]];
+const FLECHA: Array<[number, number]> = [[372, 626], [466, 484], [518, 498], [606, 372], [658, 412], [820, 214]];
+const PUNTA: Array<[number, number]> = [[778, 160], [878, 117], [852, 219], [826, 206]];
+
+export function dibujarLogo(g: CanvasRenderingContext2D, x: number, y: number, ancho: number, tilde: string) {
+  // Caja del logo en el arte: x 330..880, y 110..735.
+  const k = ancho / 550;
+  const pt = ([px, py]: [number, number]): [number, number] => [x + (px - 330) * k, y + (py - 110) * k];
+  const poli = (pts: Array<[number, number]>, color: string) => {
+    g.fillStyle = color;
+    g.beginPath();
+    pts.forEach((q, i) => {
+      const [qx, qy] = pt(q);
+      if (i === 0) g.moveTo(qx, qy);
+      else g.lineTo(qx, qy);
+    });
+    g.closePath();
+    g.fill();
+  };
+  poli(TILDE_IZQ, tilde);
+  poli(TILDE_DER, tilde);
+  g.strokeStyle = '#2f9e4f';
+  g.lineWidth = 30 * k;
+  g.lineJoin = 'miter';
+  g.lineCap = 'butt';
+  g.beginPath();
+  FLECHA.forEach((q, i) => {
+    const [qx, qy] = pt(q);
+    if (i === 0) g.moveTo(qx, qy);
+    else g.lineTo(qx, qy);
+  });
+  g.stroke();
+  poli(PUNTA, '#2f9e4f');
+}
+
 function texturaLogo(): THREE.Texture {
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
+  c.width = 256;
+  c.height = 290;
   const g = c.getContext('2d')!;
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  g.strokeStyle = '#ffffff';
-  g.lineWidth = 22;
-  [0, 64].forEach((dx) => {
-    g.beginPath();
-    g.moveTo(24 + dx, 112);
-    g.lineTo(58 + dx, 188);
-    g.lineTo(104 + dx, 52);
-    g.stroke();
-  });
-  g.strokeStyle = '#34b657';
-  g.lineWidth = 20;
-  g.beginPath();
-  g.moveTo(54, 176);
-  g.lineTo(112, 118);
-  g.lineTo(136, 142);
-  g.lineTo(206, 52);
-  g.stroke();
-  g.fillStyle = '#34b657';
-  g.beginPath();
-  g.moveTo(232, 22);
-  g.lineTo(178, 36);
-  g.lineTo(214, 76);
-  g.closePath();
-  g.fill();
+  dibujarLogo(g, 8, 6, 240, '#ffffff');
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -138,7 +152,7 @@ function texturaOjo(): THREE.Texture {
 }
 
 // Tapa del libro: el lema en tres líneas, "CRECER." en verde, y el logo abajo.
-function texturaLibro(logo: THREE.Texture): THREE.Texture {
+function texturaLibro(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 320;
@@ -154,7 +168,7 @@ function texturaLibro(logo: THREE.Texture): THREE.Texture {
   g.fillText('PARA ', 96, 180);
   g.fillStyle = '#35c25f';
   g.fillText('CRECER.', 178, 180);
-  g.drawImage(logo.image as CanvasImageSource, 88, 208, 80, 80);
+  dibujarLogo(g, 82, 206, 96, '#ffffff');
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -174,6 +188,53 @@ function texturaSombra(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+// Cápsula entre dos puntos (brazos): se orienta con un cuaternión desde el eje y.
+function Segmento({ a, b, r, color }: { a: V3; b: V3; r: number; color: string }) {
+  const { pos, quat, largo } = useMemo(() => {
+    const va = new THREE.Vector3(...a);
+    const vb = new THREE.Vector3(...b);
+    const d = vb.clone().sub(va);
+    return { pos: va.clone().add(vb).multiplyScalar(0.5), quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()), largo: Math.max(0.001, d.length() - 2 * r) };
+  }, [a, b, r]);
+  return (
+    <mesh position={pos} quaternion={quat}>
+      <capsuleGeometry args={[r, largo, 6, 14]} />
+      <meshStandardMaterial color={color} roughness={0.85} />
+    </mesh>
+  );
+}
+
+// Solapa del saco (polígono extruido con muesca) y camisa en V: el pecho se lee como un saco de verdad.
+function Solapa({ lado }: { lado: 1 | -1 }) {
+  const geo = useMemo(() => {
+    const pts: Array<[number, number]> = [[0.035, 1.12], [0.16, 1.14], [0.22, 1.02], [0.15, 0.96], [0.17, 0.78], [0.03, 0.6]];
+    const f = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x * lado, y)));
+    return new THREE.ExtrudeGeometry(f, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 2 });
+  }, [lado]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return (
+    <mesh geometry={geo} position={[0, 0, 0.47]} rotation={[0, lado * 0.1, 0]}>
+      <meshStandardMaterial color="#15275d" roughness={0.7} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+function Camisa() {
+  const geo = useMemo(() => {
+    const f = new THREE.Shape([new THREE.Vector2(-0.075, 1.14), new THREE.Vector2(0.075, 1.14), new THREE.Vector2(0.0, 0.6)]);
+    return new THREE.ExtrudeGeometry(f, { depth: 0.02, bevelEnabled: false });
+  }, []);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return (
+    <group>
+      <mesh geometry={geo} position={[0, 0, 0.455]}>
+        <meshStandardMaterial color="#f6ecd6" roughness={0.9} />
+      </mesh>
+      {[-1, 1].map((l) => <Caja key={l} p={[l * 0.07, 1.15, 0.47]} s={[0.11, 0.04, 0.04]} color="#f6ecd6" rot={[0, 0, l * -0.5]} />)}
+    </group>
+  );
+}
+
 export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: number; esPT?: boolean; rot?: number }) {
   const cuerpo = useRef<THREE.Group>(null);
   const cabeza = useRef<THREE.Group>(null);
@@ -183,7 +244,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
   const sombra = useMemo(() => (typeof document === 'undefined' ? null : texturaSombra()), []);
   const logo = useMemo(() => (typeof document === 'undefined' ? null : texturaLogo()), []);
   const ojo = useMemo(() => (typeof document === 'undefined' ? null : texturaOjo()), []);
-  const libro = useMemo(() => (logo ? texturaLibro(logo) : null), [logo]);
+  const libro = useMemo(() => (typeof document === 'undefined' ? null : texturaLibro()), []);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   useEffect(() => () => { logo?.dispose(); libro?.dispose(); sombra?.dispose(); ojo?.dispose(); }, [logo, libro, sombra, ojo]);
 
@@ -194,7 +255,9 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
     if (parpados.current) {
       // Parpadeo cada ~4 s: los párpados bajan y suben en una fracción de segundo.
       const ciclo = t % 4.2;
-      parpados.current.scale.y = ciclo > 4.0 ? Math.max(0.02, Math.sin(((ciclo - 4.0) / 0.2) * Math.PI)) : 0.02;
+      const cerrando = ciclo > 4.0;
+      parpados.current.visible = cerrando;
+      parpados.current.scale.y = cerrando ? Math.max(0.05, Math.sin(((ciclo - 4.0) / 0.2) * Math.PI)) : 0.05;
     }
     if (cuerpo.current) cuerpo.current.position.y = Math.sin(t * 1.6) * 0.012;
     if (cabeza.current) {
@@ -219,6 +282,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           {ojos.map((l) => (
             <group key={`pie${l}`}>
               <Elipsoide p={[l * 0.2, 0.05, 0.14]} s={[0.17, 0.06, 0.2]} color={NARANJA} />
+              <Elipsoide p={[l * 0.2, 0.2, 0.05]} s={[0.12, 0.17, 0.12]} color={CREMA} />
               {[-1, 0, 1].map((k) => (
                 <group key={k}>
                   <Elipsoide p={[l * 0.2 + k * 0.09, 0.04, 0.32]} s={[0.045, 0.04, 0.09]} color={NARANJA} />
@@ -227,59 +291,43 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
               ))}
             </group>
           ))}
-          {/* Cuerpo emplumado, panza clara y cola. */}
+          {/* Cuerpo emplumado y cola. */}
           <Elipsoide p={[0, 0.78, 0]} s={[0.52, 0.6, 0.46]} color={MARRON} />
-          <Elipsoide p={[0, 0.78, 0.2]} s={[0.4, 0.5, 0.3]} color={CREMA} />
-          <Elipsoide p={[0, 0.35, -0.28]} s={[0.22, 0.1, 0.3]} color={MARRON_OSCURO} rot={[0.5, 0, 0]} />
-          {/* Plumas de la panza: filas escalonadas con motas marrones y plumón en las patas. */}
-          {[0.46, 0.56, 0.66, 0.76, 0.86, 0.96].map((y, i) => [-2, -1, 0, 1, 2].map((k) => {
-            const ancho = 0.5 - Math.abs(y - 0.72) * 0.55;
-            const x = (k * ancho) / 2.6 + (i % 2) * 0.05 - 0.025;
-            if (Math.abs(x) > ancho * 0.6) return null;
-            return (
-              <group key={`${i}${k}`}>
-                <Elipsoide p={[x, y, 0.47 - Math.abs(x) * 0.25]} s={[0.075, 0.06, 0.03]} color={i % 2 ? '#e9d6aa' : '#dec59a'} rot={[-0.2, 0, 0]} />
-                <Elipsoide p={[x, y - 0.018, 0.498 - Math.abs(x) * 0.25]} s={[0.022, 0.012, 0.008]} color="#8a5a34" />
-              </group>
-            );
-          }))}
-          {ojos.map((l) => (
-            <group key={`pl${l}`}>
-              <Elipsoide p={[l * 0.2, 0.17, 0.1]} s={[0.12, 0.14, 0.12]} color={CREMA} />
-              <Elipsoide p={[l * 0.2, 0.13, 0.2]} s={[0.07, 0.09, 0.05]} color="#e4cf9f" />
-            </group>
-          ))}
-          {/* Plumas de la espalda y de la cola. */}
-          {[-1, 0, 1].map((k) => <Elipsoide key={`cola${k}`} p={[k * 0.12, 0.42, -0.5]} s={[0.07, 0.04, 0.22]} color={k === 0 ? MARRON : MARRON_OSCURO} rot={[0.7, k * 0.25, 0]} />)}
-          {/* Saco azul: cuerpo, solapas, camisa, botón y bolsillo. */}
-          <Elipsoide p={[0, 0.66, 0.02]} s={[0.56, 0.4, 0.5]} color={AZUL} />
-          <Caja p={[-0.15, 0.9, 0.5]} s={[0.12, 0.3, 0.03]} color={AZUL_OSCURO} rot={[0, 0, 0.4]} />
-          <Caja p={[0.15, 0.9, 0.5]} s={[0.12, 0.3, 0.03]} color={AZUL_OSCURO} rot={[0, 0, -0.4]} />
-          <Caja p={[0, 0.97, 0.47]} s={[0.2, 0.32, 0.02]} color="#f6ecd6" rot={[0, 0, 0]} />
-          <Elipsoide p={[0.02, 0.5, 0.52]} s={[0.03, 0.03, 0.02]} color="#111111" />
-          <Elipsoide p={[-0.02, 0.5, 0.52]} s={[0.026, 0.026, 0.02]} color="#1b1b1b" />
-          <Elipsoide p={[-0.46, 0.98, 0.08]} s={[0.14, 0.1, 0.14]} color={AZUL} />
-          <Elipsoide p={[0.46, 0.98, 0.08]} s={[0.14, 0.1, 0.14]} color={AZUL} />
-          <Caja p={[0, 1.08, -0.22]} s={[0.42, 0.1, 0.1]} color={AZUL_OSCURO} rot={[0.3, 0, 0]} />
-          <Caja p={[0.27, 0.55, 0.5]} s={[0.17, 0.02, 0.02]} color={AZUL_OSCURO} />
-          <Caja p={[0.27, 0.58, 0.51]} s={[0.08, 0.04, 0.015]} color="#ffffff" rot={[0, 0, 0.35]} />
-          
-          <Caja p={[0.24, 0.5, 0.5]} s={[0.17, 0.05, 0.025]} color={AZUL_OSCURO} rot={[0, 0, 0.1]} />
+          <Elipsoide p={[0, 0.4, -0.3]} s={[0.22, 0.1, 0.3]} color={MARRON_OSCURO} rot={[0.5, 0, 0]} />
+          {[-1, 0, 1].map((k) => <Elipsoide key={`cola${k}`} p={[k * 0.12, 0.42, -0.52]} s={[0.07, 0.04, 0.22]} color={k === 0 ? MARRON : MARRON_OSCURO} rot={[0.7, k * 0.25, 0]} />)}
+          {/* Saco azul: cubre el torso hasta la altura del cuello, con hombreras, solapas, camisa en V, botones y bolsillo. */}
+          <Elipsoide p={[0, 0.74, 0.0]} s={[0.575, 0.56, 0.5]} color={AZUL} />
+          <Elipsoide p={[-0.47, 1.0, 0.04]} s={[0.15, 0.11, 0.15]} color={AZUL} />
+          <Elipsoide p={[0.47, 1.0, 0.04]} s={[0.15, 0.11, 0.15]} color={AZUL} />
+          <Solapa lado={-1} />
+          <Solapa lado={1} />
+          <Camisa />
+          <Caja p={[0.0, 1.27, -0.2]} s={[0.46, 0.1, 0.12]} color={AZUL_OSCURO} rot={[0.3, 0, 0]} />
+          <Elipsoide p={[0.0, 0.58, 0.485]} s={[0.032, 0.032, 0.02]} color="#111111" />
+          <Elipsoide p={[0.0, 0.4, 0.5]} s={[0.032, 0.032, 0.02]} color="#111111" />
+          <Caja p={[0.26, 0.56, 0.482]} s={[0.17, 0.02, 0.02]} color={AZUL_OSCURO} rot={[0, 0.35, 0.05]} />
+          <Caja p={[0.265, 0.6, 0.486]} s={[0.075, 0.04, 0.012]} color="#ffffff" rot={[0, 0.35, 0.3]} />
+          {/* Plumón del pecho sobre el cuello. */}
+          {[-1, 0, 1].map((k) => <Elipsoide key={`pl${k}`} p={[k * 0.14, 1.2, 0.3]} s={[0.1, 0.07, 0.08]} color={CREMA} />)}
         </Fundido>
-        {/* Logo en el pecho del saco. */}
-        <mesh position={[0.22, 0.76, 0.515]} rotation={[0, 0.12, 0]}>
-          <planeGeometry args={[0.3, 0.3]} />
+        {/* Logo en el pecho del saco, siguiendo la curva del torso. */}
+        <mesh position={[0.33, 0.77, 0.5]} rotation={[0, 0.46, 0]}>
+          <planeGeometry args={[0.27, 0.306]} />
           <meshBasicMaterial map={logo} transparent toneMapped={false} />
         </mesh>
 
-        {/* Brazo que sostiene el libro. */}
+        {/* Brazo que sostiene el libro: hombro → codo → muñeca, con puño de camisa y mano. */}
         <Fundido>
-          <Elipsoide p={[-0.55, 0.68, 0.12]} s={[0.15, 0.3, 0.15]} color={AZUL} rot={[0, 0, 0.35]} />
-          <Elipsoide p={[-0.52, 0.52, 0.27]} s={[0.115, 0.04, 0.115]} color="#f6ecd6" rot={[0.3, 0, 0.35]} />
-          <Elipsoide p={[-0.5, 0.45, 0.32]} s={[0.13, 0.12, 0.13]} color={MARRON} />
-          {[-0.05, 0.03, 0.1].map((d, i) => <Elipsoide key={i} p={[-0.43 + d * 0.3, 0.42 + d, 0.42]} s={[0.04, 0.045, 0.05]} color={MARRON} />)}
-          {/* Libro: tapa azul, canto de hojas y lomo. */}
-          <group position={[-0.3, 0.62, 0.5]} rotation={[0, 0.55, -0.1]}>
+          <Segmento a={[-0.48, 1.0, 0.08]} b={[-0.66, 0.68, 0.18]} r={0.115} color={AZUL} />
+          <Elipsoide p={[-0.66, 0.68, 0.18]} s={[0.12, 0.12, 0.12]} color={AZUL} />
+          <Segmento a={[-0.66, 0.68, 0.18]} b={[-0.36, 0.52, 0.5]} r={0.1} color={AZUL} />
+          <Elipsoide p={[-0.34, 0.51, 0.51]} s={[0.105, 0.06, 0.105]} color="#f6ecd6" rot={[0.6, 0.6, 0.4]} />
+          <Elipsoide p={[-0.3, 0.5, 0.56]} s={[0.115, 0.1, 0.1]} color={MARRON} />
+          {[-0.06, 0, 0.06, 0.11].map((d, i) => <Elipsoide key={`df${i}`} p={[-0.22 + d * 0.15, 0.5 + d, 0.62]} s={[0.04, 0.05, 0.045]} color="#6a381c" />)}
+        </Fundido>
+        {/* Libro de frente, con el lema; se apoya sobre el antebrazo. */}
+        <group position={[-0.3, 0.76, 0.58]} rotation={[0, 0.3, -0.06]}>
+          <Fundido>
             <Caja p={[0, 0, 0]} s={[0.4, 0.5, 0.08]} color={AZUL} rough={0.6} />
             <Caja p={[0.21, 0, 0]} s={[0.025, 0.47, 0.07]} color="#f3e8cc" />
             <Caja p={[-0.2, 0, 0]} s={[0.02, 0.5, 0.09]} color={AZUL_OSCURO} />
@@ -287,27 +335,26 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
             <Caja p={[0.17, 0.27, 0.045]} s={[0.03, 0.06, 0.006]} color="#35c25f" />
             <Caja p={[0.185, 0.235, 0.044]} s={[0.07, 0.07, 0.015]} color="#c9a64a" rough={0.4} />
             <Caja p={[0.185, -0.235, 0.044]} s={[0.07, 0.07, 0.015]} color="#c9a64a" rough={0.4} />
-          </group>
-        </Fundido>
-        <mesh position={[-0.3 + Math.sin(0.55) * 0.045, 0.62, 0.5 + Math.cos(0.55) * 0.045]} rotation={[0, 0.55, -0.1]}>
-          <planeGeometry args={[0.38, 0.48]} />
-          <meshStandardMaterial map={libro} roughness={0.6} />
-        </mesh>
+          </Fundido>
+          <mesh position={[0, 0, 0.0415]}>
+            <planeGeometry args={[0.38, 0.48]} />
+            <meshStandardMaterial map={libro} roughness={0.6} />
+          </mesh>
+        </group>
 
-        {/* Brazo en alto con el dedo índice señalando. */}
-        <group ref={brazo} position={[0.5, 0.95, 0.12]} rotation={[0, 0, -0.35]}>
+        {/* Brazo en alto: hombro → codo → antebrazo vertical, con el dedo índice señalando. */}
+        <group ref={brazo} position={[0.48, 1.0, 0.08]}>
           <Fundido>
-            <Elipsoide p={[0.12, 0.14, 0]} s={[0.15, 0.3, 0.15]} color={AZUL} rot={[0, 0, -0.35]} />
-            <Elipsoide p={[0.22, 0.42, 0]} s={[0.15, 0.14, 0.14]} color={MARRON} />
-            <mesh position={[0.2, 0.64, 0]}>
-              <capsuleGeometry args={[0.045, 0.18, 4, 8]} />
-              <meshStandardMaterial color={MARRON} roughness={0.8} />
-            </mesh>
-            {[-0.07, 0.0, 0.07].map((d, i) => <Elipsoide key={i} p={[0.27 + d * 0.5, 0.4 + (i % 2) * 0.02, 0.1]} s={[0.045, 0.05, 0.045]} color={MARRON} />)}
-            <Caja p={[0.12, 0.3, 0.02]} s={[0.12, 0.04, 0.1]} color="#f6ecd6" rot={[0, 0, -0.35]} />
-            <Elipsoide p={[0.14, 0.4, 0.1]} s={[0.04, 0.07, 0.04]} color={MARRON} rot={[0, 0, 0.6]} />
-            <Elipsoide p={[0.2, 0.745, 0.035]} s={[0.025, 0.035, 0.012]} color="#3f2210" />
-            {[0.13, 0.2, 0.27, 0.33].map((x, i) => <Elipsoide key={`nu${i}`} p={[x, 0.46 + (i % 2) * 0.01, 0.12]} s={[0.035, 0.05, 0.035]} color="#6a381c" />)}
+            <Segmento a={[0, 0, 0]} b={[0.3, -0.2, 0.05]} r={0.115} color={AZUL} />
+            <Elipsoide p={[0.3, -0.2, 0.05]} s={[0.12, 0.12, 0.12]} color={AZUL} />
+            <Segmento a={[0.3, -0.2, 0.05]} b={[0.38, 0.2, 0.06]} r={0.1} color={AZUL} />
+            <Elipsoide p={[0.385, 0.23, 0.06]} s={[0.1, 0.045, 0.1]} color="#f6ecd6" rot={[0, 0, -0.2]} />
+            <Elipsoide p={[0.4, 0.33, 0.06]} s={[0.12, 0.105, 0.105]} color={MARRON} />
+            <Segmento a={[0.4, 0.36, 0.06]} b={[0.41, 0.6, 0.06]} r={0.042} color={MARRON} />
+            <Elipsoide p={[0.41, 0.62, 0.06]} s={[0.044, 0.05, 0.044]} color={MARRON} />
+            <Elipsoide p={[0.412, 0.615, 0.095]} s={[0.026, 0.034, 0.012]} color="#3f2210" />
+            {[-0.06, -0.02, 0.02, 0.06].map((d, i) => <Elipsoide key={`nu${i}`} p={[0.4 + d, 0.3 + (i % 2) * 0.01, 0.13]} s={[0.035, 0.05, 0.035]} color="#6a381c" />)}
+            <Elipsoide p={[0.34, 0.32, 0.12]} s={[0.04, 0.07, 0.04]} color={MARRON} rot={[0, 0, 0.6]} />
           </Fundido>
         </group>
       </group>
@@ -320,46 +367,45 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           {[-2, -1, 0, 1, 2].map((i) => <Elipsoide key={`fr${i}`} p={[i * 0.11, 0.33 - Math.abs(i) * 0.03, 0.17]} s={[0.075, 0.05, 0.05]} color={i % 2 ? '#7a4326' : '#6a3a20'} rot={[0.5, 0, i * 0.12]} />)}
           {ojos.map((l) => (
             <group key={l}>
-              <Elipsoide p={[l * 0.34, 0.39, 0.0]} s={[0.065, 0.2, 0.05]} color="#4f2a14" rot={[0, 0, -l * 0.5]} />
-              <Elipsoide p={[l * 0.25, 0.43, 0.02]} s={[0.05, 0.14, 0.04]} color="#5e3319" rot={[0, 0, -l * 0.35]} />
-              <Elipsoide p={[l * 0.19, -0.01, 0.3]} s={[0.27, 0.26, 0.13]} color={CREMA} />
-              <mesh position={[l * 0.19, -0.01, 0.37]} scale={[1, 0.96, 1]}>
-                <torusGeometry args={[0.265, 0.03, 10, 36]} />
+              <Elipsoide p={[l * 0.34, 0.37, 0.0]} s={[0.07, 0.12, 0.055]} color="#4f2a14" rot={[0, 0, -l * 0.45]} />
+              <Elipsoide p={[l * 0.26, 0.41, 0.03]} s={[0.05, 0.08, 0.04]} color="#5e3319" rot={[0, 0, -l * 0.3]} />
+              <Elipsoide p={[l * 0.21, -0.01, 0.3]} s={[0.26, 0.25, 0.13]} color={CREMA} />
+              <mesh position={[l * 0.21, -0.01, 0.37]} scale={[1, 0.96, 1]}>
+                <torusGeometry args={[0.25, 0.028, 10, 36]} />
                 <meshStandardMaterial color="#cfae7c" roughness={0.9} />
               </mesh>
-              <Elipsoide p={[l * 0.19, 0.03, 0.4]} s={[0.155, 0.155, 0.09]} color="#ffffff" rough={0.3} />
-              <mesh position={[l * 0.19, 0.03, 0.495]}>
-                <planeGeometry args={[0.26, 0.26]} />
+              <Elipsoide p={[l * 0.21, 0.03, 0.4]} s={[0.13, 0.13, 0.08]} color="#ffffff" rough={0.3} />
+              <mesh position={[l * 0.21, 0.03, 0.485]}>
+                <planeGeometry args={[0.215, 0.215]} />
                 <meshStandardMaterial map={ojo} transparent roughness={0.3} />
               </mesh>
-              <mesh position={[l * 0.19, 0.03, 0.525]}>
-                <torusGeometry args={[0.21, 0.03, 12, 40]} />
+              <mesh position={[l * 0.21, 0.03, 0.515]}>
+                <torusGeometry args={[0.175, 0.026, 12, 40]} />
                 <meshStandardMaterial color="#0f0f12" roughness={0.3} />
               </mesh>
-              <mesh position={[l * 0.19, 0.03, 0.528]}>
-                <circleGeometry args={[0.2, 28]} />
+              <mesh position={[l * 0.21, 0.03, 0.518]}>
+                <circleGeometry args={[0.168, 28]} />
                 <meshStandardMaterial color="#cfe6ff" transparent opacity={0.14} roughness={0.05} metalness={0.2} depthWrite={false} />
               </mesh>
-              <Elipsoide p={[l * 0.4, 0.06, 0.5]} s={[0.025, 0.03, 0.025]} color="#1a1a1f" />
-              <Elipsoide p={[l * 0.07, -0.03, 0.54]} s={[0.02, 0.04, 0.015]} color="#d9d9de" rough={0.3} />
-              <Caja p={[l * 0.375, 0.06, 0.3]} s={[0.012, 0.02, 0.4]} color="#0f0f12" rot={[0, l * -0.12, 0]} />
-              <Elipsoide p={[l * 0.19, 0.25, 0.44]} s={[0.12, 0.035, 0.045]} color="#4f2a14" rot={[0, 0, l * 0.22]} />
+              <Elipsoide p={[l * 0.385, 0.06, 0.48]} s={[0.025, 0.03, 0.025]} color="#1a1a1f" />
+              <Caja p={[l * 0.39, 0.06, 0.28]} s={[0.012, 0.02, 0.4]} color="#0f0f12" rot={[0, l * -0.12, 0]} />
+              <Elipsoide p={[l * 0.21, 0.23, 0.43]} s={[0.1, 0.03, 0.04]} color="#4f2a14" rot={[0, 0, l * 0.2]} />
               <Elipsoide p={[l * 0.33, -0.17, 0.37]} s={[0.09, 0.06, 0.07]} color="#eaa98f" />
             </group>
           ))}
-          <Caja p={[0, 0.05, 0.53]} s={[0.12, 0.026, 0.026]} color="#0f0f12" />
+          <Caja p={[0, 0.045, 0.515]} s={[0.07, 0.024, 0.024]} color="#0f0f12" />
           {/* Pico con boca y lengua. */}
-          <Cono p={[0, -0.07, 0.55]} r={0.075} h={0.2} color={NARANJA} rot={[Math.PI / 2 + 0.25, 0, 0]} />
-          <Cono p={[0, -0.15, 0.53]} r={0.06} h={0.14} color="#d9791f" rot={[Math.PI / 2 - 0.1, 0, 0]} />
-          <Elipsoide p={[0, -0.125, 0.55]} s={[0.04, 0.012, 0.05]} color="#7a1f1f" />
-          <Elipsoide p={[0, -0.13, 0.555]} s={[0.022, 0.008, 0.03]} color="#e07a86" />
-          {ojos.map((l) => <Elipsoide key={`na${l}`} p={[l * 0.03, -0.045, 0.63]} s={[0.01, 0.01, 0.008]} color="#7a3d10" />)}
+          <Elipsoide p={[0, -0.02, 0.36]} s={[0.11, 0.2, 0.1]} color={CREMA} />
+          <Cono p={[0, -0.075, 0.55]} r={0.085} h={0.23} color={NARANJA} rot={[Math.PI / 2 + 0.35, 0, 0]} />
+          <Cono p={[0, -0.16, 0.53]} r={0.06} h={0.14} color="#d9791f" rot={[Math.PI / 2 - 0.05, 0, 0]} />
+          <Elipsoide p={[0, -0.135, 0.56]} s={[0.045, 0.012, 0.05]} color="#7a1f1f" />
+          <Elipsoide p={[0, -0.14, 0.565]} s={[0.025, 0.008, 0.03]} color="#e07a86" />
           {[-1, 0, 1].map((k) => <Elipsoide key={k} p={[k * 0.2, -0.3, 0.3]} s={[0.1, 0.07, 0.1]} color={CREMA} />)}
         </Fundido>
-        <group ref={parpados} scale={[1, 0.02, 1]}>
+        <group ref={parpados} visible={false} scale={[1, 0.05, 1]}>
           {ojos.map((l) => (
-            <mesh key={`pa${l}`} position={[l * 0.19, 0.03, 0.5]}>
-              <sphereGeometry args={[0.16, 14, 10]} />
+            <mesh key={`pa${l}`} position={[l * 0.21, 0.03, 0.48]}>
+              <sphereGeometry args={[0.15, 14, 10]} />
               <meshStandardMaterial color={MARRON} roughness={0.9} />
             </mesh>
           ))}
