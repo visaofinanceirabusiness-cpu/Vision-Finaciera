@@ -12,7 +12,7 @@ type Huella = { x: number; z: number; w: number; d: number; r?: number; fuerza?:
 const PX = 80; // píxeles por unidad del mundo
 
 const PLANTA_BAJA = { x0: X_IZQ, x1: X_DER, y: 0 };
-const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.15 };
+const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.75 };
 
 // Huellas en coordenadas finales del mundo.
 const HUELLAS_BAJA: Huella[] = [
