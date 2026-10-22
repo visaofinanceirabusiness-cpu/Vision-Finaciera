@@ -442,7 +442,7 @@ function Globo({ pos, ancla, lineas, color, fase }: { pos: V3; ancla: V3; lineas
 
 // Persona con movimiento barato: un grupo propio (su Fundido la deja en pocas mallas) y solo se mueve ese grupo.
 // "quieta" gira apenas la cabeza/cuerpo y respira; "paseo" camina de ida y vuelta en x girando al llegar a cada extremo.
-function PersonaViva({ modo, p, hasta, rot = 0, esc = 1, fase, ropa, pantalon, pelo }: { modo: 'quieta' | 'paseo'; p: V3; hasta?: number; rot?: number; esc?: number; fase: number; ropa: string; pantalon: string; pelo: string }) {
+function PersonaViva({ modo, p, hasta, radio = 1.3, rot = 0, esc = 1, fase, ropa, pantalon, pelo }: { modo: 'quieta' | 'paseo' | 'juego'; p: V3; hasta?: number; radio?: number; rot?: number; esc?: number; fase: number; ropa: string; pantalon: string; pelo: string }) {
   const ref = useRef<THREE.Group>(null);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   useFrame(({ clock }) => {
@@ -452,6 +452,15 @@ function PersonaViva({ modo, p, hasta, rot = 0, esc = 1, fase, ropa, pantalon, p
     if (modo === 'quieta') {
       g.rotation.y = rot + Math.sin(t * 0.5 + fase) * 0.4;
       g.scale.y = 1 + Math.sin(t * 1.8) * 0.012;
+      return;
+    }
+    if (modo === 'juego') {
+      // Corre en círculos alrededor de p (los dos niños se persiguen con distinta fase).
+      const ang = t * 0.9 + fase * Math.PI * 2;
+      g.position.x = p[0] + Math.cos(ang) * radio;
+      g.position.z = p[2] + Math.sin(ang) * radio;
+      g.rotation.y = Math.atan2(-Math.sin(ang), Math.cos(ang));
+      g.position.y = p[1] + Math.abs(Math.sin(t * 6 + fase * 5)) * 0.09 * esc;
       return;
     }
     const a = p[0];
@@ -745,15 +754,16 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
         </mesh>
       )))}
 
-      {/* Familia: 3 adultos (dormitorio, oficina, comedor) y 2 niños (comedor y jardín). Los sentados quedan fundidos con la casa. */}
+      {/* Familia: 3 adultos (dormitorio, oficina y la mamá que camina living ↔ cochera) y 2 niños jugando en el jardín. */}
       <Persona p={[desplazarX(3.2), 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
-      <Persona p={[desplazarX(2.1), 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
-      <Persona p={[desplazarX(4.3), 0.46, 1.4]} rot={Math.PI} sentado esc={0.7} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" />
       </Fundido>
 
       {/* Personas con movimiento: cada una con su propio Fundido (pocas mallas) y solo se anima su grupo. */}
       <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
-      <PersonaViva modo="paseo" p={[8.6, 0, 4.75]} hasta={6.6} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0.5} />
+      {/* La mamá camina del living a la cochera por el paso entre cuartos; los dos niños juegan a perseguirse en el jardín. */}
+      <PersonaViva modo="paseo" p={[-1.6, 0, 1.45]} hasta={-10.3} ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" fase={0.2} />
+      <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0} />
+      <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" fase={0.42} />
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
       {amen('otros', (p) => <CajaOtros pintura={p} />)}
