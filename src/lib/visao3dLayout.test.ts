@@ -42,11 +42,19 @@ describe('disenarVolumenes', () => {
     const [activo, patrimonio, pasivo] = volumenes;
     expect(activo.alto).toBe(ALTURA_EDIFICIO);
     expect(activo.x).toBeLessThan(0);
-    // A escala: 100/300 y 200/300 del Activo (que mide 6).
+    // Techo parejo: Pasivo + Patrimonio miden lo mismo que el Activo; el reparto sigue los valores (100/300 y 200/300).
+    expect(pasivo.alto + patrimonio.alto).toBeCloseTo(activo.alto, 5);
     expect(pasivo.alto).toBeCloseTo(2, 5);
     expect(patrimonio.alto).toBeCloseTo(4, 5);
     expect(pasivo.y).toBeCloseTo(patrimonio.alto, 5);
     expect(patrimonio.alto).toBeGreaterThan(pasivo.alto);
+  });
+
+  it('un Pasivo muy chico sigue legible y el techo no cambia', () => {
+    const chico = construirEdificio(plan.map((c) => (c.id === 'deu' ? { ...c, saldo_inicial: 1 } : c)), [], null, { empresa: 'E', ACTIVO: 'Ativo', PASIVO: 'Passivo', PATRIMONIO: 'PL', resultado: 'Res' });
+    const [activo, patrimonio, pasivo] = disenarVolumenes(chico.raiz, false, 'Otras').volumenes;
+    expect(pasivo.alto).toBeGreaterThanOrEqual(0.9 - 1e-9);
+    expect(pasivo.alto + patrimonio.alto).toBeCloseTo(activo.alto, 5);
   });
 
   it('un grupo: pisos apilados con altura total del edificio', () => {

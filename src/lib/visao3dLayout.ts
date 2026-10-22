@@ -6,9 +6,10 @@
 
 import { alturasProporcionales, buscarNodo, caminoHasta, type GrupoId, type NodoEdificio } from './visao3d';
 
-export const MAX_PISOS = 24;
+export const MAX_PISOS = 12;
 export const ALTURA_EDIFICIO = 6;
-const MINIMO_PISO = 0.32;
+// Cada piso necesita lugar para el objeto de su cuenta (auto, mesa, billetes…).
+const MINIMO_PISO = 0.9;
 const MINIMO_VOLUMEN = 1.4;
 
 export const COLOR_GRUPO: Record<GrupoId, string> = { ACTIVO: '#2f7df6', PASIVO: '#f08a24', PATRIMONIO: '#22b455' };
@@ -91,33 +92,24 @@ export function alturaPorValor(saldo: number, referencia: number, pisosMinimos =
   return Math.min(ALTURA_EDIFICIO, Math.max(minimo, ALTURA_EDIFICIO * proporcion));
 }
 
-// Con la empresa completa: el Activo a la izquierda y, a la derecha, el Pasivo sobre el Patrimonio —
-// la ecuación Activo = Pasivo + Patrimonio hecha edificio, a escala. Con cualquier otro nodo: su volumen
+// Con la empresa completa: el Activo a la izquierda y, a la derecha, el Pasivo sobre el Patrimonio. La altura
+// exterior es siempre la misma (la ecuación Activo = Pasivo + Patrimonio: el techo queda parejo); lo que
+// cambia con los valores es cómo se reparte la columna de la derecha entre Pasivo y Patrimonio, con un
+// mínimo para que ninguno desaparezca ni se pueda leer su nombre. Con cualquier otro nodo: su volumen
 // (más o menos alto según su valor) con sus hijos como pisos. `referencia` = Activo total de la empresa.
 export function disenarVolumenes(foco: NodoEdificio, mostrarCeros: boolean, etiquetaOtras: string, referencia?: number): { volumenes: Volumen[]; ocultosEnCero: number } {
   if (foco.nivel === 0) {
     const [activo, pasivo, patrimonio] = foco.hijos;
-    // La escala se fija en el lado más grande, para que ninguno se salga de los 6 de alto.
-    const escala = Math.max(activo.saldo, pasivo.saldo + patrimonio.saldo, 0) || 1;
-    // Mínimo más bajo que en un grupo: así la ecuación (Pasivo + Patrimonio ≈ Activo) se lee a simple vista.
-    const altoActivo = alturaPorValor(activo.saldo, escala, 0, 0.6);
-    const altoPasivo = alturaPorValor(pasivo.saldo, escala, 0, 0.6);
-    const altoPatrimonio = alturaPorValor(patrimonio.saldo, escala, 0, 0.6);
+    const [altoPasivo, altoPatrimonio] = alturasProporcionales([pasivo.saldo, patrimonio.saldo], ALTURA_EDIFICIO, 0.9);
     const ancho = 4.4;
     const profundidad = 4;
-    const armar = (nodo: NodoEdificio, x: number, y: number, alto: number): Volumen => ({
-      id: nodo.id,
-      nodo,
-      x,
-      y,
-      ancho,
-      alto,
-      profundidad,
-      pisos: apilar(nodo, hijosVisibles(nodo, mostrarCeros, etiquetaOtras, 12).visibles, alto, 0.22),
-    });
+    const armar = (nodo: NodoEdificio, x: number, y: number, alto: number): Volumen => {
+      const visibles = hijosVisibles(nodo, mostrarCeros, etiquetaOtras, 12).visibles;
+      return { id: nodo.id, nodo, x, y, ancho, alto, profundidad, pisos: apilar(nodo, visibles, alto, Math.min(0.22, alto / Math.max(visibles.length, 1))) };
+    };
 
     return {
-      volumenes: [armar(activo, -2.5, 0, altoActivo), armar(patrimonio, 2.5, 0, altoPatrimonio), armar(pasivo, 2.5, altoPatrimonio, altoPasivo)],
+      volumenes: [armar(activo, -2.5, 0, ALTURA_EDIFICIO), armar(patrimonio, 2.5, 0, altoPatrimonio), armar(pasivo, 2.5, altoPatrimonio, altoPasivo)],
       ocultosEnCero: 0,
     };
   }

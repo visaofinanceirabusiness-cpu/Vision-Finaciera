@@ -53,7 +53,8 @@ export default function Visao3DPage() {
   const [moneda, setMoneda] = useState<string | null>(null);
 
   const [mes, setMes] = useState('TODOS');
-  const [mostrarCeros, setMostrarCeros] = useState(false);
+  // Las cuentas en cero se ven (en gris): el objeto está, pero no hay saldo.
+  const [mostrarCeros, setMostrarCeros] = useState(true);
   const [focoId, setFocoId] = useState('empresa');
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
@@ -234,6 +235,26 @@ export default function Visao3DPage() {
           <p>{esPT ? 'Ainda não há plano de contas para mostrar.' : 'Todavía no hay plan de cuentas para mostrar.'}</p>
         ) : (
           <>
+            {/* Lectura rápida: la ecuación contable con los tres totales; tocar uno entra a ese grupo. */}
+            <div role="group" aria-label={esPT ? 'Ativo = Passivo + Patrimônio Líquido' : 'Activo = Pasivo + Patrimonio Neto'} style={{ ...barra, gap: 8, marginBottom: 12 }}>
+              {edificio.raiz.hijos.map((grupo, i) => (
+                <span key={grupo.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {i > 0 && <b style={{ fontSize: 20, opacity: 0.7 }}>{i === 1 ? '=' : '+'}</b>}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFocoId(grupo.id);
+                      setSeleccionadoId(null);
+                    }}
+                    style={{ border: `1.5px solid ${COLOR_GRUPO[grupo.grupo]}`, background: `${COLOR_GRUPO[grupo.grupo]}22`, color: '#fff', borderRadius: 14, padding: '7px 14px', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: COLOR_GRUPO[grupo.grupo] }}>{grupo.nombre.toUpperCase()}</div>
+                    <div style={{ fontSize: 17, fontWeight: 900 }}>{`${grupo.saldo < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(grupo.saldo))}`}</div>
+                  </button>
+                </span>
+              ))}
+            </div>
+
             <div style={{ ...barra, marginBottom: 10 }}>
               <label style={{ fontSize: 12.5, fontWeight: 700 }}>
                 {esPT ? 'Saldos ao fechamento de' : 'Saldos al cierre de'}{' '}
@@ -296,6 +317,7 @@ export default function Visao3DPage() {
                   <Escena
                     volumenes={volumenes}
                     focoId={foco.id}
+                    periodoClave={mes}
                     seleccionadoId={seleccionadoId}
                     onSeleccionar={seleccionar}
                     onEntrar={entrar}
