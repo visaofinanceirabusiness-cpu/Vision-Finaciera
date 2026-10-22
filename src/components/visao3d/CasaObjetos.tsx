@@ -8,12 +8,45 @@ import * as THREE from 'three';
 import { Caja, Cilindro, PantallaPlana, TexturasCtx } from './CasaMobiliario';
 
 type V3 = [number, number, number];
-export type Pintura = { color: string; apagado: boolean; brillo: number };
+export type Pintura = { color: string; apagado: boolean; brillo: number; negativo?: boolean };
 
 const tono = (color: string, l: number) => new THREE.Color(color).offsetHSL(0, 0, l).getStyle();
 
-function usar(p: Pintura) {
-  return { c: p.color, e: p.color, ei: (p.apagado ? 0.04 : 0.28) * p.brillo, claro: tono(p.color, 0.16), oscuro: tono(p.color, -0.16) };
+// Cada objeto tiene sus colores propios (los de lo que representa). El saldo ya no los pinta: en cero se ven apagados
+// (grises) y con saldo negativo se tiñen de rojo; con saldo se ven en color natural.
+type Natural = { c: string; claro: string; oscuro: string };
+const NAT: Record<string, Natural> = {
+  auto: { c: '#c3c8d2', claro: '#e3e6ec', oscuro: '#8d94a3' },
+  sofa: { c: '#c99a3e', claro: '#dcb35a', oscuro: '#a47a2a' },
+  tv: { c: '#7a5230', claro: '#9a6b3f', oscuro: '#5e3f24' },
+  tarjeta: { c: '#262a33', claro: '#3d4350', oscuro: '#14161b' },
+  casa: { c: '#efe3cf', claro: '#f8f0e2', oscuro: '#b8654a' },
+  ahorro: { c: '#e8b83a', claro: '#f6d96e', oscuro: '#b98a1e' },
+  billetes: { c: '#6db26f', claro: '#93d08d', oscuro: '#3f7d46' },
+  banco: { c: '#ebe3d2', claro: '#f7f1e5', oscuro: '#b5a688' },
+  doc0: { c: '#d9b878', claro: '#ecd6a2', oscuro: '#b08f4e' },
+  doc1: { c: '#c0392b', claro: '#e0675a', oscuro: '#8f251b' },
+  doc2: { c: '#e8812b', claro: '#f5a65d', oscuro: '#b85e14' },
+  capital: { c: '#e6b739', claro: '#f7d86a', oscuro: '#b48a1c' },
+  resultado: { c: '#3aa86d', claro: '#78d6a0', oscuro: '#1f7a4c' },
+  otros: { c: '#c8a06a', claro: '#dcb985', oscuro: '#a47b45' },
+};
+
+function apagar(hex: string): string {
+  const col = new THREE.Color(hex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  col.getHSL(hsl);
+  return col.setHSL(hsl.h, hsl.s * 0.06, 0.38 + hsl.l * 0.35).getStyle();
+}
+
+function teñir(hex: string): string {
+  return new THREE.Color(hex).lerp(new THREE.Color('#d64545'), 0.35).getStyle();
+}
+
+function usar(p: Pintura, nat: Natural) {
+  const f = p.apagado ? apagar : p.negativo ? teñir : (x: string) => x;
+  const c = f(nat.c);
+  return { c, e: c, ei: (p.apagado ? 0.02 : 0.08) * p.brillo, claro: f(nat.claro), oscuro: f(nat.oscuro) };
 }
 
 // Plinto sobre el que se exhiben las amenidades chicas (altura = lo que sube el objeto).
@@ -29,7 +62,7 @@ export function Plinto({ p, h, r = 0.46, acento }: { p: V3; h: number; r?: numbe
 }
 
 export function AutoSUV({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.auto);
   const carroceria = { color: c, emissive: e, ei, rough: 0.2, metal: 0.65 };
   const vidrio = { color: '#0e1420', rough: 0.06, metal: 0.85, opacity: 0.8 };
   return (
@@ -116,7 +149,7 @@ export function AutoSUV({ pintura }: { pintura: Pintura }) {
 }
 
 export function Sofa({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.sofa);
   const tela = useContext(TexturasCtx)?.tela;
   const mat = { emissive: e, ei, rough: 0.95, map: tela };
   return (
@@ -140,7 +173,7 @@ export function Sofa({ pintura }: { pintura: Pintura }) {
 }
 
 export function TV({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.tv);
   return (
     <group>
       {[-0.8, 0.8].map((x) => <Cilindro key={x} p={[x, 0.09, 0]} r={0.04} h={0.18} color="#c9a86a" metal={0.8} rough={0.3} seg={8} />)}
@@ -164,7 +197,7 @@ export function TV({ pintura }: { pintura: Pintura }) {
 }
 
 export function Tarjeta({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.tarjeta);
   return (
     <group>
       <Caja p={[0, 0.05, 0.05]} s={[1.0, 0.1, 0.5]} color="#2a2f3b" rough={0.4} />
@@ -204,7 +237,7 @@ function Techo2Aguas({ p, largo, ancho, alto, color, emissive, ei }: { p: V3; la
 }
 
 export function Maqueta({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.casa);
   const calido = { color: '#ffe9b8', emissive: '#ffd27a', ei: 0.9 };
   const ventana = (x: number, y: number, z: number, w = 0.2, h = 0.22) => (
     <group key={`${x}${y}${z}`} position={[x, y, z]}>
@@ -279,7 +312,7 @@ export function Maqueta({ pintura }: { pintura: Pintura }) {
 }
 
 export function Ahorro({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.ahorro);
   const moneda = { color: c, emissive: e, ei, metal: 0.7, rough: 0.25 };
   return (
     <group>
@@ -297,7 +330,7 @@ export function Ahorro({ pintura }: { pintura: Pintura }) {
 }
 
 export function Billetes({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.billetes);
   const pila = (x: number, z: number, h: number, rot: number) => (
     <group key={`${x}${z}`} position={[x, 0, z]} rotation={[0, rot, 0]}>
       <Caja p={[0, h / 2 + 0.01, 0]} s={[0.82, h, 0.4]} color={claro} emissive={e} ei={ei * 0.7} rough={0.9} />
@@ -318,7 +351,7 @@ export function Billetes({ pintura }: { pintura: Pintura }) {
 }
 
 export function Banco({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.banco);
   return (
     <group>
       {[0, 1, 2].map((i) => <Caja key={i} p={[0, 0.04 + i * 0.08, 0]} s={[1.5 - i * 0.12, 0.08, 0.95 - i * 0.1]} color="#e8ecf2" rough={0.5} />)}
@@ -337,7 +370,7 @@ export function Banco({ pintura }: { pintura: Pintura }) {
 
 // Papeles: 0 = por cobrar (carpeta con broche), 1 = préstamo (contrato con sello), 2 = cuentas por pagar (facturas con etiqueta).
 export function Documentos({ pintura, variante = 0 }: { pintura: Pintura; variante?: 0 | 1 | 2 }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT[`doc${variante}`]);
   const lineas = [0.22, 0.1, -0.02, -0.14].map((z, i) => <Caja key={z} p={[i === 3 ? -0.1 : 0, 0.215, z]} s={[i === 3 ? 0.4 : 0.6, 0.004, 0.035]} color="#6b7385" />);
   return (
     <group>
@@ -372,7 +405,7 @@ export function Documentos({ pintura, variante = 0 }: { pintura: Pintura; varian
 }
 
 export function Capital({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.capital);
   const lingote = (p: V3, i: number) => (
     <group key={i} position={p}>
       <Caja p={[0, 0, 0]} s={[0.62, 0.18, 0.3]} color={c} emissive={e} ei={ei} metal={0.8} rough={0.2} />
@@ -393,7 +426,7 @@ export function Capital({ pintura }: { pintura: Pintura }) {
 }
 
 export function Resultado({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.resultado);
   const alturas = [0.3, 0.5, 0.42, 0.72, 0.98];
   return (
     <group>
@@ -413,7 +446,7 @@ export function Resultado({ pintura }: { pintura: Pintura }) {
 }
 
 export function CajaOtros({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.otros);
   return (
     <group>
       <Caja p={[-0.2, 0.3, 0]} s={[1.3, 0.6, 1.0]} color={c} emissive={e} ei={ei} rough={0.8} />
