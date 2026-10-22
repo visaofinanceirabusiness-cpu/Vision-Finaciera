@@ -16,6 +16,9 @@ import { colorDeSaldo, tipoObjeto } from '@/lib/visao3dObjetos';
 import { ObjetoCuenta } from './Objetos';
 import { CamaraGuiada, Cielo, factorAncho, GrupoAnimado, Letrero, Proyector, Sombras, texturaProcedural, type Etiqueta } from './Compartido3D';
 
+// Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
+const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-14, 0, -10), new THREE.Vector3(14, 16, 10));
+
 type Props = {
   volumenes: Volumen[];
   // Nodo cuyo interior se muestra (cambia al "entrar"): dispara la animación de entrada.
@@ -412,7 +415,7 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
           ))}
         </GrupoAnimado>
 
-        <OrbitControls makeDefault enablePan={false} minDistance={4} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan screenSpacePanning={false} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} onChange={(e) => e?.target.target.clamp(LIMITE_PAN.min, LIMITE_PAN.max)} minDistance={4} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
