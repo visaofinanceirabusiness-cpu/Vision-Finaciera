@@ -21,11 +21,13 @@ type Props = {
   onSeleccionar: (nodo: NodoEdificio) => void;
   onVolver: () => void;
   onEmpresa: () => void;
+  // Dentro de la hoja inferior de pantalla completa: sin marco propio ni título/saldo repetidos arriba.
+  incrustado?: boolean;
 };
 
 const texto = { fontSize: 12.5, color: '#cbd5e1' } as const;
 
-export function PanelNodo({ nodo, hijos, ocultosEnCero, movimientos, esPT, simbolo, puedeVolver, hayPeriodoAnterior, onEntrar, onSeleccionar, onVolver, onEmpresa }: Props) {
+export function PanelNodo({ nodo, hijos, ocultosEnCero, movimientos, esPT, simbolo, puedeVolver, hayPeriodoAnterior, onEntrar, onSeleccionar, onVolver, onEmpresa, incrustado = false }: Props) {
   const local = esPT ? 'pt-BR' : 'es-AR';
   const dinero = (n: number) => `${n < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(n))}`;
   const color = COLOR_GRUPO[nodo.grupo];
@@ -34,13 +36,20 @@ export function PanelNodo({ nodo, hijos, ocultosEnCero, movimientos, esPT, simbo
   return (
     <aside
       aria-label={esPT ? 'Informações do item selecionado' : 'Información del elemento seleccionado'}
-      style={{ background: 'rgba(11,20,36,0.94)', color: '#fff', borderRadius: 18, padding: 16, border: `1px solid ${color}55`, maxHeight: '100%', overflowY: 'auto' }}
+      style={incrustado ? { color: '#fff' } : { background: 'rgba(11,20,36,0.94)', color: '#fff', borderRadius: 18, padding: 16, border: `1px solid ${color}55`, maxHeight: '100%', overflowY: 'auto' }}
     >
+      {!incrustado ? (
+        <>
       <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color }}>{nodo.codigo ? `${esPT ? 'CÓDIGO' : 'CÓDIGO'} ${nodo.codigo}` : nodo.sintetico ? (esPT ? 'LINHA CALCULADA' : 'LÍNEA CALCULADA') : esPT ? 'GRUPO' : 'GRUPO'}</div>
       <h2 style={{ margin: '2px 0 8px', fontSize: 19 }}>{nodo.nombre}</h2>
 
       <div style={{ fontSize: 26, fontWeight: 900, color: nodo.saldo < 0 ? '#fca5a5' : '#fff' }}>{dinero(nodo.saldo)}</div>
       {nodo.saldo < 0 && <div style={{ ...texto, color: '#fca5a5' }}>{esPT ? 'Saldo negativo (reduz o grupo)' : 'Saldo negativo (resta del grupo)'}</div>}
+
+        </>
+      ) : (
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color }}>{nodo.codigo ? `CÓDIGO ${nodo.codigo}` : nodo.sintetico ? (esPT ? 'LINHA CALCULADA' : 'LÍNEA CALCULADA') : esPT ? 'GRUPO' : 'GRUPO'}</div>
+      )}
 
       <div style={{ display: 'grid', gap: 4, marginTop: 10 }}>
         {hayPeriodoAnterior && (
@@ -66,6 +75,7 @@ export function PanelNodo({ nodo, hijos, ocultosEnCero, movimientos, esPT, simbo
         )}
       </div>
 
+      {!incrustado && (
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
         {puedeEntrar && (
           <button type="button" onClick={() => onEntrar(nodo)} style={{ border: 'none', background: color, color: '#fff', borderRadius: 999, padding: '8px 16px', fontWeight: 800, cursor: 'pointer' }}>
@@ -81,6 +91,7 @@ export function PanelNodo({ nodo, hijos, ocultosEnCero, movimientos, esPT, simbo
           🏢 {esPT ? 'Empresa completa' : 'Empresa completa'}
         </button>
       </div>
+      )}
 
       {nodo.cuentaNombre && (
         <Link href={`/informes?pestana=mayor&cuenta=${encodeURIComponent(nodo.cuentaNombre)}`} style={{ color: '#7dd3fc', fontSize: 12.5, fontWeight: 700 }}>
