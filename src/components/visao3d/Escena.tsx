@@ -41,30 +41,51 @@ function centroDe(volumenes: Volumen[], seleccionadoId: string | null): { centro
 }
 
 // Lleva la cámara hacia el área elegida (zoom) y, al entrar en un nodo, arranca más lejos y se acerca.
+// Solo guía mientras dura el movimiento: apenas la persona toca la escena (arrastrar, rueda, pellizco)
+// se suelta el control, para que el zoom y el giro manuales no se pisen cada cuadro.
 function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean }) {
-  const { camera, controls } = useThree();
-  const entrada = useRef(0);
-  const distanciaActual = useRef(distancia * 1.7);
+  const { camera, controls, size } = useThree();
+  const guiando = useRef(true);
+  // En pantallas angostas (teléfono vertical) el edificio no entra a la misma distancia: se aleja.
+  const factorAncho = Math.min(1.9, Math.max(1, 1.1 / (size.width / Math.max(size.height, 1))));
+  const distanciaMeta = distancia * factorAncho;
+  const distanciaActual = useRef(distanciaMeta * 1.7);
 
   useEffect(() => {
-    entrada.current = movimientoReducido ? 1 : 0;
-    distanciaActual.current = movimientoReducido ? distancia : distancia * 1.7;
+    distanciaActual.current = movimientoReducido ? distanciaMeta : distanciaMeta * 1.7;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoId, movimientoReducido]);
 
+  // Cada selección nueva (o cambio de nivel) vuelve a guiar la cámara.
+  useEffect(() => {
+    guiando.current = true;
+  }, [objetivo.x, objetivo.y, objetivo.z, distanciaMeta, focoId]);
+
+  useEffect(() => {
+    const orbit = controls as unknown as { addEventListener: (t: string, f: () => void) => void; removeEventListener: (t: string, f: () => void) => void } | null;
+    if (!orbit) return;
+    const soltar = () => {
+      guiando.current = false;
+    };
+    orbit.addEventListener('start', soltar);
+    return () => orbit.removeEventListener('start', soltar);
+  }, [controls]);
+
   useFrame((_, delta) => {
     const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null;
-    if (!orbit) return;
+    if (!orbit || !guiando.current) return;
 
     const paso = movimientoReducido ? 1 : 1 - Math.pow(0.0008, delta);
     orbit.target.lerp(objetivo, paso);
-    distanciaActual.current += (distancia - distanciaActual.current) * paso;
+    distanciaActual.current += (distanciaMeta - distanciaActual.current) * paso;
 
     const direccion = camera.position.clone().sub(orbit.target);
     if (direccion.lengthSq() < 1e-6) direccion.set(0.5, 0.35, 1);
     direccion.setLength(distanciaActual.current);
     camera.position.copy(orbit.target.clone().add(direccion));
     orbit.update();
+
+    if (orbit.target.distanceTo(objetivo) < 0.02 && Math.abs(distanciaMeta - distanciaActual.current) < 0.05) guiando.current = false;
   });
 
   return null;
@@ -249,7 +270,7 @@ export default function Escena({ volumenes, focoId, seleccionadoId, onSelecciona
           ))}
         </GrupoAnimado>
 
-        <OrbitControls makeDefault enablePan={false} minDistance={5} maxDistance={30} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan={false} minDistance={5} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
