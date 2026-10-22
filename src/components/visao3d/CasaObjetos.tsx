@@ -8,6 +8,24 @@ import * as THREE from 'three';
 import { Caja, Cilindro, PantallaPlana, TexturasCtx } from './CasaMobiliario';
 
 type V3 = [number, number, number];
+
+function Elipsoide({ p, s, color }: { p: V3; s: V3; color: string }) {
+  return (
+    <mesh position={p} scale={s}>
+      <sphereGeometry args={[1, 12, 10]} />
+      <meshStandardMaterial color={color} roughness={0.7} />
+    </mesh>
+  );
+}
+
+function Cono({ p, r, h, color, emissive, ei, rot }: { p: V3; r: number; h: number; color: string; emissive: string; ei: number; rot?: V3 }) {
+  return (
+    <mesh position={p} rotation={rot}>
+      <coneGeometry args={[r, h, 12]} />
+      <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={ei} roughness={0.45} />
+    </mesh>
+  );
+}
 export type Pintura = { color: string; apagado: boolean; brillo: number; negativo?: boolean };
 
 const tono = (color: string, l: number) => new THREE.Color(color).offsetHSL(0, 0, l).getStyle();
@@ -23,6 +41,9 @@ const NAT: Record<string, Natural> = {
   tarjeta: { c: '#262a33', claro: '#3d4350', oscuro: '#14161b' },
   casa: { c: '#efe3cf', claro: '#f8f0e2', oscuro: '#b8654a' },
   ahorro: { c: '#e8b83a', claro: '#f6d96e', oscuro: '#b98a1e' },
+  cerdito: { c: '#f2a7b8', claro: '#f9c9d4', oscuro: '#d9788f' },
+  cofre: { c: '#8a5a32', claro: '#b07a48', oscuro: '#5e3b1e' },
+  plata: { c: '#cfd5df', claro: '#eef1f6', oscuro: '#9aa3b2' },
   billetes: { c: '#6db26f', claro: '#93d08d', oscuro: '#3f7d46' },
   banco: { c: '#ebe3d2', claro: '#f7f1e5', oscuro: '#b5a688' },
   doc0: { c: '#d9b878', claro: '#ecd6a2', oscuro: '#b08f4e' },
@@ -339,7 +360,13 @@ export function Maqueta({ pintura }: { pintura: Pintura }) {
   );
 }
 
-export function Ahorro({ pintura }: { pintura: Pintura }) {
+// Los ahorros se distinguen entre sí: frasco de monedas, alcancía (cerdito), cofre del tesoro y torres de monedas.
+export const VARIANTES_AHORRO = 4;
+export function Ahorro({ pintura, variante = 0 }: { pintura: Pintura; variante?: number }) {
+  const v = variante % VARIANTES_AHORRO;
+  if (v === 1) return <Cerdito pintura={pintura} />;
+  if (v === 2) return <Cofre pintura={pintura} />;
+  if (v === 3) return <TorresMonedas pintura={pintura} />;
   const { c, e, ei, claro, oscuro } = usar(pintura, NAT.ahorro);
   const moneda = { color: c, emissive: e, ei, metal: 0.7, rough: 0.25 };
   return (
@@ -353,6 +380,69 @@ export function Ahorro({ pintura }: { pintura: Pintura }) {
       {[0.12, 0.24, 0.36, 0.48, 0.6].map((y, i) => <Cilindro key={y} p={[i % 2 ? 0.04 : -0.03, y, i % 2 ? -0.03 : 0.04]} r={0.27} h={0.1} seg={18} {...moneda} />)}
       {([[-0.62, 0.2, 3], [0.62, 0.15, 5], [0.1, 0.62, 2]] as const).map(([x, z, n]) => [...Array(n)].map((_, i) => <Cilindro key={`${x}${i}`} p={[x, 0.05 + i * 0.09, z]} r={0.2} h={0.08} seg={16} {...moneda} />))}
       <Cilindro p={[-0.1, 0.22, 0.55]} r={0.2} h={0.05} rot={[Math.PI / 2 - 0.2, 0, 0]} seg={16} color={claro} emissive={e} ei={ei} metal={0.7} rough={0.25} />
+    </group>
+  );
+}
+
+function Cerdito({ pintura }: { pintura: Pintura }) {
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.cerdito);
+  const cuerpo = { color: c, emissive: e, ei, rough: 0.45 };
+  return (
+    <group>
+      <mesh position={[0, 0.55, 0]} scale={[0.62, 0.5, 0.46]}>
+        <sphereGeometry args={[1, 22, 16]} />
+        <meshStandardMaterial {...{ color: cuerpo.color, emissive: cuerpo.emissive, emissiveIntensity: cuerpo.ei, roughness: cuerpo.rough }} />
+      </mesh>
+      <mesh position={[0.6, 0.56, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.2, 0.22, 0.16, 16]} />
+        <meshStandardMaterial color={claro} emissive={e} emissiveIntensity={ei} roughness={0.45} />
+      </mesh>
+      {[-0.07, 0.07].map((z) => <Caja key={z} p={[0.69, 0.56, z]} s={[0.02, 0.07, 0.03]} color={oscuro} />)}
+      {[-0.2, 0.2].map((z) => <Cono key={`o${z}`} p={[0.34, 0.97, z]} r={0.1} h={0.18} color={c} emissive={e} ei={ei} rot={[z > 0 ? -0.3 : 0.3, 0, -0.2]} />)}
+      {[-0.3, 0.3].flatMap((x) => [-0.2, 0.2].map((z) => <Cilindro key={`p${x}${z}`} p={[x, 0.14, z]} r={0.09} h={0.22} color={oscuro} seg={10} />))}
+      <Caja p={[0, 1.04, 0]} s={[0.22, 0.03, 0.04]} color="#2a1620" />
+      <Cilindro p={[0.02, 1.13, 0]} r={0.15} h={0.03} color="#e8b83a" metal={0.8} rough={0.25} rot={[0, 0, Math.PI / 2 - 0.2]} seg={16} />
+      <mesh position={[-0.62, 0.62, 0]}>
+        <torusGeometry args={[0.08, 0.02, 8, 14, Math.PI * 1.6]} />
+        <meshStandardMaterial color={oscuro} roughness={0.5} />
+      </mesh>
+      {[-0.1, 0.1].map((z) => <Elipsoide key={`e${z}`} p={[0.5, 0.7, z * 2.1]} s={[0.04, 0.04, 0.03]} color="#1b1b1b" />)}
+    </group>
+  );
+}
+
+function Cofre({ pintura }: { pintura: Pintura }) {
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.cofre);
+  const oro = { color: '#e8b83a', metal: 0.8, rough: 0.28 };
+  return (
+    <group>
+      <Caja p={[0, 0.3, 0]} s={[0.95, 0.5, 0.6]} color={c} emissive={e} ei={ei} rough={0.7} />
+      <mesh position={[0, 0.55, 0]} rotation={[0, 0, Math.PI / 2]} scale={[1, 1, 1]}>
+        <cylinderGeometry args={[0.3, 0.3, 0.95, 20, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color={claro} emissive={e} emissiveIntensity={ei} roughness={0.7} />
+      </mesh>
+      {[-0.35, 0.35].map((x) => <Caja key={x} p={[x, 0.45, 0]} s={[0.07, 0.62, 0.64]} color={oro.color} metal={oro.metal} rough={oro.rough} />)}
+      <Caja p={[0, 0.4, 0.31]} s={[0.12, 0.14, 0.03]} color={oro.color} metal={oro.metal} rough={oro.rough} />
+      <Caja p={[0, 0.07, 0]} s={[1.0, 0.1, 0.64]} color={oscuro} rough={0.8} />
+      {[[0.15, 0.62, 0.2], [-0.1, 0.65, 0.15], [0.3, 0.6, -0.05], [-0.28, 0.6, 0.18]].map(([x, y, z], i) => (
+        <Cilindro key={i} p={[x, y, z]} r={0.1} h={0.03} color={oro.color} metal={oro.metal} rough={oro.rough} rot={[0.4 + i * 0.2, 0, 0.3 * i]} seg={14} />
+      ))}
+    </group>
+  );
+}
+
+function TorresMonedas({ pintura }: { pintura: Pintura }) {
+  const g = usar(pintura, NAT.ahorro);
+  const p = usar(pintura, NAT.plata);
+  const torre = (x: number, z: number, n: number, k: typeof g, r = 0.22) =>
+    [...Array(n)].map((_, i) => <Cilindro key={`${x}${z}${i}`} p={[x, 0.05 + i * 0.075, z]} r={r} h={0.07} color={i % 2 ? k.claro : k.c} emissive={k.e} ei={k.ei} metal={0.75} rough={0.25} seg={18} />);
+  return (
+    <group>
+      {torre(-0.28, 0.0, 9, g)}
+      {torre(0.12, -0.2, 6, p)}
+      {torre(0.22, 0.22, 11, g, 0.2)}
+      {torre(-0.15, 0.3, 4, p, 0.2)}
+      <Cilindro p={[0.35, 0.05, -0.38]} r={0.2} h={0.05} rot={[Math.PI / 2 - 0.6, 0, 0]} color={p.claro} emissive={p.e} ei={p.ei} metal={0.75} rough={0.25} seg={16} />
     </group>
   );
 }

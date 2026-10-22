@@ -661,6 +661,15 @@ function Casa({ hora, noche, objetos, seleccionadoId, hover, setHover, onSelecci
   type Pintura = { color: string; apagado: boolean; brillo: number; negativo: boolean };
   const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o)])), [objetos]);
   const huellas = useMemo(() => huellasDeObjetos(objetos, lugares), [objetos, lugares]);
+  // Variante de cada objeto entre los de su mismo tipo (frascos, alcancía, cofre…): que los repetidos no se vean todos iguales.
+  const variantes = useMemo(() => {
+    const cuenta = new Map<string, number>();
+    return new Map(objetos.map((o) => {
+      const k = cuenta.get(o.tipo) ?? 0;
+      cuenta.set(o.tipo, k + 1);
+      return [o.id, k] as const;
+    }));
+  }, [objetos]);
   const amen = (o: ObjetoCasa, hijo: (p: Pintura) => React.ReactNode, directo = false) => (
     <Amenidad key={o.id} objeto={o} lugar={lugares.get(o.id)!} hover={hover === o.id} seleccionada={seleccionadoId === o.id} onHover={setHover} onSeleccionar={onSeleccionar} directo={directo}>
       {hijo}
@@ -675,7 +684,7 @@ function Casa({ hora, noche, objetos, seleccionadoId, hover, setHover, onSelecci
     if (o.modo === 'tv') return amen(o, (p) => <TV pintura={p} />);
     switch (o.tipo) {
       case 'casa': return amen(o, (p) => <Maqueta pintura={p} />);
-      case 'ahorro': return amen(o, (p) => <Ahorro pintura={p} />);
+      case 'ahorro': return amen(o, (p) => <Ahorro pintura={p} variante={variantes.get(o.id) ?? 0} />);
       case 'banco': return amen(o, (p) => <Banco pintura={p} />);
       case 'billetes': return amen(o, (p) => <Billetes pintura={p} />);
       case 'capital': return amen(o, (p) => <Capital pintura={p} />);
