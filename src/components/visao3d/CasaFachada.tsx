@@ -97,8 +97,8 @@ function Panel({ p, s, rot, map, lado }: { p: V3; s: V3; rot?: V3; map: THREE.Te
   );
 }
 
-// Prisma triangular (hastial) con el eje a lo largo de x.
-function Hastial({ p, largo, ancho, alto, color }: { p: V3; largo: number; ancho: number; alto: number; color: string }) {
+// Prisma triangular (hastial) con el eje a lo largo de x; el ladrillo se mapea con UV en unidades del mundo.
+function Hastial({ p, largo, ancho, alto, map }: { p: V3; largo: number; ancho: number; alto: number; map: THREE.Texture }) {
   const geo = useMemo(() => {
     const f = new THREE.Shape();
     f.moveTo(-ancho / 2, 0);
@@ -113,7 +113,24 @@ function Hastial({ p, largo, ancho, alto, color }: { p: V3; largo: number; ancho
   useEffect(() => () => geo.dispose(), [geo]);
   return (
     <mesh position={p} geometry={geo}>
-      <meshStandardMaterial color={color} roughness={0.9} />
+      <meshStandardMaterial map={map} roughness={0.9} />
+    </mesh>
+  );
+}
+
+// Cuña lateral (polígono en el plano z-y, delgada en x) que cierra el hueco bajo un techo inclinado; con ladrillo.
+function Cuna({ x, puntos, grosor, map }: { x: number; puntos: Array<[number, number]>; grosor: number; map: THREE.Texture }) {
+  const geo = useMemo(() => {
+    const f = new THREE.Shape(puntos.map(([z, y]) => new THREE.Vector2(z, y)));
+    const g = new THREE.ExtrudeGeometry(f, { depth: grosor, bevelEnabled: false });
+    g.rotateY(-Math.PI / 2);
+    g.translate(grosor / 2, 0, 0);
+    return g;
+  }, [puntos, grosor]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return (
+    <mesh position={[x, 0, 0]} geometry={geo}>
+      <meshStandardMaterial map={map} roughness={0.9} />
     </mesh>
   );
 }
@@ -126,7 +143,17 @@ export function Fachada() {
   const ladrillo = useMemo(() => (typeof document === 'undefined' ? null : texturaLadrillo()), []);
   const tejas = useMemo(() => (typeof document === 'undefined' ? null : texturaTejas()), []);
   useEffect(() => () => { ladrillo?.dispose(); tejas?.dispose(); }, [ladrillo, tejas]);
-  if (!ladrillo || !tejas) return null;
+  // Para los triángulos las UV salen en unidades del mundo: una repetición por unidad, así que se escala a 1 cada `lado`.
+  const ladrilloMundo = useMemo(() => {
+    if (!ladrillo) return null;
+    const t = ladrillo.clone();
+    t.repeat.set(1 / 1.6, 1 / 1.6);
+    t.needsUpdate = true;
+    return t;
+  }, [ladrillo]);
+  useEffect(() => () => ladrilloMundo?.dispose(), [ladrilloMundo]);
+  const puntosCuna = useMemo<Array<[number, number]>>(() => [[-4.25, 3.08], [4.25, 3.08], [4.25, 3.17], [-4.25, 3.93]], []);
+  if (!ladrillo || !tejas || !ladrilloMundo) return null;
 
   const cz = Z_ATRAS + PROF / 2;
   const afuera = GROSOR_PARED / 2 + PANEL / 2;
@@ -155,7 +182,35 @@ export function Fachada() {
       <Panel p={[(X_IZQ + X_COCHERA) / 2 - 0.1, 3.6, 0]} s={[X_COCHERA - X_IZQ + 0.7, 0.12, 8.5]} rot={[0.09, 0, 0]} map={tejas} lado={1.6} />
 
       {/* Techo de la casa a dos aguas, con hastiales de ladrillo en los extremos. */}
-      <Hastial p={[xTecho, yAlero, 0]} largo={anchoTecho - 0.2} ancho={avance * 2 - 0.1} alto={subida - 0.05} color="#9c5238" />
+      <Hastial p={[xTecho, yAlero, 0]} largo={anchoTecho - 0.2} ancho={avance * 2 - 0.1} alto={subida - 0.05} map={ladrilloMundo} />
+      {/* Remate de los hastiales: ventana redonda y cantos blancos sobre las aguas. */}
+      {[-1, 1].map((lado) => {
+        const xe = xTecho + lado * ((anchoTecho - 0.2) / 2 + 0.012);
+        return (
+          <group key={lado}>
+            <mesh position={[xe, yAlero + 0.42, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.3, 0.3, 0.05, 20]} />
+              <meshStandardMaterial color="#f4f6fa" roughness={0.5} />
+            </mesh>
+            <mesh position={[xe + lado * 0.018, yAlero + 0.42, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.23, 0.23, 0.05, 20]} />
+              <meshStandardMaterial color="#9fc8ea" emissive="#9fc8ea" emissiveIntensity={0.7} roughness={0.1} />
+            </mesh>
+            {[1, -1].map((agua) => (
+              <mesh key={agua} position={[xe + lado * 0.04, yAlero + subida / 2 + 0.02, (agua * avance) / 2]} rotation={[agua * angulo, 0, 0]}>
+                <boxGeometry args={[0.1, 0.1, largoAgua]} />
+                <meshStandardMaterial color="#f4f6fa" roughness={0.6} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+      {/* Cochera: cuña de ladrillo que cierra el costado bajo el techo inclinado y canto blanco. */}
+      <Cuna x={X_IZQ - 0.1} puntos={puntosCuna} grosor={0.1} map={ladrilloMundo} />
+      <mesh position={[(X_IZQ + X_COCHERA) / 2 - 0.1 - (X_COCHERA - X_IZQ + 0.7) / 2 + 0.03, 3.6, 0]} rotation={[0.09, 0, 0]}>
+        <boxGeometry args={[0.1, 0.16, 8.5]} />
+        <meshStandardMaterial color="#f4f6fa" roughness={0.6} />
+      </mesh>
       <Panel p={[xTecho, yAlero + subida / 2 + 0.05, avance / 2]} s={[anchoTecho, 0.12, largoAgua]} rot={[angulo, 0, 0]} map={tejas} lado={1.6} />
       <Panel p={[xTecho, yAlero + subida / 2 + 0.05, -avance / 2]} s={[anchoTecho, 0.12, largoAgua]} rot={[-angulo, 0, 0]} map={tejas} lado={1.6} />
       <mesh position={[xTecho, yAlero + subida + 0.08, 0]}>

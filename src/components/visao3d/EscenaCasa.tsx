@@ -356,18 +356,21 @@ function Hilo({ a, b, color }: { a: V3; b: V3; color: string }) {
 // Globo flotante con el total de una zona; sube y baja apenas. Va afuera de la casa para dejar la escena limpia.
 function Globo({ pos, ancla, lineas, color, fase }: { pos: V3; ancla: V3; lineas: string[]; color: string; fase: number }) {
   const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.position.y = Math.sin(clock.elapsedTime * 0.9 + fase) * 0.12;
+  useFrame(({ clock, camera }) => {
+    const g = ref.current;
+    if (!g) return;
+    g.position.y = pos[1] + Math.sin(clock.elapsedTime * 0.9 + fase) * 0.12;
+    g.rotation.y = Math.atan2(camera.position.x - pos[0], camera.position.z - pos[2]); // siempre de frente a la cámara
   });
   return (
     <>
       <Hilo a={[pos[0], pos[1] - 0.45, pos[2]]} b={ancla} color={color} />
-      <group ref={ref}>
-        <mesh position={[pos[0], pos[1], pos[2] - 0.01]}>
+      <group ref={ref} position={pos}>
+        <mesh position={[0, 0, -0.01]}>
           <planeGeometry args={[2.82, 1.02]} />
           <meshBasicMaterial color="#ffffff" toneMapped={false} />
         </mesh>
-        <Letrero lineas={lineas} brillo={color} ancho={2.7} alto={0.9} posicion={pos} fondo={`${color}dd`} />
+        <Letrero lineas={lineas} brillo={color} ancho={2.7} alto={0.9} posicion={[0, 0, 0]} fondo={`${color}dd`} />
       </group>
     </>
   );
