@@ -3,9 +3,10 @@
 // Piezas 3D compartidas por las escenas de Visão 3D (edificio y casa): cámara guiada, letreros con texto, cielo del
 // atardecer, sombras, animación de entrada, proyección de etiquetas y texturas procedurales (canvas 2D).
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export function factorAncho(ancho: number, alto: number): number {
   return Math.min(1.9, Math.max(1, 1.1 / (ancho / Math.max(alto, 1))));
@@ -295,3 +296,173 @@ export function Cielo({ activo }: { activo: boolean }) {
   return null;
 }
 
+
+
+function claveMaterial(m: THREE.Material): string | null {
+  const mat = m as THREE.MeshStandardMaterial;
+  if (!(mat as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial && !(mat as { isMeshBasicMaterial?: boolean }).isMeshBasicMaterial) return null;
+  return [
+    mat.type, mat.color?.getHex(), (mat.emissive?.getHex() ?? 0), mat.emissiveIntensity ?? 0, mat.roughness ?? 0, mat.metalness ?? 0,
+    mat.opacity, mat.transparent, mat.map?.uuid ?? '', mat.side, mat.depthWrite, mat.blending,
+  ].join('|');
+}
+
+// Junta en UNA sola malla por material todo lo estático que hay adentro (mobiliario, plantas, vereda…): cientos de
+// objetos chicos pasan a unas pocas llamadas de dibujo, y la escena se mueve fluida también en teléfonos.
+// Lo que se mete acá no debe ser interactivo ni animarse.
+export function Fundido({ children }: { children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+
+  useLayoutEffect(() => {
+    const grupo = ref.current;
+    if (!grupo) return;
+    grupo.updateWorldMatrix(true, true);
+    const inversa = new THREE.Matrix4().copy(grupo.matrixWorld).invert();
+
+    const porClave = new Map<string, { material: THREE.Material; geometrias: THREE.BufferGeometry[] }>();
+    const originales: THREE.Mesh[] = [];
+
+    grupo.traverse((o) => {
+      const malla = o as THREE.Mesh;
+      if (!malla.isMesh || (malla as THREE.InstancedMesh).isInstancedMesh) return;
+      const material = malla.material as THREE.Material;
+      const clave = Array.isArray(material) ? null : claveMaterial(material);
+      if (!clave) return;
+
+      let geometria = malla.geometry.clone();
+      if (geometria.index) geometria = geometria.toNonIndexed();
+      geometria.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inversa, malla.matrixWorld));
+      // Solo conservan lo que comparten todas las primitivas (así se pueden unir).
+      for (const nombre of Object.keys(geometria.attributes)) {
+        if (!['position', 'normal', 'uv'].includes(nombre)) geometria.deleteAttribute(nombre);
+      }
+
+      const entrada = porClave.get(clave) ?? { material, geometrias: [] };
+      entrada.geometrias.push(geometria);
+      porClave.set(clave, entrada);
+      originales.push(malla);
+    });
+
+    const nuevas: THREE.Mesh[] = [];
+    porClave.forEach(({ material, geometrias }) => {
+      const unida = mergeGeometries(geometrias, false);
+      geometrias.forEach((g) => g.dispose());
+      if (!unida) return;
+      const malla = new THREE.Mesh(unida, material);
+      malla.castShadow = false;
+      malla.receiveShadow = false;
+      grupo.add(malla);
+      nuevas.push(malla);
+    });
+
+    originales.forEach((m) => {
+      m.visible = false;
+    });
+
+    return () => {
+      nuevas.forEach((m) => {
+        grupo.remove(m);
+        m.geometry.dispose();
+      });
+      originales.forEach((m) => {
+        m.visible = true;
+      });
+    };
+  }, []);
+
+  return <group ref={ref}>{children}</group>;
+}
+
+
+// Telas y pantallas dibujadas en canvas 2D (sin imágenes externas): tejido de tela en gris claro (se tiñe con el color de
+// la cuenta), y las "imágenes" de la TV, el monitor y los cuadros.
+export function texturaTela(): THREE.CanvasTexture {
+  const lado = 128;
+  const lienzo = document.createElement('canvas');
+  lienzo.width = lado;
+  lienzo.height = lado;
+  const g = lienzo.getContext('2d')!;
+  g.fillStyle = '#f1f1f1';
+  g.fillRect(0, 0, lado, lado);
+  for (let y = 0; y < lado; y += 4) {
+    for (let x = 0; x < lado; x += 4) {
+      g.fillStyle = (x / 4 + y / 4) % 2 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.35)';
+      g.fillRect(x, y, 4, 4);
+    }
+  }
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.RepeatWrapping;
+  textura.repeat.set(3, 3);
+  return textura;
+}
+
+export function texturaArte(tipo: 'paisaje' | 'abstracto' | 'grafico' | 'tv', semilla = 0): THREE.CanvasTexture {
+  const ancho = 256;
+  const alto = 160;
+  const lienzo = document.createElement('canvas');
+  lienzo.width = ancho;
+  lienzo.height = alto;
+  const g = lienzo.getContext('2d')!;
+  const azar = (n: number) => ((Math.sin(semilla * 97 + n * 12.9898) * 43758.5453) % 1 + 1) % 1;
+
+  if (tipo === 'paisaje' || tipo === 'tv') {
+    const cielo = g.createLinearGradient(0, 0, 0, alto);
+    cielo.addColorStop(0, tipo === 'tv' ? '#1b3a8a' : '#3b4a8f');
+    cielo.addColorStop(0.6, tipo === 'tv' ? '#e8895a' : '#f2a65a');
+    cielo.addColorStop(1, '#f7d08a');
+    g.fillStyle = cielo;
+    g.fillRect(0, 0, ancho, alto);
+    g.fillStyle = 'rgba(255,240,200,0.9)';
+    g.beginPath();
+    g.arc(ancho * (0.3 + azar(1) * 0.4), alto * 0.5, 20, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#243a4a';
+    g.beginPath();
+    g.moveTo(0, alto);
+    for (let x = 0; x <= ancho; x += 16) g.lineTo(x, alto * (0.62 + azar(x) * 0.18));
+    g.lineTo(ancho, alto);
+    g.fill();
+  } else if (tipo === 'abstracto') {
+    g.fillStyle = '#f4efe6';
+    g.fillRect(0, 0, ancho, alto);
+    const paleta = ['#d1603d', '#2f6f9f', '#e0b43c', '#4c9a6a', '#8d5fb0'];
+    for (let i = 0; i < 7; i++) {
+      g.fillStyle = paleta[Math.floor(azar(i + 3) * paleta.length)];
+      g.globalAlpha = 0.85;
+      if (i % 2) g.fillRect(azar(i) * ancho * 0.7, azar(i + 9) * alto * 0.6, 50 + azar(i + 4) * 70, 30 + azar(i + 5) * 60);
+      else {
+        g.beginPath();
+        g.arc(azar(i + 2) * ancho, azar(i + 7) * alto, 18 + azar(i + 6) * 34, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    g.globalAlpha = 1;
+  } else {
+    g.fillStyle = '#0e1620';
+    g.fillRect(0, 0, ancho, alto);
+    g.strokeStyle = 'rgba(255,255,255,0.12)';
+    for (let i = 1; i < 5; i++) {
+      g.beginPath();
+      g.moveTo(0, (alto * i) / 5);
+      g.lineTo(ancho, (alto * i) / 5);
+      g.stroke();
+    }
+    for (let i = 0; i < 9; i++) {
+      const h = 20 + azar(i) * 90;
+      g.fillStyle = i % 3 ? '#27d17f' : '#4aa3ff';
+      g.fillRect(14 + i * 26, alto - 12 - h, 16, h);
+    }
+    g.strokeStyle = '#ffd166';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(10, alto * 0.7);
+    for (let i = 1; i < 9; i++) g.lineTo(10 + i * 28, alto * (0.7 - azar(i + 20) * 0.45));
+    g.stroke();
+  }
+
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  return textura;
+}

@@ -3,12 +3,16 @@
 // Mobiliario y detalles de la casa de Visão 3D (modelo Familia), todo con formas simples. Las AMENIDADES (auto,
 // sofá, TV, cartera…) reciben el color de su cuenta; la decoración (plantas, cuadros, sillas, lámparas) es natural.
 
-import { useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { ObjetoCuenta } from './Objetos';
 import type { TipoObjeto } from '@/lib/visao3dObjetos';
 
 type V3 = [number, number, number];
+
+// Texturas dibujadas (se crean una vez en la escena y se reparten por contexto; los contextos de React dentro del Canvas sí viajan).
+export type TexturasCasa = { tela: THREE.Texture; tv: THREE.Texture; monitor: THREE.Texture; arte: THREE.Texture[] };
+export const TexturasCtx = createContext<TexturasCasa | null>(null);
 
 // Caja con material estándar: la pieza básica de todo el mobiliario.
 export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture }) {
@@ -53,13 +57,14 @@ export function Planta({ p, escala = 1, variante = 0 }: { p: V3; escala?: number
 }
 
 export function Cuadro({ p, s = [0.9, 0.7], tono = 0 }: { p: V3; s?: [number, number]; tono?: number }) {
-  const colores = ['#4b7bb5', '#c98b4b', '#5da37f', '#a76ba8'];
-  const color = colores[tono % colores.length];
+  const tx = useContext(TexturasCtx);
   return (
     <group position={p}>
       <Caja p={[0, 0, 0]} s={[s[0] + 0.1, s[1] + 0.1, 0.05]} color="#1a1f2b" rough={0.4} />
-      <Caja p={[0, 0, 0.03]} s={[s[0], s[1], 0.02]} color={color} emissive={color} ei={0.12} />
-      <Caja p={[-s[0] * 0.15, -s[1] * 0.1, 0.045]} s={[s[0] * 0.35, s[1] * 0.45, 0.01]} color="#ffffff" opacity={0.55} />
+      <mesh position={[0, 0, 0.032]}>
+        <planeGeometry args={[s[0], s[1]]} />
+        <meshBasicMaterial color="#ffffff" map={tx?.arte[tono % (tx?.arte.length || 1)]} toneMapped={false} />
+      </mesh>
     </group>
   );
 }
@@ -130,13 +135,14 @@ export function Estante({ p, s = [1.4, 2.2, 0.4], libros = true }: { p: V3; s?: 
 }
 
 export function Cama({ p }: { p: V3 }) {
+  const tela = useContext(TexturasCtx)?.tela;
   return (
     <group position={p}>
       <Caja p={[0, 0.25, 0]} s={[2.2, 0.3, 2.4]} color="#d8dde8" />
-      <Caja p={[0, 0.5, 0.05]} s={[2.1, 0.22, 2.2]} color="#eef2f8" rough={0.9} />
-      <Caja p={[0, 0.62, 0.7]} s={[2.1, 0.06, 1.1]} color="#8fb0e0" rough={0.9} />
-      <Caja p={[-0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.9} />
-      <Caja p={[0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.9} />
+      <Caja p={[0, 0.5, 0.05]} s={[2.1, 0.22, 2.2]} color="#eef2f8" rough={0.95} map={tela} />
+      <Caja p={[0, 0.62, 0.7]} s={[2.1, 0.06, 1.1]} color="#8fb0e0" rough={0.95} map={tela} />
+      <Caja p={[-0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela} />
+      <Caja p={[0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela} />
       <Caja p={[0, 0.85, -1.22]} s={[2.4, 1.1, 0.12]} color="#6f7f99" rough={0.8} />
     </group>
   );
@@ -151,6 +157,17 @@ export function MesaLateral({ p }: { p: V3 }) {
   );
 }
 
+// Pantalla que emite su propia luz (sin sombreado) con una imagen dibujada.
+export function PantallaPlana({ p, s, textura, color = '#ffffff' }: { p: V3; s: [number, number]; textura: 'tv' | 'monitor'; color?: string }) {
+  const tx = useContext(TexturasCtx);
+  return (
+    <mesh position={p}>
+      <planeGeometry args={s} />
+      <meshBasicMaterial color={color} map={tx ? tx[textura] : undefined} toneMapped={false} />
+    </mesh>
+  );
+}
+
 export function Escritorio({ p }: { p: V3 }) {
   return (
     <group position={p}>
@@ -158,7 +175,8 @@ export function Escritorio({ p }: { p: V3 }) {
       <Caja p={[-1.2, 0.39, 0]} s={[0.07, 0.78, 0.9]} color="#3a3f4d" />
       <Caja p={[1.2, 0.39, 0]} s={[0.07, 0.78, 0.9]} color="#3a3f4d" />
       {/* monitor + teclado */}
-      <Caja p={[0, 1.3, -0.2]} s={[1.1, 0.65, 0.05]} color="#10141c" emissive="#6aa7ff" ei={0.35} rough={0.3} />
+      <Caja p={[0, 1.3, -0.2]} s={[1.14, 0.69, 0.05]} color="#10141c" rough={0.3} />
+      <PantallaPlana p={[0, 1.3, -0.17]} s={[1.05, 0.6]} textura="monitor" />
       <Caja p={[0, 0.95, -0.2]} s={[0.1, 0.28, 0.1]} color="#1b2030" />
       <Caja p={[0, 0.83, 0.2]} s={[0.65, 0.03, 0.2]} color="#d5d9e2" />
     </group>
@@ -205,7 +223,103 @@ export function MesaCentro({ p }: { p: V3 }) {
 }
 
 export function Alfombra({ p, s, color = '#8d99ae' }: { p: V3; s: [number, number]; color?: string }) {
-  return <Caja p={p} s={[s[0], 0.03, s[1]]} color={color} rough={1} />;
+  const tela = useContext(TexturasCtx)?.tela;
+  return (
+    <group position={p}>
+      <Caja p={[0, 0, 0]} s={[s[0], 0.03, s[1]]} color={color} rough={1} map={tela} />
+      <Caja p={[0, 0.018, 0]} s={[s[0] - 0.4, 0.01, s[1] - 0.4]} color="#e8e2d4" rough={1} map={tela} />
+    </group>
+  );
+}
+
+// ---- Personas estilizadas, vegetación y detalles ----
+
+export function Persona({ p, rot = 0, sentado = false, esc = 1, ropa = '#3e6fb0', pantalon = '#2a2f3b', piel = '#e0b08a', pelo = '#3a2a1e' }: { p: V3; rot?: number; sentado?: boolean; esc?: number; ropa?: string; pantalon?: string; piel?: string; pelo?: string }) {
+  return (
+    <group position={p} rotation={[0, rot, 0]} scale={esc}>
+      {sentado ? (
+        <>
+          {[-0.1, 0.1].map((x) => (
+            <group key={x}>
+              <Caja p={[x, 0.09, 0.2]} s={[0.14, 0.14, 0.46]} color={pantalon} />
+              <Caja p={[x, -0.18, 0.42]} s={[0.13, 0.46, 0.13]} color={pantalon} />
+            </group>
+          ))}
+          <Caja p={[0, 0.5, 0]} s={[0.42, 0.62, 0.22]} color={ropa} rough={0.9} />
+          {[-0.27, 0.27].map((x) => (
+            <Caja key={x} p={[x, 0.42, 0.14]} s={[0.1, 0.1, 0.42]} color={ropa} rough={0.9} />
+          ))}
+          <mesh position={[0, 0.98, 0]}>
+            <sphereGeometry args={[0.14, 12, 10]} />
+            <meshStandardMaterial color={piel} roughness={0.7} />
+          </mesh>
+          <mesh position={[0, 1.04, -0.02]} scale={[1.05, 0.7, 1.1]}>
+            <sphereGeometry args={[0.15, 12, 10]} />
+            <meshStandardMaterial color={pelo} roughness={0.9} />
+          </mesh>
+        </>
+      ) : (
+        <>
+          {[-0.09, 0.09].map((x) => (
+            <Caja key={x} p={[x, 0.4, 0]} s={[0.15, 0.8, 0.17]} color={pantalon} />
+          ))}
+          <Caja p={[0, 1.1, 0]} s={[0.42, 0.6, 0.22]} color={ropa} rough={0.9} />
+          {[-0.28, 0.28].map((x) => (
+            <Caja key={x} p={[x, 1.08, 0]} s={[0.1, 0.56, 0.12]} color={ropa} rough={0.9} />
+          ))}
+          <mesh position={[0, 1.55, 0]}>
+            <sphereGeometry args={[0.14, 12, 10]} />
+            <meshStandardMaterial color={piel} roughness={0.7} />
+          </mesh>
+          <mesh position={[0, 1.61, -0.02]} scale={[1.05, 0.7, 1.1]}>
+            <sphereGeometry args={[0.15, 12, 10]} />
+            <meshStandardMaterial color={pelo} roughness={0.9} />
+          </mesh>
+        </>
+      )}
+    </group>
+  );
+}
+
+// Foco empotrado en el techo (emite luz propia sin costo de iluminación).
+export function Foco({ p }: { p: V3 }) {
+  return (
+    <mesh position={p}>
+      <cylinderGeometry args={[0.13, 0.13, 0.03, 14]} />
+      <meshBasicMaterial color="#fff3d1" toneMapped={false} />
+    </mesh>
+  );
+}
+
+export function Florero({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      <Cilindro p={[0, 0.14, 0]} r={0.09} h={0.28} color="#e8e4dc" rough={0.3} />
+      {[[-0.05, 0.38, 0], [0.05, 0.42, 0.02], [0, 0.46, -0.03]].map(([x, y, z], i) => (
+        <mesh key={i} position={[x, y, z]}>
+          <sphereGeometry args={[0.07, 8, 6]} />
+          <meshStandardMaterial color={['#ff6b8a', '#ffd166', '#ffffff'][i]} emissive={['#ff6b8a', '#ffd166', '#ffffff'][i]} emissiveIntensity={0.25} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function Palmera({ p, escala = 1 }: { p: V3; escala?: number }) {
+  return (
+    <group position={p} scale={escala}>
+      <Cilindro p={[0, 1.4, 0]} r={0.14} h={2.8} color="#7a5a3c" seg={8} />
+      {Array.from({ length: 7 }, (_, i) => {
+        const a = (i / 7) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(a) * 0.55, 2.75, Math.sin(a) * 0.55]} rotation={[Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9]}>
+            <coneGeometry args={[0.2, 1.7, 5]} />
+            <meshStandardMaterial color="#2f9e5b" emissive="#0f4a28" emissiveIntensity={0.35} roughness={0.8} flatShading />
+          </mesh>
+        );
+      })}
+    </group>
+  );
 }
 
 export function CargadorEV({ p }: { p: V3 }) {
@@ -244,14 +358,18 @@ export function AutoSUV({ pintura }: { pintura: Pintura }) {
 
 export function Sofa({ pintura }: { pintura: Pintura }) {
   const m = matPintado(pintura);
+  const tela = useContext(TexturasCtx)?.tela;
   return (
     <group>
-      <Caja p={[0, 0.3, 0]} s={[2.8, 0.4, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.9} />
-      <Caja p={[0, 0.72, -0.4]} s={[2.8, 0.55, 0.28]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.9} />
-      <Caja p={[-1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.9} />
-      <Caja p={[1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.9} />
+      <Caja p={[0, 0.3, 0]} s={[2.8, 0.4, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
+      <Caja p={[0, 0.72, -0.4]} s={[2.8, 0.55, 0.28]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
+      <Caja p={[-1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
+      <Caja p={[1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
       {[-0.85, 0, 0.85].map((x) => (
-        <Caja key={x} p={[x, 0.58, 0.08]} s={[0.8, 0.14, 0.8]} color="#ffffff" opacity={0.18} />
+        <Caja key={x} p={[x, 0.58, 0.08]} s={[0.8, 0.14, 0.8]} color={m.color} emissive={m.emissive} ei={m.ei * 0.5} rough={1} map={tela} />
+      ))}
+      {[-0.9, 0.9].map((x) => (
+        <Caja key={`c${x}`} p={[x, 0.82, -0.12]} s={[0.5, 0.45, 0.14]} color="#ffffff" rough={1} map={tela} />
       ))}
     </group>
   );
@@ -263,7 +381,8 @@ export function TV({ pintura }: { pintura: Pintura }) {
     <group>
       <Caja p={[0, 0.3, 0]} s={[1.9, 0.6, 0.45]} color="#2a2f3b" rough={0.5} />
       <Caja p={[0, 1.25, 0]} s={[1.7, 0.95, 0.05]} color="#0a0d14" rough={0.2} />
-      <Caja p={[0, 1.25, 0.03]} s={[1.6, 0.86, 0.02]} color={m.color} emissive={m.emissive} ei={pintura.apagado ? 0.08 : 0.9 * pintura.brillo} />
+      <PantallaPlana p={[0, 1.25, 0.035]} s={[1.6, 0.86]} textura="tv" color={pintura.apagado ? '#4a4f5c' : '#ffffff'} />
+      <Caja p={[0, 0.62, 0.1]} s={[1.9, 0.05, 0.3]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.4} />
       <Caja p={[0, 0.78, 0]} s={[0.12, 0.3, 0.08]} color="#1b2030" />
     </group>
   );
