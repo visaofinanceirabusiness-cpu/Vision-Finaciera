@@ -50,6 +50,7 @@ export default function Visao3DPage() {
   const [asientos, setAsientos] = useState<AsientoVisao[]>([]);
   const [idioma, setIdioma] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<string | null>(null);
+  const [nombreEmpresa, setNombreEmpresa] = useState('');
 
   const [mes, setMes] = useState('TODOS');
   // Las cuentas en cero se ven (en gris): el objeto está, pero no hay saldo.
@@ -118,8 +119,9 @@ export default function Visao3DPage() {
         return;
       }
 
-      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma').eq('id', perfil.empresa_id).maybeSingle();
+      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma, nombre').eq('id', perfil.empresa_id).maybeSingle();
       setMoneda(empresa?.moneda ?? null);
+      setNombreEmpresa(empresa?.nombre ?? '');
       setIdioma(empresa?.idioma ?? null);
 
       try {
@@ -256,6 +258,7 @@ export default function Visao3DPage() {
             formatear={dinero}
             movimientoReducido={movimientoReducido}
             vistaArquitecto={arquitecto}
+            nombreEmpresa={nombreEmpresa}
           />
         </div>
       ) : (

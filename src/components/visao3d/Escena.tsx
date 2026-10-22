@@ -27,6 +27,7 @@ type Props = {
   formatear: (valor: number) => string;
   movimientoReducido: boolean;
   vistaArquitecto: boolean;
+  nombreEmpresa: string;
 };
 
 // Dos apariencias: la oscura de siempre y la "vista de arquitecto" (maqueta clara, corte del edificio con todos
@@ -144,44 +145,73 @@ function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido, vistaAr
   return null;
 }
 
-// Ventanas de la fachada (instancias de un mismo cubo, con algunas apagadas para que parezca habitado).
-function Ventanas({ volumen, material, lado }: { volumen: Volumen; material: React.RefObject<THREE.MeshBasicMaterial | null>; lado: 'frente' | 'lateral' }) {
-  const posiciones = useMemo(() => {
-    const columnas = lado === 'frente' ? Math.max(2, Math.round(volumen.ancho / 0.85)) : Math.max(2, Math.round(volumen.profundidad / 0.85));
-    const filas = Math.max(1, Math.floor((volumen.alto - 0.5) / 0.8));
-    const ancho = lado === 'frente' ? volumen.ancho : volumen.profundidad;
-    const lista: Array<[number, number]> = [];
-    for (let f = 0; f < filas; f++) {
-      for (let c = 0; c < columnas; c++) {
-        if ((f * 7 + c * 3 + volumen.nodo.id.length) % 5 === 0) continue;
-        lista.push([-ancho / 2 + ((c + 0.5) * ancho) / columnas, 0.7 + f * 0.8]);
-      }
-    }
-    return lista;
-  }, [volumen.alto, volumen.ancho, volumen.profundidad, volumen.nodo.id, lado]);
+// Texto sobre una superficie (letreros, nombre del grupo sobre el vidrio): se dibuja en un canvas 2D, así no hace
+// falta cargar fuentes ni modelos.
+function crearTexturaTexto(lineas: string[], brillo: string, ancho: number, alto: number, fondo?: string): THREE.CanvasTexture {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = ancho;
+  lienzo.height = alto;
+  const g = lienzo.getContext('2d')!;
+  if (fondo) {
+    g.fillStyle = fondo;
+    g.fillRect(0, 0, ancho, alto);
+  }
+  let fuente = Math.floor(alto / (lineas.length + 0.6));
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = `800 ${fuente}px Arial, Helvetica, sans-serif`;
+  const masAncha = Math.max(...lineas.map((t) => g.measureText(t).width));
+  if (masAncha > ancho * 0.9) {
+    fuente = Math.floor((fuente * ancho * 0.9) / masAncha);
+    g.font = `800 ${fuente}px Arial, Helvetica, sans-serif`;
+  }
+  g.shadowColor = brillo;
+  g.shadowBlur = fuente * 0.35;
+  g.fillStyle = '#ffffff';
+  lineas.forEach((t, i) => g.fillText(t, ancho / 2, (alto * (i + 1)) / (lineas.length + 1)));
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  return textura;
+}
 
+function Letrero({ lineas, brillo, ancho, alto, posicion, fondo, material }: { lineas: string[]; brillo: string; ancho: number; alto: number; posicion: [number, number, number]; fondo?: string; material?: React.RefObject<THREE.MeshBasicMaterial | null> }) {
+  const textura = useMemo(() => crearTexturaTexto(lineas, brillo, 1024, Math.round((1024 * alto) / ancho), fondo), [lineas, brillo, alto, ancho, fondo]);
+  useEffect(() => () => textura.dispose(), [textura]);
+
+  return (
+    <mesh position={posicion}>
+      <planeGeometry args={[ancho, alto]} />
+      <meshBasicMaterial ref={material} map={textura} transparent depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
+// Parteluces de la vidriera (barras verticales finas): dan la idea de un frente de vidrio de local.
+function Parteluces({ volumen, material, lado }: { volumen: Volumen; material: React.RefObject<THREE.MeshBasicMaterial | null>; lado: 'frente' | 'lateral' }) {
+  const ancho = lado === 'frente' ? volumen.ancho : volumen.profundidad;
+  const columnas = Math.max(2, Math.round(ancho / 1.1));
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
     const malla = ref.current;
     if (!malla) return;
     const matriz = new THREE.Matrix4();
-    posiciones.forEach(([u, y], i) => {
-      matriz.setPosition(u, y, 0);
-      malla.setMatrixAt(i, matriz);
-    });
-    malla.count = posiciones.length;
+    for (let c = 0; c <= columnas; c++) {
+      matriz.setPosition(-ancho / 2 + (c * ancho) / columnas, volumen.alto / 2, 0);
+      malla.setMatrixAt(c, matriz);
+    }
+    malla.count = columnas + 1;
     malla.instanceMatrix.needsUpdate = true;
-  }, [posiciones]);
+  }, [columnas, ancho, volumen.alto]);
 
   const posicion: [number, number, number] =
     lado === 'frente' ? [volumen.x, volumen.y, volumen.profundidad / 2 + 0.02] : [volumen.x + volumen.ancho / 2 + 0.02, volumen.y, 0];
 
   return (
     <group position={posicion} rotation={[0, lado === 'frente' ? 0 : Math.PI / 2, 0]}>
-      <instancedMesh ref={ref} args={[undefined, undefined, Math.max(posiciones.length, 1)]} frustumCulled={false}>
-        <boxGeometry args={[0.42, 0.46, 0.02]} />
-        <meshBasicMaterial ref={material} color="#ffe2a3" transparent opacity={0.85} depthWrite={false} />
+      <instancedMesh ref={ref} args={[undefined, undefined, columnas + 1]} frustumCulled={false}>
+        <boxGeometry args={[0.05, volumen.alto, 0.04]} />
+        <meshBasicMaterial ref={material} color="#0a1020" transparent opacity={0.7} depthWrite={false} />
       </instancedMesh>
     </group>
   );
@@ -263,12 +293,15 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
   const color = COLOR_GRUPO[volumen.nodo.grupo];
   const seleccionado = seleccionadoId === volumen.id;
   const casco = useRef<THREE.MeshStandardMaterial>(null);
-  const ventanasFrente = useRef<THREE.MeshBasicMaterial>(null);
-  const ventanasLado = useRef<THREE.MeshBasicMaterial>(null);
+  const halo = useRef<THREE.MeshBasicMaterial>(null);
+  const parentesFrente = useRef<THREE.MeshBasicMaterial>(null);
+  const parentesLado = useRef<THREE.MeshBasicMaterial>(null);
   const puerta = useRef<THREE.MeshBasicMaterial>(null);
+  const rotulo = useRef<THREE.MeshBasicMaterial>(null);
   const resaltado = seleccionado ? 0.1 : encima ? 0.05 : 0;
+  const lineasRotulo = useMemo(() => [volumen.nodo.nombre.toUpperCase()], [volumen.nodo.nombre]);
 
-  // Fachada ↔ interior: según qué tan cerca está la cámara, el vidrio y las ventanas se desvanecen.
+  // Fachada ↔ interior: según qué tan cerca está la cámara, el vidrio, los parteluces y el rótulo se desvanecen.
   useFrame((estado) => {
     const orbit = estado.controls as unknown as { target: THREE.Vector3 } | null;
     if (!orbit) return;
@@ -277,13 +310,18 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
     // En la vista de arquitecto el edificio siempre está "cortado": sin fachada, todos los pisos a la vista.
     const t = arquitecto ? 0 : Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
     if (casco.current) casco.current.opacity = (arquitecto ? 0.02 : 0.04) + 0.3 * t + resaltado;
-    if (ventanasFrente.current) ventanasFrente.current.opacity = 0.6 * t;
-    if (ventanasLado.current) ventanasLado.current.opacity = 0.6 * t;
+    if (halo.current) halo.current.opacity = arquitecto ? 0 : 0.1 + 0.12 * t + resaltado;
+    if (parentesFrente.current) parentesFrente.current.opacity = 0.7 * t;
+    if (parentesLado.current) parentesLado.current.opacity = 0.7 * t;
     if (puerta.current) puerta.current.opacity = 0.9 * t;
+    if (rotulo.current) rotulo.current.opacity = 0.95 * t;
   });
 
   return (
     <group>
+      {/* Luz cálida adentro, del color del grupo (como la vidriera iluminada de un local). */}
+      {!arquitecto && <pointLight position={[volumen.x, volumen.y + volumen.alto * 0.55, 0]} intensity={esRaiz ? 14 : 18} distance={9} color={color} />}
+
       <mesh
         position={[volumen.x, volumen.y + volumen.alto / 2, 0]}
         onClick={
@@ -303,6 +341,12 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
         <Edges color={color} />
       </mesh>
 
+      {/* Resplandor de neón del borde. */}
+      <mesh position={[volumen.x, volumen.y + volumen.alto / 2, 0]} scale={[1.035, 1.02, 1.035]}>
+        <boxGeometry args={[volumen.ancho, volumen.alto, volumen.profundidad]} />
+        <meshBasicMaterial ref={halo} color={color} transparent opacity={0.16} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+
       {/* Base y techo del edificio. */}
       <mesh position={[volumen.x, volumen.y - 0.1, 0]}>
         <boxGeometry args={[volumen.ancho + 0.5, 0.2, volumen.profundidad + 0.5]} />
@@ -313,8 +357,14 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
         <meshStandardMaterial color={tema.techo} transparent opacity={arquitecto ? 0.35 : 0.55} roughness={0.5} />
       </mesh>
 
-      <Ventanas volumen={volumen} material={ventanasFrente} lado="frente" />
-      <Ventanas volumen={volumen} material={ventanasLado} lado="lateral" />
+      <Parteluces volumen={volumen} material={parentesFrente} lado="frente" />
+      <Parteluces volumen={volumen} material={parentesLado} lado="lateral" />
+
+      {/* El nombre del grupo "pintado" en el vidrio de la vidriera. */}
+      {esRaiz && volumen.alto > 1.2 && (
+        <Letrero lineas={lineasRotulo} brillo={color} ancho={volumen.ancho * 0.86} alto={Math.min(1.1, volumen.alto * 0.4)} posicion={[volumen.x, volumen.y + volumen.alto * 0.72, volumen.profundidad / 2 + 0.05]} material={rotulo} />
+      )}
+
       {volumen.y === 0 && (
         <mesh position={[volumen.x, 0.5, volumen.profundidad / 2 + 0.03]}>
           <boxGeometry args={[0.8, 1, 0.03]} />
@@ -401,7 +451,104 @@ function Proyector({ etiquetas, refs }: { etiquetas: Etiqueta[]; refs: React.Mut
   return null;
 }
 
-export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido, vistaArquitecto }: Props) {
+// Cielo del atardecer (degradé), como en las imágenes de referencia. Solo en la apariencia oscura.
+function Cielo({ activo }: { activo: boolean }) {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    if (!activo) return;
+    const lienzo = document.createElement('canvas');
+    lienzo.width = 4;
+    lienzo.height = 256;
+    const g = lienzo.getContext('2d')!;
+    const degrade = g.createLinearGradient(0, 0, 0, 256);
+    degrade.addColorStop(0, '#0a1226');
+    degrade.addColorStop(0.55, '#1b2c55');
+    degrade.addColorStop(0.85, '#5b4a78');
+    degrade.addColorStop(1, '#c27d5a');
+    g.fillStyle = degrade;
+    g.fillRect(0, 0, 4, 256);
+    const textura = new THREE.CanvasTexture(lienzo);
+    textura.colorSpace = THREE.SRGBColorSpace;
+    const anterior = scene.background;
+    scene.background = textura;
+    return () => {
+      scene.background = anterior;
+      textura.dispose();
+    };
+  }, [activo, scene]);
+
+  return null;
+}
+
+// Entorno del local: vereda, calle, macetas y faroles con luz cálida. Solo en la vista de empresa y apariencia oscura.
+function Escenario({ volumenes }: { volumenes: Volumen[] }) {
+  const frente = Math.max(...volumenes.map((v) => v.profundidad / 2)) + 0.25;
+  const x0 = Math.min(...volumenes.map((v) => v.x - v.ancho / 2));
+  const x1 = Math.max(...volumenes.map((v) => v.x + v.ancho / 2));
+  const macetas: Array<[number, number]> = [[x0 - 0.9, frente + 0.5], [x1 + 0.9, frente + 0.5], [(x0 + x1) / 2, frente + 0.7]];
+  const faroles: Array<[number, number]> = [[x0 - 1.8, frente + 2.4], [x1 + 1.8, frente + 2.4]];
+
+  return (
+    <group>
+      <mesh position={[(x0 + x1) / 2, -0.12, frente + 1.6]}>
+        <boxGeometry args={[x1 - x0 + 7, 0.1, 3.6]} />
+        <meshStandardMaterial color="#3b4660" roughness={0.9} />
+      </mesh>
+      <mesh position={[(x0 + x1) / 2, -0.2, frente + 5.2]}>
+        <boxGeometry args={[x1 - x0 + 22, 0.06, 3.8]} />
+        <meshStandardMaterial color="#0e1424" roughness={1} />
+      </mesh>
+      {macetas.map(([x, z], i) => (
+        <group key={i} position={[x, -0.07, z]}>
+          <mesh position={[0, 0.22, 0]}>
+            <cylinderGeometry args={[0.28, 0.2, 0.45, 12]} />
+            <meshStandardMaterial color="#5b3a29" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.78, 0]}>
+            <sphereGeometry args={[0.42, 12, 10]} />
+            <meshStandardMaterial color="#2f9e5b" emissive="#145a32" emissiveIntensity={0.35} roughness={0.8} />
+          </mesh>
+        </group>
+      ))}
+      {faroles.map(([x, z], i) => (
+        <group key={i} position={[x, -0.07, z]}>
+          <mesh position={[0, 1.5, 0]}>
+            <cylinderGeometry args={[0.04, 0.05, 3, 8]} />
+            <meshStandardMaterial color="#1c2437" />
+          </mesh>
+          <mesh position={[0, 3.05, 0]}>
+            <sphereGeometry args={[0.16, 12, 10]} />
+            <meshBasicMaterial color="#ffd89a" toneMapped={false} />
+          </mesh>
+          <pointLight position={[0, 3, 0.2]} intensity={10} distance={9} color="#ffcf8a" />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// Cartel de la empresa sobre el edificio (como el letrero "CAFETERIA" de la imagen de referencia).
+function CartelEmpresa({ volumenes, nombre }: { volumenes: Volumen[]; nombre: string }) {
+  const base = volumenes[0];
+  const lineas = useMemo(() => [nombre.toUpperCase()], [nombre]);
+  const ancho = Math.min(base.ancho + 1.2, 6);
+  const y = base.y + base.alto + 0.95;
+  const z = base.profundidad / 2 - 0.2;
+
+  return (
+    <group>
+      <mesh position={[base.x, y, z]}>
+        <boxGeometry args={[ancho, 0.95, 0.16]} />
+        <meshStandardMaterial color="#141b2d" roughness={0.6} metalness={0.3} />
+        <Edges color="#8aa4d6" />
+      </mesh>
+      <Letrero lineas={lineas} brillo="#9ec5ff" ancho={ancho - 0.3} alto={0.7} posicion={[base.x, y, z + 0.09]} />
+    </group>
+  );
+}
+
+export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido, vistaArquitecto, nombreEmpresa }: Props) {
   const tema = TEMAS[vistaArquitecto ? 'arquitecto' : 'oscuro'];
   const esRaiz = focoId === 'empresa';
   const { centro, distancia } = useMemo(() => centroDe(volumenes, seleccionadoId), [volumenes, seleccionadoId]);
@@ -436,7 +583,8 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas dpr={[1, 1.75]} camera={{ position: [9, 7, 14], fov: 42 }} style={{ touchAction: 'none' }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
         <color attach="background" args={[tema.fondo]} />
-        <fog attach="fog" args={[tema.fondo, 30, 70]} />
+        <Cielo activo={!vistaArquitecto} />
+        <fog attach="fog" args={[vistaArquitecto ? tema.fondo : '#1a2547', 30, 80]} />
         <ambientLight intensity={tema.luzAmbiente} />
         <directionalLight position={[8, 14, 10]} intensity={vistaArquitecto ? 1.6 : 1.4} castShadow={vistaArquitecto} shadow-mapSize={[1536, 1536]} shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.0005} />
         <pointLight position={[-9, 5, -6]} intensity={0.9} color="#6aa7ff" />
@@ -446,10 +594,13 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
           <circleGeometry args={[18, 64]} />
           <meshStandardMaterial color={tema.suelo} roughness={0.9} />
         </mesh>
-        <gridHelper key={tema.fondo} args={[36, 36, tema.grilla[0], tema.grilla[1]]} position={[0, -0.21, 0]} />
+        {!(esRaiz && !vistaArquitecto) && <gridHelper key={tema.fondo} args={[36, 36, tema.grilla[0], tema.grilla[1]]} position={[0, -0.21, 0]} />}
         <Sombras activas={vistaArquitecto} cambio={`${focoId}|${periodoClave}|${volumenes.length}`} />
 
+        {esRaiz && !vistaArquitecto && <Escenario volumenes={volumenes} />}
+
         <GrupoAnimado clave={`${focoId}|${periodoClave}`} movimientoReducido={movimientoReducido}>
+          {esRaiz && !vistaArquitecto && nombreEmpresa && <CartelEmpresa volumenes={volumenes} nombre={nombreEmpresa} />}
           {volumenes.map((v) => (
             <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} tema={tema} arquitecto={vistaArquitecto} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
           ))}
