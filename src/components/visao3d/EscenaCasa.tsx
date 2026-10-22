@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { ContactShadows, Edges, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { colorDeSaldo } from '@/lib/visao3dObjetos';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
@@ -76,20 +76,10 @@ function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; 
       {/* Piso. */}
       <mesh position={[cx, zona.y0 - 0.075, cz]}>
         <boxGeometry args={[ancho, 0.15, PROF]} />
-        <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={0.14} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
+        <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={0.3} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
       </mesh>
       {/* Pared del fondo teñida con el color de la zona. */}
       <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} emissive={color} ei={0.14} rough={0.85} />
-      {/* Vidrio de la habitación con borde de neón. */}
-      <mesh position={[cx, cy, cz]}>
-        <boxGeometry args={[ancho, alto, PROF]} />
-        <meshStandardMaterial color={color} transparent opacity={0.06} roughness={0.05} metalness={0.2} envMapIntensity={1.4} depthWrite={false} />
-        <Edges color={color} lineWidth={2} />
-      </mesh>
-      <mesh position={[cx, cy, cz]} scale={[1.012, 1.015, 1.012]}>
-        <boxGeometry args={[ancho, alto, PROF]} />
-        <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
     </group>
   );
 }
