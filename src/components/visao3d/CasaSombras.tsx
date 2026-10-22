@@ -17,14 +17,14 @@ const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.15 };
 // Huellas en coordenadas finales del mundo.
 const HUELLAS_BAJA: Huella[] = [
   { x: -6.1, z: -3.25, w: 0.4, d: 0.25 }, // cargador
-  { x: -5.0, z: -0.2, w: 1.05, d: 2.8 }, // sofá contra la pared
+  { x: -11.2, z: -0.4, w: 0.7, d: 1.95 }, // armario contra la pared
   { x: -0.9, z: 2.3, w: 2.0, d: 0.5 }, // TV
   { x: -2.4, z: 0.7, w: 1.5, d: 0.8, fuerza: 0.7 }, // mesa de centro
   { x: -0.45, z: -3.1, w: 1.0, d: 0.4 }, // estante
   { x: 3.7, z: 0.3, w: 3.2, d: 1.5, fuerza: 0.8 }, // mesa del comedor
   ...[-1.1, 0, 1.1].flatMap((dx) => [-1, 1].map((s) => ({ x: 3.7 + dx, z: 0.3 + s * 1.05, w: 0.5, d: 0.5, fuerza: 0.8 }))),
   ...[-8.65, -4.8, -3.0, 2.7, 4.8].map((x) => ({ x, z: 2.4, w: 1, d: 1, r: 0.5 })), // plintos
-  { x: 2.6, z: 1.4, w: 0.6, d: 0.6, r: 0.3 }, // personas
+  { x: 2.6, z: 1.4, w: 0.6, d: 0.6, r: 0.3 }, // persona
   { x: 4.8, z: 1.4, w: 0.5, d: 0.5, r: 0.25 },
 ];
 
