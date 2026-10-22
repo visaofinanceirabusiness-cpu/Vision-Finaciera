@@ -110,10 +110,10 @@ export function dibujarLogo(g: CanvasRenderingContext2D, x: number, y: number, a
 
 function texturaLogo(): THREE.Texture {
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 290;
+  c.width = 512;
+  c.height = 580;
   const g = c.getContext('2d')!;
-  dibujarLogo(g, 8, 6, 240, '#ffffff');
+  dibujarLogo(g, 16, 12, 480, '#ffffff');
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -311,8 +311,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           {[-1, 0, 1].map((k) => <Elipsoide key={`pl${k}`} p={[k * 0.14, 1.2, 0.3]} s={[0.1, 0.07, 0.08]} color={CREMA} />)}
         </Fundido>
         {/* Logo en el pecho del saco, siguiendo la curva del torso. */}
-        <mesh position={[0.33, 0.77, 0.5]} rotation={[0, 0.46, 0]}>
-          <planeGeometry args={[0.27, 0.306]} />
+        <mesh position={[0.34, 0.78, 0.5]} rotation={[0, 0.48, 0]}>
+          <planeGeometry args={[0.33, 0.374]} />
           <meshBasicMaterial map={logo} transparent toneMapped={false} />
         </mesh>
 
@@ -322,8 +322,16 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           <Elipsoide p={[-0.66, 0.68, 0.18]} s={[0.12, 0.12, 0.12]} color={AZUL} />
           <Segmento a={[-0.66, 0.68, 0.18]} b={[-0.36, 0.52, 0.5]} r={0.1} color={AZUL} />
           <Elipsoide p={[-0.34, 0.51, 0.51]} s={[0.105, 0.06, 0.105]} color="#f6ecd6" rot={[0.6, 0.6, 0.4]} />
-          <Elipsoide p={[-0.3, 0.5, 0.56]} s={[0.115, 0.1, 0.1]} color={MARRON} />
-          {[-0.06, 0, 0.06, 0.11].map((d, i) => <Elipsoide key={`df${i}`} p={[-0.22 + d * 0.15, 0.5 + d, 0.62]} s={[0.04, 0.05, 0.045]} color="#6a381c" />)}
+          {/* Mano que sostiene el libro: palma, cuatro dedos que abrazan el borde inferior y pulgar al frente. */}
+          <Elipsoide p={[-0.3, 0.5, 0.56]} s={[0.12, 0.09, 0.09]} color={MARRON} />
+          {[-0.4, -0.335, -0.27, -0.205].map((x, i) => (
+            <group key={`df${i}`}>
+              <Segmento a={[x, 0.5, 0.6]} b={[x + 0.004, 0.58 - (i === 3 ? 0.03 : 0), 0.655]} r={0.03} color="#7a4326" />
+              <Elipsoide p={[x + 0.004, 0.585 - (i === 3 ? 0.03 : 0), 0.66]} s={[0.031, 0.034, 0.03]} color="#6a381c" />
+            </group>
+          ))}
+          <Segmento a={[-0.44, 0.5, 0.6]} b={[-0.43, 0.64, 0.66]} r={0.034} color="#7a4326" />
+          <Elipsoide p={[-0.43, 0.65, 0.665]} s={[0.036, 0.04, 0.034]} color="#6a381c" />
         </Fundido>
         {/* Libro de frente, con el lema; se apoya sobre el antebrazo. */}
         <group position={[-0.3, 0.76, 0.58]} rotation={[0, 0.3, -0.06]}>
@@ -349,12 +357,20 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
             <Elipsoide p={[0.3, -0.2, 0.05]} s={[0.12, 0.12, 0.12]} color={AZUL} />
             <Segmento a={[0.3, -0.2, 0.05]} b={[0.38, 0.2, 0.06]} r={0.1} color={AZUL} />
             <Elipsoide p={[0.385, 0.23, 0.06]} s={[0.1, 0.045, 0.1]} color="#f6ecd6" rot={[0, 0, -0.2]} />
-            <Elipsoide p={[0.4, 0.33, 0.06]} s={[0.12, 0.105, 0.105]} color={MARRON} />
-            <Segmento a={[0.4, 0.36, 0.06]} b={[0.41, 0.6, 0.06]} r={0.042} color={MARRON} />
-            <Elipsoide p={[0.41, 0.62, 0.06]} s={[0.044, 0.05, 0.044]} color={MARRON} />
-            <Elipsoide p={[0.412, 0.615, 0.095]} s={[0.026, 0.034, 0.012]} color="#3f2210" />
-            {[-0.06, -0.02, 0.02, 0.06].map((d, i) => <Elipsoide key={`nu${i}`} p={[0.4 + d, 0.3 + (i % 2) * 0.01, 0.13]} s={[0.035, 0.05, 0.035]} color="#6a381c" />)}
-            <Elipsoide p={[0.34, 0.32, 0.12]} s={[0.04, 0.07, 0.04]} color={MARRON} rot={[0, 0, 0.6]} />
+            {/* Mano cerrada con el índice extendido: palma, tres dedos doblados, nudillos y pulgar sobre ellos. */}
+            <Elipsoide p={[0.4, 0.33, 0.06]} s={[0.11, 0.1, 0.095]} color={MARRON} />
+            {[-0.05, 0.0, 0.05].map((d, i) => (
+              <group key={`dd${i}`}>
+                <Segmento a={[0.4 + d, 0.34, 0.1]} b={[0.4 + d, 0.28, 0.14]} r={0.03} color="#7a4326" />
+                <Elipsoide p={[0.4 + d, 0.275, 0.14]} s={[0.032, 0.03, 0.03]} color="#6a381c" />
+              </group>
+            ))}
+            <Segmento a={[0.37, 0.34, 0.1]} b={[0.4, 0.4, 0.15]} r={0.03} color="#7a4326" />
+            <Elipsoide p={[0.4, 0.405, 0.155]} s={[0.032, 0.032, 0.03]} color="#6a381c" />
+            <Segmento a={[0.43, 0.38, 0.06]} b={[0.44, 0.62, 0.06]} r={0.036} color={MARRON} />
+            <Elipsoide p={[0.442, 0.625, 0.06]} s={[0.039, 0.048, 0.039]} color={MARRON} />
+            <Elipsoide p={[0.444, 0.628, 0.095]} s={[0.022, 0.03, 0.01]} color="#3f2210" />
+            <Elipsoide p={[0.43, 0.42, 0.075]} s={[0.04, 0.034, 0.034]} color="#6a381c" />
           </Fundido>
         </group>
       </group>
