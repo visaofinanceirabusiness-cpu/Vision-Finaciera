@@ -63,6 +63,8 @@ export default function Visao3DPage() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [pista, setPista] = useState(true);
+  // Pantalla de entrada: el toque que la cierra es el gesto que el navegador exige para pasar a pantalla completa.
+  const [entrado, setEntrado] = useState(false);
   const [movimientoReducido, setMovimientoReducido] = useState(false);
 
   const esPT = idioma === 'PT';
@@ -83,6 +85,7 @@ export default function Visao3DPage() {
     return () => {
       document.body.style.overflow = anterior;
       window.clearTimeout(pistaTimer);
+      if (document.fullscreenElement) void document.exitFullscreen?.();
     };
   }, []);
 
@@ -213,7 +216,13 @@ export default function Visao3DPage() {
 
   function pantallaCompletaDelNavegador() {
     if (document.fullscreenElement) void document.exitFullscreen?.();
-    else void document.documentElement.requestFullscreen?.();
+    else void document.documentElement.requestFullscreen?.()?.catch(() => undefined);
+  }
+
+  // Entrar: pasa a pantalla completa del navegador (donde se puede; en iPhone no existe y queda la vista inmersiva).
+  function entrarALaEmpresa() {
+    if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.()?.catch(() => undefined);
+    setEntrado(true);
   }
 
   const vidrio: React.CSSProperties = { background: 'rgba(11,20,36,0.82)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(6px)' };
@@ -237,6 +246,22 @@ export default function Visao3DPage() {
         @media (min-width: 861px) { .visao3d-panel { left: auto; right: 14px; bottom: 14px; width: 380px; } }
         .visao3d-migas::-webkit-scrollbar { display: none; }
       `}</style>
+
+      {!entrado && (
+        <button
+          type="button"
+          onClick={entrarALaEmpresa}
+          style={{ position: 'absolute', inset: 0, zIndex: 20, border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 50% 40%, #1b2c55 0%, #0b1424 70%)' }}
+        >
+          <span style={{ display: 'grid', gap: 10, justifyItems: 'center', padding: 24, textAlign: 'center' }}>
+            <span style={{ fontSize: 64 }}>🏢</span>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, color: '#7dd3fc' }}>VISÃO 3D</span>
+            <span style={{ fontSize: 26, fontWeight: 900 }}>{nombreEmpresa || (esPT ? 'A empresa por dentro' : 'La empresa por dentro')}</span>
+            <span style={{ marginTop: 10, background: '#2f7df6', borderRadius: 999, padding: '12px 26px', fontWeight: 800, fontSize: 16 }}>{esPT ? 'Entrar na empresa' : 'Entrar a la empresa'} →</span>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>{esPT ? 'Abre em tela cheia' : 'Se abre en pantalla completa'}</span>
+          </span>
+        </button>
+      )}
 
       {/* Escena a pantalla completa (o la lista equivalente). */}
       {cargando ? (
@@ -358,7 +383,7 @@ export default function Visao3DPage() {
             </div>
           )}
           <button type="button" onClick={pantallaCompletaDelNavegador} style={interruptor(false)}>
-            ⛶ {esPT ? 'Tela cheia do navegador' : 'Pantalla completa del navegador'}
+            ⛶ {esPT ? 'Alternar tela cheia' : 'Alternar pantalla completa'}
           </button>
           <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>
             {esPT
