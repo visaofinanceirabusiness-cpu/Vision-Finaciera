@@ -91,6 +91,72 @@ const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, numbe
 };
 const CLAVE_HORA = 'visao3d_hora';
 
+// Paredes: todas menos la de frente (z positivo), que falta a propósito para ver el interior.
+const GROSOR = 0.14;
+const COLOR_PARED = '#eef1f6';
+function Pared({ x, y0, y1, hueco }: { x: number; y0: number; y1: number; hueco?: [number, number, number] }) {
+  const zA = Z_ATRAS;
+  const zB = Z_ATRAS + PROF;
+  const alto = y1 - y0;
+  const tramo = (za: number, zb: number, ya: number, yb: number, k: string) => (
+    <Caja key={k} p={[x, (ya + yb) / 2, (za + zb) / 2]} s={[GROSOR, yb - ya, zb - za]} color={COLOR_PARED} rough={0.9} />
+  );
+  if (!hueco) return tramo(zA, zB, y0, y1, 'p');
+  const [h0, h1, hAlto] = hueco;
+  return (
+    <>
+      {tramo(zA, h0, y0, y1, 'a')}
+      {tramo(h1, zB, y0, y1, 'b')}
+      {tramo(h0, h1, y0 + hAlto, y1, 'c')}
+    </>
+  );
+}
+
+const VENTANA: Record<Hora, { color: string; emi: number }> = {
+  dia: { color: '#a8d6ff', emi: 0.9 },
+  atardecer: { color: '#ffb48f', emi: 0.7 },
+  noche: { color: '#16224a', emi: 0.35 },
+};
+
+// Ventana en una pared exterior: marco, vidrio con el color del cielo de la hora, cruz y reflejo en diagonal.
+function Ventana({ x, y, z, lado, ancho = 1.8, alto = 1.1, hora, reflejo }: { x: number; y: number; z: number; lado: 1 | -1; ancho?: number; alto?: number; hora: Hora; reflejo: THREE.Texture }) {
+  const v = VENTANA[hora];
+  const xi = x + lado * (GROSOR / 2 + 0.005);
+  return (
+    <group>
+      <Caja p={[xi, y, z]} s={[0.03, alto + 0.16, ancho + 0.16]} color="#f7f8fb" rough={0.5} />
+      <Caja p={[xi + lado * 0.012, y, z]} s={[0.02, alto, ancho]} color={v.color} emissive={v.color} ei={v.emi} rough={0.1} metal={0.3} />
+      <Caja p={[xi + lado * 0.03, y, z]} s={[0.012, alto, 0.05]} color="#f7f8fb" />
+      <Caja p={[xi + lado * 0.03, y, z]} s={[0.012, 0.05, ancho]} color="#f7f8fb" />
+      <mesh position={[xi + lado * 0.026, y, z]} rotation={[0, lado > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
+        <planeGeometry args={[ancho, alto]} />
+        <meshBasicMaterial map={reflejo} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+      </mesh>
+      <Caja p={[xi + lado * 0.02, y - alto / 2 - 0.1, z]} s={[0.1, 0.04, ancho + 0.25]} color="#e4e8ef" rough={0.5} />
+    </group>
+  );
+}
+
+function texturaReflejo(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = 'rgba(255,255,255,0)';
+  g.fillRect(0, 0, 128, 128);
+  [[10, 28, 0.28], [60, 14, 0.18], [96, 8, 0.22]].forEach(([x, w, a]) => {
+    g.fillStyle = `rgba(255,255,255,${a})`;
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x + w, 0);
+    g.lineTo(x + w - 50, 128);
+    g.lineTo(x - 50, 128);
+    g.closePath();
+    g.fill();
+  });
+  return new THREE.CanvasTexture(c);
+}
+
 // Charco de luz: gradiente radial aditivo que se apoya en el piso bajo cada foco o farol de noche.
 function useTexturaLuz() {
   const t = useMemo(() => {
@@ -243,6 +309,25 @@ function Matas({ matas }: { matas: Array<[number, number, number]> }) {
   );
 }
 
+// Palmera que se mece apenas con el viento; tiene su propio Fundido (se mueve entera, sigue siendo pocas mallas).
+function PalmeraViva({ p, escala, fase }: { p: V3; escala: number; fase: number }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = clock.elapsedTime * 0.7 + fase;
+    g.rotation.z = Math.sin(t) * 0.025;
+    g.rotation.x = Math.cos(t * 0.8) * 0.018;
+  });
+  return (
+    <group ref={ref} position={p}>
+      <Fundido>
+        <Palmera p={[0, 0, 0]} escala={escala} />
+      </Fundido>
+    </group>
+  );
+}
+
 function Exterior({ noche }: { noche: boolean }) {
   const t = useTexturas({
     pasto: () => texturaProcedural('pasto', 18),
@@ -266,8 +351,8 @@ function Exterior({ noche }: { noche: boolean }) {
     const azar = () => ((n = (n * 16807) % 2147483647) / 2147483647);
     while (lista.length < 520) {
       const x = -20 + azar() * 36;
-      const z = 4.6 + azar() * 10;
-      const enCamino = x > -10.6 && x < -4.2 && z < 13; // entrada de autos
+      const z = 4.6 + azar() * 9.6;
+      const enCamino = x > -10.6 && x < -4.2 && z < 15.5; // entrada de autos
       const enPileta = x > 0.8 && x < 11 && z > 4.8 && z < 11.4;
       const enSendero = x > -2.5 && x < -0.3 && z < 17;
       if (!enCamino && !enPileta && !enSendero) lista.push([x, z, 0.6 + azar() * 0.8]);
@@ -277,19 +362,27 @@ function Exterior({ noche }: { noche: boolean }) {
   const flores = useMemo(() => Array.from({ length: 46 }, (_, i) => ({ x: -4 + ((i * 37) % 100) * 0.115, z: 5.4 + ((i * 53) % 10) * 0.12, c: ['#ff6b8a', '#ffd166', '#ffffff', '#c77dff'][i % 4] })), []);
 
   return (
+    <>
     <Fundido key={noche ? 'n' : 'd'}>
       <mesh position={[-1, -0.17, 5]}>
         <boxGeometry args={[70, 0.1, 40]} />
         <meshStandardMaterial map={t.pasto} roughness={1} />
       </mesh>
-      <mesh position={[-7.4, -0.1, 8.5]}>
-        <boxGeometry args={[6.2, 0.1, 9]} />
+      <mesh position={[-7.4, -0.1, 9.7]}>
+        <boxGeometry args={[6.2, 0.1, 11.4]} />
         <meshStandardMaterial map={t.concreto} roughness={0.85} />
       </mesh>
-      <mesh position={[-1, -0.19, 17.5]}>
-        <boxGeometry args={[70, 0.08, 4.4]} />
+      {/* La calle va por encima del pasto (antes quedaba tapada por él), con vereda y línea central. */}
+      <mesh position={[-1, -0.07, 17.5]}>
+        <boxGeometry args={[70, 0.1, 4.4]} />
         <meshStandardMaterial map={t.asfalto} roughness={0.55} metalness={0.1} />
       </mesh>
+      <mesh position={[-1, -0.06, 14.85]}>
+        <boxGeometry args={[70, 0.1, 1.0]} />
+        <meshStandardMaterial map={t.concreto} roughness={0.85} />
+      </mesh>
+      {Array.from({ length: 24 }, (_, i) => <Caja key={`ln${i}`} p={[-33 + i * 3, 0.0, 17.5]} s={[1.4, 0.02, 0.12]} color="#f3f0d8" rough={0.6} />)}
+      {[15.5, 19.5].map((z) => <Caja key={`bo${z}`} p={[-1, -0.0, z]} s={[70, 0.02, 0.1]} color="#e9e9ef" rough={0.6} />)}
       {/* Sendero de piedras hasta la entrada. */}
       <Matas matas={matas} />
       {flores.map((f, i) => (
@@ -298,9 +391,6 @@ function Exterior({ noche }: { noche: boolean }) {
           <meshStandardMaterial color={f.c} emissive={f.c} emissiveIntensity={0.5} />
         </mesh>
       ))}
-      <Palmera p={[1.0, -0.05, 6.4]} escala={1.1} />
-      <Palmera p={[11.2, -0.05, 9.6]} escala={1.3} />
-      <Palmera p={[11.4, -0.05, 5.0]} escala={1.0} />
       {Array.from({ length: 6 }, (_, i) => (
         <Caja key={i} p={[-1.8 + (i % 2) * 0.35, -0.08, 5.3 + i * 1.8]} s={[1.3, 0.08, 1.0]} color="#9aa3b5" rough={0.8} />
       ))}
@@ -362,6 +452,10 @@ function Exterior({ noche }: { noche: boolean }) {
         </group>
       ))}
     </Fundido>
+    <PalmeraViva p={[-13.5, -0.05, 6.2]} escala={1.1} fase={0} />
+    <PalmeraViva p={[11.2, -0.05, 9.6]} escala={1.3} fase={1.7} />
+    <PalmeraViva p={[11.4, -0.05, 5.0]} escala={1.0} fase={3.1} />
+    </>
   );
 }
 
@@ -371,6 +465,7 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
   const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
   const luz = useTexturaLuz();
+  const { reflejo } = useTexturas({ reflejo: texturaReflejo });
   const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode) => (
     <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar}>
       {hijo}
@@ -389,16 +484,29 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
       <SombrasCasa />
 
-      <Fundido key={noche ? 'n' : 'd'}>
+      <Fundido key={hora}>
       {/* Techos. */}
       <Caja p={[0.55, 6.3, 0.0]} s={[11.4, 0.16, 8]} color="#e9edf3" rough={0.6} />
-      <Caja p={[-7.7, 3.08, 0.0]} s={[6.6, 0.16, 8]} color="#e9edf3" rough={0.6} />
+      <Caja p={[-7.9, 3.08, 0.0]} s={[6.2, 0.16, 8]} color="#e9edf3" rough={0.6} />
 
       {PLINTOS.map(({ id, grupo }) => {
         const [x, y, z] = AMENIDADES[id].pos;
         const h = 0.7;
         return <Plinto key={id} p={[x, y - h, z]} h={h} acento={COLOR_GRUPO[grupo]} />;
       })}
+
+      {/* Paredes exteriores e interiores (con pasos entre cuartos) y ventanas. */}
+      <Pared x={-10.6} y0={0} y1={3.08} />
+      <Pared x={-4.7} y0={0} y1={3.0} hueco={[0.3, 1.7, 2.2]} />
+      <Pared x={0.6} y0={0} y1={3.0} hueco={[0.3, 2.0, 2.3]} />
+      <Pared x={5.8} y0={0} y1={3.0} />
+      <Pared x={-4.7} y0={3.15} y1={6.22} />
+      <Pared x={0.6} y0={3.15} y1={6.22} hueco={[0.3, 2.0, 2.3]} />
+      <Pared x={5.8} y0={3.15} y1={6.22} />
+      <Ventana x={-10.6} y={1.7} z={-1.0} lado={1} hora={hora} reflejo={reflejo} />
+      <Ventana x={5.8} y={1.7} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={5.8} y={4.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={-4.7} y={4.9} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
 
       {/* Cochera: cargador del auto eléctrico. */}
       <CargadorEV p={[-5.1, 0, -3.25]} />
@@ -440,9 +548,9 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[x, y, z]} />))}
 
       {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.15], [-1.0, 3.15], [2.2, 3.15], [4.4, 3.15], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
-        <mesh key={`lz${x}${y}${z}`} position={[x, y + 0.012, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh key={`lz${x}${y}${z}`} position={[x, y + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[3.2, 3.2]} />
-          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>
       )))}
 
@@ -548,7 +656,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         dpr={[1, dprMax]}
-        camera={{ position: [3, 8, 27], fov: 40 }}
+        camera={{ position: [3, 8, 27], fov: 40, near: 0.5, far: 500 }}
         style={{ touchAction: 'none' }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
@@ -570,7 +678,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
           <Lightformer form="rect" intensity={cfg.formas[1]} color="#8fb4ff" position={[10, 6, -5]} scale={[10, 5, 1]} />
           <Lightformer form="ring" intensity={cfg.formas[2]} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={8} />
         </Environment>
-        <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.01, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
+        <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.06, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
 
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
