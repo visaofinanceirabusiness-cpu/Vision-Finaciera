@@ -1,1 +1,1 @@
-{ "objetos": [], "hdri": {}, "pbr": {} }
+{ "objetos": [ { "id": "sofa", "glb": "/visao3d/modelos/sofa.glb", "tipo": "mueble", "nombre": "Sofá Chesterfield" } ], "hdri": {}, "pbr": {} }
