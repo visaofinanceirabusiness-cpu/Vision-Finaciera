@@ -26,7 +26,7 @@ import { Fachada } from './CasaFachada';
 import { Sabio } from './CasaSabio';
 import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
-import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
+import { Ahorro, AutoSUV, Armario, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
 const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 7.5, 8));
@@ -51,11 +51,11 @@ const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
   // Cochera: las cajas al frente; el auto espera en la entrada, mirando hacia la casa (así la cochera queda libre para otras cuentas).
   auto: { pos: [-9.5, 0, 9.2], rot: Math.PI / 2 },
   otros: { pos: [-8.65, 0.7, 2.6], escala: 0.55 },
-  // Living: al frente el documento, la maqueta y la TV; el sofá contra la pared lateral mirando al centro.
+  // Living: al frente el documento, la maqueta y la TV. Cochera: el armario (Muebles y Útiles) contra la pared lateral, mirando al centro.
   cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
   inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
   electro: { pos: [-0.9, 0, 2.3] },
-  muebles: { pos: [-5.0, 0, -0.2], rot: Math.PI / 2 },
+  muebles: { pos: [-11.2, 0, -0.4], rot: Math.PI / 2 },
   // Dormitorio: los tres al frente.
   ahorro: { pos: [-4.6, 3.85, 2.3], escala: 0.8 },
   efectivo: { pos: [-2.55, 3.85, 2.3], escala: 0.8 },
@@ -71,7 +71,7 @@ const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
 
 // Cuánto se acerca la cámara al tocar cada amenidad (los objetos chicos necesitan más cerca) y a qué altura sobre su base mira.
 const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
-  auto: { dist: 10, alto: 0.8 }, muebles: { dist: 7.5, alto: 0.6 }, electro: { dist: 7, alto: 0.9 }, otros: { dist: 5.5, alto: 0.4 },
+  auto: { dist: 10, alto: 0.8 }, muebles: { dist: 6.5, alto: 1.1 }, electro: { dist: 7, alto: 0.9 }, otros: { dist: 5.5, alto: 0.4 },
   inmueble: { dist: 4.6, alto: 0.4 }, capital: { dist: 4.2, alto: 0.4 }, resultado: { dist: 5.4, alto: 0.8 },
   cobrar: { dist: 4.2, alto: 0.4 }, ahorro: { dist: 4.2, alto: 0.6 }, efectivo: { dist: 4.2, alto: 0.4 }, banco: { dist: 4.4, alto: 0.6 },
   tarjeta: { dist: 4.2, alto: 0.5 }, prestamo: { dist: 4.2, alto: 0.4 }, apagar: { dist: 4.2, alto: 0.4 },
@@ -388,7 +388,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
     >
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
-        <MarcadorCuenta y={PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
+        <MarcadorCuenta y={id === 'muebles' ? 2.8 : PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
         <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>
       </group>
     </group>
@@ -745,25 +745,21 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
         </mesh>
       )))}
 
-      {/* Personas sentadas: quedan fundidas con la casa (no se mueven). */}
-      <Persona p={[-4.95, 0.5, -0.8]} rot={Math.PI / 2} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
-      <Persona p={[-4.95, 0.5, 0.4]} rot={Math.PI / 2} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      {/* Familia: 3 adultos (dormitorio, oficina, comedor) y 2 niños (comedor y jardín). Los sentados quedan fundidos con la casa. */}
       <Persona p={[desplazarX(3.2), 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
       <Persona p={[desplazarX(2.1), 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
-      <Persona p={[desplazarX(3.2), 0.46, -0.8]} sentado ropa="#5da3c9" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
       <Persona p={[desplazarX(4.3), 0.46, 1.4]} rot={Math.PI} sentado esc={0.7} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" />
       </Fundido>
 
       {/* Personas con movimiento: cada una con su propio Fundido (pocas mallas) y solo se anima su grupo. */}
       <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
-      <PersonaViva modo="paseo" p={[9.4, 0, 4.6]} hasta={7.4} ropa="#f2f2f2" pantalon="#3e5a8a" pelo="#2a1c12" fase={0} />
       <PersonaViva modo="paseo" p={[8.6, 0, 4.75]} hasta={6.6} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0.5} />
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
       {amen('otros', (p) => <CajaOtros pintura={p} />)}
       {amen('auto', (p) => <AutoSUV pintura={p} />)}
       {amen('electro', (p) => <TV pintura={p} />)}
-      {amen('muebles', (p) => <Sofa pintura={p} />)}
+      {amen('muebles', (p) => <Armario pintura={p} />)}
       {amen('inmueble', (p) => <Maqueta pintura={p} />)}
       {amen('cobrar', (p) => <Documentos pintura={p} variante={0} />)}
       {amen('ahorro', (p) => <Ahorro pintura={p} />)}

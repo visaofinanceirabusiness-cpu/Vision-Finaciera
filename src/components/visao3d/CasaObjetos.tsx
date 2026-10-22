@@ -18,6 +18,7 @@ type Natural = { c: string; claro: string; oscuro: string };
 const NAT: Record<string, Natural> = {
   auto: { c: '#c3c8d2', claro: '#e3e6ec', oscuro: '#8d94a3' },
   sofa: { c: '#c99a3e', claro: '#dcb35a', oscuro: '#a47a2a' },
+  armario: { c: '#9b6a42', claro: '#bd8c5e', oscuro: '#6e4a2c' },
   tv: { c: '#7a5230', claro: '#9a6b3f', oscuro: '#5e3f24' },
   tarjeta: { c: '#262a33', claro: '#3d4350', oscuro: '#14161b' },
   casa: { c: '#efe3cf', claro: '#f8f0e2', oscuro: '#b8654a' },
@@ -168,6 +169,33 @@ export function Sofa({ pintura }: { pintura: Pintura }) {
       <Caja p={[-1.0, 0.82, 0.05]} s={[0.46, 0.46, 0.14]} color="#fff4e0" rough={1} map={tela} rot={[-0.3, 0.35, 0.2]} />
       <Caja p={[1.05, 0.8, 0.05]} s={[0.42, 0.42, 0.14]} color="#2b3a55" rough={1} map={tela} rot={[-0.3, -0.3, -0.15]} />
       <Caja p={[1.25, 0.88, 0.35]} s={[0.5, 0.05, 0.7]} color={oscuro} rough={1} rot={[0.25, 0, -0.45]}  r={0.07} />
+    </group>
+  );
+}
+
+// Armario de dos puertas (cuenta Muebles y Útiles): cuerpo de madera, molduras, paneles, espejo, manijas y zócalo.
+export function Armario({ pintura }: { pintura: Pintura }) {
+  const { c, e, ei, claro, oscuro } = usar(pintura, NAT.armario);
+  const mat = { emissive: e, ei };
+  return (
+    <group>
+      <Caja p={[0, 1.2, -0.02]} s={[1.9, 2.3, 0.6]} color={c} rough={0.55} {...mat} />
+      <Caja p={[0, 0.07, 0.02]} s={[1.96, 0.14, 0.64]} color={oscuro} rough={0.6} />
+      <Caja p={[0, 2.37, 0.0]} s={[2.0, 0.1, 0.68]} color={oscuro} rough={0.5} />
+      <Caja p={[0, 2.44, 0.0]} s={[1.92, 0.05, 0.62]} color={claro} rough={0.5} />
+      {[-0.46, 0.46].map((x) => (
+        <group key={x}>
+          <Caja p={[x, 1.2, 0.3]} s={[0.88, 2.1, 0.04]} color={claro} rough={0.5} {...mat} />
+          <Caja p={[x, 1.55, 0.325]} s={[0.66, 1.2, 0.012]} color={c} rough={0.5} />
+          <Caja p={[x, 0.55, 0.325]} s={[0.66, 0.6, 0.012]} color={c} rough={0.5} />
+        </group>
+      ))}
+      <Caja p={[-0.46, 1.55, 0.334]} s={[0.56, 1.05, 0.006]} color="#cfe3f2" rough={0.08} metal={0.6} />
+      <Caja p={[0, 1.2, 0.325]} s={[0.012, 2.1, 0.012]} color="#2b1b10" />
+      {[-0.07, 0.07].map((x) => <Caja key={`m${x}`} p={[x, 1.2, 0.35]} s={[0.025, 0.28, 0.03]} color="#d9b872" metal={0.85} rough={0.3} />)}
+      {[-0.82, 0.82].map((x) => <Caja key={`p${x}`} p={[x, 0.05, 0.28]} s={[0.1, 0.1, 0.1]} color="#2b1b10" />)}
+      <Caja p={[-0.5, 2.5, -0.05]} s={[0.5, 0.12, 0.34]} color="#d9d2c4" rough={0.9} />
+      <Caja p={[0.3, 2.52, -0.05]} s={[0.4, 0.16, 0.3]} color="#b9a27a" rough={0.9} />
     </group>
   );
 }
