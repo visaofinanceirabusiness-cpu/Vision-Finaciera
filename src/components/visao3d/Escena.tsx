@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Edges, OrbitControls } from '@react-three/drei';
+import { ContactShadows, Edges, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { COLOR_GRUPO, type Piso, type Volumen } from '@/lib/visao3dLayout';
 import type { NodoEdificio } from '@/lib/visao3d';
@@ -26,12 +26,9 @@ type Props = {
   onEntrar: (nodo: NodoEdificio) => void;
   formatear: (valor: number) => string;
   movimientoReducido: boolean;
-  vistaArquitecto: boolean;
   nombreEmpresa: string;
 };
 
-// Dos apariencias: la oscura de siempre y la "vista de arquitecto" (maqueta clara, corte del edificio con todos
-// los pisos a la vista, sombras y cámara en perspectiva casi isométrica).
 type Tema = {
   fondo: string;
   suelo: string;
@@ -48,10 +45,7 @@ type Tema = {
   etiquetaBorde: string;
 };
 
-const TEMAS: Record<'oscuro' | 'arquitecto', Tema> = {
-  oscuro: { fondo: '#0b1424', suelo: '#101c33', grilla: ['#22385f', '#16253f'], piso: '#dbe7ff', bordePiso: '#7f93b8', bordeEncima: '#ffffff', losa: '#cbd5e1', base: '#1b2a44', techo: '#cbd5e1', luzAmbiente: 0.9, etiquetaFondo: 'rgba(8,16,32,0.8)', etiquetaTexto: '#ffffff', etiquetaBorde: 'rgba(255,255,255,0.2)' },
-  arquitecto: { fondo: '#eef2f7', suelo: '#ffffff', grilla: ['#c3cedd', '#dde4ee'], piso: '#ffffff', bordePiso: '#334155', bordeEncima: '#0f172a', losa: '#ffffff', base: '#94a3b8', techo: '#e2e8f0', luzAmbiente: 1.15, etiquetaFondo: 'rgba(255,255,255,0.92)', etiquetaTexto: '#0f172a', etiquetaBorde: 'rgba(15,23,42,0.25)' },
-};
+const TEMA: Tema = { fondo: '#0b1424', suelo: '#101c33', grilla: ['#22385f', '#16253f'], piso: '#dbe7ff', bordePiso: '#7f93b8', bordeEncima: '#ffffff', losa: '#cbd5e1', base: '#1b2a44', techo: '#cbd5e1', luzAmbiente: 0.55, etiquetaFondo: 'rgba(8,16,32,0.8)', etiquetaTexto: '#ffffff', etiquetaBorde: 'rgba(255,255,255,0.2)' };
 
 // Qué tan cerca (respecto de la distancia normal de la vista) el vidrio pasa de fachada a transparente.
 // En la vista de empresa se arranca viendo la fachada y se revela el interior al acercarse; ya dentro de un
@@ -81,11 +75,11 @@ function centroDe(volumenes: Volumen[], seleccionadoId: string | null): { centro
 // Lleva la cámara hacia el área elegida (zoom) y, al entrar en un nodo, arranca más lejos y más abajo y "sube"
 // (efecto ascensor). Solo guía mientras dura el movimiento: apenas la persona toca la escena (arrastrar,
 // rueda, pellizco) se suelta el control, para que el zoom y el giro manuales no se pisen cada cuadro.
-function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido, vistaArquitecto }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean; vistaArquitecto: boolean }) {
+function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean }) {
   const { camera, controls, size } = useThree();
   const guiando = useRef(true);
   // En pantallas angostas (teléfono vertical) el edificio no entra a la misma distancia: se aleja.
-  const distanciaMeta = distancia * factorAncho(size.width, size.height) * (vistaArquitecto ? 1.55 : 1);
+  const distanciaMeta = distancia * factorAncho(size.width, size.height);
   const distanciaActual = useRef(distanciaMeta * 1.7);
 
   useEffect(() => {
@@ -94,21 +88,6 @@ function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido, vistaAr
     if (orbit && !movimientoReducido) orbit.target.y -= 3;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoId, movimientoReducido]);
-
-  // Vista de arquitecto: cámara en perspectiva casi isométrica (lente más larga, un poco más lejos) y desde arriba.
-  useEffect(() => {
-    const perspectiva = camera as THREE.PerspectiveCamera;
-    perspectiva.fov = vistaArquitecto ? 26 : 42;
-    perspectiva.updateProjectionMatrix();
-    const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null;
-    if (orbit) {
-      const direccion = vistaArquitecto ? new THREE.Vector3(0.75, 0.8, 1) : new THREE.Vector3(0.64, 0.5, 1);
-      camera.position.copy(orbit.target.clone().add(direccion.setLength(distanciaActual.current)));
-      orbit.update();
-    }
-    guiando.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vistaArquitecto]);
 
   // Cada selección nueva (o cambio de nivel) vuelve a guiar la cámara.
   useEffect(() => {
@@ -234,7 +213,7 @@ function Interior({ piso }: { piso: Piso }) {
   );
 }
 
-function PisoCaja({ piso, volumen, seleccionado, tema, arquitecto, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; tema: Tema; arquitecto: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
+function PisoCaja({ piso, volumen, seleccionado, tema, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; tema: Tema; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
   const [encima, setEncima] = useState(false);
   const colorGrupo = COLOR_GRUPO[piso.nodo.grupo];
   const ancho = volumen.ancho - 0.35;
@@ -276,23 +255,23 @@ function PisoCaja({ piso, volumen, seleccionado, tema, arquitecto, onSeleccionar
       {/* Estructura neutra y transparente: el color queda para las cuentas. */}
       <mesh>
         <boxGeometry args={[ancho, alto, profundidad]} />
-        <meshStandardMaterial color={tema.piso} transparent opacity={seleccionado ? 0.24 : encima ? 0.16 : arquitecto ? 0.05 : 0.07} depthWrite={false} roughness={0.2} />
+        <meshStandardMaterial color={tema.piso} transparent opacity={seleccionado ? 0.24 : encima ? 0.16 : 0.07} depthWrite={false} roughness={0.2} />
         <Edges color={seleccionado ? colorGrupo : encima ? tema.bordeEncima : tema.bordePiso} />
       </mesh>
       <mesh position={[0, -alto / 2 + 0.025, 0]}>
         <boxGeometry args={[ancho, 0.05, profundidad]} />
-        <meshStandardMaterial color={tema.losa} transparent opacity={arquitecto ? 0.95 : 0.5} roughness={0.6} />
+        <meshStandardMaterial color={tema.losa} transparent opacity={0.5} roughness={0.6} />
       </mesh>
       <Interior piso={piso} />
     </group>
   );
 }
 
-function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, arquitecto, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; distanciaBase: number; tema: Tema; arquitecto: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
+function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; distanciaBase: number; tema: Tema; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
   const [encima, setEncima] = useState(false);
   const color = COLOR_GRUPO[volumen.nodo.grupo];
   const seleccionado = seleccionadoId === volumen.id;
-  const casco = useRef<THREE.MeshStandardMaterial>(null);
+  const casco = useRef<THREE.MeshPhysicalMaterial>(null);
   const halo = useRef<THREE.MeshBasicMaterial>(null);
   const parentesFrente = useRef<THREE.MeshBasicMaterial>(null);
   const parentesLado = useRef<THREE.MeshBasicMaterial>(null);
@@ -307,10 +286,9 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
     if (!orbit) return;
     const distancia = estado.camera.position.distanceTo(orbit.target) / factorAncho(estado.size.width, estado.size.height);
     const { interior, fachada } = esRaiz ? UMBRALES.raiz : UMBRALES.dentro;
-    // En la vista de arquitecto el edificio siempre está "cortado": sin fachada, todos los pisos a la vista.
-    const t = arquitecto ? 0 : Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
-    if (casco.current) casco.current.opacity = (arquitecto ? 0.02 : 0.04) + 0.3 * t + resaltado;
-    if (halo.current) halo.current.opacity = arquitecto ? 0 : 0.1 + 0.12 * t + resaltado;
+    const t = Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
+    if (casco.current) casco.current.opacity = 0.04 + 0.3 * t + resaltado;
+    if (halo.current) halo.current.opacity = 0.1 + 0.12 * t + resaltado;
     if (parentesFrente.current) parentesFrente.current.opacity = 0.7 * t;
     if (parentesLado.current) parentesLado.current.opacity = 0.7 * t;
     if (puerta.current) puerta.current.opacity = 0.9 * t;
@@ -320,7 +298,7 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
   return (
     <group>
       {/* Luz cálida adentro, del color del grupo (como la vidriera iluminada de un local). */}
-      {!arquitecto && <pointLight position={[volumen.x, volumen.y + volumen.alto * 0.55, 0]} intensity={esRaiz ? 14 : 18} distance={9} color={color} />}
+      <pointLight position={[volumen.x, volumen.y + volumen.alto * 0.55, 0]} intensity={esRaiz ? 14 : 18} distance={9} color={color} />
 
       <mesh
         position={[volumen.x, volumen.y + volumen.alto / 2, 0]}
@@ -337,7 +315,7 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
         onPointerOut={esRaiz ? () => (setEncima(false), onHover(null), (document.body.style.cursor = '')) : undefined}
       >
         <boxGeometry args={[volumen.ancho, volumen.alto, volumen.profundidad]} />
-        <meshStandardMaterial ref={casco} color={color} transparent opacity={0.3} roughness={0.05} metalness={0.25} depthWrite={false} />
+        <meshPhysicalMaterial ref={casco} color={color} transparent opacity={0.3} roughness={0.04} metalness={0.15} clearcoat={1} clearcoatRoughness={0.04} envMapIntensity={1.6} depthWrite={false} />
         <Edges color={color} />
       </mesh>
 
@@ -354,7 +332,7 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
       </mesh>
       <mesh position={[volumen.x, volumen.y + volumen.alto + 0.05, 0]}>
         <boxGeometry args={[volumen.ancho + 0.2, 0.1, volumen.profundidad + 0.2]} />
-        <meshStandardMaterial color={tema.techo} transparent opacity={arquitecto ? 0.35 : 0.55} roughness={0.5} />
+        <meshStandardMaterial color={tema.techo} transparent opacity={0.55} roughness={0.5} />
       </mesh>
 
       <Parteluces volumen={volumen} material={parentesFrente} lado="frente" />
@@ -373,13 +351,13 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, a
       )}
 
       {volumen.pisos.map((piso) => (
-        <PisoCaja key={piso.id} piso={piso} volumen={volumen} seleccionado={seleccionadoId === piso.id} tema={tema} arquitecto={arquitecto} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={onHover} interactivo={!esRaiz} />
+        <PisoCaja key={piso.id} piso={piso} volumen={volumen} seleccionado={seleccionadoId === piso.id} tema={tema} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={onHover} interactivo={!esRaiz} />
       ))}
     </group>
   );
 }
 
-// Sombras solo en la vista de arquitecto (cuestan en teléfonos): los objetos y las losas las proyectan; el vidrio no.
+// Sombras proyectadas de verdad solo en equipos con mouse (cuestan en teléfonos; ahí quedan las sombras de contacto): los objetos y las losas las proyectan; el vidrio no.
 function Sombras({ activas, cambio }: { activas: boolean; cambio: string }) {
   const { gl, scene } = useThree();
 
@@ -451,6 +429,50 @@ function Proyector({ etiquetas, refs }: { etiquetas: Etiqueta[]; refs: React.Mut
   return null;
 }
 
+// Texturas procedurales del entorno (canvas 2D): asfalto con la línea de la calle y vereda embaldosada.
+function texturaProcedural(tipo: 'asfalto' | 'vereda', repeticiones: number): THREE.CanvasTexture {
+  const lado = 256;
+  const lienzo = document.createElement('canvas');
+  lienzo.width = lado;
+  lienzo.height = lado;
+  const g = lienzo.getContext('2d')!;
+  if (tipo === 'asfalto') {
+    g.fillStyle = '#161b27';
+    g.fillRect(0, 0, lado, lado);
+    for (let i = 0; i < 2200; i++) {
+      const gris = 28 + Math.floor(Math.random() * 40);
+      g.fillStyle = `rgb(${gris},${gris},${gris + 6})`;
+      g.fillRect(Math.random() * lado, Math.random() * lado, 1.6, 1.6);
+    }
+    g.fillStyle = 'rgba(235,235,225,0.85)';
+    g.fillRect(0, lado / 2 - 3, lado * 0.55, 6);
+  } else {
+    g.fillStyle = '#4a556e';
+    g.fillRect(0, 0, lado, lado);
+    g.strokeStyle = 'rgba(15,20,35,0.55)';
+    g.lineWidth = 3;
+    for (let i = 0; i <= 2; i++) {
+      g.beginPath();
+      g.moveTo((i * lado) / 2, 0);
+      g.lineTo((i * lado) / 2, lado);
+      g.moveTo(0, (i * lado) / 2);
+      g.lineTo(lado, (i * lado) / 2);
+      g.stroke();
+    }
+    for (let i = 0; i < 900; i++) {
+      g.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`;
+      g.fillRect(Math.random() * lado, Math.random() * lado, 2, 2);
+    }
+  }
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.RepeatWrapping;
+  textura.repeat.set(repeticiones, tipo === 'asfalto' ? 1 : Math.max(1, repeticiones / 3));
+  textura.anisotropy = 4;
+  return textura;
+}
+
 // Cielo del atardecer (degradé), como en las imágenes de referencia. Solo en la apariencia oscura.
 function Cielo({ activo }: { activo: boolean }) {
   const { scene } = useThree();
@@ -488,16 +510,21 @@ function Escenario({ volumenes }: { volumenes: Volumen[] }) {
   const x1 = Math.max(...volumenes.map((v) => v.x + v.ancho / 2));
   const macetas: Array<[number, number]> = [[x0 - 0.9, frente + 0.5], [x1 + 0.9, frente + 0.5], [(x0 + x1) / 2, frente + 0.7]];
   const faroles: Array<[number, number]> = [[x0 - 1.8, frente + 2.4], [x1 + 1.8, frente + 2.4]];
+  const largoVereda = x1 - x0 + 7;
+  const largoCalle = x1 - x0 + 22;
+  const veredaTx = useMemo(() => texturaProcedural('vereda', Math.round(largoVereda / 1.4)), [largoVereda]);
+  const calleTx = useMemo(() => texturaProcedural('asfalto', Math.round(largoCalle / 6)), [largoCalle]);
+  useEffect(() => () => { veredaTx.dispose(); calleTx.dispose(); }, [veredaTx, calleTx]);
 
   return (
     <group>
       <mesh position={[(x0 + x1) / 2, -0.12, frente + 1.6]}>
-        <boxGeometry args={[x1 - x0 + 7, 0.1, 3.6]} />
-        <meshStandardMaterial color="#3b4660" roughness={0.9} />
+        <boxGeometry args={[largoVereda, 0.1, 3.6]} />
+        <meshStandardMaterial map={veredaTx} roughness={0.75} metalness={0.05} />
       </mesh>
       <mesh position={[(x0 + x1) / 2, -0.2, frente + 5.2]}>
-        <boxGeometry args={[x1 - x0 + 22, 0.06, 3.8]} />
-        <meshStandardMaterial color="#0e1424" roughness={1} />
+        <boxGeometry args={[largoCalle, 0.06, 3.8]} />
+        <meshStandardMaterial map={calleTx} roughness={0.55} metalness={0.1} />
       </mesh>
       {macetas.map(([x, z], i) => (
         <group key={i} position={[x, -0.07, z]}>
@@ -548,8 +575,9 @@ function CartelEmpresa({ volumenes, nombre }: { volumenes: Volumen[]; nombre: st
   );
 }
 
-export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido, vistaArquitecto, nombreEmpresa }: Props) {
-  const tema = TEMAS[vistaArquitecto ? 'arquitecto' : 'oscuro'];
+export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido, nombreEmpresa }: Props) {
+  const tema = TEMA;
+  const [sombrasReales] = useState(() => typeof window !== 'undefined' && !window.matchMedia('(pointer: coarse)').matches);
   const esRaiz = focoId === 'empresa';
   const { centro, distancia } = useMemo(() => centroDe(volumenes, seleccionadoId), [volumenes, seleccionadoId]);
   const distanciaBase = useMemo(() => centroDe(volumenes, null).distancia, [volumenes]);
@@ -581,33 +609,53 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <Canvas dpr={[1, 1.75]} camera={{ position: [9, 7, 14], fov: 42 }} style={{ touchAction: 'none' }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
+      <Canvas
+        dpr={[1, 1.75]}
+        camera={{ position: [9, 7, 14], fov: 42 }}
+        style={{ touchAction: 'none' }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.15;
+        }}
+      >
         <color attach="background" args={[tema.fondo]} />
-        <Cielo activo={!vistaArquitecto} />
-        <fog attach="fog" args={[vistaArquitecto ? tema.fondo : '#1a2547', 30, 80]} />
+        <Cielo activo />
+        <fog attach="fog" args={['#1a2547', 30, 80]} />
         <ambientLight intensity={tema.luzAmbiente} />
-        <directionalLight position={[8, 14, 10]} intensity={vistaArquitecto ? 1.6 : 1.4} castShadow={vistaArquitecto} shadow-mapSize={[1536, 1536]} shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.0005} />
+        <directionalLight position={[8, 14, 10]} intensity={1.5} castShadow={sombrasReales} shadow-mapSize={[1536, 1536]} shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.0005} />
         <pointLight position={[-9, 5, -6]} intensity={0.9} color="#6aa7ff" />
         <pointLight position={[0, 4, 6]} intensity={0.6} color="#ffe2a3" />
+
+        {/* Luz de estudio (sin descargar nada): paneles cálidos y fríos que se reflejan en el vidrio y los objetos. */}
+        <Environment frames={1} resolution={256} background={false}>
+          <Lightformer form="rect" intensity={5} color="#ffd2a0" position={[-7, 4, 7]} scale={[11, 4, 1]} />
+          <Lightformer form="rect" intensity={3} color="#8fb4ff" position={[9, 5, -4]} scale={[9, 5, 1]} />
+          <Lightformer form="ring" intensity={2.5} color="#ffffff" position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={7} />
+          <Lightformer form="rect" intensity={1.5} color="#c6a0ff" position={[0, 3, -10]} scale={[14, 4, 1]} />
+        </Environment>
+
+        {/* Sombras suaves bajo el edificio y los objetos; se recalculan un instante cada vez que la escena cambia. */}
+        <ContactShadows key={`${focoId}|${periodoClave}|${seleccionadoId ?? ''}`} position={[0, -0.005, 0]} opacity={0.65} scale={36} blur={2.6} far={9} resolution={512} frames={70} color="#000000" />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.22, 0]}>
           <circleGeometry args={[18, 64]} />
           <meshStandardMaterial color={tema.suelo} roughness={0.9} />
         </mesh>
-        {!(esRaiz && !vistaArquitecto) && <gridHelper key={tema.fondo} args={[36, 36, tema.grilla[0], tema.grilla[1]]} position={[0, -0.21, 0]} />}
-        <Sombras activas={vistaArquitecto} cambio={`${focoId}|${periodoClave}|${volumenes.length}`} />
+        {!esRaiz && <gridHelper args={[36, 36, tema.grilla[0], tema.grilla[1]]} position={[0, -0.21, 0]} />}
+        <Sombras activas={sombrasReales} cambio={`${focoId}|${periodoClave}|${volumenes.length}`} />
 
-        {esRaiz && !vistaArquitecto && <Escenario volumenes={volumenes} />}
+        {esRaiz && <Escenario volumenes={volumenes} />}
 
         <GrupoAnimado clave={`${focoId}|${periodoClave}`} movimientoReducido={movimientoReducido}>
-          {esRaiz && !vistaArquitecto && nombreEmpresa && <CartelEmpresa volumenes={volumenes} nombre={nombreEmpresa} />}
+          {esRaiz && nombreEmpresa && <CartelEmpresa volumenes={volumenes} nombre={nombreEmpresa} />}
           {volumenes.map((v) => (
-            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} tema={tema} arquitecto={vistaArquitecto} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
+            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} tema={tema} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
           ))}
         </GrupoAnimado>
 
         <OrbitControls makeDefault enablePan={false} minDistance={4} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
-        <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} vistaArquitecto={vistaArquitecto} />
+        <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
 

@@ -13,8 +13,9 @@ function Material({ color, apagado, oscuro = false }: { color: string; apagado: 
       color={oscuro ? '#1e293b' : color}
       emissive={oscuro ? '#000000' : color}
       emissiveIntensity={apagado ? 0.03 : 0.22}
-      roughness={0.5}
-      metalness={0.15}
+      roughness={0.38}
+      metalness={0.35}
+      envMapIntensity={1.3}
     />
   );
 }
