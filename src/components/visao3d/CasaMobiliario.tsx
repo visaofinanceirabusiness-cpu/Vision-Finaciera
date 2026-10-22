@@ -1,12 +1,10 @@
 'use client';
 
 // Mobiliario y detalles de la casa de Visão 3D (modelo Familia), todo con formas simples. Las AMENIDADES (auto,
-// sofá, TV, cartera…) reciben el color de su cuenta; la decoración (plantas, cuadros, sillas, lámparas) es natural.
+// sofá, TV, cartera…, en CasaObjetos.tsx) reciben el color de su cuenta; la decoración (cuadros, sillas, lámparas) es natural.
 
 import { createContext, useContext, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { ObjetoCuenta } from './Objetos';
-import type { TipoObjeto } from '@/lib/visao3dObjetos';
 
 type V3 = [number, number, number];
 
@@ -15,9 +13,9 @@ export type TexturasCasa = { tela: THREE.Texture; tv: THREE.Texture; monitor: TH
 export const TexturasCtx = createContext<TexturasCasa | null>(null);
 
 // Caja con material estándar: la pieza básica de todo el mobiliario.
-export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture }) {
+export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map, rot }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture; rot?: V3 }) {
   return (
-    <mesh position={p}>
+    <mesh position={p} rotation={rot}>
       <boxGeometry args={s} />
       <meshStandardMaterial color={color} emissive={emissive ?? '#000000'} emissiveIntensity={ei} roughness={rough} metalness={metal} transparent={opacity < 1} opacity={opacity} map={map} />
     </mesh>
@@ -34,27 +32,6 @@ export function Cilindro({ p, r, h, color, emissive, ei = 0, seg = 16, rough = 0
 }
 
 // ---- Decoración (no son cuentas) ----
-
-export function Planta({ p, escala = 1, variante = 0 }: { p: V3; escala?: number; variante?: number }) {
-  const hojas: Array<[number, number, number, number]> = variante % 2 === 0
-    ? [[0, 0.95, 0, 0.38], [0.18, 0.7, 0.1, 0.28], [-0.2, 0.75, -0.08, 0.3], [0.05, 1.25, 0.04, 0.26]]
-    : [[0, 0.8, 0, 0.42], [0.22, 0.6, 0.1, 0.3], [-0.22, 0.62, -0.1, 0.3]];
-  return (
-    <group position={p} scale={escala}>
-      <mesh position={[0, 0.25, 0]}>
-        <cylinderGeometry args={[0.26, 0.19, 0.5, 14]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.7} />
-      </mesh>
-      <Cilindro p={[0, 0.55, 0]} r={0.24} h={0.04} color="#3b2a1e" />
-      {hojas.map(([x, y, z, r], i) => (
-        <mesh key={i} position={[x, y, z]}>
-          <icosahedronGeometry args={[r, 1]} />
-          <meshStandardMaterial color={i % 2 ? '#3fae63' : '#2f8f52'} emissive="#0f4a28" emissiveIntensity={0.35} roughness={0.8} flatShading />
-        </mesh>
-      ))}
-    </group>
-  );
-}
 
 export function Cuadro({ p, s = [0.9, 0.7], tono = 0 }: { p: V3; s?: [number, number]; tono?: number }) {
   const tx = useContext(TexturasCtx);
@@ -291,20 +268,6 @@ export function Foco({ p }: { p: V3 }) {
   );
 }
 
-export function Florero({ p }: { p: V3 }) {
-  return (
-    <group position={p}>
-      <Cilindro p={[0, 0.14, 0]} r={0.09} h={0.28} color="#e8e4dc" rough={0.3} />
-      {[[-0.05, 0.38, 0], [0.05, 0.42, 0.02], [0, 0.46, -0.03]].map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]}>
-          <sphereGeometry args={[0.07, 8, 6]} />
-          <meshStandardMaterial color={['#ff6b8a', '#ffd166', '#ffffff'][i]} emissive={['#ff6b8a', '#ffd166', '#ffffff'][i]} emissiveIntensity={0.25} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 export function Palmera({ p, escala = 1 }: { p: V3; escala?: number }) {
   return (
     <group position={p} scale={escala}>
@@ -328,95 +291,6 @@ export function CargadorEV({ p }: { p: V3 }) {
       <Caja p={[0, 1.1, 0]} s={[0.32, 0.55, 0.14]} color="#f1f4f9" rough={0.3} />
       <Caja p={[0, 1.18, 0.08]} s={[0.1, 0.1, 0.02]} color="#3ddc97" emissive="#3ddc97" ei={1.2} />
       <Cilindro p={[0.18, 0.7, 0.1]} r={0.025} h={0.8} color="#222831" />
-    </group>
-  );
-}
-
-// ---- Amenidades: reciben el color de su cuenta ----
-
-type Pintura = { color: string; apagado: boolean; brillo: number };
-
-const matPintado = (p: Pintura) => ({ color: p.color, emissive: p.color, ei: (p.apagado ? 0.04 : 0.28) * p.brillo });
-
-export function AutoSUV({ pintura }: { pintura: Pintura }) {
-  const m = matPintado(pintura);
-  return (
-    <group>
-      <Caja p={[0, 0.62, 0]} s={[4.3, 0.62, 1.85]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.25} metal={0.6} />
-      <Caja p={[-0.15, 1.18, 0]} s={[2.5, 0.62, 1.7]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.25} metal={0.6} />
-      <Caja p={[-0.15, 1.2, 0]} s={[2.38, 0.5, 1.74]} color="#0e1420" rough={0.1} metal={0.8} />
-      {[-1.35, 1.4].flatMap((x) => [-0.9, 0.9].map((z) => (
-        <Cilindro key={`${x}${z}`} p={[x, 0.36, z]} r={0.38} h={0.28} color="#141821" rot={[Math.PI / 2, 0, 0]} />
-      )))}
-      <Caja p={[2.16, 0.7, 0.55]} s={[0.04, 0.14, 0.32]} color="#fff6d6" emissive="#fff2b8" ei={2} />
-      <Caja p={[2.16, 0.7, -0.55]} s={[0.04, 0.14, 0.32]} color="#fff6d6" emissive="#fff2b8" ei={2} />
-      <Caja p={[-2.16, 0.7, 0.6]} s={[0.04, 0.14, 0.3]} color="#ff3b3b" emissive="#ff1f1f" ei={1.4} />
-      <Caja p={[-2.16, 0.7, -0.6]} s={[0.04, 0.14, 0.3]} color="#ff3b3b" emissive="#ff1f1f" ei={1.4} />
-    </group>
-  );
-}
-
-export function Sofa({ pintura }: { pintura: Pintura }) {
-  const m = matPintado(pintura);
-  const tela = useContext(TexturasCtx)?.tela;
-  return (
-    <group>
-      <Caja p={[0, 0.3, 0]} s={[2.8, 0.4, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
-      <Caja p={[0, 0.72, -0.4]} s={[2.8, 0.55, 0.28]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
-      <Caja p={[-1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
-      <Caja p={[1.45, 0.45, 0]} s={[0.2, 0.7, 1.05]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.95} map={tela} />
-      {[-0.85, 0, 0.85].map((x) => (
-        <Caja key={x} p={[x, 0.58, 0.08]} s={[0.8, 0.14, 0.8]} color={m.color} emissive={m.emissive} ei={m.ei * 0.5} rough={1} map={tela} />
-      ))}
-      {[-0.9, 0.9].map((x) => (
-        <Caja key={`c${x}`} p={[x, 0.82, -0.12]} s={[0.5, 0.45, 0.14]} color="#ffffff" rough={1} map={tela} />
-      ))}
-    </group>
-  );
-}
-
-export function TV({ pintura }: { pintura: Pintura }) {
-  const m = matPintado(pintura);
-  return (
-    <group>
-      <Caja p={[0, 0.3, 0]} s={[1.9, 0.6, 0.45]} color="#2a2f3b" rough={0.5} />
-      <Caja p={[0, 1.25, 0]} s={[1.7, 0.95, 0.05]} color="#0a0d14" rough={0.2} />
-      <PantallaPlana p={[0, 1.25, 0.035]} s={[1.6, 0.86]} textura="tv" color={pintura.apagado ? '#4a4f5c' : '#ffffff'} />
-      <Caja p={[0, 0.62, 0.1]} s={[1.9, 0.05, 0.3]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.4} />
-      <Caja p={[0, 0.78, 0]} s={[0.12, 0.3, 0.08]} color="#1b2030" />
-    </group>
-  );
-}
-
-export function Tarjeta({ pintura }: { pintura: Pintura }) {
-  const m = matPintado(pintura);
-  return (
-    <group rotation={[-0.3, 0.3, 0]}>
-      <Caja p={[0, 0.2, 0]} s={[0.62, 0.4, 0.03]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.3} metal={0.5} />
-      <Caja p={[0, 0.26, 0.02]} s={[0.62, 0.07, 0.01]} color="#10141c" />
-      <Caja p={[-0.17, 0.1, 0.02]} s={[0.14, 0.1, 0.01]} color="#f2d27a" metal={0.8} />
-    </group>
-  );
-}
-
-export function Maqueta({ pintura }: { pintura: Pintura }) {
-  const m = matPintado(pintura);
-  return (
-    <group>
-      <Caja p={[0, 0.17, 0]} s={[0.62, 0.34, 0.5]} color={m.color} emissive={m.emissive} ei={m.ei} rough={0.5} />
-      <mesh position={[0, 0.5, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[0.52, 0.3, 4]} />
-        <meshStandardMaterial color={m.color} emissive={m.emissive} emissiveIntensity={m.ei} roughness={0.5} />
-      </mesh>
-    </group>
-  );
-}
-
-// Objetos genéricos de cuenta (monedas, billetes, papeles, banco, capital, gráfico) con el color de su cuenta.
-export function ObjetoPintado({ tipo, pintura, escala = 1 }: { tipo: TipoObjeto; pintura: Pintura; escala?: number }) {
-  return (
-    <group scale={escala}>
-      <ObjetoCuenta tipo={tipo} color={pintura.color} apagado={pintura.apagado} />
     </group>
   );
 }
