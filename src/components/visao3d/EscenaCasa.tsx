@@ -6,7 +6,7 @@
 // Ativo (azul): cochera, living y dormitorio · Passivo (naranja): oficina · Patrimônio (verde): comedor.
 // Se carga con import dinámico (ssr: false).
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { ContactShadows, Edges, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -14,10 +14,11 @@ import { colorDeSaldo } from '@/lib/visao3dObjetos';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import type { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import type { SlotId } from '@/lib/visao3dCasa';
-import { CamaraGuiada, Cielo, GrupoAnimado, Letrero, Proyector, Sombras, texturaProcedural, type Etiqueta } from './Compartido3D';
+import { CamaraGuiada, Cielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
   Alfombra, Archivero, AutoSUV, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
-  Maqueta, Mesa, MesaCentro, MesaLateral, ObjetoPintado, Planta, Silla, SillaOficina, Sofa, Tarjeta, TV, useTexturas,
+  Foco, Florero, Maqueta, Mesa, MesaCentro, MesaLateral, ObjetoPintado, Palmera, Persona, Planta, Silla, SillaOficina, Sofa, Tarjeta, TexturasCtx, TV, useTexturas,
+  type TexturasCasa,
 } from './CasaMobiliario';
 
 type V3 = [number, number, number];
@@ -62,7 +63,7 @@ const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#dfe9ff', PASIVO: '#ffe6
 const PROF = 6.9;
 const Z_ATRAS = -3.45;
 
-function Habitacion({ zona, piso, luz }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture; luz: boolean }) {
+function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture }) {
   const color = COLOR_GRUPO[zona.grupo];
   const ancho = zona.x1 - zona.x0;
   const alto = zona.y1 - zona.y0;
@@ -75,26 +76,23 @@ function Habitacion({ zona, piso, luz }: { zona: (typeof ZONAS)[keyof typeof ZON
       {/* Piso. */}
       <mesh position={[cx, zona.y0 - 0.075, cz]}>
         <boxGeometry args={[ancho, 0.15, PROF]} />
-        <meshStandardMaterial map={piso} roughness={0.55} metalness={0.05} />
+        <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={0.14} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
       </mesh>
       {/* Pared del fondo teñida con el color de la zona. */}
       <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} emissive={color} ei={0.14} rough={0.85} />
       {/* Vidrio de la habitación con borde de neón. */}
       <mesh position={[cx, cy, cz]}>
         <boxGeometry args={[ancho, alto, PROF]} />
-        <meshPhysicalMaterial color={color} transparent opacity={0.05} roughness={0.04} clearcoat={1} envMapIntensity={1.4} depthWrite={false} />
+        <meshStandardMaterial color={color} transparent opacity={0.06} roughness={0.05} metalness={0.2} envMapIntensity={1.4} depthWrite={false} />
         <Edges color={color} lineWidth={2} />
       </mesh>
       <mesh position={[cx, cy, cz]} scale={[1.012, 1.015, 1.012]}>
         <boxGeometry args={[ancho, alto, PROF]} />
         <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      {luz && <pointLight position={[cx, y1Luz(zona), cz - 0.5]} intensity={70} distance={11} color={color} />}
     </group>
   );
 }
-
-const y1Luz = (z: (typeof ZONAS)[keyof typeof ZONAS]) => z.y1 - 0.6;
 
 function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode }) {
   const { pos, escala = 1 } = AMENIDADES[id];
@@ -120,8 +118,33 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
         document.body.style.cursor = '';
       }}
     >
-      <group scale={escala}>{children({ color, apagado, brillo })}</group>
+      {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
+      <group scale={escala}>
+        <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo })}</Fundido>
+      </group>
     </group>
+  );
+}
+
+function Matas({ matas }: { matas: Array<[number, number, number]> }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    const malla = ref.current;
+    if (!malla) return;
+    const m = new THREE.Matrix4();
+    matas.forEach(([x, z, e], i) => {
+      m.compose(new THREE.Vector3(x, 0.1 * e, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, i, 0)), new THREE.Vector3(e, e, e));
+      malla.setMatrixAt(i, m);
+    });
+    malla.instanceMatrix.needsUpdate = true;
+  }, [matas]);
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, matas.length]} frustumCulled={false}>
+      <coneGeometry args={[0.07, 0.34, 4]} />
+      <meshStandardMaterial color="#3f9d58" emissive="#16532b" emissiveIntensity={0.35} roughness={1} flatShading />
+    </instancedMesh>
   );
 }
 
@@ -136,9 +159,25 @@ function Exterior() {
   const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })), []);
   const arboles: Array<[number, number, number]> = [[-11, -7.6, 1.1], [-6, -8, 1.3], [-0.5, -7.6, 1], [5, -8, 1.25], [10.5, -7.4, 1.1]];
   const faroles: Array<[number, number]> = [[-4.1, 4.9], [1.2, 4.7], [6.4, 4.9], [-9.6, 4.8], [10.2, 11]];
+  // Matas de pasto y flores en una sola malla instanciada cada una (cientos de piezas = 1 llamada de dibujo).
+  const matas = useMemo(() => {
+    const lista: Array<[number, number, number]> = [];
+    let n = 7;
+    const azar = () => ((n = (n * 16807) % 2147483647) / 2147483647);
+    while (lista.length < 520) {
+      const x = -20 + azar() * 36;
+      const z = 4.6 + azar() * 10;
+      const enCamino = x > -10.6 && x < -4.2 && z < 13; // entrada de autos
+      const enPileta = x > 0.8 && x < 11 && z > 4.8 && z < 11.4;
+      const enSendero = x > -2.5 && x < -0.3 && z < 17;
+      if (!enCamino && !enPileta && !enSendero) lista.push([x, z, 0.6 + azar() * 0.8]);
+    }
+    return lista;
+  }, []);
+  const flores = useMemo(() => Array.from({ length: 46 }, (_, i) => ({ x: -4 + ((i * 37) % 100) * 0.115, z: 5.4 + ((i * 53) % 10) * 0.12, c: ['#ff6b8a', '#ffd166', '#ffffff', '#c77dff'][i % 4] })), []);
 
   return (
-    <group>
+    <Fundido>
       <mesh position={[-1, -0.17, 5]}>
         <boxGeometry args={[70, 0.1, 40]} />
         <meshStandardMaterial map={t.pasto} roughness={1} />
@@ -152,6 +191,16 @@ function Exterior() {
         <meshStandardMaterial map={t.asfalto} roughness={0.55} metalness={0.1} />
       </mesh>
       {/* Sendero de piedras hasta la entrada. */}
+      <Matas matas={matas} />
+      {flores.map((f, i) => (
+        <mesh key={i} position={[f.x, 0.12, f.z]}>
+          <sphereGeometry args={[0.07, 6, 5]} />
+          <meshStandardMaterial color={f.c} emissive={f.c} emissiveIntensity={0.5} />
+        </mesh>
+      ))}
+      <Palmera p={[1.0, -0.05, 6.4]} escala={1.1} />
+      <Palmera p={[11.2, -0.05, 9.6]} escala={1.3} />
+      <Palmera p={[11.4, -0.05, 5.0]} escala={1.0} />
       {Array.from({ length: 6 }, (_, i) => (
         <Caja key={i} p={[-1.8 + (i % 2) * 0.35, -0.08, 5.3 + i * 1.8]} s={[1.3, 0.08, 1.0]} color="#9aa3b5" rough={0.8} />
       ))}
@@ -163,9 +212,8 @@ function Exterior() {
       </mesh>
       <mesh position={[5.8, -0.03, 8]}>
         <boxGeometry args={[7.6, 0.06, 4.2]} />
-        <meshStandardMaterial map={t.agua} emissive="#38b6ff" emissiveIntensity={0.55} roughness={0.08} metalness={0.2} transparent opacity={0.92} />
+        <meshStandardMaterial map={t.agua} emissive="#38b6ff" emissiveIntensity={0.5} roughness={0.05} metalness={0.4} envMapIntensity={1.6} transparent opacity={0.92} />
       </mesh>
-      <pointLight position={[5.8, 0.5, 8]} intensity={9} distance={9} color="#46b8ff" />
       {[[-0.3, 0], [1.3, 0]].map(([dx], i) => (
         <group key={i} position={[10.9 + dx, 0, 6.6 + i * 1.6]}>
           <Caja p={[0, 0.3, 0]} s={[0.8, 0.12, 1.9]} color="#e8e2d6" rough={0.8} />
@@ -196,7 +244,6 @@ function Exterior() {
             <sphereGeometry args={[0.1, 10, 8]} />
             <meshBasicMaterial color="#ffd89a" toneMapped={false} />
           </mesh>
-          {i < 2 && <pointLight position={[0, 0.8, 0]} intensity={5} distance={5} color="#ffcf8a" />}
         </group>
       ))}
 
@@ -214,12 +261,15 @@ function Exterior() {
           </mesh>
         </group>
       ))}
-    </group>
+    </Fundido>
   );
 }
 
 function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar }: { nodos: Record<SlotId, NodoEdificio>; totales: Props['totales']; slotSeleccionado: SlotId | null; hover: SlotId | null; setHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
+  const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
+  const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
+  const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
   const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode) => (
     <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar}>
       {hijo}
@@ -227,14 +277,16 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
   );
 
   return (
+    <TexturasCtx.Provider value={texturas}>
     <group>
       {/* Habitaciones. */}
-      <Habitacion zona={ZONAS.garage} piso={piso.concreto} luz />
-      <Habitacion zona={ZONAS.living} piso={piso.madera} luz />
-      <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} luz />
-      <Habitacion zona={ZONAS.oficina} piso={piso.madera} luz />
-      <Habitacion zona={ZONAS.comedor} piso={piso.madera} luz />
+      <Habitacion zona={ZONAS.garage} piso={piso.concreto} />
+      <Habitacion zona={ZONAS.living} piso={piso.madera} />
+      <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} />
+      <Habitacion zona={ZONAS.oficina} piso={piso.madera} />
+      <Habitacion zona={ZONAS.comedor} piso={piso.madera} />
 
+      <Fundido>
       {/* Techos con jardín. */}
       <Caja p={[0.55, 6.3, 0.0]} s={[11.4, 0.16, 8]} color="#e9edf3" rough={0.6} />
       <Caja p={[-7.7, 3.08, 0.0]} s={[6.6, 0.16, 8]} color="#e9edf3" rough={0.6} />
@@ -245,8 +297,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
 
       {/* Cochera: cargador del auto eléctrico. */}
       <CargadorEV p={[-5.1, 0, -3.25]} />
-      {amen('otros', (p) => <ObjetoPintado tipo="caja" pintura={p} />)}
-      {amen('auto', (p) => <AutoSUV pintura={p} />)}
 
       {/* Living. */}
       <Alfombra p={[-2.1, 0.02, 0.5]} s={[3.8, 2.6]} color="#7e8ba6" />
@@ -256,10 +306,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <MesaCentro p={[-1.9, 0, 0.7]} />
       <Planta p={[-4.3, 0, 1.9]} escala={1.5} />
       <Planta p={[0.2, 0, 2.2]} escala={1.2} variante={1} />
-      {amen('electro', (p) => <TV pintura={p} />)}
-      {amen('muebles', (p) => <Sofa pintura={p} />)}
-      {amen('inmueble', (p) => <Maqueta pintura={p} />)}
-      {amen('cobrar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
 
       {/* Dormitorio. */}
       <Cama p={[-2.4, 3.15, -2.1]} />
@@ -271,9 +317,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Cuadro p={[-1.6, 5.2, -3.37]} s={[0.7, 0.9]} tono={3} />
       <Caja p={[-4.3, 4.9, -3.25]} s={[0.7, 0.05, 0.3]} color="#3a3f4d" />
       <Planta p={[0.2, 3.15, 1.8]} escala={1.3} />
-      {amen('ahorro', (p) => <ObjetoPintado tipo="ahorro" pintura={p} />)}
-      {amen('efectivo', (p) => <ObjetoPintado tipo="billetes" pintura={p} />)}
-      {amen('banco', (p) => <ObjetoPintado tipo="banco" pintura={p} />)}
 
       {/* Oficina. */}
       <Escritorio p={[3.2, 3.15, -2.6]} />
@@ -284,9 +327,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Cajas p={[1.3, 5.0, -3.15]} n={2} />
       <Planta p={[0.9, 3.15, 1.9]} escala={1.3} variante={1} />
       <Cuadro p={[4.3, 5.4, -3.37]} s={[0.9, 0.6]} tono={0} />
-      {amen('tarjeta', (p) => <Tarjeta pintura={p} />)}
-      {amen('prestamo', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
-      {amen('apagar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
 
       {/* Comedor. */}
       <Mesa p={[3.2, 0, 0.3]} ancho={3.2} fondo={1.5} />
@@ -296,15 +336,48 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#27e17f" ei={0.18} />
       <Planta p={[5.3, 0, -2.4]} escala={1.6} />
       <Planta p={[1.1, 0, 2.3]} escala={1.2} variante={1} />
+      <Florero p={[3.2, 0.82, -0.2]} />
+      <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
+
+      {/* Focos empotrados en el techo de cada habitación. */}
+      {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[x, y, z]} />))}
+
+      {/* Personas: la familia en su casa. */}
+      <Persona p={[-1.3, 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" />
+      <Persona p={[-2.0, 0.5, -2.45]} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
+      <Persona p={[-1.15, 0.5, -2.45]} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      <Persona p={[3.2, 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
+      <Persona p={[2.1, 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
+      <Persona p={[3.2, 0.46, -0.8]} sentado ropa="#5da3c9" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      <Persona p={[4.3, 0.46, 1.4]} rot={Math.PI} sentado esc={0.7} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" />
+      <Persona p={[9.0, 0, 4.6]} rot={Math.PI * 0.85} ropa="#f2f2f2" pantalon="#3e5a8a" pelo="#2a1c12" />
+      <Persona p={[8.2, 0, 4.7]} rot={Math.PI * 0.9} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" />
+      </Fundido>
+
+      {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
+      {amen('otros', (p) => <ObjetoPintado tipo="caja" pintura={p} />)}
+      {amen('auto', (p) => <AutoSUV pintura={p} />)}
+      {amen('electro', (p) => <TV pintura={p} />)}
+      {amen('muebles', (p) => <Sofa pintura={p} />)}
+      {amen('inmueble', (p) => <Maqueta pintura={p} />)}
+      {amen('cobrar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
+      {amen('ahorro', (p) => <ObjetoPintado tipo="ahorro" pintura={p} />)}
+      {amen('efectivo', (p) => <ObjetoPintado tipo="billetes" pintura={p} />)}
+      {amen('banco', (p) => <ObjetoPintado tipo="banco" pintura={p} />)}
+      {amen('tarjeta', (p) => <Tarjeta pintura={p} />)}
+      {amen('prestamo', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
+      {amen('apagar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
       {amen('capital', (p) => <ObjetoPintado tipo="capital" pintura={p} />)}
       {amen('resultado', (p) => <ObjetoPintado tipo="resultado" pintura={p} />)}
     </group>
+    </TexturasCtx.Provider>
   );
 }
 
 export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSeleccionar, formatear, movimientoReducido, periodoClave }: Props) {
   const [hover, setHover] = useState<SlotId | null>(null);
-  const [sombrasReales] = useState(() => typeof window !== 'undefined' && !window.matchMedia('(pointer: coarse)').matches);
+  // En teléfonos se baja la resolución interna: es lo que más pesa al dibujar.
+  const [dprMax] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.75));
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const { objetivo, distancia } = useMemo(() => {
@@ -349,7 +422,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
-        dpr={[1, 1.75]}
+        dpr={[1, dprMax]}
         camera={{ position: [3, 8, 27], fov: 40 }}
         style={{ touchAction: 'none' }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
@@ -360,15 +433,15 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       >
         <Cielo activo />
         <fog attach="fog" args={['#2a2f55', 45, 120]} />
-        <ambientLight intensity={0.95} />
-        <directionalLight position={[10, 16, 14]} intensity={1.1} castShadow={sombrasReales} shadow-mapSize={[2048, 2048]} shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} shadow-bias={-0.0005} />
+        <ambientLight intensity={1.15} />
+        <hemisphereLight args={['#bcd0ff', '#3a2f26', 0.5]} />
+        <directionalLight position={[10, 16, 14]} intensity={1.1}  />
         <Environment frames={1} resolution={256} background={false}>
           <Lightformer form="rect" intensity={4} color="#ffd2a0" position={[-8, 5, 9]} scale={[12, 5, 1]} />
           <Lightformer form="rect" intensity={3} color="#8fb4ff" position={[10, 6, -5]} scale={[10, 5, 1]} />
           <Lightformer form="ring" intensity={2} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={8} />
         </Environment>
-        <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.01, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={512} frames={70} color="#000000" />
-        <Sombras activas={sombrasReales} cambio={`${periodoClave}|${nodos.auto.saldo}`} />
+        <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.01, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
 
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior />
