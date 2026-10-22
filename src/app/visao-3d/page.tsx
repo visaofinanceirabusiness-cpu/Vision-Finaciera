@@ -9,10 +9,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { VolverLobby } from '@/components/nav/VolverLobby';
-import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { PanelNodo } from '@/components/visao3d/PanelNodo';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { nombreCuentaDisplay } from '@/lib/i18n';
@@ -60,6 +59,10 @@ export default function Visao3DPage() {
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
   const [webgl, setWebgl] = useState(true);
   const [arquitecto, setArquitecto] = useState(false);
+  // Pantalla inmersiva: el edificio ocupa todo; los controles viven en un menú y el panel es una hoja plegable.
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  const [pista, setPista] = useState(true);
   const [movimientoReducido, setMovimientoReducido] = useState(false);
 
   const esPT = idioma === 'PT';
@@ -70,6 +73,17 @@ export default function Visao3DPage() {
     setWebgl(ok);
     if (!ok) setVista('lista');
     setMovimientoReducido(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+  }, []);
+
+  // Sin scroll de página mientras se está adentro, y la pista de gestos se va sola.
+  useEffect(() => {
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const pistaTimer = window.setTimeout(() => setPista(false), 7000);
+    return () => {
+      document.body.style.overflow = anterior;
+      window.clearTimeout(pistaTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -193,166 +207,201 @@ export default function Visao3DPage() {
 
   const puedeVolver = foco.id !== 'empresa' || Boolean(seleccionadoId);
   const cuadra = Math.abs(edificio.diferencia) < 0.5;
+  const dinero = (n: number) => `${n < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(n))}`;
+  const colorNodo = COLOR_GRUPO[nodoPanel.grupo];
 
-  const barra: React.CSSProperties = { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' };
-  const boton = (activo: boolean): React.CSSProperties => ({
+  function pantallaCompletaDelNavegador() {
+    if (document.fullscreenElement) void document.exitFullscreen?.();
+    else void document.documentElement.requestFullscreen?.();
+  }
+
+  const vidrio: React.CSSProperties = { background: 'rgba(11,20,36,0.82)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(6px)' };
+  const redondo: React.CSSProperties = { ...vidrio, width: 38, height: 38, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 17, cursor: 'pointer', textDecoration: 'none', flexShrink: 0 };
+  const interruptor = (activo: boolean): React.CSSProperties => ({
     border: `1px solid ${activo ? '#fff' : 'rgba(255,255,255,0.35)'}`,
-    background: activo ? 'rgba(255,255,255,0.18)' : 'transparent',
+    background: activo ? 'rgba(255,255,255,0.2)' : 'transparent',
     color: '#fff',
     borderRadius: 999,
-    padding: '6px 14px',
+    padding: '6px 12px',
     fontSize: 12.5,
     fontWeight: 700,
     cursor: 'pointer',
+    textAlign: 'left',
   });
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--fondo-app, linear-gradient(160deg, #0b1424 0%, #14284a 60%, #12382f 100%))', padding: '20px 16px 32px' }}>
+    <main style={{ position: 'fixed', inset: 0, zIndex: 40, background: arquitecto ? '#eef2f7' : '#0b1424', color: '#fff', overflow: 'hidden' }}>
       <style>{`
-        .visao3d-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; }
-        .visao3d-lienzo { height: calc(100vh - 230px); min-height: 480px; }
-        @media (max-width: 860px) {
-          .visao3d-cuerpo { grid-template-columns: minmax(0, 1fr); }
-          .visao3d-lienzo { height: 56vh; min-height: 340px; }
-        }
+        .visao3d-panel { position: absolute; left: 8px; right: 8px; bottom: 8px; }
+        @media (min-width: 861px) { .visao3d-panel { left: auto; right: 14px; bottom: 14px; width: 380px; } }
+        .visao3d-migas::-webkit-scrollbar { display: none; }
       `}</style>
 
-      <div style={{ maxWidth: 1250, margin: '0 auto', color: '#fff' }}>
-        <VolverLobby>{esPT ? 'Voltar' : 'Volver'}</VolverLobby>
-
-        <div style={{ ...barra, justifyContent: 'space-between', marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1.3, color: '#7dd3fc' }}>VISÃO 3D</div>
-            <h1 style={{ margin: 0, fontSize: 26 }}>🏢 {esPT ? 'A empresa por dentro' : 'La empresa por dentro'}</h1>
-          </div>
-          <AccesosHerramientas />
+      {/* Escena a pantalla completa (o la lista equivalente). */}
+      {cargando ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#cbd5e1' }}>{esPT ? 'Carregando...' : 'Cargando...'}</div>
+      ) : error || cuentas.length === 0 ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center', color: '#fca5a5' }}>
+          {error || (esPT ? 'Ainda não há plano de contas para mostrar.' : 'Todavía no hay plan de cuentas para mostrar.')}
         </div>
+      ) : vista === '3d' && webgl ? (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <Escena
+            volumenes={volumenes}
+            focoId={foco.id}
+            periodoClave={mes}
+            seleccionadoId={seleccionadoId}
+            onSeleccionar={seleccionar}
+            onEntrar={entrar}
+            formatear={dinero}
+            movimientoReducido={movimientoReducido}
+            vistaArquitecto={arquitecto}
+          />
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '130px 14px 150px' }}>
+          {!webgl && <p style={{ fontSize: 12.5, color: '#fcd34d' }}>{esPT ? 'Este dispositivo não suporta 3D: use a lista.' : 'Este dispositivo no soporta 3D: usá la lista.'}</p>}
+          {volumenes.flatMap((v) => (foco.nivel === 0 ? [v.nodo] : v.pisos.map((p) => p.nodo))).map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => (foco.nivel === 0 || seleccionadoId === n.id ? entrar(n) : seleccionar(n))}
+              style={{ display: 'flex', justifyContent: 'space-between', width: '100%', textAlign: 'left', border: 'none', borderLeft: `4px solid ${COLOR_GRUPO[n.grupo]}`, background: seleccionadoId === n.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)', color: '#fff', borderRadius: 8, padding: '12px 14px', marginBottom: 6, cursor: 'pointer', fontSize: 14 }}
+            >
+              <span>{n.hijos.length > 0 ? '▸ ' : ''}{n.nombre}</span>
+              <b>{dinero(n.saldo)}</b>
+            </button>
+          ))}
+        </div>
+      )}
 
-        {error && <div style={{ background: '#fef2f2', color: '#b91c1c', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 13 }}>{error}</div>}
-
-        {cargando ? (
-          <p>{esPT ? 'Carregando...' : 'Cargando...'}</p>
-        ) : cuentas.length === 0 ? (
-          <p>{esPT ? 'Ainda não há plano de contas para mostrar.' : 'Todavía no hay plan de cuentas para mostrar.'}</p>
-        ) : (
-          <>
-            {/* Lectura rápida: la ecuación contable con los tres totales; tocar uno entra a ese grupo. */}
-            <div role="group" aria-label={esPT ? 'Ativo = Passivo + Patrimônio Líquido' : 'Activo = Pasivo + Patrimonio Neto'} style={{ ...barra, gap: 8, marginBottom: 12 }}>
-              {edificio.raiz.hijos.map((grupo, i) => (
-                <span key={grupo.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {i > 0 && <b style={{ fontSize: 20, opacity: 0.7 }}>{i === 1 ? '=' : '+'}</b>}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFocoId(grupo.id);
-                      setSeleccionadoId(null);
-                    }}
-                    style={{ border: `1.5px solid ${COLOR_GRUPO[grupo.grupo]}`, background: `${COLOR_GRUPO[grupo.grupo]}22`, color: '#fff', borderRadius: 14, padding: '7px 14px', cursor: 'pointer', textAlign: 'left' }}
-                  >
-                    <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: COLOR_GRUPO[grupo.grupo] }}>{grupo.nombre.toUpperCase()}</div>
-                    <div style={{ fontSize: 17, fontWeight: 900 }}>{`${grupo.saldo < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(grupo.saldo))}`}</div>
-                  </button>
-                </span>
-              ))}
-            </div>
-
-            <div style={{ ...barra, marginBottom: 10 }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700 }}>
-                {esPT ? 'Saldos ao fechamento de' : 'Saldos al cierre de'}{' '}
-                <select
-                  value={mes}
-                  onChange={(e) => setMes(e.target.value)}
-                  style={{ marginLeft: 6, borderRadius: 8, padding: '5px 8px', border: '1px solid #cbd5e1' }}
-                >
-                  <option value="TODOS">{esPT ? 'Hoje (tudo registrado)' : 'Hoy (todo lo registrado)'}</option>
-                  {meses.map((m) => (
-                    <option key={m} value={m}>
-                      {formatoMes(m, esPT)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button type="button" onClick={() => setMostrarCeros((v) => !v)} aria-pressed={mostrarCeros} style={boton(mostrarCeros)}>
-                {mostrarCeros ? (esPT ? 'Ocultar contas em zero' : 'Ocultar cuentas en cero') : esPT ? 'Mostrar contas em zero' : 'Mostrar cuentas en cero'}
+      {/* Barra superior mínima: salir, ruta y menú. */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '10px 12px 0', display: 'flex', gap: 8, alignItems: 'center', pointerEvents: 'none' }}>
+        <Link href="/" aria-label={esPT ? 'Voltar ao início' : 'Volver al inicio'} style={{ ...redondo, pointerEvents: 'auto' }}>
+          🏠
+        </Link>
+        <nav
+          aria-label={esPT ? 'Caminho' : 'Ruta'}
+          className="visao3d-migas"
+          style={{ ...vidrio, pointerEvents: 'auto', flex: 1, minWidth: 0, borderRadius: 999, padding: '0 10px', height: 38, display: 'flex', alignItems: 'center', gap: 2, overflowX: 'auto', whiteSpace: 'nowrap', scrollbarWidth: 'none' }}
+        >
+          {camino.map((n, i) => (
+            <span key={n.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              {i > 0 && <span style={{ opacity: 0.6 }}>→</span>}
+              <button
+                type="button"
+                onClick={() => (n.id === 'empresa' ? irAEmpresa() : irACamino(n))}
+                style={{ border: 'none', background: 'transparent', color: i === camino.length - 1 ? '#fff' : n.nivel > 0 ? COLOR_GRUPO[n.grupo] : '#7dd3fc', fontWeight: 800, cursor: 'pointer', fontSize: 12.5, padding: '2px 4px' }}
+              >
+                {n.nombre}
               </button>
+            </span>
+          ))}
+        </nav>
+        <button type="button" aria-label={esPT ? 'Opções' : 'Opciones'} aria-expanded={menuAbierto} onClick={() => setMenuAbierto((v) => !v)} style={{ ...redondo, pointerEvents: 'auto' }}>
+          ⚙️
+        </button>
+      </div>
 
-              {webgl && (
-                <span style={{ display: 'inline-flex', gap: 6 }}>
-                  <button type="button" onClick={() => setVista('3d')} aria-pressed={vista === '3d'} style={boton(vista === '3d')}>
-                    🏢 3D
-                  </button>
-                  <button type="button" onClick={() => setVista('lista')} aria-pressed={vista === 'lista'} style={boton(vista === 'lista')}>
-                    ☰ {esPT ? 'Lista' : 'Lista'}
-                  </button>
-                  {vista === '3d' && (
-                    <button type="button" onClick={() => setArquitecto((v) => !v)} aria-pressed={arquitecto} style={boton(arquitecto)}>
-                      📐 {esPT ? 'Vista de arquiteto' : 'Vista de arquitecto'}
-                    </button>
-                  )}
-                </span>
-              )}
+      {/* Ecuación contable compacta: Ativo = Passivo + Patrimônio (tocar uno entra al grupo). */}
+      {!cargando && cuentas.length > 0 && (
+        <div role="group" aria-label={esPT ? 'Ativo = Passivo + Patrimônio Líquido' : 'Activo = Pasivo + Patrimonio Neto'} style={{ position: 'absolute', top: 56, left: 12, right: 12, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', pointerEvents: 'none' }}>
+          {edificio.raiz.hijos.map((grupo, i) => (
+            <span key={grupo.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {i > 0 && <b style={{ fontSize: 15, opacity: 0.8, color: arquitecto ? '#0f172a' : '#fff' }}>{i === 1 ? '=' : '+'}</b>}
+              <button
+                type="button"
+                onClick={() => {
+                  setFocoId(grupo.id);
+                  setSeleccionadoId(null);
+                }}
+                style={{ ...vidrio, pointerEvents: 'auto', border: `1.5px solid ${COLOR_GRUPO[grupo.grupo]}`, borderRadius: 12, padding: '4px 10px', cursor: 'pointer', textAlign: 'left' }}
+              >
+                <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.8, color: COLOR_GRUPO[grupo.grupo] }}>{grupo.nombre.toUpperCase()}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 900 }}>{dinero(grupo.saldo)}</div>
+              </button>
+            </span>
+          ))}
+          <span style={{ ...vidrio, pointerEvents: 'none', fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: cuadra ? 'rgba(21,128,61,0.85)' : 'rgba(185,28,28,0.9)' }}>
+            {cuadra ? '✅' : `⚠️ ${dinero(edificio.diferencia)}`}
+          </span>
+        </div>
+      )}
 
-              <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, background: cuadra ? 'rgba(34,180,85,0.25)' : 'rgba(239,68,68,0.3)' }}>
-                {cuadra
-                  ? esPT
-                    ? '✅ Ativo = Passivo + Patrimônio'
-                    : '✅ Activo = Pasivo + Patrimonio'
-                  : `⚠️ ${esPT ? 'Diferença' : 'Diferencia'}: ${simbolo} ${formatearNumeroEntero(edificio.diferencia)}`}
-              </span>
-            </div>
-
-            <nav aria-label={esPT ? 'Caminho' : 'Ruta'} style={{ ...barra, gap: 4, fontSize: 13, marginBottom: 10 }}>
-              {camino.map((n, i) => (
-                <span key={n.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {i > 0 && <span style={{ opacity: 0.6 }}>→</span>}
-                  <button
-                    type="button"
-                    onClick={() => (n.id === 'empresa' ? irAEmpresa() : irACamino(n))}
-                    style={{ border: 'none', background: 'transparent', color: i === camino.length - 1 ? '#fff' : n.nivel > 0 ? COLOR_GRUPO[n.grupo] : '#7dd3fc', fontWeight: 800, cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}
-                  >
-                    {n.nombre}
-                  </button>
-                </span>
+      {/* Menú de opciones (período, cuentas en cero, vistas, pantalla completa del navegador). */}
+      {menuAbierto && (
+        <div role="dialog" aria-label={esPT ? 'Opções' : 'Opciones'} style={{ ...vidrio, position: 'absolute', top: 54, right: 12, zIndex: 5, borderRadius: 16, padding: 14, display: 'grid', gap: 10, width: 'min(320px, calc(100vw - 24px))' }}>
+          <label style={{ fontSize: 12.5, fontWeight: 700, display: 'grid', gap: 4 }}>
+            {esPT ? 'Saldos ao fechamento de' : 'Saldos al cierre de'}
+            <select value={mes} onChange={(e) => setMes(e.target.value)} style={{ borderRadius: 8, padding: '7px 8px', border: '1px solid #cbd5e1', color: '#0f172a' }}>
+              <option value="TODOS">{esPT ? 'Hoje (tudo registrado)' : 'Hoy (todo lo registrado)'}</option>
+              {meses.map((m) => (
+                <option key={m} value={m}>
+                  {formatoMes(m, esPT)}
+                </option>
               ))}
-            </nav>
-
-            <div className="visao3d-cuerpo">
-              {vista === '3d' && webgl ? (
-                <div className="visao3d-lienzo" style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }}>
-                  <Escena
-                    volumenes={volumenes}
-                    focoId={foco.id}
-                    periodoClave={mes}
-                    seleccionadoId={seleccionadoId}
-                    onSeleccionar={seleccionar}
-                    onEntrar={entrar}
-                    formatear={(v) => `${v < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(v))}`}
-                    movimientoReducido={movimientoReducido}
-                    vistaArquitecto={arquitecto}
-                  />
-                  <div style={{ position: 'absolute', left: 10, bottom: 8, fontSize: 11, color: '#94a3b8', pointerEvents: 'none' }}>
-                    {esPT ? 'Arraste para girar · pinça/roda para zoom · toque duas vezes para entrar' : 'Arrastrá para girar · pellizco/rueda para zoom · tocá dos veces para entrar'}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ background: 'rgba(11,20,36,0.7)', borderRadius: 18, padding: 14, border: '1px solid rgba(255,255,255,0.12)' }}>
-                  {!webgl && <p style={{ fontSize: 12.5, color: '#fcd34d' }}>{esPT ? 'Este dispositivo não suporta 3D: use a lista.' : 'Este dispositivo no soporta 3D: usá la lista.'}</p>}
-                  {volumenes.flatMap((v) => (foco.nivel === 0 ? [v.nodo] : v.pisos.map((p) => p.nodo))).map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      onClick={() => (foco.nivel === 0 || seleccionadoId === n.id ? entrar(n) : seleccionar(n))}
-                      style={{ display: 'flex', justifyContent: 'space-between', width: '100%', textAlign: 'left', border: 'none', borderLeft: `4px solid ${COLOR_GRUPO[n.grupo]}`, background: seleccionadoId === n.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)', color: '#fff', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', fontSize: 14 }}
-                    >
-                      <span>{n.hijos.length > 0 ? '▸ ' : ''}{n.nombre}</span>
-                      <b>{`${n.saldo < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(n.saldo))}`}</b>
-                    </button>
-                  ))}
-                </div>
+            </select>
+          </label>
+          <button type="button" onClick={() => setMostrarCeros((v) => !v)} aria-pressed={mostrarCeros} style={interruptor(mostrarCeros)}>
+            {mostrarCeros ? '✔ ' : ''}
+            {esPT ? 'Mostrar contas em zero' : 'Mostrar cuentas en cero'}
+          </button>
+          {webgl && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => setVista('3d')} aria-pressed={vista === '3d'} style={interruptor(vista === '3d')}>
+                🏢 3D
+              </button>
+              <button type="button" onClick={() => setVista('lista')} aria-pressed={vista === 'lista'} style={interruptor(vista === 'lista')}>
+                ☰ {esPT ? 'Lista' : 'Lista'}
+              </button>
+              {vista === '3d' && (
+                <button type="button" onClick={() => setArquitecto((v) => !v)} aria-pressed={arquitecto} style={interruptor(arquitecto)}>
+                  📐 {esPT ? 'Arquiteto' : 'Arquitecto'}
+                </button>
               )}
+            </div>
+          )}
+          <button type="button" onClick={pantallaCompletaDelNavegador} style={interruptor(false)}>
+            ⛶ {esPT ? 'Tela cheia do navegador' : 'Pantalla completa del navegador'}
+          </button>
+          <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>
+            {esPT
+              ? 'Saldos com os lançamentos validados (os mesmos do Balanço). O tamanho dos andares acompanha o valor, mas não é uma escala exata.'
+              : 'Saldos con los asientos validados (los mismos del Balance). El tamaño de los pisos acompaña al valor, pero no es una escala exacta.'}
+          </p>
+        </div>
+      )}
 
-              <div style={{ maxHeight: 'calc(100vh - 230px)', minHeight: 0 }}>
+      {pista && vista === '3d' && !cargando && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 96, textAlign: 'center', fontSize: 11.5, color: arquitecto ? '#334155' : '#94a3b8', pointerEvents: 'none', padding: '0 16px' }}>
+          {esPT ? 'Arraste para girar · pinça para zoom · toque duas vezes para entrar' : 'Arrastrá para girar · pellizco para zoom · tocá dos veces para entrar'}
+        </div>
+      )}
+
+      {/* Hoja inferior: lo esencial siempre; el detalle (cifras, cuentas, movimientos) se despliega. */}
+      {!cargando && cuentas.length > 0 && !error && (
+        <div className="visao3d-panel" style={{ zIndex: 4 }}>
+          <div style={{ ...vidrio, background: 'rgba(11,20,36,0.92)', border: `1px solid ${colorNodo}66`, borderRadius: 18, padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button type="button" onClick={() => setPanelAbierto((v) => !v)} aria-expanded={panelAbierto} style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', padding: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {panelAbierto ? '▾' : '▴'} {nodoPanel.nombre}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: nodoPanel.saldo < 0 ? '#fca5a5' : '#fff' }}>{dinero(nodoPanel.saldo)}</div>
+              </button>
+              {nodoPanel.hijos.length > 0 && (
+                <button type="button" onClick={() => entrar(nodoPanel)} style={{ border: 'none', background: colorNodo, color: '#fff', borderRadius: 999, padding: '8px 14px', fontWeight: 800, cursor: 'pointer' }}>
+                  {esPT ? 'Entrar' : 'Entrar'} →
+                </button>
+              )}
+              {puedeVolver && (
+                <button type="button" onClick={volver} style={{ border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: '#fff', borderRadius: 999, padding: '8px 12px', fontWeight: 700, cursor: 'pointer' }}>
+                  ← {esPT ? 'Voltar' : 'Volver'}
+                </button>
+              )}
+            </div>
+            {panelAbierto && (
+              <div style={{ marginTop: 10, maxHeight: '48vh', overflowY: 'auto' }}>
                 <PanelNodo
                   nodo={nodoPanel}
                   hijos={hijosPanel}
@@ -366,18 +415,13 @@ export default function Visao3DPage() {
                   onSeleccionar={seleccionar}
                   onVolver={volver}
                   onEmpresa={irAEmpresa}
+                  incrustado
                 />
               </div>
-            </div>
-
-            <p style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 12 }}>
-              {esPT
-                ? 'Saldos calculados com os lançamentos validados (os mesmos do Balanço). O tamanho dos andares acompanha o valor, mas não é uma escala exata.'
-                : 'Saldos calculados con los asientos validados (los mismos del Balance). El tamaño de los pisos acompaña al valor, pero no es una escala exacta.'}
-            </p>
-          </>
-        )}
-      </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
