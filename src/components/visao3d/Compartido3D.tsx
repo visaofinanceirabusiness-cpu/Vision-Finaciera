@@ -342,6 +342,7 @@ export function Fundido({ children, desvanecibles }: { children: React.ReactNode
       let geometria = malla.geometry.clone();
       if (geometria.index) geometria = geometria.toNonIndexed();
       geometria.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inversa, malla.matrixWorld));
+      const colorOriginal = geometria.getAttribute('color');
       // Solo conservan lo que comparten todas las primitivas (así se pueden unir).
       for (const nombre of Object.keys(geometria.attributes)) {
         if (!['position', 'normal', 'uv'].includes(nombre)) geometria.deleteAttribute(nombre);
@@ -365,9 +366,10 @@ export function Fundido({ children, desvanecibles }: { children: React.ReactNode
         const n = geometria.attributes.position.count;
         const colores = new Float32Array(n * 3);
         for (let i = 0; i < n; i++) {
-          colores[i * 3] = Math.min(1, base.r);
-          colores[i * 3 + 1] = Math.min(1, base.g);
-          colores[i * 3 + 2] = Math.min(1, base.b);
+          const k = colorOriginal ? colorOriginal.itemSize : 3;
+          colores[i * 3] = Math.min(1, base.r * (colorOriginal ? colorOriginal.array[i * k] : 1));
+          colores[i * 3 + 1] = Math.min(1, base.g * (colorOriginal ? colorOriginal.array[i * k + 1] : 1));
+          colores[i * 3 + 2] = Math.min(1, base.b * (colorOriginal ? colorOriginal.array[i * k + 2] : 1));
         }
         geometria.setAttribute('color', new THREE.BufferAttribute(colores, 3));
       }
