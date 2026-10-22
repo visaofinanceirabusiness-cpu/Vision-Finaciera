@@ -3,7 +3,7 @@
 // Amenidades de la casa de Visão 3D: cada una representa cuentas y recibe el color de su saldo (gris en cero, rojo
 // si es negativo). Con más forma que el mobiliario: los acentos son tonos del mismo color para que siga leyéndose "pintado".
 
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import * as THREE from 'three';
 import { Caja, Cilindro, PantallaPlana, TexturasCtx } from './CasaMobiliario';
 
@@ -29,37 +29,88 @@ export function Plinto({ p, h, r = 0.46, acento }: { p: V3; h: number; r?: numbe
 }
 
 export function AutoSUV({ pintura }: { pintura: Pintura }) {
-  const { c, e, ei, oscuro } = usar(pintura);
-  const vidrio = '#0e1420';
+  const { c, e, ei, claro, oscuro } = usar(pintura);
+  const carroceria = { color: c, emissive: e, ei, rough: 0.2, metal: 0.65 };
+  const vidrio = { color: '#0e1420', rough: 0.06, metal: 0.85, opacity: 0.8 };
   return (
     <group>
-      <Caja p={[0, 0.6, 0]} s={[4.3, 0.6, 1.85]} color={c} emissive={e} ei={ei} rough={0.22} metal={0.6} />
-      <Caja p={[1.55, 0.97, 0]} s={[1.2, 0.14, 1.72]} color={c} emissive={e} ei={ei} rough={0.22} metal={0.6} />
-      <Caja p={[-1.85, 0.97, 0]} s={[0.6, 0.14, 1.72]} color={c} emissive={e} ei={ei} rough={0.22} metal={0.6} />
-      <Caja p={[-0.2, 1.3, 0]} s={[2.3, 0.56, 1.62]} color={c} emissive={e} ei={ei} rough={0.22} metal={0.6} />
-      <Caja p={[-0.2, 1.6, 0]} s={[2.1, 0.07, 1.5]} color={oscuro} rough={0.3} metal={0.5} />
-      {[-0.82, 0.82].map((z) => <Caja key={`v${z}`} p={[-0.2, 1.3, z]} s={[2.1, 0.4, 0.02]} color={vidrio} rough={0.08} metal={0.8} />)}
-      <Caja p={[1.02, 1.3, 0]} s={[0.04, 0.58, 1.5]} color={vidrio} rough={0.08} metal={0.8} rot={[0, 0, 0.55]} />
-      <Caja p={[-1.42, 1.3, 0]} s={[0.04, 0.54, 1.5]} color={vidrio} rough={0.08} metal={0.8} rot={[0, 0, -0.45]} />
-      {[0.4, -0.75].flatMap((x) => [-0.83, 0.83].map((z) => <Caja key={`p${x}${z}`} p={[x, 1.3, z]} s={[0.08, 0.5, 0.03]} color={c} emissive={e} ei={ei} />))}
-      {[-0.7, 0.7].map((z) => <Caja key={`r${z}`} p={[-0.2, 1.67, z]} s={[1.8, 0.04, 0.05]} color="#c9d0db" metal={0.9} rough={0.2} />)}
-      {[-0.93, 0.93].flatMap((z) => [0.5, -1.0].map((x) => <Caja key={`s${x}${z}`} p={[x, 0.85, z]} s={[0.02, 0.62, 0.01]} color={oscuro} />))}
-      {[-0.93, 0.93].map((z) => <Caja key={`h${z}`} p={[0.0, 0.88, z]} s={[0.3, 0.04, 0.03]} color="#c9d0db" metal={0.9} rough={0.2} />)}
-      {[-0.98, 0.98].map((z) => <Caja key={`m${z}`} p={[0.6, 1.08, z]} s={[0.16, 0.1, 0.1]} color={c} emissive={e} ei={ei} />)}
-      {[-1.35, 1.4].flatMap((x) => [-0.9, 0.9].map((z) => (
-        <group key={`w${x}${z}`}>
-          <Cilindro p={[x, 0.4, z]} r={0.4} h={0.3} color="#141821" rot={[Math.PI / 2, 0, 0]} seg={20} />
-          <Cilindro p={[x, 0.4, z + Math.sign(z) * 0.02]} r={0.24} h={0.3} color="#d3d9e3" metal={0.9} rough={0.2} rot={[Math.PI / 2, 0, 0]} seg={14} />
-          <Cilindro p={[x, 0.4, z + Math.sign(z) * 0.04]} r={0.07} h={0.3} color="#2a303c" rot={[Math.PI / 2, 0, 0]} seg={8} />
-          <Caja p={[x, 0.82, z + Math.sign(z) * 0.03]} s={[0.98, 0.1, 0.03]} color="#0c0f16" />
+      {/* Chasis, faldones y pasos de rueda. */}
+      <Caja p={[0, 0.3, 0]} s={[4.1, 0.14, 1.7]} color="#12151c" />
+      <Caja p={[0, 0.58, 0]} s={[4.3, 0.56, 1.85]} {...carroceria} />
+      {[-0.93, 0.93].map((z) => <Caja key={`fa${z}`} p={[0, 0.34, z]} s={[2.6, 0.1, 0.05]} color={oscuro} rough={0.5} />)}
+      {[-1.35, 1.4].flatMap((x) => [-0.94, 0.94].map((z) => <Caja key={`pa${x}${z}`} p={[x, 0.78, z]} s={[1.06, 0.12, 0.05]} color={oscuro} rough={0.5} />))}
+      {/* Capó y baúl con caída. */}
+      <Caja p={[1.5, 0.98, 0]} s={[1.3, 0.12, 1.74]} {...carroceria} rot={[0, 0, -0.07]} />
+      <Caja p={[1.5, 1.04, 0]} s={[1.1, 0.01, 0.06]} color={claro} />
+      <Caja p={[-1.82, 0.99, 0]} s={[0.66, 0.12, 1.74]} {...carroceria} rot={[0, 0, 0.05]} />
+      {/* Cabina. */}
+      <Caja p={[-0.25, 1.28, 0]} s={[2.2, 0.55, 1.62]} {...carroceria} />
+      <Caja p={[-0.25, 1.58, 0]} s={[2.0, 0.07, 1.5]} color={oscuro} rough={0.25} metal={0.6} />
+      <Caja p={[-0.25, 1.64, 0]} s={[0.9, 0.012, 0.7]} color="#0e1420" rough={0.05} metal={0.9} />
+      <Caja p={[0.95, 1.28, 0]} s={[0.05, 0.6, 1.52]} {...vidrio} rot={[0, 0, 0.62]} />
+      <Caja p={[-1.45, 1.28, 0]} s={[0.05, 0.56, 1.52]} {...vidrio} rot={[0, 0, -0.5]} />
+      {[-0.82, 0.82].map((z) => (
+        <group key={`v${z}`}>
+          <Caja p={[0.3, 1.3, z]} s={[0.78, 0.4, 0.02]} {...vidrio} />
+          <Caja p={[-0.78, 1.3, z]} s={[0.92, 0.4, 0.02]} {...vidrio} />
+          <Caja p={[-0.25, 1.3, z * 1.01]} s={[0.1, 0.46, 0.04]} color={oscuro} rough={0.3} />
+        </group>
+      ))}
+      {/* Interior a la vista. */}
+      {[0.1, -0.7].flatMap((x) => [-0.4, 0.4].map((z) => (
+        <group key={`as${x}${z}`}>
+          <Caja p={[x, 0.95, z]} s={[0.45, 0.12, 0.45]} color="#242a36" rough={0.9} />
+          <Caja p={[x - 0.2, 1.2, z]} s={[0.1, 0.5, 0.42]} color="#2d3442" rough={0.9} />
         </group>
       )))}
-      <Caja p={[2.17, 0.62, 0]} s={[0.03, 0.2, 0.95]} color="#0c0f16" metal={0.6} />
-      <Caja p={[2.18, 0.4, 0]} s={[0.12, 0.2, 1.75]} color="#20252f" rough={0.5} />
-      <Caja p={[-2.18, 0.4, 0]} s={[0.12, 0.2, 1.75]} color="#20252f" rough={0.5} />
-      {[0.62, -0.62].map((z) => <Caja key={`f${z}`} p={[2.16, 0.78, z]} s={[0.04, 0.14, 0.34]} color="#fff6d6" emissive="#fff2b8" ei={2} />)}
-      {[0.64, -0.64].map((z) => <Caja key={`t${z}`} p={[-2.16, 0.78, z]} s={[0.04, 0.14, 0.32]} color="#ff3b3b" emissive="#ff1f1f" ei={1.4} />)}
-      <Caja p={[-2.17, 0.62, 0]} s={[0.02, 0.1, 0.3]} color="#e8ecf3" />
+      <Cilindro p={[0.62, 1.12, 0.4]} r={0.15} h={0.03} color="#1a1f29" rot={[0, 0, 1.0]} seg={14} />
+      {/* Portaequipaje, aleta de antena y alerón. */}
+      {[-0.7, 0.7].map((z) => <Caja key={`r${z}`} p={[-0.25, 1.67, z]} s={[1.8, 0.04, 0.05]} color="#c9d0db" metal={0.9} rough={0.2} />)}
+      <Caja p={[-1.1, 1.66, 0]} s={[0.2, 0.06, 0.04]} color="#12151c" />
+      <Caja p={[-2.0, 1.12, 0]} s={[0.22, 0.04, 1.6]} color={oscuro} rough={0.3} />
+      {[-0.72, 0.72].map((z) => <Caja key={`ap${z}`} p={[-2.0, 1.06, z]} s={[0.08, 0.1, 0.05]} color="#12151c" />)}
+      {/* Puertas: cortes, manijas y espejos. */}
+      {[-0.93, 0.93].flatMap((z) => [0.62, -0.25, -1.1].map((x) => <Caja key={`s${x}${z}`} p={[x, 0.82, z]} s={[0.02, 0.66, 0.012]} color={oscuro} />))}
+      {[-0.94, 0.94].flatMap((z) => [0.2, -0.65].map((x) => <Caja key={`h${x}${z}`} p={[x, 0.92, z]} s={[0.28, 0.04, 0.03]} color="#c9d0db" metal={0.9} rough={0.2} />))}
+      {[-1.0, 1.0].map((z) => (
+        <group key={`m${z}`}>
+          <Caja p={[0.72, 1.08, z]} s={[0.16, 0.12, 0.14]} {...carroceria} />
+          <Caja p={[0.72, 1.08, z * 1.07]} s={[0.12, 0.08, 0.01]} color="#c9d0db" metal={0.9} rough={0.1} />
+        </group>
+      ))}
+      {/* Frente: parrilla, luces con tira, paragolpes, patente y puerto de carga. */}
+      <Caja p={[2.16, 0.62, 0]} s={[0.04, 0.22, 1.0]} color="#0c0f16" metal={0.6} />
+      {[0.46, 0.62, 0.78].map((y) => <Caja key={`g${y}`} p={[2.19, y - 0.02, 0]} s={[0.015, 0.02, 0.9]} color="#2a303c" metal={0.8} rough={0.3} />)}
+      {[0.66, -0.66].map((z) => (
+        <group key={`f${z}`}>
+          <Caja p={[2.15, 0.8, z]} s={[0.06, 0.16, 0.4]} color="#e9eef6" rough={0.1} metal={0.5} />
+          <Caja p={[2.18, 0.8, z]} s={[0.02, 0.1, 0.32]} color="#fff6d6" emissive="#fff2b8" ei={2} />
+          <Caja p={[2.18, 0.72, z]} s={[0.02, 0.018, 0.34]} color="#cfe8ff" emissive="#9fd2ff" ei={1.6} />
+        </group>
+      ))}
+      <Caja p={[2.18, 0.4, 0]} s={[0.12, 0.22, 1.8]} color="#20252f" rough={0.5} />
+      <Caja p={[2.25, 0.4, 0]} s={[0.01, 0.12, 0.42]} color="#f4f6fa" rough={0.4} />
+      <Caja p={[2.1, 0.78, -0.9]} s={[0.06, 0.1, 0.1]} color="#c9d0db" metal={0.9} rough={0.2} />
+      {/* Trasera: tira de luces, patente, escape oculto, limpiaparabrisas. */}
+      <Caja p={[-2.17, 0.84, 0]} s={[0.03, 0.08, 1.5]} color="#ff2b2b" emissive="#ff1f1f" ei={1.6} />
+      {[0.7, -0.7].map((z) => <Caja key={`t${z}`} p={[-2.16, 0.76, z]} s={[0.05, 0.16, 0.34]} color="#ff3b3b" emissive="#ff1f1f" ei={1.4} />)}
+      <Caja p={[-2.18, 0.4, 0]} s={[0.12, 0.22, 1.8]} color="#20252f" rough={0.5} />
+      <Caja p={[-2.25, 0.5, 0]} s={[0.01, 0.12, 0.42]} color="#f4f6fa" rough={0.4} />
+      <Caja p={[-1.5, 1.32, 0]} s={[0.02, 0.22, 0.02]} color="#12151c" rot={[0, 0, -0.5]} />
+      {/* Ruedas con rin de rayos y pinza de freno. */}
+      {[-1.35, 1.4].flatMap((x) => [-0.9, 0.9].map((z) => {
+        const k = Math.sign(z);
+        return (
+          <group key={`w${x}${z}`}>
+            <Cilindro p={[x, 0.4, z]} r={0.4} h={0.3} color="#12151c" rough={0.9} rot={[Math.PI / 2, 0, 0]} seg={22} />
+            <Cilindro p={[x, 0.4, z + k * 0.02]} r={0.27} h={0.3} color="#cfd5df" metal={0.9} rough={0.2} rot={[Math.PI / 2, 0, 0]} seg={18} />
+            <Cilindro p={[x, 0.4, z + k * 0.04]} r={0.2} h={0.3} color="#1b2029" rot={[Math.PI / 2, 0, 0]} seg={18} />
+            {[0, 1, 2, 3, 4].map((i) => <Caja key={i} p={[x, 0.4, z + k * 0.17]} s={[0.04, 0.38, 0.015]} color="#e3e8f0" metal={0.9} rough={0.2} rot={[0, 0, (i * Math.PI) / 5]} />)}
+            <Cilindro p={[x, 0.4, z + k * 0.18]} r={0.05} h={0.02} color={claro} emissive={e} ei={ei} rot={[Math.PI / 2, 0, 0]} seg={10} />
+            <Caja p={[x + 0.14, 0.52, z + k * 0.1]} s={[0.12, 0.1, 0.04]} color={c} emissive={e} ei={ei} />
+          </group>
+        );
+      }))}
     </group>
   );
 }
@@ -132,28 +183,97 @@ export function Tarjeta({ pintura }: { pintura: Pintura }) {
   );
 }
 
+// Prisma triangular (techo a dos aguas) con el eje a lo largo de x.
+function Techo2Aguas({ p, largo, ancho, alto, color, emissive, ei }: { p: V3; largo: number; ancho: number; alto: number; color: string; emissive: string; ei: number }) {
+  const geo = useMemo(() => {
+    const f = new THREE.Shape();
+    f.moveTo(-ancho / 2, 0);
+    f.lineTo(ancho / 2, 0);
+    f.lineTo(0, alto);
+    f.closePath();
+    const g = new THREE.ExtrudeGeometry(f, { depth: largo, bevelEnabled: false });
+    g.translate(0, 0, -largo / 2);
+    g.rotateY(Math.PI / 2);
+    return g;
+  }, [largo, ancho, alto]);
+  return (
+    <mesh position={p} geometry={geo}>
+      <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={ei} roughness={0.6} />
+    </mesh>
+  );
+}
+
 export function Maqueta({ pintura }: { pintura: Pintura }) {
   const { c, e, ei, claro, oscuro } = usar(pintura);
+  const calido = { color: '#ffe9b8', emissive: '#ffd27a', ei: 0.9 };
+  const ventana = (x: number, y: number, z: number, w = 0.2, h = 0.22) => (
+    <group key={`${x}${y}${z}`} position={[x, y, z]}>
+      <Caja p={[0, 0, 0]} s={[w + 0.05, h + 0.05, 0.02]} color="#f4f6fa" rough={0.4} />
+      <Caja p={[0, 0, 0.012]} s={[w, h, 0.012]} {...calido} />
+      <Caja p={[0, 0, 0.022]} s={[0.012, h, 0.006]} color="#f4f6fa" />
+      <Caja p={[0, 0, 0.022]} s={[w, 0.012, 0.006]} color="#f4f6fa" />
+      <Caja p={[0, -h / 2 - 0.035, 0.03]} s={[w + 0.1, 0.03, 0.06]} color={oscuro} />
+    </group>
+  );
   return (
     <group>
-      <Caja p={[0, 0.03, 0]} s={[1.5, 0.06, 1.1]} color="#e8ecf2" rough={0.5} />
-      <Caja p={[0, 0.34, 0]} s={[0.78, 0.5, 0.6]} color={c} emissive={e} ei={ei} rough={0.5} />
-      <Caja p={[0.55, 0.22, 0.05]} s={[0.4, 0.32, 0.5]} color={claro} emissive={e} ei={ei} rough={0.5} />
-      <mesh position={[0, 0.78, 0]} rotation={[0, Math.PI / 4, 0]} scale={[1.2, 1, 0.9]}>
-        <coneGeometry args={[0.6, 0.38, 4]} />
-        <meshStandardMaterial color={oscuro} emissive={e} emissiveIntensity={ei} roughness={0.5} />
+      {/* Base con jardín, camino y cerco. */}
+      <Caja p={[0, 0.03, 0]} s={[1.9, 0.06, 1.4]} color="#e8ecf2" rough={0.5} />
+      <Caja p={[0, 0.07, 0.15]} s={[1.8, 0.03, 1.2]} color="#7fbf8f" rough={1} />
+      <Caja p={[0.05, 0.09, 0.62]} s={[0.22, 0.01, 0.52]} color="#d9dde5" />
+      {[-0.86, 0.86].map((x) => <Caja key={`cx${x}`} p={[x, 0.15, 0.1]} s={[0.02, 0.12, 1.1]} color="#f4f6fa" />)}
+      <Caja p={[0, 0.15, 0.7]} s={[1.74, 0.02, 0.02]} color="#f4f6fa" />
+      {/* Cuerpo principal de dos plantas + garage. */}
+      <Caja p={[-0.2, 0.4, -0.1]} s={[1.0, 0.62, 0.7]} color={c} emissive={e} ei={ei} rough={0.55} />
+      <Caja p={[-0.2, 0.72, -0.1]} s={[1.04, 0.03, 0.74]} color="#f4f6fa" />
+      <Caja p={[-0.2, 0.96, -0.12]} s={[0.9, 0.45, 0.6]} color={claro} emissive={e} ei={ei} rough={0.55} />
+      <Caja p={[0.62, 0.3, 0.0]} s={[0.5, 0.42, 0.55]} color={claro} emissive={e} ei={ei} rough={0.55} />
+      <Caja p={[0.62, 0.53, 0.0]} s={[0.56, 0.04, 0.6]} color={oscuro} />
+      {/* Techo a dos aguas con alero, cumbrera, chimenea y paneles solares. */}
+      <Techo2Aguas p={[-0.2, 1.19, -0.12]} largo={1.0} ancho={0.78} alto={0.34} color={oscuro} emissive={e} ei={ei} />
+      <Caja p={[-0.2, 1.53, -0.12]} s={[1.02, 0.025, 0.04]} color="#f4f6fa" />
+      <Caja p={[0.15, 1.45, -0.04]} s={[0.12, 0.34, 0.12]} color="#b8654a" rough={0.9} />
+      <Caja p={[0.15, 1.64, -0.04]} s={[0.16, 0.03, 0.16]} color="#8f4b36" />
+      {[-0.45, -0.2].map((x) => <Caja key={`ps${x}`} p={[x, 1.38, 0.1]} s={[0.22, 0.012, 0.28]} color="#1c3560" metal={0.8} rough={0.15} rot={[0.9, 0, 0]} />)}
+      {/* Frente: puerta con porche y escalones, ventanas, balcón, garage. */}
+      <Caja p={[-0.2, 0.22, 0.26]} s={[0.2, 0.3, 0.02]} color="#6b4a2f" rough={0.7} />
+      <Cilindro p={[-0.13, 0.22, 0.285]} r={0.012} h={0.02} color="#d9b872" metal={0.9} rot={[Math.PI / 2, 0, 0]} seg={8} />
+      <Caja p={[-0.2, 0.4, 0.34]} s={[0.4, 0.03, 0.18]} color="#f4f6fa" />
+      {[-0.37, -0.03].map((x) => <Cilindro key={`pc${x}`} p={[x, 0.22, 0.4]} r={0.018} h={0.38} color="#f4f6fa" seg={8} />)}
+      <Caja p={[-0.2, 0.065, 0.4]} s={[0.3, 0.02, 0.14]} color="#e0e4ea" />
+      {ventana(-0.55, 0.45, 0.26)}
+      {ventana(0.15, 0.45, 0.26)}
+      {ventana(-0.45, 1.0, 0.19)}
+      {ventana(-0.2, 1.0, 0.19)}
+      {ventana(0.05, 1.0, 0.19)}
+      <Caja p={[-0.2, 0.84, 0.28]} s={[0.7, 0.02, 0.1]} color="#f4f6fa" />
+      {[-0.5, -0.35, -0.2, -0.05, 0.1].map((x) => <Caja key={`ba${x}`} p={[x, 0.9, 0.325]} s={[0.012, 0.1, 0.012]} color="#f4f6fa" />)}
+      <Caja p={[0.62, 0.26, 0.285]} s={[0.4, 0.32, 0.02]} color="#f2f4f8" rough={0.3} />
+      {[0.14, 0.22, 0.3, 0.38].map((y) => <Caja key={`gd${y}`} p={[0.62, y, 0.298]} s={[0.4, 0.008, 0.01]} color="#c4cad6" />)}
+      <Caja p={[0.62, 0.45, 0.3]} s={[0.1, 0.02, 0.012]} {...calido} />
+      <Caja p={[0.62, 0.075, 0.45]} s={[0.4, 0.015, 0.4]} color="#bfc6d2" />
+      {/* Costado: ventana y luz de entrada. */}
+      <Caja p={[-0.7, 0.45, -0.1]} s={[0.012, 0.2, 0.22]} {...calido} />
+      <Cilindro p={[-0.42, 0.52, 0.29]} r={0.025} h={0.03} color={calido.color} emissive={calido.emissive} ei={2} seg={10} />
+      {/* Árbol, arbustos, buzón y farol. */}
+      <Cilindro p={[-0.78, 0.22, 0.45]} r={0.035} h={0.3} color="#6b4a2f" seg={6} />
+      <mesh position={[-0.78, 0.5, 0.45]}>
+        <icosahedronGeometry args={[0.2, 1]} />
+        <meshStandardMaterial color="#3fae6a" roughness={0.9} flatShading />
       </mesh>
-      <Caja p={[0.55, 0.44, 0.05]} s={[0.46, 0.04, 0.56]} color={oscuro} emissive={e} ei={ei} />
-      <Caja p={[-0.2, 0.62, 0]} s={[0.1, 0.26, 0.1]} color="#8a5a44" />
-      <Caja p={[0, 0.2, 0.305]} s={[0.16, 0.3, 0.012]} color="#5b3a22" />
-      {[-0.26, 0.26].map((x) => <Caja key={x} p={[x, 0.4, 0.305]} s={[0.15, 0.15, 0.012]} color="#bfe3ff" emissive="#9fd2ff" ei={0.8} />)}
-      <Caja p={[0.55, 0.2, 0.305]} s={[0.26, 0.22, 0.012]} color="#f2f4f8" rough={0.3} />
-      <Cilindro p={[-0.6, 0.15, 0.4]} r={0.03} h={0.2} color="#6b4a2f" seg={6} />
-      <mesh position={[-0.6, 0.38, 0.4]}>
-        <sphereGeometry args={[0.16, 10, 8]} />
-        <meshStandardMaterial color="#3fae6a" roughness={0.9} />
+      {[[0.3, 0.38], [0.9, 0.0], [-0.5, 0.42]].map(([x, z], i) => (
+        <mesh key={`ar${i}`} position={[x, 0.15, z]}>
+          <icosahedronGeometry args={[0.09, 1]} />
+          <meshStandardMaterial color="#58c27d" roughness={0.9} flatShading />
+        </mesh>
+      ))}
+      <Cilindro p={[0.35, 0.18, 0.66]} r={0.012} h={0.2} color="#2a2f3b" seg={6} />
+      <Caja p={[0.35, 0.3, 0.66]} s={[0.07, 0.05, 0.09]} color={c} emissive={e} ei={ei} />
+      <Cilindro p={[0.78, 0.2, 0.62]} r={0.012} h={0.32} color="#2a2f3b" seg={6} />
+      <mesh position={[0.78, 0.38, 0.62]}>
+        <sphereGeometry args={[0.04, 10, 8]} />
+        <meshStandardMaterial color={calido.color} emissive={calido.emissive} emissiveIntensity={2} />
       </mesh>
-      <Caja p={[0.05, 0.065, 0.55]} s={[0.2, 0.01, 0.4]} color="#b8c0cc" />
     </group>
   );
 }
