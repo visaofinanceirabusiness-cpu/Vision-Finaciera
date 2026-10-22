@@ -59,7 +59,7 @@ const ZONAS = {
   comedor: { x0: 0.6, x1: 5.8, y0: 0, y1: 3, grupo: 'PATRIMONIO' as GrupoId },
 };
 
-const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#dfe9ff', PASIVO: '#ffe6d1', PATRIMONIO: '#d9f5e4' };
+const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#dfe9ff', PASIVO: '#ffe6d1', PATRIMONIO: '#efe3fb' };
 const PROF = 6.9;
 const Z_ATRAS = -3.45;
 
@@ -78,6 +78,13 @@ function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; 
         <boxGeometry args={[ancho, 0.15, PROF]} />
         <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={0.3} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
       </mesh>
+      {/* Borde fino de color en el perímetro del piso. */}
+      {([[cx, Z_ATRAS + 0.04, ancho, 0.08], [cx, Z_ATRAS + PROF - 0.04, ancho, 0.08], [zona.x0 + 0.04, cz, 0.08, PROF], [zona.x1 - 0.04, cz, 0.08, PROF]] as const).map(([x, z, w, d], i) => (
+        <mesh key={i} position={[x, zona.y0 + 0.012, z]}>
+          <boxGeometry args={[w, 0.03, d]} />
+          <meshBasicMaterial color={color} toneMapped={false} />
+        </mesh>
+      ))}
       {/* Pared del fondo teñida con el color de la zona. */}
       <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} emissive={color} ei={0.14} rough={0.85} />
     </group>
@@ -110,6 +117,11 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
     >
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
+        {/* Punto rojo: distingue lo que representa una cuenta de lo que es decorado, tenga o no saldo. */}
+        <mesh position={[0, 2.1, 0]}>
+          <sphereGeometry args={[0.16, 12, 12]} />
+          <meshBasicMaterial color="#e11d2e" toneMapped={false} />
+        </mesh>
         <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo })}</Fundido>
       </group>
     </group>
