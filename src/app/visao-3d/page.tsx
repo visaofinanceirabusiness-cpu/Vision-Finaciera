@@ -59,6 +59,7 @@ export default function Visao3DPage() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
   const [webgl, setWebgl] = useState(true);
+  const [arquitecto, setArquitecto] = useState(false);
   const [movimientoReducido, setMovimientoReducido] = useState(false);
 
   const esPT = idioma === 'PT';
@@ -284,6 +285,11 @@ export default function Visao3DPage() {
                   <button type="button" onClick={() => setVista('lista')} aria-pressed={vista === 'lista'} style={boton(vista === 'lista')}>
                     ☰ {esPT ? 'Lista' : 'Lista'}
                   </button>
+                  {vista === '3d' && (
+                    <button type="button" onClick={() => setArquitecto((v) => !v)} aria-pressed={arquitecto} style={boton(arquitecto)}>
+                      📐 {esPT ? 'Vista de arquiteto' : 'Vista de arquitecto'}
+                    </button>
+                  )}
                 </span>
               )}
 
@@ -323,6 +329,7 @@ export default function Visao3DPage() {
                     onEntrar={entrar}
                     formatear={(v) => `${v < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(v))}`}
                     movimientoReducido={movimientoReducido}
+                    vistaArquitecto={arquitecto}
                   />
                   <div style={{ position: 'absolute', left: 10, bottom: 8, fontSize: 11, color: '#94a3b8', pointerEvents: 'none' }}>
                     {esPT ? 'Arraste para girar · pinça/roda para zoom · toque duas vezes para entrar' : 'Arrastrá para girar · pellizco/rueda para zoom · tocá dos veces para entrar'}

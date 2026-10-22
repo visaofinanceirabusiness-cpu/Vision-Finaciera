@@ -26,6 +26,30 @@ type Props = {
   onEntrar: (nodo: NodoEdificio) => void;
   formatear: (valor: number) => string;
   movimientoReducido: boolean;
+  vistaArquitecto: boolean;
+};
+
+// Dos apariencias: la oscura de siempre y la "vista de arquitecto" (maqueta clara, corte del edificio con todos
+// los pisos a la vista, sombras y cámara en perspectiva casi isométrica).
+type Tema = {
+  fondo: string;
+  suelo: string;
+  grilla: [string, string];
+  piso: string;
+  bordePiso: string;
+  bordeEncima: string;
+  losa: string;
+  base: string;
+  techo: string;
+  luzAmbiente: number;
+  etiquetaFondo: string;
+  etiquetaTexto: string;
+  etiquetaBorde: string;
+};
+
+const TEMAS: Record<'oscuro' | 'arquitecto', Tema> = {
+  oscuro: { fondo: '#0b1424', suelo: '#101c33', grilla: ['#22385f', '#16253f'], piso: '#dbe7ff', bordePiso: '#7f93b8', bordeEncima: '#ffffff', losa: '#cbd5e1', base: '#1b2a44', techo: '#cbd5e1', luzAmbiente: 0.9, etiquetaFondo: 'rgba(8,16,32,0.8)', etiquetaTexto: '#ffffff', etiquetaBorde: 'rgba(255,255,255,0.2)' },
+  arquitecto: { fondo: '#eef2f7', suelo: '#ffffff', grilla: ['#c3cedd', '#dde4ee'], piso: '#ffffff', bordePiso: '#334155', bordeEncima: '#0f172a', losa: '#ffffff', base: '#94a3b8', techo: '#e2e8f0', luzAmbiente: 1.15, etiquetaFondo: 'rgba(255,255,255,0.92)', etiquetaTexto: '#0f172a', etiquetaBorde: 'rgba(15,23,42,0.25)' },
 };
 
 // Qué tan cerca (respecto de la distancia normal de la vista) el vidrio pasa de fachada a transparente.
@@ -56,11 +80,11 @@ function centroDe(volumenes: Volumen[], seleccionadoId: string | null): { centro
 // Lleva la cámara hacia el área elegida (zoom) y, al entrar en un nodo, arranca más lejos y más abajo y "sube"
 // (efecto ascensor). Solo guía mientras dura el movimiento: apenas la persona toca la escena (arrastrar,
 // rueda, pellizco) se suelta el control, para que el zoom y el giro manuales no se pisen cada cuadro.
-function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean }) {
+function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido, vistaArquitecto }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean; vistaArquitecto: boolean }) {
   const { camera, controls, size } = useThree();
   const guiando = useRef(true);
   // En pantallas angostas (teléfono vertical) el edificio no entra a la misma distancia: se aleja.
-  const distanciaMeta = distancia * factorAncho(size.width, size.height);
+  const distanciaMeta = distancia * factorAncho(size.width, size.height) * (vistaArquitecto ? 1.55 : 1);
   const distanciaActual = useRef(distanciaMeta * 1.7);
 
   useEffect(() => {
@@ -69,6 +93,21 @@ function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { obj
     if (orbit && !movimientoReducido) orbit.target.y -= 3;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoId, movimientoReducido]);
+
+  // Vista de arquitecto: cámara en perspectiva casi isométrica (lente más larga, un poco más lejos) y desde arriba.
+  useEffect(() => {
+    const perspectiva = camera as THREE.PerspectiveCamera;
+    perspectiva.fov = vistaArquitecto ? 26 : 42;
+    perspectiva.updateProjectionMatrix();
+    const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null;
+    if (orbit) {
+      const direccion = vistaArquitecto ? new THREE.Vector3(0.75, 0.8, 1) : new THREE.Vector3(0.64, 0.5, 1);
+      camera.position.copy(orbit.target.clone().add(direccion.setLength(distanciaActual.current)));
+      orbit.update();
+    }
+    guiando.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaArquitecto]);
 
   // Cada selección nueva (o cambio de nivel) vuelve a guiar la cámara.
   useEffect(() => {
@@ -165,7 +204,7 @@ function Interior({ piso }: { piso: Piso }) {
   );
 }
 
-function PisoCaja({ piso, volumen, seleccionado, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
+function PisoCaja({ piso, volumen, seleccionado, tema, arquitecto, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; tema: Tema; arquitecto: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
   const [encima, setEncima] = useState(false);
   const colorGrupo = COLOR_GRUPO[piso.nodo.grupo];
   const ancho = volumen.ancho - 0.35;
@@ -207,19 +246,19 @@ function PisoCaja({ piso, volumen, seleccionado, onSeleccionar, onEntrar, onHove
       {/* Estructura neutra y transparente: el color queda para las cuentas. */}
       <mesh>
         <boxGeometry args={[ancho, alto, profundidad]} />
-        <meshStandardMaterial color="#dbe7ff" transparent opacity={seleccionado ? 0.24 : encima ? 0.16 : 0.07} depthWrite={false} roughness={0.2} />
-        <Edges color={seleccionado ? colorGrupo : encima ? '#ffffff' : '#7f93b8'} />
+        <meshStandardMaterial color={tema.piso} transparent opacity={seleccionado ? 0.24 : encima ? 0.16 : arquitecto ? 0.05 : 0.07} depthWrite={false} roughness={0.2} />
+        <Edges color={seleccionado ? colorGrupo : encima ? tema.bordeEncima : tema.bordePiso} />
       </mesh>
       <mesh position={[0, -alto / 2 + 0.025, 0]}>
         <boxGeometry args={[ancho, 0.05, profundidad]} />
-        <meshStandardMaterial color="#cbd5e1" transparent opacity={0.5} roughness={0.6} />
+        <meshStandardMaterial color={tema.losa} transparent opacity={arquitecto ? 0.95 : 0.5} roughness={0.6} />
       </mesh>
       <Interior piso={piso} />
     </group>
   );
 }
 
-function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; distanciaBase: number; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
+function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, tema, arquitecto, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; distanciaBase: number; tema: Tema; arquitecto: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
   const [encima, setEncima] = useState(false);
   const color = COLOR_GRUPO[volumen.nodo.grupo];
   const seleccionado = seleccionadoId === volumen.id;
@@ -235,8 +274,9 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, onSelec
     if (!orbit) return;
     const distancia = estado.camera.position.distanceTo(orbit.target) / factorAncho(estado.size.width, estado.size.height);
     const { interior, fachada } = esRaiz ? UMBRALES.raiz : UMBRALES.dentro;
-    const t = Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
-    if (casco.current) casco.current.opacity = 0.04 + 0.3 * t + resaltado;
+    // En la vista de arquitecto el edificio siempre está "cortado": sin fachada, todos los pisos a la vista.
+    const t = arquitecto ? 0 : Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
+    if (casco.current) casco.current.opacity = (arquitecto ? 0.02 : 0.04) + 0.3 * t + resaltado;
     if (ventanasFrente.current) ventanasFrente.current.opacity = 0.6 * t;
     if (ventanasLado.current) ventanasLado.current.opacity = 0.6 * t;
     if (puerta.current) puerta.current.opacity = 0.9 * t;
@@ -266,11 +306,11 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, onSelec
       {/* Base y techo del edificio. */}
       <mesh position={[volumen.x, volumen.y - 0.1, 0]}>
         <boxGeometry args={[volumen.ancho + 0.5, 0.2, volumen.profundidad + 0.5]} />
-        <meshStandardMaterial color="#1b2a44" roughness={0.8} />
+        <meshStandardMaterial color={tema.base} roughness={0.8} />
       </mesh>
       <mesh position={[volumen.x, volumen.y + volumen.alto + 0.05, 0]}>
         <boxGeometry args={[volumen.ancho + 0.2, 0.1, volumen.profundidad + 0.2]} />
-        <meshStandardMaterial color="#cbd5e1" transparent opacity={0.55} roughness={0.5} />
+        <meshStandardMaterial color={tema.techo} transparent opacity={arquitecto ? 0.35 : 0.55} roughness={0.5} />
       </mesh>
 
       <Ventanas volumen={volumen} material={ventanasFrente} lado="frente" />
@@ -283,10 +323,33 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, onSelec
       )}
 
       {volumen.pisos.map((piso) => (
-        <PisoCaja key={piso.id} piso={piso} volumen={volumen} seleccionado={seleccionadoId === piso.id} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={onHover} interactivo={!esRaiz} />
+        <PisoCaja key={piso.id} piso={piso} volumen={volumen} seleccionado={seleccionadoId === piso.id} tema={tema} arquitecto={arquitecto} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={onHover} interactivo={!esRaiz} />
       ))}
     </group>
   );
+}
+
+// Sombras solo en la vista de arquitecto (cuestan en teléfonos): los objetos y las losas las proyectan; el vidrio no.
+function Sombras({ activas, cambio }: { activas: boolean; cambio: string }) {
+  const { gl, scene } = useThree();
+
+  useEffect(() => {
+    gl.shadowMap.enabled = activas;
+    gl.shadowMap.type = THREE.PCFShadowMap;
+    scene.traverse((o) => {
+      const malla = o as THREE.Mesh;
+      if (!malla.isMesh) return;
+      const material = malla.material as THREE.Material;
+      // Ni el vidrio ni las ventanas / puerta (materiales sin luz) proyectan sombra.
+      const vidrio = material.transparent && material.opacity < 0.6;
+      const sinLuz = (material as THREE.Material & { isMeshBasicMaterial?: boolean }).isMeshBasicMaterial;
+      malla.castShadow = activas && !vidrio && !sinLuz && !(malla as THREE.InstancedMesh).isInstancedMesh;
+      malla.receiveShadow = activas;
+      material.needsUpdate = true;
+    });
+  }, [activas, cambio, gl, scene]);
+
+  return null;
 }
 
 // Al entrar en otro nivel o cambiar de período el edificio aparece escalando desde abajo: se siente que
@@ -309,7 +372,7 @@ function GrupoAnimado({ clave, movimientoReducido, children }: { clave: string; 
   return <group ref={ref}>{children}</group>;
 }
 
-type Etiqueta = { id: string; x: number; y: number; z: number; titulo: string; saldo: number; color: string; fija: boolean; seleccionada: boolean };
+type Etiqueta = { id: string; x: number; y: number; z: number; titulo: string; saldo: number; color: string; fija: boolean; seleccionada: boolean; alAlado: boolean };
 
 // Las etiquetas son DOM común (no objetos de la escena): se reubican cada cuadro proyectando su punto 3D a la pantalla.
 function Proyector({ etiquetas, refs }: { etiquetas: Etiqueta[]; refs: React.MutableRefObject<Record<string, HTMLDivElement | null>> }) {
@@ -323,14 +386,23 @@ function Proyector({ etiquetas, refs }: { etiquetas: Etiqueta[]; refs: React.Mut
       punto.current.set(e.x, e.y, e.z).project(camera);
       const detras = punto.current.z > 1;
       nodo.style.display = detras ? 'none' : 'block';
-      nodo.style.transform = `translate(-50%, -50%) translate(${(punto.current.x * 0.5 + 0.5) * size.width}px, ${(-punto.current.y * 0.5 + 0.5) * size.height}px)`;
+      const px = (punto.current.x * 0.5 + 0.5) * size.width;
+      const py = (-punto.current.y * 0.5 + 0.5) * size.height;
+      if (e.alAlado) {
+        // Al costado izquierdo del edificio (sin tapar el objeto), sin salirse de la pantalla.
+        const izquierda = Math.min(Math.max(4, px - nodo.offsetWidth - 10), Math.max(4, size.width - nodo.offsetWidth - 4));
+        nodo.style.transform = `translate(${izquierda}px, ${py}px) translate(0, -50%)`;
+      } else {
+        nodo.style.transform = `translate(-50%, -50%) translate(${px}px, ${py}px)`;
+      }
     }
   });
 
   return null;
 }
 
-export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido }: Props) {
+export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido, vistaArquitecto }: Props) {
+  const tema = TEMAS[vistaArquitecto ? 'arquitecto' : 'oscuro'];
   const esRaiz = focoId === 'empresa';
   const { centro, distancia } = useMemo(() => centroDe(volumenes, seleccionadoId), [volumenes, seleccionadoId]);
   const distanciaBase = useMemo(() => centroDe(volumenes, null).distancia, [volumenes]);
@@ -339,13 +411,13 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
 
   const etiquetas = useMemo<Etiqueta[]>(
     () =>
-      volumenes.flatMap((v) => {
+      volumenes.flatMap((v): Etiqueta[] => {
         if (esRaiz) {
-          return [{ id: v.id, x: v.x, y: v.y + v.alto / 2, z: v.profundidad / 2 + 0.05, titulo: v.nodo.nombre, saldo: v.nodo.saldo, color: COLOR_GRUPO[v.nodo.grupo], fija: true, seleccionada: seleccionadoId === v.id }];
+          return [{ id: v.id, x: v.x, y: v.y + v.alto / 2, z: v.profundidad / 2 + 0.05, titulo: v.nodo.nombre, saldo: v.nodo.saldo, color: COLOR_GRUPO[v.nodo.grupo], fija: true, seleccionada: seleccionadoId === v.id, alAlado: false }];
         }
         return v.pisos.map((p) => ({
           id: p.id,
-          x: v.x,
+          x: v.x - v.ancho / 2,
           y: v.y + p.y,
           z: v.profundidad / 2 + 0.05,
           titulo: p.nodo.nombre,
@@ -354,6 +426,7 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
           // Todos los pisos tienen alto mínimo: el nombre y el saldo (aunque sea 0) siempre se leen.
           fija: true,
           seleccionada: seleccionadoId === p.id,
+          alAlado: true,
         }));
       }),
     [volumenes, esRaiz, seleccionadoId]
@@ -362,27 +435,28 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas dpr={[1, 1.75]} camera={{ position: [9, 7, 14], fov: 42 }} style={{ touchAction: 'none' }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
-        <color attach="background" args={['#0b1424']} />
-        <fog attach="fog" args={['#0b1424', 30, 70]} />
-        <ambientLight intensity={0.9} />
-        <directionalLight position={[8, 14, 10]} intensity={1.4} />
+        <color attach="background" args={[tema.fondo]} />
+        <fog attach="fog" args={[tema.fondo, 30, 70]} />
+        <ambientLight intensity={tema.luzAmbiente} />
+        <directionalLight position={[8, 14, 10]} intensity={vistaArquitecto ? 1.6 : 1.4} castShadow={vistaArquitecto} shadow-mapSize={[1536, 1536]} shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.0005} />
         <pointLight position={[-9, 5, -6]} intensity={0.9} color="#6aa7ff" />
         <pointLight position={[0, 4, 6]} intensity={0.6} color="#ffe2a3" />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.22, 0]}>
           <circleGeometry args={[18, 64]} />
-          <meshStandardMaterial color="#101c33" roughness={0.9} />
+          <meshStandardMaterial color={tema.suelo} roughness={0.9} />
         </mesh>
-        <gridHelper args={[36, 36, '#22385f', '#16253f']} position={[0, -0.21, 0]} />
+        <gridHelper key={tema.fondo} args={[36, 36, tema.grilla[0], tema.grilla[1]]} position={[0, -0.21, 0]} />
+        <Sombras activas={vistaArquitecto} cambio={`${focoId}|${periodoClave}|${volumenes.length}`} />
 
         <GrupoAnimado clave={`${focoId}|${periodoClave}`} movimientoReducido={movimientoReducido}>
           {volumenes.map((v) => (
-            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
+            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} tema={tema} arquitecto={vistaArquitecto} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
           ))}
         </GrupoAnimado>
 
         <OrbitControls makeDefault enablePan={false} minDistance={4} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
-        <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} />
+        <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} vistaArquitecto={vistaArquitecto} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
 
@@ -402,16 +476,19 @@ export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId
                 display: 'none',
                 whiteSpace: 'nowrap',
                 fontSize: 11.5,
-                color: '#fff',
-                background: esRaiz ? e.color : 'rgba(8,16,32,0.8)',
+                background: esRaiz ? e.color : tema.etiquetaFondo,
                 borderRadius: esRaiz ? 999 : 8,
                 padding: esRaiz ? '4px 12px' : '3px 8px',
-                border: e.seleccionada ? '1px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                border: e.seleccionada ? `1px solid ${e.color}` : `1px solid ${tema.etiquetaBorde}`,
                 fontWeight: esRaiz ? 800 : 400,
+                color: esRaiz ? '#fff' : tema.etiquetaTexto,
+                maxWidth: esRaiz ? undefined : '46%',
+                lineHeight: 1.25,
+                textAlign: esRaiz ? 'center' : 'right',
               }}
             >
-              <b>{e.titulo}</b>
-              <span style={{ opacity: 0.9, marginLeft: 6, color: e.saldo < 0 ? '#fca5a5' : '#fff' }}>{formatear(e.saldo)}</span>
+              <b style={{ display: esRaiz ? 'inline' : 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.titulo}</b>
+              <span style={{ opacity: 0.9, marginLeft: esRaiz ? 6 : 0, display: esRaiz ? 'inline' : 'block', color: e.saldo < 0 ? '#dc2626' : esRaiz ? '#fff' : tema.etiquetaTexto }}>{formatear(e.saldo)}</span>
             </div>
           ))}
       </div>
