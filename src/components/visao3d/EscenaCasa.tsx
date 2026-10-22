@@ -29,7 +29,7 @@ import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './
 import { Ahorro, AutoSUV, Armario, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
-const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 7.5, 8));
+const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 9, 8));
 
 type V3 = [number, number, number];
 
@@ -55,15 +55,15 @@ const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
   cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
   inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
   electro: { pos: [-0.9, 0, 2.3] },
-  muebles: { pos: [-11.2, 0, -0.4], rot: Math.PI / 2 },
+  muebles: { pos: [-11.2, 0, -0.4], rot: Math.PI / 2, escala: 1.15 },
   // Dormitorio: los tres al frente.
-  ahorro: { pos: [-4.6, 3.85, 2.3], escala: 0.8 },
-  efectivo: { pos: [-2.55, 3.85, 2.3], escala: 0.8 },
-  banco: { pos: [-0.5, 3.85, 2.3], escala: 0.7 },
+  ahorro: { pos: [-4.6, 4.45, 2.3], escala: 0.8 },
+  efectivo: { pos: [-2.55, 4.45, 2.3], escala: 0.8 },
+  banco: { pos: [-0.5, 4.45, 2.3], escala: 0.7 },
   // Oficina: los tres al frente.
-  tarjeta: { pos: [1.9, 3.85, 2.3], escala: 0.8 },
-  prestamo: { pos: [3.7, 3.85, 2.3], escala: 0.8 },
-  apagar: { pos: [5.5, 3.85, 2.3], escala: 0.8 },
+  tarjeta: { pos: [1.9, 4.45, 2.3], escala: 0.8 },
+  prestamo: { pos: [3.7, 4.45, 2.3], escala: 0.8 },
+  apagar: { pos: [5.5, 4.45, 2.3], escala: 0.8 },
   // Comedor: los dos al frente.
   resultado: { pos: [2.7, 0.7, 2.4], escala: 0.9 },
   capital: { pos: [4.8, 0.7, 2.4], escala: 0.8 },
@@ -83,11 +83,11 @@ const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
 ];
 
 const ZONAS = {
-  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
-  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
-  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.15, y1: 6.15, grupo: 'ACTIVO' as GrupoId },
-  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.15, y1: 6.15, grupo: 'PASIVO' as GrupoId },
-  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0, y1: 3, grupo: 'PATRIMONIO' as GrupoId },
+  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, y1: 3.6, grupo: 'ACTIVO' as GrupoId },
+  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0, y1: 3.6, grupo: 'ACTIVO' as GrupoId },
+  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.75, y1: 7.35, grupo: 'ACTIVO' as GrupoId },
+  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.75, y1: 7.35, grupo: 'PASIVO' as GrupoId },
+  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0, y1: 3.6, grupo: 'PATRIMONIO' as GrupoId },
 };
 
 // Pintura suave de cada habitación (color del grupo en pastel) y un tono algo más marcado en los vértices, para que se lean como límites.
@@ -132,8 +132,8 @@ function Pared({ x, y0, y1, hueco, grosor = GROSOR, color = COLOR_PARED }: { x: 
 
 // Pasos entre cuartos (mismo hueco en la pared y en su pintura): [z desde, z hasta, alto].
 function huecoEn(xBorde: number, y0: number): [number, number, number] | undefined {
-  if (xBorde === X_COCHERA && y0 === 0) return [0.3, 1.7, 2.2];
-  if (xBorde === X_CENTRO) return [0.3, 2.0, 2.3];
+  if (xBorde === X_COCHERA && y0 === 0) return [0.3, 1.7, 2.5];
+  if (xBorde === X_CENTRO) return [0.3, 2.0, 2.6];
   return undefined;
 }
 
@@ -388,7 +388,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
     >
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
-        <MarcadorCuenta y={id === 'muebles' ? 2.8 : PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
+        <MarcadorCuenta y={id === 'muebles' ? 3.5 : PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
         <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>
       </group>
     </group>
@@ -667,8 +667,8 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
 
       <Fundido key={hora}>
       {/* Techos. */}
-      <Caja p={[(X_COCHERA + X_DER) / 2, 6.3, 0.0]} s={[X_DER - X_COCHERA + 0.4, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
-      <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.08, 0.325]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 7.75]} color="#e9edf3" rough={0.6} />
+      <Caja p={[(X_COCHERA + X_DER) / 2, 7.5, 0.0]} s={[X_DER - X_COCHERA + 0.4, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
+      <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.68, 0.325]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 7.75]} color="#e9edf3" rough={0.6} />
       <Fachada />
 
       {PLINTOS.map(({ id, grupo }) => {
@@ -678,29 +678,29 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       })}
 
       {/* Paredes exteriores e interiores (con pasos entre cuartos) y ventanas. */}
-      <Pared x={X_IZQ} y0={0} y1={3.08} />
-      <Pared x={X_COCHERA} y0={0} y1={3.0} hueco={huecoEn(X_COCHERA, 0)} />
-      <Pared x={X_CENTRO} y0={0} y1={3.0} hueco={huecoEn(X_CENTRO, 0)} />
-      <Pared x={X_DER} y0={0} y1={3.0} />
-      <Pared x={X_COCHERA} y0={3.15} y1={6.22} />
-      <Pared x={X_CENTRO} y0={3.15} y1={6.22} hueco={huecoEn(X_CENTRO, 3.15)} />
-      <Pared x={X_DER} y0={3.15} y1={6.22} />
-      <Ventana x={X_IZQ} y={1.7} z={-1.0} lado={1} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_DER} y={1.7} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_DER} y={4.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
+      <Pared x={X_IZQ} y0={0} y1={3.68} />
+      <Pared x={X_COCHERA} y0={0} y1={3.6} hueco={huecoEn(X_COCHERA, 0)} />
+      <Pared x={X_CENTRO} y0={0} y1={3.6} hueco={huecoEn(X_CENTRO, 0)} />
+      <Pared x={X_DER} y0={0} y1={3.6} />
+      <Pared x={X_COCHERA} y0={3.75} y1={7.42} />
+      <Pared x={X_CENTRO} y0={3.75} y1={7.42} hueco={huecoEn(X_CENTRO, 3.75)} />
+      <Pared x={X_DER} y0={3.75} y1={7.42} />
+      <Ventana x={X_IZQ} y={1.9} z={-1.0} lado={1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={1.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={5.5} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_COCHERA} y={5.5} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
       {/* Las mismas ventanas vistas desde afuera, sobre el ladrillo. */}
-      <Ventana x={X_IZQ} y={1.7} z={-1.0} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_DER} y={1.7} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_DER} y={4.9} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
-      <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_IZQ} y={1.9} z={-1.0} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={1.9} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={5.5} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_COCHERA} y={5.5} z={0.2} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
       {/* Fondo de la casa: ventanas y puerta trasera. */}
-      <VentanaFondo x={-8.65} y={1.7} hora={hora} reflejo={reflejo} />
-      <VentanaFondo x={-2.55} y={1.7} hora={hora} reflejo={reflejo} />
-      <VentanaFondo x={5.4} y={1.7} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={-8.65} y={1.9} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={-2.55} y={1.9} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={5.4} y={1.9} hora={hora} reflejo={reflejo} />
       <PuertaFondo x={2.4} noche={noche} />
-      <VentanaFondo x={-2.55} y={4.85} ancho={2.0} hora={hora} reflejo={reflejo} />
-      <VentanaFondo x={3.7} y={4.85} ancho={2.0} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={-2.55} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={3.7} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
 
       <group position={[-1, 0, 0]}>
       {/* Cochera: cargador del auto eléctrico. */}
@@ -710,44 +710,44 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <group position={[-0.5, 0, 0]}>
       {/* Living. */}
       <Alfombra p={[-2.1, 0.02, 0.5]} s={[3.8, 2.6]} color="#7e8ba6" />
-      <Estante p={[0.05, 0, -3.1]} s={[1.0, 2.3, 0.4]} />
-      <Cuadro p={[-1.5, 2.0, -3.37]} s={[1.0, 0.7]} tono={0} />
-      <Cuadro p={[-0.2, 1.9, -3.37]} s={[0.6, 0.8]} tono={1} />
+      <Estante p={[0.05, 0, -3.1]} s={[1.0, 2.8, 0.4]} />
+      <Cuadro p={[-1.5, 2.3, -3.37]} s={[1.0, 0.7]} tono={0} />
+      <Cuadro p={[-0.2, 2.2, -3.37]} s={[0.6, 0.8]} tono={1} />
       <MesaCentro p={[-1.9, 0, 0.7]} />
 
       {/* Dormitorio. */}
-      <Cama p={[-2.4, 3.15, -2.1]} />
-      <MesaLateral p={[-4.0, 3.15, -3.0]} />
-      <MesaLateral p={[-0.8, 3.15, -3.0]} />
-      <Lampara p={[-4.0, 3.75, -3.0]} />
-      <Lampara p={[-0.8, 3.75, -3.0]} />
-      <Cuadro p={[-3.2, 5.2, -3.37]} s={[0.7, 0.9]} tono={2} />
-      <Cuadro p={[-1.6, 5.2, -3.37]} s={[0.7, 0.9]} tono={3} />
+      <Cama p={[-2.4, 3.75, -2.1]} />
+      <MesaLateral p={[-4.0, 3.75, -3.0]} />
+      <MesaLateral p={[-0.8, 3.75, -3.0]} />
+      <Lampara p={[-4.0, 4.35, -3.0]} />
+      <Lampara p={[-0.8, 4.35, -3.0]} />
+      <Cuadro p={[-3.2, 5.8, -3.37]} s={[0.7, 0.9]} tono={2} />
+      <Cuadro p={[-1.6, 5.8, -3.37]} s={[0.7, 0.9]} tono={3} />
       </group>
       <group position={[0.5, 0, 0]}>
 
       {/* Oficina. */}
-      <Escritorio p={[3.2, 3.15, -2.6]} />
-      <SillaOficina p={[3.2, 3.15, -1.5]} rot={Math.PI} />
-      <Archivero p={[5.2, 3.15, -3.0]} />
-      <Estante p={[1.35, 3.15, -3.15]} s={[1.3, 2.3, 0.4]} libros={false} />
-      <Cajas p={[1.3, 4.1, -3.15]} n={3} />
-      <Cajas p={[1.3, 5.0, -3.15]} n={2} />
-      <Cuadro p={[4.3, 5.4, -3.37]} s={[0.9, 0.6]} tono={0} />
+      <Escritorio p={[3.2, 3.75, -2.6]} />
+      <SillaOficina p={[3.2, 3.75, -1.5]} rot={Math.PI} />
+      <Archivero p={[5.2, 3.75, -3.0]} />
+      <Estante p={[1.35, 3.75, -3.15]} s={[1.3, 2.8, 0.4]} libros={false} />
+      <Cajas p={[1.3, 4.7, -3.15]} n={3} />
+      <Cajas p={[1.3, 5.6, -3.15]} n={2} />
+      <Cuadro p={[4.3, 6.0, -3.37]} s={[0.9, 0.6]} tono={0} />
 
       {/* Comedor. */}
       <Mesa p={[3.2, 0, 0.3]} ancho={3.2} fondo={1.5} />
       {[-1.1, 0, 1.1].flatMap((x) => [-1, 1].map((s) => <Silla key={`${x}${s}`} p={[3.2 + x, 0, 0.3 + s * 1.05]} rot={s > 0 ? Math.PI : 0} color="#cfe9d8" />))}
-      <LamparaColgante p={[2.4, 2.2, 0.3]} />
-      <LamparaColgante p={[4.0, 2.2, 0.3]} />
+      <LamparaColgante p={[2.4, 2.8, 0.3]} />
+      <LamparaColgante p={[4.0, 2.8, 0.3]} />
       <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#b57bff" ei={0.18} />
       <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
       </group>
 
       {/* Focos empotrados en el techo de cada habitación. */}
-      {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
+      {[[-7.7, 3.55], [-3.0, 3.55], [-1.0, 3.55], [-3.0, 7.3], [-1.0, 7.3], [2.2, 7.3], [4.4, 7.3], [2.2, 3.55], [4.4, 3.55]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
 
-      {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.15], [-1.0, 3.15], [2.2, 3.15], [4.4, 3.15], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
+      {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.75], [-1.0, 3.75], [2.2, 3.75], [4.4, 3.75], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
         <mesh key={`lz${x}${y}${z}`} position={[desplazarX(x), y + 0.058, z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[3.2, 3.2]} />
           <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
@@ -755,11 +755,11 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       )))}
 
       {/* Familia: 3 adultos (dormitorio, oficina y la mamá que camina living ↔ cochera) y 2 niños jugando en el jardín. */}
-      <Persona p={[desplazarX(3.2), 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
+      <Persona p={[desplazarX(3.2), 4.25, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
       </Fundido>
 
       {/* Personas con movimiento: cada una con su propio Fundido (pocas mallas) y solo se anima su grupo. */}
-      <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
+      <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.75, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
       {/* La mamá camina del living a la cochera por el paso entre cuartos; los dos niños juegan a perseguirse en el jardín. */}
       <PersonaViva modo="paseo" p={[-1.6, 0, 1.45]} hasta={-10.3} ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" fase={0.2} />
       <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0} />
@@ -817,7 +817,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       const { dist, alto } = ENCUADRE[slotSeleccionado];
       return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
-    return { objetivo: new THREE.Vector3(-0.6, 3.4, 1.2), distancia: 29 };
+    return { objetivo: new THREE.Vector3(-0.6, 4.0, 1.2), distancia: 29 };
   }, [slotSeleccionado]);
 
   const etiquetas = useMemo<Etiqueta[]>(
@@ -846,8 +846,8 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
         g,
         lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-9.6, 8.4, 1.0] : g === 'PASIVO' ? [9.9, 8.6, 1.0] : [10.2, 4.8, 0.6]) as V3,
-        ancla: (g === 'ACTIVO' ? [-5.7, 4.9, 0.6] : g === 'PASIVO' ? [6.8, 4.9, 0.6] : [6.8, 1.7, 0.2]) as V3,
+        pos: (g === 'ACTIVO' ? [-9.6, 9.6, 1.0] : g === 'PASIVO' ? [9.9, 9.8, 1.0] : [10.2, 5.4, 0.6]) as V3,
+        ancla: (g === 'ACTIVO' ? [-5.7, 5.5, 0.6] : g === 'PASIVO' ? [6.8, 5.5, 0.6] : [6.8, 1.7, 0.2]) as V3,
       })),
     [totales, formatear]
   );
