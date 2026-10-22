@@ -32,7 +32,8 @@ export const SLOTS_CASA: SlotCasa[] = [
   { id: 'ahorro', grupo: 'ACTIVO', nombre: { es: 'Ahorros e inversiones', pt: 'Poupança e investimentos' }, coincide: (_n, t) => t === 'ahorro' },
   { id: 'banco', grupo: 'ACTIVO', nombre: { es: 'Cuentas bancarias', pt: 'Contas bancárias' }, coincide: (_n, t) => t === 'banco' },
   { id: 'efectivo', grupo: 'ACTIVO', nombre: { es: 'Efectivo y billeteras', pt: 'Dinheiro e carteiras' }, coincide: (_n, t) => t === 'billetes' },
-  { id: 'cobrar', grupo: 'ACTIVO', nombre: { es: 'Por cobrar', pt: 'A receber' }, coincide: (_n, t) => t === 'documento' },
+  // Solo lo que realmente se cobra: un activo como "Límite tarjeta" también es 'documento' por su nombre, pero no es plata que nos deban.
+  { id: 'cobrar', grupo: 'ACTIVO', nombre: { es: 'Por cobrar', pt: 'A receber' }, coincide: (n, t) => t === 'documento' && tiene(n, ['cobrar', 'receber', 'cliente']) },
   { id: 'otros', grupo: 'ACTIVO', nombre: { es: 'Otros activos', pt: 'Outros ativos' }, coincide: () => true },
   { id: 'tarjeta', grupo: 'PASIVO', nombre: { es: 'Tarjetas de crédito', pt: 'Cartões de crédito' }, coincide: (n) => tiene(n, ['tarjeta', 'cartao', 'credito']) },
   { id: 'prestamo', grupo: 'PASIVO', nombre: { es: 'Préstamos y financiaciones', pt: 'Empréstimos e financiamentos' }, coincide: (n) => tiene(n, ['prestamo', 'emprestimo', 'financ']) },
