@@ -38,6 +38,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/finanzas', titulo: 'Finanzas', corto: { es: 'Finanzas', pt: 'Finanças' }, emoji: '💼', color: '#0d9488' },
   { href: '/mercaderia', titulo: 'Mercadería', corto: { es: 'Mercad.', pt: 'Mercad.' }, emoji: '📦', color: '#ea580c' },
   { href: '/informes', titulo: 'Informes', corto: { es: 'Informes', pt: 'Relat.' }, emoji: '📈', color: '#0891b2' },
+  { href: '/visao-3d', titulo: 'Visão 3D', corto: { es: '3D', pt: '3D' }, emoji: '🏢', color: '#0ea5e9' },
   { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
   { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
@@ -105,7 +106,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
           // Igual que en el lobby: el asistente no ve Informes.
-          if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
+          if (herramienta.href === '/informes' || herramienta.href === '/visao-3d') return perfil.tipo_usuario !== 'ASISTENTE';
           return true;
         })
       );
