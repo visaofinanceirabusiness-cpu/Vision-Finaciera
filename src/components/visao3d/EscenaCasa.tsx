@@ -22,6 +22,9 @@ import {
 } from './CasaMobiliario';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
+// Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
+const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-16, 0, -6), new THREE.Vector3(12, 7.5, 8));
+
 type V3 = [number, number, number];
 
 type Props = {
@@ -483,7 +486,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
           ))}
         </GrupoAnimado>
 
-        <OrbitControls makeDefault enablePan={false} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan screenSpacePanning={false} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} onChange={(e) => e?.target.target.clamp(LIMITE_PAN.min, LIMITE_PAN.max)} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={objetivo} distancia={distancia} focoId="casa" movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
