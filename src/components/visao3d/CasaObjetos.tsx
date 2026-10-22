@@ -122,19 +122,19 @@ export function Sofa({ pintura }: { pintura: Pintura }) {
   return (
     <group>
       {[-1.2, 1.2].flatMap((x) => [-0.4, 0.4].map((z) => <Cilindro key={`l${x}${z}`} p={[x, 0.07, z]} r={0.05} h={0.14} color="#3a2a1e" seg={8} />))}
-      <Caja p={[0, 0.3, 0]} s={[2.8, 0.3, 1.05]} color={oscuro} {...mat} />
-      <Caja p={[0, 0.75, -0.42]} s={[2.8, 0.7, 0.24]} color={c} {...mat} />
+      <Caja p={[0, 0.3, 0]} s={[2.8, 0.3, 1.05]} color={oscuro} {...mat}  r={0.07} />
+      <Caja p={[0, 0.75, -0.42]} s={[2.8, 0.7, 0.24]} color={c} {...mat}  r={0.07} />
       {[-1.5, 1.5].map((x) => (
         <group key={x}>
-          <Caja p={[x * 0.97, 0.5, 0]} s={[0.22, 0.45, 1.05]} color={c} {...mat} />
+          <Caja p={[x * 0.97, 0.5, 0]} s={[0.22, 0.45, 1.05]} color={c} {...mat}  r={0.07} />
           <Cilindro p={[x * 0.97, 0.74, 0]} r={0.12} h={1.05} color={c} emissive={e} ei={ei} rough={0.95} rot={[Math.PI / 2, 0, 0]} seg={12} />
         </group>
       ))}
-      {[-0.88, 0, 0.88].map((x) => <Caja key={`a${x}`} p={[x, 0.55, 0.1]} s={[0.84, 0.22, 0.78]} color={claro} {...mat} />)}
+      {[-0.88, 0, 0.88].map((x) => <Caja key={`a${x}`} p={[x, 0.55, 0.1]} s={[0.84, 0.22, 0.78]} color={claro} {...mat}  r={0.07} />)}
       {[-0.88, 0, 0.88].map((x) => <Caja key={`b${x}`} p={[x, 0.9, -0.28]} s={[0.82, 0.55, 0.2]} color={claro} {...mat} rot={[-0.18, 0, 0]} />)}
       <Caja p={[-1.0, 0.82, 0.05]} s={[0.46, 0.46, 0.14]} color="#fff4e0" rough={1} map={tela} rot={[-0.3, 0.35, 0.2]} />
       <Caja p={[1.05, 0.8, 0.05]} s={[0.42, 0.42, 0.14]} color="#2b3a55" rough={1} map={tela} rot={[-0.3, -0.3, -0.15]} />
-      <Caja p={[1.25, 0.88, 0.35]} s={[0.5, 0.05, 0.7]} color={oscuro} rough={1} rot={[0.25, 0, -0.45]} />
+      <Caja p={[1.25, 0.88, 0.35]} s={[0.5, 0.05, 0.7]} color={oscuro} rough={1} rot={[0.25, 0, -0.45]}  r={0.07} />
     </group>
   );
 }

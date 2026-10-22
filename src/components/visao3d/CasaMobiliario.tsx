@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 type V3 = [number, number, number];
 
@@ -16,10 +17,13 @@ export const TexturasCtx = createContext<TexturasCasa | null>(null);
 export const NocheCtx = createContext(false);
 
 // Caja con material estándar: la pieza básica de todo el mobiliario.
-export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map, rot }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture; rot?: V3 }) {
+export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map, rot, r }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture; rot?: V3; r?: number }) {
+  // `r` redondea las aristas (muebles blandos); sin `r` queda la caja de siempre.
+  const redondeada = useMemo(() => (r ? new RoundedBoxGeometry(s[0], s[1], s[2], 2, Math.min(r, s[0] / 2, s[1] / 2, s[2] / 2)) : null), [r, s[0], s[1], s[2]]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => redondeada?.dispose(), [redondeada]);
   return (
-    <mesh position={p} rotation={rot}>
-      <boxGeometry args={s} />
+    <mesh position={p} rotation={rot} geometry={redondeada ?? undefined}>
+      {!redondeada && <boxGeometry args={s} />}
       <meshStandardMaterial color={color} emissive={emissive ?? '#000000'} emissiveIntensity={ei} roughness={rough} metalness={metal} transparent={opacity < 1} opacity={opacity} map={map} />
     </mesh>
   );
@@ -121,10 +125,10 @@ export function Cama({ p }: { p: V3 }) {
   return (
     <group position={p}>
       <Caja p={[0, 0.25, 0]} s={[2.2, 0.3, 2.4]} color="#d8dde8" />
-      <Caja p={[0, 0.5, 0.05]} s={[2.1, 0.22, 2.2]} color="#eef2f8" rough={0.95} map={tela} />
-      <Caja p={[0, 0.62, 0.7]} s={[2.1, 0.06, 1.1]} color="#8fb0e0" rough={0.95} map={tela} />
-      <Caja p={[-0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela} />
-      <Caja p={[0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela} />
+      <Caja p={[0, 0.5, 0.05]} s={[2.1, 0.22, 2.2]} color="#eef2f8" rough={0.95} map={tela}  r={0.06} />
+      <Caja p={[0, 0.62, 0.7]} s={[2.1, 0.06, 1.1]} color="#8fb0e0" rough={0.95} map={tela}  r={0.06} />
+      <Caja p={[-0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela}  r={0.06} />
+      <Caja p={[0.55, 0.7, -0.85]} s={[0.8, 0.18, 0.45]} color="#ffffff" rough={0.95} map={tela}  r={0.06} />
       <Caja p={[0, 0.85, -1.22]} s={[2.4, 1.1, 0.12]} color="#6f7f99" rough={0.8} />
     </group>
   );
