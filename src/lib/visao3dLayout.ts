@@ -12,7 +12,7 @@ export const ALTURA_EDIFICIO = 6;
 const MINIMO_PISO = 0.9;
 const MINIMO_VOLUMEN = 1.4;
 
-export const COLOR_GRUPO: Record<GrupoId, string> = { ACTIVO: '#2f7df6', PASIVO: '#f08a24', PATRIMONIO: '#22b455' };
+export const COLOR_GRUPO: Record<GrupoId, string> = { ACTIVO: '#2f7df6', PASIVO: '#f08a24', PATRIMONIO: '#a259e6' };
 
 export type Piso = {
   id: string;
