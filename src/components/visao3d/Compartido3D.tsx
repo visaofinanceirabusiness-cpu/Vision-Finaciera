@@ -351,7 +351,7 @@ export function Fundido({ children, desvanecibles }: { children: React.ReactNode
       // Materiales lisos (sin textura, sin transparencia, sin brillo propio fuerte) se agrupan por rugosidad/metal
       // aproximados y el color viaja en los vértices: decenas de colores = una sola llamada de dibujo.
       const std = material as THREE.MeshStandardMaterial;
-      if (std.isMeshStandardMaterial && !std.map && !std.transparent && (std.emissiveIntensity ?? 0) < 0.6 && std.blending === THREE.NormalBlending) {
+      if (std.isMeshStandardMaterial && !std.map && !std.transparent && (std.emissive.getHex() === 0 || (std.emissiveIntensity ?? 0) < 0.6) && std.blending === THREE.NormalBlending) {
         const rb = Math.round(std.roughness * 4) / 4;
         const mb = Math.round(std.metalness * 4) / 4;
         clave = `v|${rb}|${mb}|${std.side}|${std.flatShading}`;

@@ -18,11 +18,35 @@ const AZUL = '#1b2f6b';
 const AZUL_OSCURO = '#142556';
 const NARANJA = '#e8892a';
 
+// Esferas con degradé vertical y un leve ruido por vértice: el plumaje y la ropa tienen matices en vez de un color plano.
+const cacheGeo = new Map<string, THREE.SphereGeometry>();
+function geoDegradada(color: string): THREE.SphereGeometry {
+  let g = cacheGeo.get(color);
+  if (g) return g;
+  g = new THREE.SphereGeometry(1, 22, 16);
+  const top = new THREE.Color(color).offsetHSL(0, 0.0, 0.045);
+  const bottom = new THREE.Color(color).offsetHSL(0, 0.02, -0.075);
+  const pos = g.attributes.position;
+  const col: number[] = [];
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const t = (y + 1) / 2;
+    const n = Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1;
+    c.copy(bottom).lerp(top, t).multiplyScalar(1 + (n - 0.5) * 0.12 + z * 0.05);
+    col.push(c.r, c.g, c.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  cacheGeo.set(color, g);
+  return g;
+}
+
 function Elipsoide({ p, s, color, rough = 0.85, rot }: { p: V3; s: V3; color: string; rough?: number; rot?: V3 }) {
   return (
-    <mesh position={p} scale={s} rotation={rot}>
-      <sphereGeometry args={[1, 18, 14]} />
-      <meshStandardMaterial color={color} roughness={rough} />
+    <mesh position={p} scale={s} rotation={rot} geometry={geoDegradada(color)}>
+      <meshStandardMaterial vertexColors roughness={rough} />
     </mesh>
   );
 }
@@ -48,33 +72,65 @@ function Caja({ p, s, color, rot, rough = 0.8 }: { p: V3; s: V3; color: string; 
 // Logo de Visão Financeira: dos tildes y la flecha verde que sube.
 function texturaLogo(): THREE.Texture {
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = 256;
   const g = c.getContext('2d')!;
   g.lineCap = 'round';
   g.lineJoin = 'round';
   g.strokeStyle = '#ffffff';
-  g.lineWidth = 11;
-  [[14, 0], [46, 0]].forEach(([dx]) => {
+  g.lineWidth = 22;
+  [0, 64].forEach((dx) => {
     g.beginPath();
-    g.moveTo(dx + 6, 58);
-    g.lineTo(dx + 22, 98);
-    g.lineTo(dx + 46, 30);
+    g.moveTo(24 + dx, 112);
+    g.lineTo(58 + dx, 188);
+    g.lineTo(104 + dx, 52);
     g.stroke();
   });
-  g.strokeStyle = '#2fa84f';
-  g.lineWidth = 10;
+  g.strokeStyle = '#34b657';
+  g.lineWidth = 20;
   g.beginPath();
-  g.moveTo(24, 92);
-  g.lineTo(52, 62);
-  g.lineTo(66, 76);
-  g.lineTo(104, 24);
+  g.moveTo(54, 176);
+  g.lineTo(112, 118);
+  g.lineTo(136, 142);
+  g.lineTo(206, 52);
   g.stroke();
-  g.fillStyle = '#2fa84f';
+  g.fillStyle = '#34b657';
   g.beginPath();
-  g.moveTo(112, 14);
-  g.lineTo(88, 22);
-  g.lineTo(106, 40);
+  g.moveTo(232, 22);
+  g.lineTo(178, 36);
+  g.lineTo(214, 76);
   g.closePath();
+  g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+// Ojo: iris ámbar con aro oscuro, pupila y dos reflejos (se pega sobre la esclerótica).
+function texturaOjo(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const iris = g.createRadialGradient(64, 64, 8, 64, 64, 56);
+  iris.addColorStop(0, '#f0b13a');
+  iris.addColorStop(0.55, '#c27a1c');
+  iris.addColorStop(0.9, '#6b3c0c');
+  iris.addColorStop(1, 'rgba(60,30,5,0)');
+  g.fillStyle = iris;
+  g.beginPath();
+  g.arc(64, 64, 58, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#0a0a0c';
+  g.beginPath();
+  g.arc(64, 64, 25, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.95)';
+  g.beginPath();
+  g.arc(48, 46, 11, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.6)';
+  g.beginPath();
+  g.arc(82, 82, 5, 0, Math.PI * 2);
   g.fill();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -126,9 +182,10 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
   const parpados = useRef<THREE.Group>(null);
   const sombra = useMemo(() => (typeof document === 'undefined' ? null : texturaSombra()), []);
   const logo = useMemo(() => (typeof document === 'undefined' ? null : texturaLogo()), []);
+  const ojo = useMemo(() => (typeof document === 'undefined' ? null : texturaOjo()), []);
   const libro = useMemo(() => (logo ? texturaLibro(logo) : null), [logo]);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
-  useEffect(() => () => { logo?.dispose(); libro?.dispose(); sombra?.dispose(); }, [logo, libro, sombra]);
+  useEffect(() => () => { logo?.dispose(); libro?.dispose(); sombra?.dispose(); ojo?.dispose(); }, [logo, libro, sombra, ojo]);
 
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
@@ -147,7 +204,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
     if (brazo.current) brazo.current.rotation.z = -0.35 + Math.sin(t * 2.2) * 0.1;
   });
 
-  if (!logo || !libro || !sombra) return null;
+  if (!logo || !libro || !sombra || !ojo) return null;
   const ojos = [-1, 1] as const;
 
   return (
@@ -210,8 +267,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           <Caja p={[0.24, 0.5, 0.5]} s={[0.17, 0.05, 0.025]} color={AZUL_OSCURO} rot={[0, 0, 0.1]} />
         </Fundido>
         {/* Logo en el pecho del saco. */}
-        <mesh position={[0.22, 0.74, 0.512]} rotation={[0, 0.1, 0]}>
-          <planeGeometry args={[0.17, 0.17]} />
+        <mesh position={[0.22, 0.76, 0.515]} rotation={[0, 0.12, 0]}>
+          <planeGeometry args={[0.3, 0.3]} />
           <meshBasicMaterial map={logo} transparent toneMapped={false} />
         </mesh>
 
@@ -255,59 +312,54 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
         </group>
       </group>
 
-      {/* Cabeza: plumaje, disco facial, ojos, anteojos redondos, pico y penachos. */}
+      {/* Cabeza: cráneo con degradé, discos faciales con aro, ojos con textura, anteojos redondos, pico y penachos suaves. */}
       <group ref={cabeza} position={[0, 1.52, 0.03]}>
         <Fundido>
-          <Elipsoide p={[0, 0, 0]} s={[0.48, 0.43, 0.42]} color={MARRON} />
+          <Elipsoide p={[0, 0.02, 0]} s={[0.5, 0.45, 0.44]} color={MARRON} />
+          <Elipsoide p={[0, 0.17, -0.02]} s={[0.46, 0.3, 0.4]} color="#5e3319" />
+          {[-2, -1, 0, 1, 2].map((i) => <Elipsoide key={`fr${i}`} p={[i * 0.11, 0.33 - Math.abs(i) * 0.03, 0.17]} s={[0.075, 0.05, 0.05]} color={i % 2 ? '#7a4326' : '#6a3a20'} rot={[0.5, 0, i * 0.12]} />)}
           {ojos.map((l) => (
             <group key={l}>
-              <Elipsoide p={[l * 0.18, 0.0, 0.3]} s={[0.25, 0.25, 0.14]} color={CREMA} />
-              <Elipsoide p={[l * 0.18, 0.04, 0.4]} s={[0.15, 0.15, 0.09]} color="#ffffff" rough={0.3} />
-              <Elipsoide p={[l * 0.18, 0.04, 0.46]} s={[0.1, 0.1, 0.05]} color="#b8741a" rough={0.3} />
-              <Elipsoide p={[l * 0.18, 0.04, 0.5]} s={[0.058, 0.058, 0.03]} color="#0b0b0b" rough={0.2} />
-              <Elipsoide p={[l * 0.18 + 0.025, 0.075, 0.53]} s={[0.022, 0.022, 0.015]} color="#ffffff" rough={0.1} />
-              <mesh position={[l * 0.18, 0.04, 0.5]}>
-                <torusGeometry args={[0.2, 0.026, 8, 28]} />
-                <meshStandardMaterial color="#0f0f12" roughness={0.35} />
+              <Elipsoide p={[l * 0.34, 0.39, 0.0]} s={[0.065, 0.2, 0.05]} color="#4f2a14" rot={[0, 0, -l * 0.5]} />
+              <Elipsoide p={[l * 0.25, 0.43, 0.02]} s={[0.05, 0.14, 0.04]} color="#5e3319" rot={[0, 0, -l * 0.35]} />
+              <Elipsoide p={[l * 0.19, -0.01, 0.3]} s={[0.27, 0.26, 0.13]} color={CREMA} />
+              <mesh position={[l * 0.19, -0.01, 0.37]} scale={[1, 0.96, 1]}>
+                <torusGeometry args={[0.265, 0.03, 10, 36]} />
+                <meshStandardMaterial color="#cfae7c" roughness={0.9} />
               </mesh>
-              <mesh position={[l * 0.18, 0.04, 0.505]}>
-                <circleGeometry args={[0.19, 24]} />
-                <meshStandardMaterial color="#cfe6ff" transparent opacity={0.16} roughness={0.05} metalness={0.2} depthWrite={false} />
+              <Elipsoide p={[l * 0.19, 0.03, 0.4]} s={[0.155, 0.155, 0.09]} color="#ffffff" rough={0.3} />
+              <mesh position={[l * 0.19, 0.03, 0.495]}>
+                <planeGeometry args={[0.26, 0.26]} />
+                <meshStandardMaterial map={ojo} transparent roughness={0.3} />
               </mesh>
-              <Elipsoide p={[l * 0.38, 0.07, 0.5]} s={[0.025, 0.03, 0.025]} color="#1a1a1f" />
-              <Elipsoide p={[l * 0.06, -0.02, 0.52]} s={[0.02, 0.04, 0.015]} color="#d9d9de" rough={0.3} />
-              <Caja p={[l * 0.355, 0.07, 0.3]} s={[0.012, 0.02, 0.36]} color="#0f0f12" rot={[0, l * -0.12, 0]} />
-              <Cono p={[l * 0.2, 0.3, 0.38]} r={0.06} h={0.2} color={MARRON_OSCURO} rot={[0.4, 0, l * 0.9]} />
-              <Cono p={[l * 0.28, 0.36, 0.08]} r={0.07} h={0.28} color={MARRON_OSCURO} rot={[0.1, 0, -l * 0.55]} />
-              <Cono p={[l * 0.18, 0.4, 0.04]} r={0.05} h={0.2} color={MARRON} rot={[0.1, 0, -l * 0.25]} />
+              <mesh position={[l * 0.19, 0.03, 0.525]}>
+                <torusGeometry args={[0.21, 0.03, 12, 40]} />
+                <meshStandardMaterial color="#0f0f12" roughness={0.3} />
+              </mesh>
+              <mesh position={[l * 0.19, 0.03, 0.528]}>
+                <circleGeometry args={[0.2, 28]} />
+                <meshStandardMaterial color="#cfe6ff" transparent opacity={0.14} roughness={0.05} metalness={0.2} depthWrite={false} />
+              </mesh>
+              <Elipsoide p={[l * 0.4, 0.06, 0.5]} s={[0.025, 0.03, 0.025]} color="#1a1a1f" />
+              <Elipsoide p={[l * 0.07, -0.03, 0.54]} s={[0.02, 0.04, 0.015]} color="#d9d9de" rough={0.3} />
+              <Caja p={[l * 0.375, 0.06, 0.3]} s={[0.012, 0.02, 0.4]} color="#0f0f12" rot={[0, l * -0.12, 0]} />
+              <Elipsoide p={[l * 0.19, 0.25, 0.44]} s={[0.12, 0.035, 0.045]} color="#4f2a14" rot={[0, 0, l * 0.22]} />
+              <Elipsoide p={[l * 0.33, -0.17, 0.37]} s={[0.09, 0.06, 0.07]} color="#eaa98f" />
             </group>
           ))}
-          <Caja p={[0, 0.05, 0.5]} s={[0.12, 0.024, 0.024]} color="#0f0f12" />
-          {/* Borde del disco facial, cejas y mejillas con plumas. */}
-          {ojos.map((l) => (
-            <group key={`ru${l}`}>
-              {Array.from({ length: 14 }, (_, i) => {
-                const a = (i / 14) * Math.PI * 2;
-                return <Elipsoide key={i} p={[l * 0.18 + Math.cos(a) * 0.27, 0.0 + Math.sin(a) * 0.27, 0.27]} s={[0.05, 0.085, 0.03]} color={i % 2 ? '#c9a876' : '#b08a58'} rot={[0, 0, a - Math.PI / 2]} />;
-              })}
-              {[0, 1, 2].map((k) => <Cono key={`ce${k}`} p={[l * (0.1 + k * 0.1), 0.27 + k * 0.012, 0.42]} r={0.03} h={0.13} color={MARRON_OSCURO} rot={[0.5, 0, l * (0.9 + k * 0.3)]} />)}
-              <Elipsoide p={[l * 0.3, -0.16, 0.36]} s={[0.1, 0.07, 0.08]} color="#e9a98f" />
-            </group>
-          ))}
-          {Array.from({ length: 9 }, (_, i) => <Elipsoide key={`cp${i}`} p={[(i - 4) * 0.095, 0.38 - Math.abs(i - 4) * 0.02, 0.1 + (i % 2) * 0.04]} s={[0.06, 0.1, 0.04]} color={i % 2 ? '#6a3a20' : '#8a4e2c'} rot={[0.4, 0, (i - 4) * 0.12]} />)}
-          {Array.from({ length: 8 }, (_, i) => <Elipsoide key={`cn${i}`} p={[Math.cos(i * 0.8) * 0.34, 0.22 + Math.sin(i * 1.3) * 0.12, -0.05 - (i % 3) * 0.06]} s={[0.07, 0.1, 0.04]} color={i % 2 ? '#7a4326' : '#6a3a20'} rot={[0, 0, i]} />)}
-          <Cono p={[0, -0.06, 0.52]} r={0.075} h={0.2} color={NARANJA} rot={[Math.PI / 2 + 0.25, 0, 0]} />
-          <Elipsoide p={[0, -0.13, 0.5]} s={[0.05, 0.03, 0.03]} color="#c95a3a" />
-          <Cono p={[0, -0.14, 0.5]} r={0.06} h={0.14} color="#d9791f" rot={[Math.PI / 2 - 0.1, 0, 0]} />
-          <Elipsoide p={[0, -0.115, 0.52]} s={[0.04, 0.012, 0.05]} color="#7a1f1f" />
-          <Elipsoide p={[0, -0.12, 0.525]} s={[0.022, 0.008, 0.03]} color="#e07a86" />
-          {ojos.map((l) => <Elipsoide key={`na${l}`} p={[l * 0.03, -0.035, 0.6]} s={[0.01, 0.01, 0.008]} color="#7a3d10" />)}
+          <Caja p={[0, 0.05, 0.53]} s={[0.12, 0.026, 0.026]} color="#0f0f12" />
+          {/* Pico con boca y lengua. */}
+          <Cono p={[0, -0.07, 0.55]} r={0.075} h={0.2} color={NARANJA} rot={[Math.PI / 2 + 0.25, 0, 0]} />
+          <Cono p={[0, -0.15, 0.53]} r={0.06} h={0.14} color="#d9791f" rot={[Math.PI / 2 - 0.1, 0, 0]} />
+          <Elipsoide p={[0, -0.125, 0.55]} s={[0.04, 0.012, 0.05]} color="#7a1f1f" />
+          <Elipsoide p={[0, -0.13, 0.555]} s={[0.022, 0.008, 0.03]} color="#e07a86" />
+          {ojos.map((l) => <Elipsoide key={`na${l}`} p={[l * 0.03, -0.045, 0.63]} s={[0.01, 0.01, 0.008]} color="#7a3d10" />)}
           {[-1, 0, 1].map((k) => <Elipsoide key={k} p={[k * 0.2, -0.3, 0.3]} s={[0.1, 0.07, 0.1]} color={CREMA} />)}
         </Fundido>
         <group ref={parpados} scale={[1, 0.02, 1]}>
           {ojos.map((l) => (
-            <mesh key={`pa${l}`} position={[l * 0.18, 0.04, 0.5]} scale={[1, 1, 1]}>
-              <sphereGeometry args={[0.155, 14, 10]} />
+            <mesh key={`pa${l}`} position={[l * 0.19, 0.03, 0.5]}>
+              <sphereGeometry args={[0.16, 14, 10]} />
               <meshStandardMaterial color={MARRON} roughness={0.9} />
             </mesh>
           ))}

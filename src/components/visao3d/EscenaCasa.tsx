@@ -361,7 +361,7 @@ function MarcadorCuenta({ y }: { y: number }) {
   );
 }
 
-function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode }) {
+function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode }) {
   const { pos, escala = 1, rot = 0 } = AMENIDADES[id];
   const color = colorDeSaldo(nodo.saldo, COLOR_GRUPO[nodo.grupo]);
   const apagado = Math.round(nodo.saldo) === 0;
@@ -389,7 +389,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
         <MarcadorCuenta y={PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
-        <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo })}</Fundido>
+        <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>
       </group>
     </group>
   );
@@ -637,7 +637,7 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
   const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
   const luz = useTexturaLuz();
   const { reflejo } = useTexturas({ reflejo: texturaReflejo });
-  const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode) => (
+  const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode) => (
     <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar}>
       {hijo}
     </Amenidad>
@@ -811,7 +811,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       const { dist, alto } = ENCUADRE[slotSeleccionado];
       return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
-    return { objetivo: new THREE.Vector3(-2.4, 3.0, 1.2), distancia: 25 };
+    return { objetivo: new THREE.Vector3(-0.6, 3.4, 1.2), distancia: 29 };
   }, [slotSeleccionado]);
 
   const etiquetas = useMemo<Etiqueta[]>(
@@ -840,7 +840,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
         g,
         lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-8.8, 8.3, 1.0] : g === 'PASIVO' ? [8.1, 8.5, 1.0] : [8.1, 5.0, 0.6]) as V3,
+        pos: (g === 'ACTIVO' ? [-9.6, 8.4, 1.0] : g === 'PASIVO' ? [9.9, 8.6, 1.0] : [10.2, 4.8, 0.6]) as V3,
         ancla: (g === 'ACTIVO' ? [-5.7, 4.9, 0.6] : g === 'PASIVO' ? [6.8, 4.9, 0.6] : [6.8, 1.7, 0.2]) as V3,
       })),
     [totales, formatear]
