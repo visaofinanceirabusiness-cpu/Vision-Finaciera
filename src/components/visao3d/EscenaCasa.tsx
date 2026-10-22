@@ -49,8 +49,8 @@ type Props = {
 // del fondo y por último en el medio. `rot` gira el objeto sobre su eje (y).
 const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
   // Cochera: las cajas al frente; el auto espera en la entrada, mirando hacia la casa (así la cochera queda libre para otras cuentas).
-  auto: { pos: [-8.65, 0, 8.4], rot: Math.PI / 2 },
-  otros: { pos: [-8.7, 0, 2.6], escala: 0.9 },
+  auto: { pos: [-9.5, 0, 9.2], rot: Math.PI / 2 },
+  otros: { pos: [-8.65, 0.7, 2.6], escala: 0.55 },
   // Living: al frente el documento, la maqueta y la TV; el sofá contra la pared lateral mirando al centro.
   cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
   inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
@@ -78,7 +78,7 @@ const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
 };
 
 const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
-  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'inmueble', grupo: 'ACTIVO' }, { id: 'capital', grupo: 'PATRIMONIO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
+  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'inmueble', grupo: 'ACTIVO' }, { id: 'otros', grupo: 'ACTIVO' }, { id: 'capital', grupo: 'PATRIMONIO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
   { id: 'tarjeta', grupo: 'PASIVO' }, { id: 'prestamo', grupo: 'PASIVO' }, { id: 'apagar', grupo: 'PASIVO' }, { id: 'resultado', grupo: 'PATRIMONIO' },
 ];
 
@@ -428,13 +428,13 @@ function Globo({ pos, ancla, lineas, color, fase }: { pos: V3; ancla: V3; lineas
   });
   return (
     <>
-      <Hilo a={[pos[0], pos[1] - 0.45, pos[2]]} b={ancla} color={color} />
+      <Hilo a={[pos[0], pos[1] - 0.7, pos[2]]} b={ancla} color={color} />
       <group ref={ref} position={pos}>
         <mesh position={[0, 0, -0.01]}>
-          <planeGeometry args={[2.82, 1.02]} />
+          <planeGeometry args={[4.32, 1.52]} />
           <meshBasicMaterial color="#ffffff" toneMapped={false} />
         </mesh>
-        <Letrero lineas={lineas} brillo={color} ancho={2.7} alto={0.9} posicion={[0, 0, 0]} fondo={`${color}dd`} />
+        <Letrero lineas={lineas} brillo={color} ancho={4.2} alto={1.4} posicion={[0, 0, 0]} fondo={`${color}dd`} />
       </group>
     </>
   );
@@ -543,8 +543,8 @@ function Exterior({ noche }: { noche: boolean }) {
         <boxGeometry args={[70, 0.1, 40]} />
         <meshStandardMaterial map={t.pasto} roughness={1} />
       </mesh>
-      <mesh position={[-8.65, -0.1, 9.7]}>
-        <boxGeometry args={[6.4, 0.1, 11.4]} />
+      <mesh position={[-8.65, -0.06, 9.45]}>
+        <boxGeometry args={[5.9, 0.1, 11.95]} />
         <meshStandardMaterial map={t.concreto} roughness={0.85} />
       </mesh>
       {/* La calle va por encima del pasto (antes quedaba tapada por él), con vereda y línea central. */}
@@ -840,7 +840,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
         g,
         lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-8.4, 7.8, 1.0] : g === 'PASIVO' ? [8.6, 7.9, 1.0] : [9.4, 4.5, 0.6]) as V3,
+        pos: (g === 'ACTIVO' ? [-8.8, 8.3, 1.0] : g === 'PASIVO' ? [8.1, 8.5, 1.0] : [8.1, 5.0, 0.6]) as V3,
         ancla: (g === 'ACTIVO' ? [-5.7, 4.9, 0.6] : g === 'PASIVO' ? [6.8, 4.9, 0.6] : [6.8, 1.7, 0.2]) as V3,
       })),
     [totales, formatear]
