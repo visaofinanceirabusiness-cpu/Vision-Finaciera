@@ -318,7 +318,8 @@ function claveMaterial(m: THREE.Material): string | null {
 // Junta en UNA sola malla por material todo lo estático que hay adentro (mobiliario, plantas, vereda…): cientos de
 // objetos chicos pasan a unas pocas llamadas de dibujo, y la escena se mueve fluida también en teléfonos.
 // Lo que se mete acá no debe ser interactivo ni animarse.
-export function Fundido({ children }: { children: React.ReactNode }) {
+// Con `desvanecibles`, los materiales fundidos nacen transparentes y se devuelven en esa lista para animar su opacidad.
+export function Fundido({ children, desvanecibles }: { children: React.ReactNode; desvanecibles?: React.MutableRefObject<THREE.MeshStandardMaterial[]> }) {
   const ref = useRef<THREE.Group>(null);
 
   useLayoutEffect(() => {
@@ -355,7 +356,8 @@ export function Fundido({ children }: { children: React.ReactNode }) {
         clave = `v|${rb}|${mb}|${std.side}|${std.flatShading}`;
         let compartido = vertices.get(clave);
         if (!compartido) {
-          compartido = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rb, metalness: mb, side: std.side, flatShading: std.flatShading });
+          compartido = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rb, metalness: mb, side: std.side, flatShading: std.flatShading, transparent: Boolean(desvanecibles), depthWrite: !desvanecibles });
+          if (desvanecibles) desvanecibles.current.push(compartido);
           vertices.set(clave, compartido);
         }
         material = compartido;
@@ -398,10 +400,12 @@ export function Fundido({ children }: { children: React.ReactNode }) {
         m.geometry.dispose();
       });
       vertices.forEach((m) => m.dispose());
+      if (desvanecibles) desvanecibles.current = [];
       originales.forEach((m) => {
         m.visible = true;
       });
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <group ref={ref}>{children}</group>;
