@@ -21,6 +21,7 @@ import {
   type TexturasCasa,
 } from './CasaMobiliario';
 import { SombrasCasa } from './CasaSombras';
+import { Montanas, Nubes, Trafico } from './CasaEntorno';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
@@ -163,11 +164,15 @@ function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof Z
 function MarcadorCuenta({ y }: { y: number }) {
   const ref = useRef<THREE.Group>(null);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
-  useFrame(({ clock }) => {
-    if (!ref.current || reducido) return;
-    const t = clock.elapsedTime * 2.4;
-    ref.current.position.y = y + Math.sin(t) * 0.07;
-    ref.current.scale.setScalar(1 + Math.sin(t) * 0.14);
+  const mundo = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ clock, camera }) => {
+    const g = ref.current;
+    if (!g) return;
+    // Se achica al acercar la cámara para que no tape el objeto.
+    const base = THREE.MathUtils.clamp(camera.position.distanceTo(g.getWorldPosition(mundo)) / 14, 0.35, 1.1);
+    const t = reducido ? 0 : clock.elapsedTime * 2.4;
+    g.position.y = y + Math.sin(t) * 0.07;
+    g.scale.setScalar(base * (1 + Math.sin(t) * 0.14));
   });
   return (
     <group ref={ref} position={[0, y, 0]}>
@@ -245,6 +250,11 @@ function Exterior({ noche }: { noche: boolean }) {
     asfalto: () => texturaProcedural('asfalto', 8),
     madera: () => texturaProcedural('madera', 5),
     agua: () => texturaProcedural('agua', 2),
+  });
+  // Corriente suave del agua de la pileta: se desplaza la textura compartida (no cambia la geometría fundida).
+  useFrame((_, delta) => {
+    t.agua.offset.x += delta * 0.012;
+    t.agua.offset.y += delta * 0.006;
   });
   const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })), []);
   const arboles: Array<[number, number, number]> = [[-11, -7.6, 1.1], [-6, -8, 1.3], [-0.5, -7.6, 1], [5, -8, 1.25], [10.5, -7.4, 1.1]];
@@ -548,6 +558,9 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       >
         <Cielo activo paleta={hora} />
         {noche && <Estrellas />}
+        <Montanas hora={hora} />
+        <Nubes hora={hora} />
+        <Trafico noche={noche} />
         <fog attach="fog" args={[cfg.niebla, 45, 120]} />
         <ambientLight intensity={cfg.ambiente} />
         <hemisphereLight args={cfg.hemisferio} />
