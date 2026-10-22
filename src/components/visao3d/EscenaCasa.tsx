@@ -37,7 +37,7 @@ type Props = {
 // Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z).
 const AMENIDADES: Record<SlotId, { pos: V3; escala?: number }> = {
   auto: { pos: [-7.7, 0, 0.4] },
-  inmueble: { pos: [-2.25, 0.35, 0.7], escala: 0.6 },
+  inmueble: { pos: [-2.25, 0.35, 0.7], escala: 0.68 },
   muebles: { pos: [-1.5, 0, -2.75] },
   electro: { pos: [-3.9, 0, -3.0] },
   otros: { pos: [-9.3, 0, 2.2], escala: 0.9 },
