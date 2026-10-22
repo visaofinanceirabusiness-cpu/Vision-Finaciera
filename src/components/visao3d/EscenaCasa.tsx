@@ -7,7 +7,7 @@
 // Se carga con import dinámico (ssr: false).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { colorDeSaldo } from '@/lib/visao3dObjetos';
@@ -42,29 +42,30 @@ type Props = {
   esPT?: boolean;
 };
 
-// Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z).
-// Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z). Se escriben con las
-// medidas anteriores de los cuartos y `desplazarX` las centra en los cuartos ensanchados.
-const AMEN_ORIG: Record<SlotId, { pos: V3; escala?: number }> = {
-  auto: { pos: [-7.7, 0, 0.4] },
-  inmueble: { pos: [-2.25, 0.35, 0.7], escala: 0.68 },
-  muebles: { pos: [-1.5, 0, -2.75] },
-  electro: { pos: [-3.9, 0, -3.0] },
-  otros: { pos: [-9.3, 0, 2.2], escala: 0.9 },
-  capital: { pos: [3.2, 0.82, 0.3], escala: 0.75 },
-  // Las amenidades chicas se exhiben al frente de cada cuarto sobre un plinto (la altura del plinto va en PLINTOS).
-  cobrar: { pos: [-0.5, 0.7, 2.3], escala: 0.8 },
-  ahorro: { pos: [-4.1, 3.85, 2.3], escala: 0.8 },
-  efectivo: { pos: [-2.05, 3.85, 2.3], escala: 0.8 },
-  banco: { pos: [0.0, 3.85, 2.3], escala: 0.7 },
-  tarjeta: { pos: [1.4, 3.85, 2.3], escala: 0.8 },
-  prestamo: { pos: [3.2, 3.85, 2.3], escala: 0.8 },
-  apagar: { pos: [5.0, 3.85, 2.3], escala: 0.8 },
-  resultado: { pos: [3.2, 0.7, 2.4], escala: 0.9 },
+// Dónde vive cada amenidad dentro de la casa (coordenadas finales del mundo; el frente mira a +z). Orden de ubicación en cada
+// cuarto: primero hasta 3 AL FRENTE (las chicas sobre un plinto), luego en las paredes laterales, si hacen falta más en la pared
+// del fondo y por último en el medio. `rot` gira el objeto sobre su eje (y).
+const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
+  // Cochera: el auto al frente; las cajas contra el fondo.
+  auto: { pos: [-8.7, 0, 1.7] },
+  otros: { pos: [-10.4, 0, -2.5], escala: 0.9 },
+  // Living: al frente el documento, la maqueta y la TV; el sofá contra la pared lateral mirando al centro.
+  cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
+  inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
+  electro: { pos: [-0.9, 0, 2.3] },
+  muebles: { pos: [-5.0, 0, -0.2], rot: Math.PI / 2 },
+  // Dormitorio: los tres al frente.
+  ahorro: { pos: [-4.6, 3.85, 2.3], escala: 0.8 },
+  efectivo: { pos: [-2.55, 3.85, 2.3], escala: 0.8 },
+  banco: { pos: [-0.5, 3.85, 2.3], escala: 0.7 },
+  // Oficina: los tres al frente.
+  tarjeta: { pos: [1.9, 3.85, 2.3], escala: 0.8 },
+  prestamo: { pos: [3.7, 3.85, 2.3], escala: 0.8 },
+  apagar: { pos: [5.5, 3.85, 2.3], escala: 0.8 },
+  // Comedor: los dos al frente.
+  resultado: { pos: [2.7, 0.7, 2.4], escala: 0.9 },
+  capital: { pos: [4.8, 0.7, 2.4], escala: 0.8 },
 };
-const AMENIDADES = Object.fromEntries(
-  (Object.entries(AMEN_ORIG) as Array<[SlotId, { pos: V3; escala?: number }]>).map(([id, a]) => [id, { ...a, pos: [desplazarX(a.pos[0]), a.pos[1], a.pos[2]] as V3 }])
-) as Record<SlotId, { pos: V3; escala?: number }>;
 
 // Cuánto se acerca la cámara al tocar cada amenidad (los objetos chicos necesitan más cerca) y a qué altura sobre su base mira.
 const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
@@ -75,7 +76,7 @@ const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
 };
 
 const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
-  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
+  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'inmueble', grupo: 'ACTIVO' }, { id: 'capital', grupo: 'PATRIMONIO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
   { id: 'tarjeta', grupo: 'PASIVO' }, { id: 'prestamo', grupo: 'PASIVO' }, { id: 'apagar', grupo: 'PASIVO' }, { id: 'resultado', grupo: 'PATRIMONIO' },
 ];
 
@@ -124,6 +125,51 @@ function huecoEn(xBorde: number, y0: number): [number, number, number] | undefin
   if (xBorde === X_COCHERA && y0 === 0) return [0.3, 1.7, 2.2];
   if (xBorde === X_CENTRO) return [0.3, 2.0, 2.3];
   return undefined;
+}
+
+// Las paredes entre cuartos (interiores) se desvanecen al acercar la cámara; las exteriores no.
+function esInterior(xBorde: number, y0: number): boolean {
+  return xBorde === X_CENTRO || (xBorde === X_COCHERA && y0 === 0);
+}
+
+// Pintura pastel de una pared lateral de un cuarto, con los vértices (cantos de pared) en un tono más marcado.
+function PinturaBorde({ zona, xb, lado }: { zona: { y0: number; y1: number; grupo: GrupoId }; xb: number; lado: 1 | -1 }) {
+  const alto = zona.y1 - zona.y0;
+  const cy = (zona.y0 + zona.y1) / 2;
+  return (
+    <group>
+      <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={huecoEn(xb, zona.y0)} />
+      {[Z_ATRAS + 0.06 + 0.14, Z_ATRAS + PROF - 0.14].map((zv) => (
+        <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+      ))}
+      <Caja p={[xb + lado * (GROSOR / 2 + 0.14), cy, Z_ATRAS + 0.06 + 0.013]} s={[0.28, alto, 0.024]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+    </group>
+  );
+}
+
+// Tabiques interiores con su pintura: un Fundido transparente cuya opacidad baja con el zoom (se ve lo que hay en el cuarto de al lado).
+function Tabiques() {
+  const materiales = useRef<THREE.MeshStandardMaterial[]>([]);
+  const opacidad = useRef(1);
+  const { camera, controls } = useThree();
+  useFrame((_, delta) => {
+    const objetivo = (controls as unknown as { target?: THREE.Vector3 } | null)?.target;
+    const d = objetivo ? camera.position.distanceTo(objetivo) : 25;
+    const meta = THREE.MathUtils.clamp((d - 7) / 9, 0.06, 1);
+    opacidad.current += (meta - opacidad.current) * Math.min(1, delta * 6);
+    materiales.current.forEach((m) => {
+      m.opacity = opacidad.current;
+    });
+  });
+  return (
+    <Fundido desvanecibles={materiales}>
+      {Object.entries(ZONAS).flatMap(([nombre, z]) =>
+        (([[z.x0, 1], [z.x1, -1]]) as Array<[number, 1 | -1]>)
+          .filter(([xb]) => esInterior(xb, z.y0))
+          .map(([xb, lado]) => <PinturaBorde key={`${nombre}${xb}`} zona={z} xb={xb} lado={lado} />)
+      )}
+    </Fundido>
+  );
 }
 
 const VENTANA: Record<Hora, { color: string; emi: number }> = {
@@ -235,15 +281,9 @@ function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof Z
       ))}
       {/* Pared del fondo y paredes laterales pintadas en pastel con el color de la zona; los vértices llevan un tono más marcado. */}
       <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} rough={0.85} />
-      {([[zona.x0, 1], [zona.x1, -1]] as const).map(([xb, lado]) => (
-        <group key={xb}>
-          <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={huecoEn(xb, zona.y0)} />
-          {[Z_ATRAS + 0.06 + 0.14, Z_ATRAS + PROF - 0.14].map((zv) => (
-            <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
-          ))}
-          <Caja p={[xb + lado * (GROSOR / 2 + 0.14), cy, Z_ATRAS + 0.06 + 0.013]} s={[0.28, alto, 0.024]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
-        </group>
-      ))}
+      {(([[zona.x0, 1], [zona.x1, -1]]) as Array<[number, 1 | -1]>)
+        .filter(([xb]) => !esInterior(xb, zona.y0))
+        .map(([xb, lado]) => <PinturaBorde key={xb} zona={zona} xb={xb} lado={lado} />)}
     </Fundido>
   );
 }
@@ -277,7 +317,7 @@ function MarcadorCuenta({ y }: { y: number }) {
 }
 
 function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode }) {
-  const { pos, escala = 1 } = AMENIDADES[id];
+  const { pos, escala = 1, rot = 0 } = AMENIDADES[id];
   const color = colorDeSaldo(nodo.saldo, COLOR_GRUPO[nodo.grupo]);
   const apagado = Math.round(nodo.saldo) === 0;
   const brillo = seleccionada ? 2.4 : hover ? 1.9 : 1;
@@ -285,6 +325,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
   return (
     <group
       position={pos}
+      rotation={[0, rot, 0]}
       scale={hover || seleccionada ? 1.04 : 1}
       onClick={(e) => {
         e.stopPropagation();
@@ -582,6 +623,7 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Habitacion zona={ZONAS.oficina} piso={piso.madera} tinte={HORAS[hora].piso} />
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
       <SombrasCasa />
+      <Tabiques />
 
       <Fundido key={hora}>
       {/* Techos. */}
@@ -666,8 +708,8 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       )))}
 
       {/* Personas sentadas: quedan fundidas con la casa (no se mueven). */}
-      <Persona p={[desplazarX(-2.0), 0.5, -2.45]} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
-      <Persona p={[desplazarX(-1.15), 0.5, -2.45]} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      <Persona p={[-4.95, 0.5, -0.8]} rot={Math.PI / 2} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
+      <Persona p={[-4.95, 0.5, 0.4]} rot={Math.PI / 2} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
       <Persona p={[desplazarX(3.2), 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
       <Persona p={[desplazarX(2.1), 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
       <Persona p={[desplazarX(3.2), 0.46, -0.8]} sentado ropa="#5da3c9" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />

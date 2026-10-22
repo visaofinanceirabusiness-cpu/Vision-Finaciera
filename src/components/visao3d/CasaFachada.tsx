@@ -179,7 +179,7 @@ export function Fachada() {
       <Panel p={[(X_COCHERA + X_DER) / 2, 4.685, zFondo]} s={[X_DER - X_COCHERA, 3.07, PANEL]} map={ladrillo} lado={1.6} />
 
       {/* Techo de la cochera: una sola agua que cae hacia el frente. */}
-      <Panel p={[(X_IZQ + X_COCHERA) / 2 - 0.1, 3.6, 0]} s={[X_COCHERA - X_IZQ + 0.7, 0.12, 8.5]} rot={[0.09, 0, 0]} map={tejas} lado={1.6} />
+      <Panel p={[(X_IZQ - 0.45 + X_COCHERA - 0.07) / 2, 3.6, 0]} s={[X_COCHERA - 0.07 - (X_IZQ - 0.45), 0.12, 8.5]} rot={[0.09, 0, 0]} map={tejas} lado={1.6} />
 
       {/* Techo de la casa a dos aguas, con hastiales de ladrillo en los extremos. */}
       <Hastial p={[xTecho, yAlero, 0]} largo={anchoTecho - 0.2} ancho={avance * 2 - 0.1} alto={subida - 0.05} map={ladrilloMundo} />
@@ -207,7 +207,7 @@ export function Fachada() {
       })}
       {/* Cochera: cuña de ladrillo que cierra el costado bajo el techo inclinado y canto blanco. */}
       <Cuna x={X_IZQ - 0.1} puntos={puntosCuna} grosor={0.1} map={ladrilloMundo} />
-      <mesh position={[(X_IZQ + X_COCHERA) / 2 - 0.1 - (X_COCHERA - X_IZQ + 0.7) / 2 + 0.03, 3.6, 0]} rotation={[0.09, 0, 0]}>
+      <mesh position={[X_IZQ - 0.45 + 0.03, 3.6, 0]} rotation={[0.09, 0, 0]}>
         <boxGeometry args={[0.1, 0.16, 8.5]} />
         <meshStandardMaterial color="#f4f6fa" roughness={0.6} />
       </mesh>
