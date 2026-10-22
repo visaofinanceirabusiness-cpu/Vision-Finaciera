@@ -20,6 +20,7 @@ import {
   Foco, Mesa, MesaCentro, MesaLateral, Palmera, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
   type TexturasCasa,
 } from './CasaMobiliario';
+import { SombrasCasa } from './CasaSombras';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
@@ -325,6 +326,7 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} />
       <Habitacion zona={ZONAS.oficina} piso={piso.madera} />
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} />
+      <SombrasCasa />
 
       <Fundido>
       {/* Techos. */}
