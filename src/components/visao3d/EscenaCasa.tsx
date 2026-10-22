@@ -17,12 +17,13 @@ import type { SlotId } from '@/lib/visao3dCasa';
 import { CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
   Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
-  Foco, Mesa, MesaCentro, MesaLateral, NocheCtx, Palmera, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
+  Foco, Mesa, MesaCentro, MesaLateral, NocheCtx, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
   type TexturasCasa,
 } from './CasaMobiliario';
 import { SombrasCasa } from './CasaSombras';
 import { Montanas, Nubes, Trafico } from './CasaEntorno';
 import { Fachada } from './CasaFachada';
+import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto, Piedra } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
@@ -46,9 +47,9 @@ type Props = {
 // cuarto: primero hasta 3 AL FRENTE (las chicas sobre un plinto), luego en las paredes laterales, si hacen falta más en la pared
 // del fondo y por último en el medio. `rot` gira el objeto sobre su eje (y).
 const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
-  // Cochera: el auto al frente; las cajas contra el fondo.
-  auto: { pos: [-8.7, 0, 1.7] },
-  otros: { pos: [-10.4, 0, -2.5], escala: 0.9 },
+  // Cochera: las cajas al frente (el auto ocupa casi todo el ancho y las taparía) y el auto detrás.
+  auto: { pos: [-8.7, 0, -0.9] },
+  otros: { pos: [-8.7, 0, 2.6], escala: 0.9 },
   // Living: al frente el documento, la maqueta y la TV; el sofá contra la pared lateral mirando al centro.
   cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
   inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
@@ -385,28 +386,6 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
   );
 }
 
-function Matas({ matas }: { matas: Array<[number, number, number]> }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    const malla = ref.current;
-    if (!malla) return;
-    const m = new THREE.Matrix4();
-    matas.forEach(([x, z, e], i) => {
-      m.compose(new THREE.Vector3(x, 0.1 * e, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, i, 0)), new THREE.Vector3(e, e, e));
-      malla.setMatrixAt(i, m);
-    });
-    malla.instanceMatrix.needsUpdate = true;
-  }, [matas]);
-
-  return (
-    <instancedMesh ref={ref} args={[undefined, undefined, matas.length]} frustumCulled={false}>
-      <coneGeometry args={[0.07, 0.34, 4]} />
-      <meshStandardMaterial color="#3f9d58" emissive="#16532b" emissiveIntensity={0.35} roughness={1} flatShading />
-    </instancedMesh>
-  );
-}
-
 // Hilo fino que une un globo con la casa (cilindro delgado entre dos puntos).
 function Hilo({ a, b, color }: { a: V3; b: V3; color: string }) {
   const { pos, quat, largo } = useMemo(() => {
@@ -497,8 +476,9 @@ function PalmeraViva({ p, escala, fase }: { p: V3; escala: number; fase: number 
   return (
     <group ref={ref} position={p}>
       <Fundido>
-        <Palmera p={[0, 0, 0]} escala={escala} />
+        <PalmeraDetallada p={[0, 0, 0]} escala={escala} />
       </Fundido>
+      <HojasPalmera p={[0, 0, 0]} escala={escala} />
     </group>
   );
 }
@@ -524,7 +504,7 @@ function Exterior({ noche }: { noche: boolean }) {
     const lista: Array<[number, number, number]> = [];
     let n = 7;
     const azar = () => ((n = (n * 16807) % 2147483647) / 2147483647);
-    while (lista.length < 520) {
+    while (lista.length < 460) {
       const x = -20 + azar() * 36;
       const z = 4.6 + azar() * 9.6;
       const enCamino = x > -11.9 && x < -5.4 && z < 15.5; // entrada de autos
@@ -534,7 +514,11 @@ function Exterior({ noche }: { noche: boolean }) {
     }
     return lista;
   }, []);
-  const flores = useMemo(() => Array.from({ length: 46 }, (_, i) => ({ x: -4 + ((i * 37) % 100) * 0.115, z: 5.4 + ((i * 53) % 10) * 0.12, c: ['#ff6b8a', '#ffd166', '#ffffff', '#c77dff'][i % 4] })), []);
+  const flores = useMemo(() => {
+    const azar = (() => { let n = 31; return () => ((n = (n * 16807) % 2147483647) / 2147483647); })();
+    return Array.from({ length: 70 }, () => ({ x: -4.8 + azar() * 5.6, z: 5.3 + azar() * 2.2, e: 0.85 + azar() * 0.5 }));
+  }, []);
+  const piedras = useMemo(() => Array.from({ length: 9 }, (_, i) => ({ p: [-4.6 + i * 0.62 + ((i * 7) % 3) * 0.1, -0.1, 7.7 + ((i * 5) % 4) * 0.14] as V3, e: 0.7 + ((i * 3) % 4) * 0.2, giro: (i * 1.3) % 3 })), []);
 
   return (
     <>
@@ -559,13 +543,9 @@ function Exterior({ noche }: { noche: boolean }) {
       {Array.from({ length: 24 }, (_, i) => <Caja key={`ln${i}`} p={[-33 + i * 3, 0.0, 17.5]} s={[1.4, 0.02, 0.12]} color="#f3f0d8" rough={0.6} />)}
       {[15.5, 19.5].map((z) => <Caja key={`bo${z}`} p={[-1, -0.0, z]} s={[70, 0.02, 0.1]} color="#e9e9ef" rough={0.6} />)}
       {/* Sendero de piedras hasta la entrada. */}
-      <Matas matas={matas} />
-      {flores.map((f, i) => (
-        <mesh key={i} position={[f.x, 0.12, f.z]}>
-          <sphereGeometry args={[0.07, 6, 5]} />
-          <meshStandardMaterial color={f.c} emissive={f.c} emissiveIntensity={0.5} />
-        </mesh>
-      ))}
+      <Pasto matas={matas} />
+      <Flores lugares={flores} />
+      {piedras.map((r, i) => <Piedra key={`pi${i}`} p={r.p} e={r.e} giro={r.giro} />)}
       {Array.from({ length: 6 }, (_, i) => (
         <Caja key={i} p={[-1.8 + (i % 2) * 0.35, -0.08, 5.3 + i * 1.8]} s={[1.3, 0.08, 1.0]} color="#9aa3b5" rough={0.8} />
       ))}
@@ -587,20 +567,7 @@ function Exterior({ noche }: { noche: boolean }) {
         </group>
       ))}
 
-      {arbustos.map((a, i) => (
-        <group key={i} position={[a.x, 0.1, a.z]}>
-          <mesh>
-            <icosahedronGeometry args={[a.r, 1]} />
-            <meshStandardMaterial color="#2f8f52" emissive="#0f4a28" emissiveIntensity={0.4} roughness={0.9} flatShading />
-          </mesh>
-          {a.flor && (
-            <mesh position={[0.1, a.r * 0.7, a.r * 0.6]}>
-              <sphereGeometry args={[0.07, 8, 6]} />
-              <meshStandardMaterial color="#ffd166" emissive="#ffb703" emissiveIntensity={1.2} />
-            </mesh>
-          )}
-        </group>
-      ))}
+      {arbustos.map((a, i) => <Arbusto key={i} p={[a.x, -0.1, a.z]} r={a.r} flor={a.flor} />)}
 
       {faroles.map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
