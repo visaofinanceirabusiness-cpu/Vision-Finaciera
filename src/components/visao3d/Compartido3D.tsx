@@ -329,12 +329,13 @@ export function Fundido({ children }: { children: React.ReactNode }) {
 
     const porClave = new Map<string, { material: THREE.Material; geometrias: THREE.BufferGeometry[] }>();
     const originales: THREE.Mesh[] = [];
+    const vertices = new Map<string, THREE.MeshStandardMaterial>();
 
     grupo.traverse((o) => {
       const malla = o as THREE.Mesh;
       if (!malla.isMesh || (malla as THREE.InstancedMesh).isInstancedMesh) return;
-      const material = malla.material as THREE.Material;
-      const clave = Array.isArray(material) ? null : claveMaterial(material);
+      let material = malla.material as THREE.Material;
+      let clave = Array.isArray(material) ? null : claveMaterial(material);
       if (!clave) return;
 
       let geometria = malla.geometry.clone();
@@ -343,6 +344,30 @@ export function Fundido({ children }: { children: React.ReactNode }) {
       // Solo conservan lo que comparten todas las primitivas (así se pueden unir).
       for (const nombre of Object.keys(geometria.attributes)) {
         if (!['position', 'normal', 'uv'].includes(nombre)) geometria.deleteAttribute(nombre);
+      }
+
+      // Materiales lisos (sin textura, sin transparencia, sin brillo propio fuerte) se agrupan por rugosidad/metal
+      // aproximados y el color viaja en los vértices: decenas de colores = una sola llamada de dibujo.
+      const std = material as THREE.MeshStandardMaterial;
+      if (std.isMeshStandardMaterial && !std.map && !std.transparent && (std.emissiveIntensity ?? 0) < 0.6 && std.blending === THREE.NormalBlending) {
+        const rb = Math.round(std.roughness * 4) / 4;
+        const mb = Math.round(std.metalness * 4) / 4;
+        clave = `v|${rb}|${mb}|${std.side}|${std.flatShading}`;
+        let compartido = vertices.get(clave);
+        if (!compartido) {
+          compartido = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rb, metalness: mb, side: std.side, flatShading: std.flatShading });
+          vertices.set(clave, compartido);
+        }
+        material = compartido;
+        const base = std.color.clone().add(std.emissive.clone().multiplyScalar((std.emissiveIntensity ?? 0) * 0.5));
+        const n = geometria.attributes.position.count;
+        const colores = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) {
+          colores[i * 3] = Math.min(1, base.r);
+          colores[i * 3 + 1] = Math.min(1, base.g);
+          colores[i * 3 + 2] = Math.min(1, base.b);
+        }
+        geometria.setAttribute('color', new THREE.BufferAttribute(colores, 3));
       }
 
       const entrada = porClave.get(clave) ?? { material, geometrias: [] };
@@ -372,6 +397,7 @@ export function Fundido({ children }: { children: React.ReactNode }) {
         grupo.remove(m);
         m.geometry.dispose();
       });
+      vertices.forEach((m) => m.dispose());
       originales.forEach((m) => {
         m.visible = true;
       });
