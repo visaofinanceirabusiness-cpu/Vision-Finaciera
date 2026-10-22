@@ -20,8 +20,14 @@ import { cargarDatosVisao3D } from '@/lib/visao3dDatos';
 import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
+import { construirNodosCasa, slotDeCuenta, type SlotId } from '@/lib/visao3dCasa';
 
 const Escena = dynamic(() => import('@/components/visao3d/Escena'), {
+  ssr: false,
+  loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
+});
+
+const EscenaCasa = dynamic(() => import('@/components/visao3d/EscenaCasa'), {
   ssr: false,
   loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
 });
@@ -58,6 +64,9 @@ export default function Visao3DPage() {
   const [focoId, setFocoId] = useState('empresa');
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
+  // Perfil Familia: la empresa se ve como una casa amueblada (cada amenidad es una cuenta); también se puede ver el edificio.
+  const [esFamiliar, setEsFamiliar] = useState(false);
+  const [modo, setModo] = useState<'casa' | 'edificio'>('edificio');
   const [webgl, setWebgl] = useState(true);
   // Pantalla inmersiva: el edificio ocupa todo; los controles viven en un menú y el panel es una hoja plegable.
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -121,7 +130,11 @@ export default function Visao3DPage() {
         return;
       }
 
-      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma, nombre').eq('id', perfil.empresa_id).maybeSingle();
+      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma, nombre, perfiles_empresa(codigo)').eq('id', perfil.empresa_id).maybeSingle();
+      const relacionPerfil = empresa?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
+      const familiar = (Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) === 'FAMILIAR';
+      setEsFamiliar(familiar);
+      if (familiar) setModo('casa');
       setMoneda(empresa?.moneda ?? null);
       setNombreEmpresa(empresa?.nombre ?? '');
       setIdioma(empresa?.idioma ?? null);
@@ -156,13 +169,22 @@ export default function Visao3DPage() {
   const mesCierre = mes === 'TODOS' ? null : mes;
   const edificio = useMemo(() => construirEdificio(cuentas, asientos, mesCierre, etiquetas, (n) => nombreCuentaDisplay(idioma, n)), [cuentas, asientos, mesCierre, etiquetas, idioma]);
 
-  const foco = resolverNodo(edificio.raiz, focoId, mostrarCeros, etiquetaOtras) ?? edificio.raiz;
-  const seleccionado = seleccionadoId ? resolverNodo(edificio.raiz, seleccionadoId, mostrarCeros, etiquetaOtras) : null;
+  const enCasa = esFamiliar && modo === 'casa';
+  const nodosCasa = useMemo(() => (esFamiliar ? construirNodosCasa(edificio.raiz, esPT) : null), [esFamiliar, edificio.raiz, esPT]);
+  const buscarNodo = (id: string): NodoEdificio | null =>
+    id.startsWith('slot:') ? nodosCasa?.[id.slice('slot:'.length) as SlotId] ?? null : resolverNodo(edificio.raiz, id, mostrarCeros, etiquetaOtras);
+
+  const foco = enCasa ? edificio.raiz : resolverNodo(edificio.raiz, focoId, mostrarCeros, etiquetaOtras) ?? edificio.raiz;
+  const seleccionado = seleccionadoId ? buscarNodo(seleccionadoId) : null;
   const nodoPanel = seleccionado ?? foco;
+  const slotSeleccionado: SlotId | null = !seleccionadoId || !nodosCasa ? null : seleccionadoId.startsWith('slot:') ? (seleccionadoId.slice('slot:'.length) as SlotId) : slotDeCuenta(nodosCasa, seleccionadoId);
 
   const { volumenes } = useMemo(() => disenarVolumenes(foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo), [foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo]);
   const { visibles: hijosPanel, ocultosEnCero } = hijosVisibles(nodoPanel, mostrarCeros, etiquetaOtras);
-  const camino = caminoResuelto(edificio.raiz, nodoPanel.id, mostrarCeros, etiquetaOtras);
+  // En la casa la ruta es Empresa → amenidad → cuenta.
+  const camino = enCasa
+    ? [edificio.raiz, ...(slotSeleccionado && nodosCasa ? [nodosCasa[slotSeleccionado]] : []), ...(seleccionado && !seleccionado.id.startsWith('slot:') ? [seleccionado] : [])]
+    : caminoResuelto(edificio.raiz, nodoPanel.id, mostrarCeros, etiquetaOtras);
 
   const movimientos = useMemo(
     () => (nodoPanel.esHoja && nodoPanel.cuentaNombre ? movimientosDeCuenta(nodoPanel.cuentaNombre, asientos, mesCierre) : []),
@@ -170,7 +192,7 @@ export default function Visao3DPage() {
   );
 
   function entrar(nodo: NodoEdificio) {
-    if (nodo.hijos.length === 0) {
+    if (enCasa || nodo.hijos.length === 0) {
       setSeleccionadoId(nodo.id);
       return;
     }
@@ -184,6 +206,10 @@ export default function Visao3DPage() {
 
   // Primero se suelta la selección; después se sube un nivel (hasta la empresa completa).
   function volver() {
+    if (enCasa && seleccionadoId && !seleccionadoId.startsWith('slot:') && slotSeleccionado) {
+      setSeleccionadoId(`slot:${slotSeleccionado}`);
+      return;
+    }
     if (seleccionadoId) {
       setSeleccionadoId(null);
       return;
@@ -198,6 +224,10 @@ export default function Visao3DPage() {
   }
 
   function irACamino(nodo: NodoEdificio) {
+    if (enCasa) {
+      setSeleccionadoId(nodo.id);
+      return;
+    }
     if (nodo.hijos.length > 0) {
       setFocoId(nodo.id);
       setSeleccionadoId(null);
@@ -209,7 +239,7 @@ export default function Visao3DPage() {
     }
   }
 
-  const puedeVolver = foco.id !== 'empresa' || Boolean(seleccionadoId);
+  const puedeVolver = enCasa ? Boolean(seleccionadoId) : foco.id !== 'empresa' || Boolean(seleccionadoId);
   const cuadra = Math.abs(edificio.diferencia) < 0.5;
   const dinero = (n: number) => `${n < 0 ? '−' : ''}${simbolo} ${formatearNumeroEntero(Math.abs(n))}`;
   const colorNodo = COLOR_GRUPO[nodoPanel.grupo];
@@ -269,6 +299,22 @@ export default function Visao3DPage() {
       ) : error || cuentas.length === 0 ? (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center', color: '#fca5a5' }}>
           {error || (esPT ? 'Ainda não há plano de contas para mostrar.' : 'Todavía no hay plan de cuentas para mostrar.')}
+        </div>
+      ) : vista === '3d' && webgl && enCasa && nodosCasa ? (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <EscenaCasa
+            nodos={nodosCasa}
+            totales={{
+              ACTIVO: { nombre: edificio.raiz.hijos[0].nombre, saldo: edificio.raiz.hijos[0].saldo },
+              PASIVO: { nombre: edificio.raiz.hijos[1].nombre, saldo: edificio.raiz.hijos[1].saldo },
+              PATRIMONIO: { nombre: edificio.raiz.hijos[2].nombre, saldo: edificio.raiz.hijos[2].saldo },
+            }}
+            slotSeleccionado={slotSeleccionado}
+            onSeleccionar={seleccionar}
+            formatear={dinero}
+            movimientoReducido={movimientoReducido}
+            periodoClave={mes}
+          />
         </div>
       ) : vista === '3d' && webgl ? (
         <div style={{ position: 'absolute', inset: 0 }}>
@@ -338,6 +384,7 @@ export default function Visao3DPage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (enCasa) return;
                   setFocoId(grupo.id);
                   setSeleccionadoId(null);
                 }}
@@ -372,6 +419,16 @@ export default function Visao3DPage() {
             {mostrarCeros ? '✔ ' : ''}
             {esPT ? 'Mostrar contas em zero' : 'Mostrar cuentas en cero'}
           </button>
+          {esFamiliar && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => { setModo('casa'); setSeleccionadoId(null); }} aria-pressed={modo === 'casa'} style={interruptor(modo === 'casa')}>
+                🏠 {esPT ? 'Casa' : 'Casa'}
+              </button>
+              <button type="button" onClick={() => { setModo('edificio'); setSeleccionadoId(null); }} aria-pressed={modo === 'edificio'} style={interruptor(modo === 'edificio')}>
+                🏢 {esPT ? 'Prédio' : 'Edificio'}
+              </button>
+            </div>
+          )}
           {webgl && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <button type="button" onClick={() => setVista('3d')} aria-pressed={vista === '3d'} style={interruptor(vista === '3d')}>
@@ -410,7 +467,7 @@ export default function Visao3DPage() {
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 900, color: nodoPanel.saldo < 0 ? '#fca5a5' : '#fff' }}>{dinero(nodoPanel.saldo)}</div>
               </button>
-              {nodoPanel.hijos.length > 0 && (
+              {!enCasa && nodoPanel.hijos.length > 0 && (
                 <button type="button" onClick={() => entrar(nodoPanel)} style={{ border: 'none', background: colorNodo, color: '#fff', borderRadius: 999, padding: '8px 14px', fontWeight: 800, cursor: 'pointer' }}>
                   {esPT ? 'Entrar' : 'Entrar'} →
                 </button>
