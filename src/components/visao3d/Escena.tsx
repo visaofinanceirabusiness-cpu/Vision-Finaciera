@@ -1,7 +1,9 @@
 'use client';
 
-// Escena 3D de Visão Financeira 3D (React Three Fiber). Solo dibuja lo que calcula
-// lib/visao3dLayout.ts: volúmenes de vidrio con pisos adentro. Se carga con import dinámico
+// Escena 3D de Visão Financeira 3D (React Three Fiber). Solo dibuja lo que calcula lib/visao3dLayout.ts.
+// Desde lejos se ve la FACHADA (vidrio con ventanas iluminadas); al acercarse la cámara el vidrio se vuelve
+// transparente y aparece el INTERIOR: pisos neutros con un objeto por cuenta (auto, casa, mesa, billetes…),
+// del color del grupo, gris si la cuenta está en cero y rojo si es negativa. Se carga con import dinámico
 // (ssr: false) para no sumar three al resto de la aplicación.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -10,11 +12,15 @@ import { Edges, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { COLOR_GRUPO, type Piso, type Volumen } from '@/lib/visao3dLayout';
 import type { NodoEdificio } from '@/lib/visao3d';
+import { colorDeSaldo, tipoObjeto } from '@/lib/visao3dObjetos';
+import { ObjetoCuenta } from './Objetos';
 
 type Props = {
   volumenes: Volumen[];
   // Nodo cuyo interior se muestra (cambia al "entrar"): dispara la animación de entrada.
   focoId: string;
+  // Cambia con el período elegido: el edificio "crece" o se achica a su nueva medida.
+  periodoClave: string;
   seleccionadoId: string | null;
   onSeleccionar: (nodo: NodoEdificio) => void;
   onEntrar: (nodo: NodoEdificio) => void;
@@ -22,37 +28,45 @@ type Props = {
   movimientoReducido: boolean;
 };
 
-const claro = (hex: string, factor: number) => new THREE.Color(hex).lerp(new THREE.Color('#ffffff'), factor);
+// Qué tan cerca (respecto de la distancia normal de la vista) el vidrio pasa de fachada a transparente.
+// En la vista de empresa se arranca viendo la fachada y se revela el interior al acercarse; ya dentro de un
+// grupo o rubro, el interior se ve de entrada.
+const UMBRALES = { raiz: { interior: 0.7, fachada: 0.95 }, dentro: { interior: 1.05, fachada: 1.6 } };
+
+function factorAncho(ancho: number, alto: number): number {
+  return Math.min(1.9, Math.max(1, 1.1 / (ancho / Math.max(alto, 1))));
+}
 
 function centroDe(volumenes: Volumen[], seleccionadoId: string | null): { centro: THREE.Vector3; distancia: number } {
   const total = volumenes.reduce((m, v) => ({ x0: Math.min(m.x0, v.x - v.ancho / 2), x1: Math.max(m.x1, v.x + v.ancho / 2), y1: Math.max(m.y1, v.y + v.alto) }), { x0: Infinity, x1: -Infinity, y1: 0 });
   const baseCentro = new THREE.Vector3((total.x0 + total.x1) / 2, total.y1 / 2, 0);
-  const baseDistancia = volumenes.length > 1 ? 16 : 14;
+  const baseDistancia = volumenes.length > 1 ? 16 : Math.max(11.5, volumenes[0].alto * 1.5 + 3);
 
   if (!seleccionadoId) return { centro: baseCentro, distancia: baseDistancia };
 
   for (const v of volumenes) {
-    if (v.id === seleccionadoId) return { centro: new THREE.Vector3(v.x, v.y + v.alto / 2, 0), distancia: 13 };
+    if (v.id === seleccionadoId) return { centro: new THREE.Vector3(v.x, v.y + v.alto / 2, 0), distancia: 12 };
     const piso = v.pisos.find((p) => p.id === seleccionadoId);
-    if (piso) return { centro: new THREE.Vector3(v.x, v.y + piso.y, 0), distancia: 12 };
+    if (piso) return { centro: new THREE.Vector3(v.x, v.y + piso.y, 0), distancia: 9 };
   }
 
   return { centro: baseCentro, distancia: baseDistancia };
 }
 
-// Lleva la cámara hacia el área elegida (zoom) y, al entrar en un nodo, arranca más lejos y se acerca.
-// Solo guía mientras dura el movimiento: apenas la persona toca la escena (arrastrar, rueda, pellizco)
-// se suelta el control, para que el zoom y el giro manuales no se pisen cada cuadro.
+// Lleva la cámara hacia el área elegida (zoom) y, al entrar en un nodo, arranca más lejos y más abajo y "sube"
+// (efecto ascensor). Solo guía mientras dura el movimiento: apenas la persona toca la escena (arrastrar,
+// rueda, pellizco) se suelta el control, para que el zoom y el giro manuales no se pisen cada cuadro.
 function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { objetivo: THREE.Vector3; distancia: number; focoId: string; movimientoReducido: boolean }) {
   const { camera, controls, size } = useThree();
   const guiando = useRef(true);
   // En pantallas angostas (teléfono vertical) el edificio no entra a la misma distancia: se aleja.
-  const factorAncho = Math.min(1.9, Math.max(1, 1.1 / (size.width / Math.max(size.height, 1))));
-  const distanciaMeta = distancia * factorAncho;
+  const distanciaMeta = distancia * factorAncho(size.width, size.height);
   const distanciaActual = useRef(distanciaMeta * 1.7);
 
   useEffect(() => {
     distanciaActual.current = movimientoReducido ? distanciaMeta : distanciaMeta * 1.7;
+    const orbit = controls as unknown as { target: THREE.Vector3 } | null;
+    if (orbit && !movimientoReducido) orbit.target.y -= 3;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoId, movimientoReducido]);
 
@@ -91,71 +105,145 @@ function CamaraGuiada({ objetivo, distancia, focoId, movimientoReducido }: { obj
   return null;
 }
 
-function PisoCaja({ piso, volumen, seleccionado, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
-  const [encima, setEncima] = useState(false);
-  const color = COLOR_GRUPO[piso.nodo.grupo];
-  const ancho = volumen.ancho - 0.35;
-  const profundidad = volumen.profundidad - 0.35;
-  const alto = Math.max(piso.altura - 0.06, 0.05);
-  const negativo = piso.nodo.saldo < 0;
+// Ventanas de la fachada (instancias de un mismo cubo, con algunas apagadas para que parezca habitado).
+function Ventanas({ volumen, material, lado }: { volumen: Volumen; material: React.RefObject<THREE.MeshBasicMaterial | null>; lado: 'frente' | 'lateral' }) {
+  const posiciones = useMemo(() => {
+    const columnas = lado === 'frente' ? Math.max(2, Math.round(volumen.ancho / 0.85)) : Math.max(2, Math.round(volumen.profundidad / 0.85));
+    const filas = Math.max(1, Math.floor((volumen.alto - 0.5) / 0.8));
+    const ancho = lado === 'frente' ? volumen.ancho : volumen.profundidad;
+    const lista: Array<[number, number]> = [];
+    for (let f = 0; f < filas; f++) {
+      for (let c = 0; c < columnas; c++) {
+        if ((f * 7 + c * 3 + volumen.nodo.id.length) % 5 === 0) continue;
+        lista.push([-ancho / 2 + ((c + 0.5) * ancho) / columnas, 0.7 + f * 0.8]);
+      }
+    }
+    return lista;
+  }, [volumen.alto, volumen.ancho, volumen.profundidad, volumen.nodo.id, lado]);
+
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    const malla = ref.current;
+    if (!malla) return;
+    const matriz = new THREE.Matrix4();
+    posiciones.forEach(([u, y], i) => {
+      matriz.setPosition(u, y, 0);
+      malla.setMatrixAt(i, matriz);
+    });
+    malla.count = posiciones.length;
+    malla.instanceMatrix.needsUpdate = true;
+  }, [posiciones]);
+
+  const posicion: [number, number, number] =
+    lado === 'frente' ? [volumen.x, volumen.y, volumen.profundidad / 2 + 0.02] : [volumen.x + volumen.ancho / 2 + 0.02, volumen.y, 0];
 
   return (
-    <group position={[volumen.x, volumen.y + piso.y, 0]}>
-      <mesh
-        onClick={
-          interactivo
-            ? (e) => {
-                e.stopPropagation();
-                if (seleccionado && piso.nodo.hijos.length > 0) onEntrar(piso.nodo);
-                else onSeleccionar(piso.nodo);
-              }
-            : undefined
-        }
-        onPointerOver={
-          interactivo
-            ? (e) => {
-                e.stopPropagation();
-                setEncima(true);
-                onHover(piso.id);
-                document.body.style.cursor = 'pointer';
-              }
-            : undefined
-        }
-        onPointerOut={
-          interactivo
-            ? () => {
-                setEncima(false);
-                onHover(null);
-                document.body.style.cursor = '';
-              }
-            : undefined
-        }
-      >
-        <boxGeometry args={[ancho, alto, profundidad]} />
-        <meshStandardMaterial
-          color={claro(color, negativo ? 0.55 : 0.12)}
-          emissive={color}
-          emissiveIntensity={seleccionado ? 0.45 : encima ? 0.4 : 0.18}
-          transparent
-          opacity={seleccionado ? 0.9 : 0.72}
-          roughness={0.25}
-          metalness={0.1}
-        />
-        <Edges color={seleccionado ? '#ffffff' : claro(color, 0.5)} />
-      </mesh>
-
+    <group position={posicion} rotation={[0, lado === 'frente' ? 0 : Math.PI / 2, 0]}>
+      <instancedMesh ref={ref} args={[undefined, undefined, Math.max(posiciones.length, 1)]} frustumCulled={false}>
+        <boxGeometry args={[0.42, 0.46, 0.02]} />
+        <meshBasicMaterial ref={material} color="#ffe2a3" transparent opacity={0.85} depthWrite={false} />
+      </instancedMesh>
     </group>
   );
 }
 
-function VolumenVidrio({ volumen, seleccionadoId, esRaiz, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
+function Interior({ piso }: { piso: Piso }) {
+  const nodo = piso.nodo;
+  // Un piso de rubro muestra los objetos de sus cuentas más grandes; uno de cuenta, el suyo.
+  const nodos = nodo.hijos.length === 0 ? [nodo] : nodo.hijos.slice().sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo)).slice(0, 3);
+  const escala = Math.min(1.5, Math.max(0.3, piso.altura * 0.9)) * (nodos.length > 1 ? 0.75 : 1);
+
+  return (
+    <group position={[0, -piso.altura / 2 + 0.05, 0]}>
+      {nodos.map((n, i) => (
+        <group key={n.id} position={[(i - (nodos.length - 1) / 2) * 1.9 * Math.max(escala, 0.7), 0, 0]} scale={escala}>
+          <ObjetoCuenta tipo={tipoObjeto(n.nombre, n.sintetico)} color={colorDeSaldo(n.saldo, COLOR_GRUPO[n.grupo])} apagado={Math.round(n.saldo) === 0} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function PisoCaja({ piso, volumen, seleccionado, onSeleccionar, onEntrar, onHover, interactivo }: { piso: Piso; volumen: Volumen; seleccionado: boolean; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void; interactivo: boolean }) {
+  const [encima, setEncima] = useState(false);
+  const colorGrupo = COLOR_GRUPO[piso.nodo.grupo];
+  const ancho = volumen.ancho - 0.35;
+  const profundidad = volumen.profundidad - 0.35;
+  const alto = Math.max(piso.altura - 0.06, 0.05);
+
+  return (
+    <group
+      position={[volumen.x, volumen.y + piso.y, 0]}
+      onClick={
+        interactivo
+          ? (e) => {
+              e.stopPropagation();
+              if (seleccionado && piso.nodo.hijos.length > 0) onEntrar(piso.nodo);
+              else onSeleccionar(piso.nodo);
+            }
+          : undefined
+      }
+      onPointerOver={
+        interactivo
+          ? (e) => {
+              e.stopPropagation();
+              setEncima(true);
+              onHover(piso.id);
+              document.body.style.cursor = 'pointer';
+            }
+          : undefined
+      }
+      onPointerOut={
+        interactivo
+          ? () => {
+              setEncima(false);
+              onHover(null);
+              document.body.style.cursor = '';
+            }
+          : undefined
+      }
+    >
+      {/* Estructura neutra y transparente: el color queda para las cuentas. */}
+      <mesh>
+        <boxGeometry args={[ancho, alto, profundidad]} />
+        <meshStandardMaterial color="#dbe7ff" transparent opacity={seleccionado ? 0.24 : encima ? 0.16 : 0.07} depthWrite={false} roughness={0.2} />
+        <Edges color={seleccionado ? colorGrupo : encima ? '#ffffff' : '#7f93b8'} />
+      </mesh>
+      <mesh position={[0, -alto / 2 + 0.025, 0]}>
+        <boxGeometry args={[ancho, 0.05, profundidad]} />
+        <meshStandardMaterial color="#cbd5e1" transparent opacity={0.5} roughness={0.6} />
+      </mesh>
+      <Interior piso={piso} />
+    </group>
+  );
+}
+
+function VolumenVidrio({ volumen, seleccionadoId, esRaiz, distanciaBase, onSeleccionar, onEntrar, onHover }: { volumen: Volumen; seleccionadoId: string | null; esRaiz: boolean; distanciaBase: number; onSeleccionar: (n: NodoEdificio) => void; onEntrar: (n: NodoEdificio) => void; onHover: (id: string | null) => void }) {
   const [encima, setEncima] = useState(false);
   const color = COLOR_GRUPO[volumen.nodo.grupo];
   const seleccionado = seleccionadoId === volumen.id;
+  const casco = useRef<THREE.MeshStandardMaterial>(null);
+  const ventanasFrente = useRef<THREE.MeshBasicMaterial>(null);
+  const ventanasLado = useRef<THREE.MeshBasicMaterial>(null);
+  const puerta = useRef<THREE.MeshBasicMaterial>(null);
+  const resaltado = seleccionado ? 0.1 : encima ? 0.05 : 0;
+
+  // Fachada ↔ interior: según qué tan cerca está la cámara, el vidrio y las ventanas se desvanecen.
+  useFrame((estado) => {
+    const orbit = estado.controls as unknown as { target: THREE.Vector3 } | null;
+    if (!orbit) return;
+    const distancia = estado.camera.position.distanceTo(orbit.target) / factorAncho(estado.size.width, estado.size.height);
+    const { interior, fachada } = esRaiz ? UMBRALES.raiz : UMBRALES.dentro;
+    const t = Math.min(1, Math.max(0, (distancia / distanciaBase - interior) / (fachada - interior)));
+    if (casco.current) casco.current.opacity = 0.04 + 0.3 * t + resaltado;
+    if (ventanasFrente.current) ventanasFrente.current.opacity = 0.6 * t;
+    if (ventanasLado.current) ventanasLado.current.opacity = 0.6 * t;
+    if (puerta.current) puerta.current.opacity = 0.9 * t;
+  });
 
   return (
     <group>
-      {/* Cáscara de vidrio. En la vista de empresa es el área seleccionable; adentro, un contenedor. */}
       <mesh
         position={[volumen.x, volumen.y + volumen.alto / 2, 0]}
         onClick={
@@ -171,30 +259,51 @@ function VolumenVidrio({ volumen, seleccionadoId, esRaiz, onSeleccionar, onEntra
         onPointerOut={esRaiz ? () => (setEncima(false), onHover(null), (document.body.style.cursor = '')) : undefined}
       >
         <boxGeometry args={[volumen.ancho, volumen.alto, volumen.profundidad]} />
-        <meshStandardMaterial color={color} transparent opacity={seleccionado ? 0.3 : encima ? 0.24 : 0.14} roughness={0.05} metalness={0.2} depthWrite={false} />
+        <meshStandardMaterial ref={casco} color={color} transparent opacity={0.3} roughness={0.05} metalness={0.25} depthWrite={false} />
         <Edges color={color} />
       </mesh>
+
+      {/* Base y techo del edificio. */}
+      <mesh position={[volumen.x, volumen.y - 0.1, 0]}>
+        <boxGeometry args={[volumen.ancho + 0.5, 0.2, volumen.profundidad + 0.5]} />
+        <meshStandardMaterial color="#1b2a44" roughness={0.8} />
+      </mesh>
+      <mesh position={[volumen.x, volumen.y + volumen.alto + 0.05, 0]}>
+        <boxGeometry args={[volumen.ancho + 0.2, 0.1, volumen.profundidad + 0.2]} />
+        <meshStandardMaterial color="#cbd5e1" transparent opacity={0.55} roughness={0.5} />
+      </mesh>
+
+      <Ventanas volumen={volumen} material={ventanasFrente} lado="frente" />
+      <Ventanas volumen={volumen} material={ventanasLado} lado="lateral" />
+      {volumen.y === 0 && (
+        <mesh position={[volumen.x, 0.5, volumen.profundidad / 2 + 0.03]}>
+          <boxGeometry args={[0.8, 1, 0.03]} />
+          <meshBasicMaterial ref={puerta} color="#fff2c9" transparent opacity={0.9} depthWrite={false} />
+        </mesh>
+      )}
 
       {volumen.pisos.map((piso) => (
         <PisoCaja key={piso.id} piso={piso} volumen={volumen} seleccionado={seleccionadoId === piso.id} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={onHover} interactivo={!esRaiz} />
       ))}
-
     </group>
   );
 }
 
-// Aparece escalando suavemente cada vez que se entra en otro nodo: la sensación de "meterse" en el edificio.
+// Al entrar en otro nivel o cambiar de período el edificio aparece escalando desde abajo: se siente que
+// se mete en él (nivel) o que crece / se achica a su nueva medida (período).
 function GrupoAnimado({ clave, movimientoReducido, children }: { clave: string; movimientoReducido: boolean; children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null);
 
   useEffect(() => {
-    if (ref.current) ref.current.scale.setScalar(movimientoReducido ? 1 : 0.82);
+    if (ref.current) ref.current.scale.set(movimientoReducido ? 1 : 0.9, movimientoReducido ? 1 : 0.55, movimientoReducido ? 1 : 0.9);
   }, [clave, movimientoReducido]);
 
   useFrame((_, delta) => {
     if (!ref.current) return;
-    const s = ref.current.scale.x + (1 - ref.current.scale.x) * (1 - Math.pow(0.001, delta));
-    ref.current.scale.setScalar(s);
+    const k = 1 - Math.pow(0.001, delta);
+    ref.current.scale.x += (1 - ref.current.scale.x) * k;
+    ref.current.scale.y += (1 - ref.current.scale.y) * k;
+    ref.current.scale.z += (1 - ref.current.scale.z) * k;
   });
 
   return <group ref={ref}>{children}</group>;
@@ -221,9 +330,10 @@ function Proyector({ etiquetas, refs }: { etiquetas: Etiqueta[]; refs: React.Mut
   return null;
 }
 
-export default function Escena({ volumenes, focoId, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido }: Props) {
+export default function Escena({ volumenes, focoId, periodoClave, seleccionadoId, onSeleccionar, onEntrar, formatear, movimientoReducido }: Props) {
   const esRaiz = focoId === 'empresa';
   const { centro, distancia } = useMemo(() => centroDe(volumenes, seleccionadoId), [volumenes, seleccionadoId]);
+  const distanciaBase = useMemo(() => centroDe(volumenes, null).distancia, [volumenes]);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -241,8 +351,8 @@ export default function Escena({ volumenes, focoId, seleccionadoId, onSelecciona
           titulo: p.nodo.nombre,
           saldo: p.nodo.saldo,
           color: COLOR_GRUPO[p.nodo.grupo],
-          // Los pisos finitos muestran su nombre siempre; los más finos solo al pasar o seleccionarlos.
-          fija: p.altura >= 0.5,
+          // Todos los pisos tienen alto mínimo: el nombre y el saldo (aunque sea 0) siempre se leen.
+          fija: true,
           seleccionada: seleccionadoId === p.id,
         }));
       }),
@@ -253,24 +363,25 @@ export default function Escena({ volumenes, focoId, seleccionadoId, onSelecciona
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas dpr={[1, 1.75]} camera={{ position: [9, 7, 14], fov: 42 }} style={{ touchAction: 'none' }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
         <color attach="background" args={['#0b1424']} />
-        <fog attach="fog" args={['#0b1424', 26, 60]} />
-        <ambientLight intensity={0.85} />
+        <fog attach="fog" args={['#0b1424', 30, 70]} />
+        <ambientLight intensity={0.9} />
         <directionalLight position={[8, 14, 10]} intensity={1.4} />
         <pointLight position={[-9, 5, -6]} intensity={0.9} color="#6aa7ff" />
+        <pointLight position={[0, 4, 6]} intensity={0.6} color="#ffe2a3" />
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-          <circleGeometry args={[16, 64]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.22, 0]}>
+          <circleGeometry args={[18, 64]} />
           <meshStandardMaterial color="#101c33" roughness={0.9} />
         </mesh>
-        <gridHelper args={[32, 32, '#22385f', '#16253f']} position={[0, 0, 0]} />
+        <gridHelper args={[36, 36, '#22385f', '#16253f']} position={[0, -0.21, 0]} />
 
-        <GrupoAnimado clave={focoId} movimientoReducido={movimientoReducido}>
+        <GrupoAnimado clave={`${focoId}|${periodoClave}`} movimientoReducido={movimientoReducido}>
           {volumenes.map((v) => (
-            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
+            <VolumenVidrio key={v.id} volumen={v} seleccionadoId={seleccionadoId} esRaiz={esRaiz} distanciaBase={distanciaBase} onSeleccionar={onSeleccionar} onEntrar={onEntrar} onHover={setHoverId} />
           ))}
         </GrupoAnimado>
 
-        <OrbitControls makeDefault enablePan={false} minDistance={5} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan={false} minDistance={4} maxDistance={48} minPolarAngle={0.25} maxPolarAngle={Math.PI / 2 - 0.05} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={centro} distancia={distancia} focoId={focoId} movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
