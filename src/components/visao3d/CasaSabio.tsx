@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Fundido, Letrero } from './Compartido3D';
+import { ObjetoCatalogo } from './catalogo/ObjetoCatalogo';
 
 type V3 = [number, number, number];
 
@@ -276,6 +277,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
         <planeGeometry args={[1.5, 1.2]} />
         <meshBasicMaterial map={sombra} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
       </mesh>
+      {/* Si hay un modelo GLB de Sabio en el catálogo se usa ese; si no, el procedural de abajo (con su animación). */}
+      <ObjetoCatalogo id="sabio" estado={{ apagado: false }} claveFundido="sabio" sinFundir procedural={<>
       <group ref={cuerpo}>
         <Fundido>
           {/* Patas y garras. */}
@@ -427,6 +430,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           ))}
         </group>
       </group>
+
+      </>} />
 
       {/* Saludo flotante, siempre de frente a la cámara. */}
       <group ref={cartel} position={[0, 2.55, 0]}>

@@ -20,7 +20,7 @@ import { cargarDatosVisao3D } from '@/lib/visao3dDatos';
 import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
-import { construirNodosCasa, slotDeCuenta, type SlotId } from '@/lib/visao3dCasa';
+import { construirObjetosCasa } from '@/lib/visao3dCasa';
 
 const Escena = dynamic(() => import('@/components/visao3d/Escena'), {
   ssr: false,
@@ -170,20 +170,18 @@ export default function Visao3DPage() {
   const edificio = useMemo(() => construirEdificio(cuentas, asientos, mesCierre, etiquetas, (n) => nombreCuentaDisplay(idioma, n)), [cuentas, asientos, mesCierre, etiquetas, idioma]);
 
   const enCasa = esFamiliar && modo === 'casa';
-  const nodosCasa = useMemo(() => (esFamiliar ? construirNodosCasa(edificio.raiz, esPT) : null), [esFamiliar, edificio.raiz, esPT]);
-  const buscarNodo = (id: string): NodoEdificio | null =>
-    id.startsWith('slot:') ? nodosCasa?.[id.slice('slot:'.length) as SlotId] ?? null : resolverNodo(edificio.raiz, id, mostrarCeros, etiquetaOtras);
+  const objetosCasa = useMemo(() => (esFamiliar ? construirObjetosCasa(edificio.raiz) : null), [esFamiliar, edificio.raiz]);
+  const buscarNodo = (id: string): NodoEdificio | null => resolverNodo(edificio.raiz, id, mostrarCeros, etiquetaOtras);
 
   const foco = enCasa ? edificio.raiz : resolverNodo(edificio.raiz, focoId, mostrarCeros, etiquetaOtras) ?? edificio.raiz;
   const seleccionado = seleccionadoId ? buscarNodo(seleccionadoId) : null;
   const nodoPanel = seleccionado ?? foco;
-  const slotSeleccionado: SlotId | null = !seleccionadoId || !nodosCasa ? null : seleccionadoId.startsWith('slot:') ? (seleccionadoId.slice('slot:'.length) as SlotId) : slotDeCuenta(nodosCasa, seleccionadoId);
 
   const { volumenes } = useMemo(() => disenarVolumenes(foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo), [foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo]);
   const { visibles: hijosPanel, ocultosEnCero } = hijosVisibles(nodoPanel, mostrarCeros, etiquetaOtras);
   // En la casa la ruta es Empresa → amenidad → cuenta.
   const camino = enCasa
-    ? [edificio.raiz, ...(slotSeleccionado && nodosCasa ? [nodosCasa[slotSeleccionado]] : []), ...(seleccionado && !seleccionado.id.startsWith('slot:') ? [seleccionado] : [])]
+    ? [edificio.raiz, ...(seleccionado ? [seleccionado] : [])]
     : caminoResuelto(edificio.raiz, nodoPanel.id, mostrarCeros, etiquetaOtras);
 
   const movimientos = useMemo(
@@ -206,10 +204,6 @@ export default function Visao3DPage() {
 
   // Primero se suelta la selección; después se sube un nivel (hasta la empresa completa).
   function volver() {
-    if (enCasa && seleccionadoId && !seleccionadoId.startsWith('slot:') && slotSeleccionado) {
-      setSeleccionadoId(`slot:${slotSeleccionado}`);
-      return;
-    }
     if (seleccionadoId) {
       setSeleccionadoId(null);
       return;
@@ -300,16 +294,16 @@ export default function Visao3DPage() {
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center', color: '#fca5a5' }}>
           {error || (esPT ? 'Ainda não há plano de contas para mostrar.' : 'Todavía no hay plan de cuentas para mostrar.')}
         </div>
-      ) : vista === '3d' && webgl && enCasa && nodosCasa ? (
+      ) : vista === '3d' && webgl && enCasa && objetosCasa ? (
         <div style={{ position: 'absolute', inset: 0 }}>
           <EscenaCasa
-            nodos={nodosCasa}
+            objetos={objetosCasa}
             totales={{
               ACTIVO: { nombre: edificio.raiz.hijos[0].nombre, saldo: edificio.raiz.hijos[0].saldo },
               PASIVO: { nombre: edificio.raiz.hijos[1].nombre, saldo: edificio.raiz.hijos[1].saldo },
               PATRIMONIO: { nombre: edificio.raiz.hijos[2].nombre, saldo: edificio.raiz.hijos[2].saldo },
             }}
-            slotSeleccionado={slotSeleccionado}
+            seleccionadoId={seleccionadoId}
             onSeleccionar={seleccionar}
             formatear={dinero}
             movimientoReducido={movimientoReducido}

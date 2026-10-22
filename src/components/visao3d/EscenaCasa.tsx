@@ -13,7 +13,8 @@ import * as THREE from 'three';
 import { colorDeSaldo } from '@/lib/visao3dObjetos';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import type { GrupoId, NodoEdificio } from '@/lib/visao3d';
-import type { SlotId } from '@/lib/visao3dCasa';
+import type { ObjetoCasa, SalaId } from '@/lib/visao3dCasa';
+import { normalizar } from '@/lib/gruposActivo';
 import { SombrasCtx, CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
   Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
@@ -29,7 +30,7 @@ import { leerCalidad, usaSombras } from '@/lib/visao3dCalidad';
 import { Sabio } from './CasaSabio';
 import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
-import { Ahorro, AutoSUV, Armario, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Tarjeta, TV } from './CasaObjetos';
+import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
 const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 9, 8));
@@ -37,9 +38,9 @@ const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vecto
 type V3 = [number, number, number];
 
 type Props = {
-  nodos: Record<SlotId, NodoEdificio>;
+  objetos: ObjetoCasa[];
   totales: Record<GrupoId, { nombre: string; saldo: number }>;
-  slotSeleccionado: SlotId | null;
+  seleccionadoId: string | null;
   onSeleccionar: (nodo: NodoEdificio) => void;
   formatear: (valor: number) => string;
   movimientoReducido: boolean;
@@ -47,43 +48,38 @@ type Props = {
   esPT?: boolean;
 };
 
-// Dónde vive cada amenidad dentro de la casa (coordenadas finales del mundo; el frente mira a +z). Orden de ubicación en cada
-// cuarto: primero hasta 3 AL FRENTE (las chicas sobre un plinto), luego en las paredes laterales, si hacen falta más en la pared
-// del fondo y por último en el medio. `rot` gira el objeto sobre su eje (y).
-const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
-  // Cochera: las cajas al frente; el auto espera en la entrada, mirando hacia la casa (así la cochera queda libre para otras cuentas).
-  auto: { pos: [-9.5, 0, 9.2], rot: Math.PI / 2 },
-  otros: { pos: [-8.65, 0.7, 2.6], escala: 0.55 },
-  // Living: al frente el documento, la maqueta y la TV. Cochera: el armario (Muebles y Útiles) contra la pared lateral, mirando al centro.
-  cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
-  inmueble: { pos: [-3.0, 0.7, 2.4], escala: 0.55 },
-  electro: { pos: [-0.9, 0, 2.3] },
-  muebles: { pos: [-11.2, 0, -0.4], rot: Math.PI / 2, escala: 1.15 },
-  // Dormitorio: los tres al frente.
-  ahorro: { pos: [-4.6, 4.45, 2.3], escala: 0.8 },
-  efectivo: { pos: [-2.55, 4.45, 2.3], escala: 0.8 },
-  banco: { pos: [-0.5, 4.45, 2.3], escala: 0.7 },
-  // Oficina: los tres al frente.
-  tarjeta: { pos: [1.9, 4.45, 2.3], escala: 0.8 },
-  prestamo: { pos: [3.7, 4.45, 2.3], escala: 0.8 },
-  apagar: { pos: [5.5, 4.45, 2.3], escala: 0.8 },
-  // Comedor: los dos al frente.
-  resultado: { pos: [2.7, 0.7, 2.4], escala: 0.9 },
-  capital: { pos: [4.8, 0.7, 2.4], escala: 0.8 },
-};
+// Dónde va cada objeto de cuenta. Los que van sobre un pilar se acomodan en filas al frente de su habitación (llenado corrido,
+// hasta 5 por habitación, centradas); las piezas grandes tienen sitio propio: el auto en la entrada, el sofá y la TV en el living.
+type Lugar = { pos: V3; escala: number; rot: number; sobrePilar: boolean };
 
-// Cuánto se acerca la cámara al tocar cada amenidad (los objetos chicos necesitan más cerca) y a qué altura sobre su base mira.
-const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
-  auto: { dist: 10, alto: 0.8 }, muebles: { dist: 6.5, alto: 1.1 }, electro: { dist: 7, alto: 0.9 }, otros: { dist: 5.5, alto: 0.4 },
-  inmueble: { dist: 4.6, alto: 0.4 }, capital: { dist: 4.2, alto: 0.4 }, resultado: { dist: 5.4, alto: 0.8 },
-  cobrar: { dist: 4.2, alto: 0.4 }, ahorro: { dist: 4.2, alto: 0.6 }, efectivo: { dist: 4.2, alto: 0.4 }, banco: { dist: 4.4, alto: 0.6 },
-  tarjeta: { dist: 4.2, alto: 0.5 }, prestamo: { dist: 4.2, alto: 0.4 }, apagar: { dist: 4.2, alto: 0.4 },
+const AREA_SALA: Record<Exclude<SalaId, 'entrada'>, { x0: number; x1: number; y0: number }> = {
+  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0 },
+  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0 },
+  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.75 },
+  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.75 },
+  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0 },
 };
+const ALTO_PILAR = 0.7;
+const ESCALA_TIPO: Partial<Record<string, number>> = { casa: 0.55, banco: 0.7, resultado: 0.9, capital: 0.8 };
 
-const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
-  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'inmueble', grupo: 'ACTIVO' }, { id: 'otros', grupo: 'ACTIVO' }, { id: 'capital', grupo: 'PATRIMONIO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
-  { id: 'tarjeta', grupo: 'PASIVO' }, { id: 'prestamo', grupo: 'PASIVO' }, { id: 'apagar', grupo: 'PASIVO' }, { id: 'resultado', grupo: 'PATRIMONIO' },
-];
+function lugarDe(o: ObjetoCasa): Lugar {
+  if (o.modo === 'auto') return { pos: [o.indice === 0 ? -9.5 : -7.6, 0, 9.2], escala: 1, rot: Math.PI / 2, sobrePilar: false };
+  if (o.modo === 'sofa') return { pos: [-5.15, 0, -1.6], escala: 1, rot: Math.PI / 2, sobrePilar: false };
+  if (o.modo === 'tv') return { pos: [-2.6, 0, -3.0], escala: 1, rot: 0, sobrePilar: false };
+  const area = AREA_SALA[o.sala as Exclude<SalaId, 'entrada'>];
+  const cx = (area.x0 + area.x1) / 2;
+  const paso = Math.min(1.3, (area.x1 - area.x0 - 1.4) / Math.max(1, o.enFila - 1));
+  return { pos: [cx + (o.indice - (o.enFila - 1) / 2) * paso, area.y0 + ALTO_PILAR, 2.4 - o.fila * 1.5], escala: ESCALA_TIPO[o.tipo] ?? 0.8, rot: 0, sobrePilar: true };
+}
+
+// Cuánto se acerca la cámara al tocar cada objeto (los chicos necesitan más cerca) y a qué altura sobre su base mira.
+function encuadreDe(o: ObjetoCasa): { dist: number; alto: number } {
+  if (o.modo === 'auto') return { dist: 10, alto: 0.8 };
+  if (o.modo === 'sofa') return { dist: 7, alto: 0.6 };
+  if (o.modo === 'tv') return { dist: 7, alto: 0.9 };
+  if (o.tipo === 'resultado') return { dist: 5.4, alto: 0.8 };
+  return { dist: 4.3, alto: 0.5 };
+}
 
 const ZONAS = {
   garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, y1: 3.6, grupo: 'ACTIVO' as GrupoId },
@@ -364,16 +360,16 @@ function MarcadorCuenta({ y }: { y: number }) {
   );
 }
 
-function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, directo = false, children }: { directo?: boolean; id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode }) {
-  const { pos, escala = 1, rot = 0 } = AMENIDADES[id];
+function Amenidad({ objeto, lugar, hover, seleccionada, onHover, onSeleccionar, directo = false, children }: { directo?: boolean; objeto: ObjetoCasa; lugar: Lugar; hover: boolean; seleccionada: boolean; onHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode }) {
+  const { nodo } = objeto;
   const color = colorDeSaldo(nodo.saldo, COLOR_GRUPO[nodo.grupo]);
   const apagado = Math.round(nodo.saldo) === 0;
   const brillo = seleccionada ? 2.4 : hover ? 1.9 : 1;
 
   return (
     <group
-      position={pos}
-      rotation={[0, rot, 0]}
+      position={lugar.pos}
+      rotation={[0, lugar.rot, 0]}
       scale={hover || seleccionada ? 1.04 : 1}
       onClick={(e) => {
         e.stopPropagation();
@@ -381,7 +377,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, direc
       }}
       onPointerOver={(e) => {
         e.stopPropagation();
-        onHover(id);
+        onHover(objeto.id);
         document.body.style.cursor = 'pointer';
       }}
       onPointerOut={() => {
@@ -389,9 +385,9 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, direc
         document.body.style.cursor = '';
       }}
     >
-      {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
-      <group scale={escala}>
-        <MarcadorCuenta y={id === 'muebles' ? 3.5 : PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
+      {/* Cada objeto se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
+      <group scale={lugar.escala}>
+        <MarcadorCuenta y={objeto.modo === 'sofa' ? 1.5 : objeto.modo === 'plinto' ? 1.5 : 2.1} />
         {directo ? children({ color, apagado, brillo, negativo: nodo.saldo < 0 }) : <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>}
       </group>
     </group>
@@ -642,21 +638,56 @@ function Exterior({ noche }: { noche: boolean }) {
   );
 }
 
-function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; nodos: Record<SlotId, NodoEdificio>; totales: Props['totales']; slotSeleccionado: SlotId | null; hover: SlotId | null; setHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
+// Huellas de sombra de los objetos que dependen de las cuentas (pilares, sofá y TV), en coordenadas del mundo.
+function huellasDeObjetos(objetos: ObjetoCasa[], lugares: Map<string, Lugar>): { baja: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }>; alta: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }> } {
+  const baja: ReturnType<typeof huellasDeObjetos>['baja'] = [];
+  const alta: ReturnType<typeof huellasDeObjetos>['alta'] = [];
+  for (const o of objetos) {
+    const { pos } = lugares.get(o.id)!;
+    if (o.modo === 'plinto') (pos[1] > 3 ? alta : baja).push({ x: pos[0], z: pos[2], w: 1, d: 1, r: 0.5 });
+    else if (o.modo === 'sofa') baja.push({ x: pos[0], z: pos[2], w: 0.95, d: 2.4, fuerza: 0.9 });
+    else if (o.modo === 'tv') baja.push({ x: pos[0], z: pos[2], w: 2, d: 0.5 });
+  }
+  return { baja, alta };
+}
+
+function Casa({ hora, noche, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
   const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
   const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
   const luz = useTexturaLuz();
   const { reflejo } = useTexturas({ reflejo: texturaReflejo });
-  const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode, directo = false) => (
-    <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar} directo={directo}>
+  type Pintura = { color: string; apagado: boolean; brillo: number; negativo: boolean };
+  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o)])), [objetos]);
+  const huellas = useMemo(() => huellasDeObjetos(objetos, lugares), [objetos, lugares]);
+  const amen = (o: ObjetoCasa, hijo: (p: Pintura) => React.ReactNode, directo = false) => (
+    <Amenidad key={o.id} objeto={o} lugar={lugares.get(o.id)!} hover={hover === o.id} seleccionada={seleccionadoId === o.id} onHover={setHover} onSeleccionar={onSeleccionar} directo={directo}>
       {hijo}
     </Amenidad>
   );
-  // Amenidad que puede reemplazarse por un modelo GLB del catálogo (si no hay, se ve el procedural de siempre).
-  const amenCatalogo = (id: SlotId, idCatalogo: string, procedural: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode) =>
-    amen(id, (p) => <ObjetoCatalogo id={idCatalogo} estado={p} claveFundido={`${p.color}|${p.brillo}`} procedural={procedural(p)} />, true);
+  // Objeto que puede reemplazarse por un modelo GLB del catálogo (si no hay, se ve el procedural de siempre).
+  const amenCatalogo = (o: ObjetoCasa, idCatalogo: string, procedural: (p: Pintura) => React.ReactNode) =>
+    amen(o, (p) => <ObjetoCatalogo id={idCatalogo} estado={p} claveFundido={`${p.color}|${p.brillo}`} procedural={procedural(p)} />, true);
+  const objetoPorCuenta = (o: ObjetoCasa) => {
+    if (o.modo === 'auto') return amenCatalogo(o, 'auto', (p) => <AutoSUV pintura={p} />);
+    if (o.modo === 'sofa') return amenCatalogo(o, 'sofa', (p) => <Sofa pintura={p} />);
+    if (o.modo === 'tv') return amen(o, (p) => <TV pintura={p} />);
+    switch (o.tipo) {
+      case 'casa': return amen(o, (p) => <Maqueta pintura={p} />);
+      case 'ahorro': return amen(o, (p) => <Ahorro pintura={p} />);
+      case 'banco': return amen(o, (p) => <Banco pintura={p} />);
+      case 'billetes': return amen(o, (p) => <Billetes pintura={p} />);
+      case 'capital': return amen(o, (p) => <Capital pintura={p} />);
+      case 'resultado': return amen(o, (p) => <Resultado pintura={p} />);
+      case 'documento': {
+        if (/TARJETA|CARTAO|CREDITO/.test(normalizar(o.nodo.nombre))) return amen(o, (p) => <Tarjeta pintura={p} />);
+        const variante = o.grupoPanel === 'POR_COBRAR' ? 0 : o.grupoPanel === 'DEUDAS' || o.grupoPanel === 'LARGO_PLAZO' ? 1 : 2;
+        return amen(o, (p) => <Documentos pintura={p} variante={variante} />);
+      }
+      default: return amen(o, (p) => <CajaOtros pintura={p} />);
+    }
+  };
 
   return (
     <NocheCtx.Provider value={noche}>
@@ -668,7 +699,7 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} tinte={HORAS[hora].piso} />
       <Habitacion zona={ZONAS.oficina} piso={piso.madera} tinte={HORAS[hora].piso} />
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
-      <SombrasCasa />
+      <SombrasCasa extra={huellas} />
       <Tabiques />
 
       <Fundido key={hora}>
@@ -677,10 +708,9 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.68, 0.325]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 7.75]} color="#e9edf3" rough={0.6} />
       <Fachada />
 
-      {PLINTOS.map(({ id, grupo }) => {
-        const [x, y, z] = AMENIDADES[id].pos;
-        const h = 0.7;
-        return <Plinto key={id} p={[x, y - h, z]} h={h} acento={COLOR_GRUPO[grupo]} />;
+      {objetos.filter((o) => o.modo === 'plinto').map((o) => {
+        const [x, y, z] = lugares.get(o.id)!.pos;
+        return <Plinto key={o.id} p={[x, y - ALTO_PILAR, z]} h={ALTO_PILAR} acento={COLOR_GRUPO[o.zona]} />;
       })}
 
       {/* Paredes exteriores e interiores (con pasos entre cuartos) y ventanas. */}
@@ -772,27 +802,14 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" fase={0.42} />
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
-      {amen('otros', (p) => <CajaOtros pintura={p} />)}
-      {amenCatalogo('auto', 'auto', (p) => <AutoSUV pintura={p} />)}
-      {amen('electro', (p) => <TV pintura={p} />)}
-      {amenCatalogo('muebles', 'armario', (p) => <Armario pintura={p} />)}
-      {amen('inmueble', (p) => <Maqueta pintura={p} />)}
-      {amen('cobrar', (p) => <Documentos pintura={p} variante={0} />)}
-      {amen('ahorro', (p) => <Ahorro pintura={p} />)}
-      {amen('efectivo', (p) => <Billetes pintura={p} />)}
-      {amen('banco', (p) => <Banco pintura={p} />)}
-      {amen('tarjeta', (p) => <Tarjeta pintura={p} />)}
-      {amen('prestamo', (p) => <Documentos pintura={p} variante={1} />)}
-      {amen('apagar', (p) => <Documentos pintura={p} variante={2} />)}
-      {amen('capital', (p) => <Capital pintura={p} />)}
-      {amen('resultado', (p) => <Resultado pintura={p} />)}
+      {objetos.map(objetoPorCuenta)}
     </group>
     </TexturasCtx.Provider>
     </NocheCtx.Provider>
   );
 }
 
-export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT }: Props) {
+export default function EscenaCasa({ objetos, totales, seleccionadoId, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT }: Props) {
   const [hora, setHoraEstado] = useState<Hora>('atardecer');
   useEffect(() => {
     try {
@@ -816,39 +833,40 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
   const [{ calidad, tactil }] = useState(leerCalidad);
   const sombras = usaSombras(calidad, tactil);
   const noche = hora === 'noche';
-  const [hover, setHover] = useState<SlotId | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   // En teléfonos se baja la resolución interna: es lo que más pesa al dibujar.
   const [dprMax] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.75));
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o)])), [objetos]);
   const { objetivo, distancia } = useMemo(() => {
-    if (slotSeleccionado) {
-      const [x, y, z] = AMENIDADES[slotSeleccionado].pos;
-      const { dist, alto } = ENCUADRE[slotSeleccionado];
+    const sel = objetos.find((o) => o.id === seleccionadoId);
+    if (sel) {
+      const [x, y, z] = lugares.get(sel.id)!.pos;
+      const { dist, alto } = encuadreDe(sel);
       return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
     return { objetivo: new THREE.Vector3(-0.6, 4.0, 1.2), distancia: 29 };
-  }, [slotSeleccionado]);
+  }, [objetos, lugares, seleccionadoId]);
 
   const etiquetas = useMemo<Etiqueta[]>(
     () =>
-      (Object.keys(AMENIDADES) as SlotId[]).map((id) => {
-        const { pos } = AMENIDADES[id];
-        const nodo = nodos[id];
+      objetos.map((o) => {
+        const { pos } = lugares.get(o.id)!;
         return {
-          id,
+          id: o.id,
           x: pos[0],
           y: pos[1] + 1.0,
           z: pos[2] + 0.6,
-          titulo: nodo.nombre,
-          saldo: nodo.saldo,
-          color: COLOR_GRUPO[nodo.grupo],
+          titulo: o.nodo.nombre,
+          saldo: o.nodo.saldo,
+          color: COLOR_GRUPO[o.zona],
           fija: false,
-          seleccionada: slotSeleccionado === id,
+          seleccionada: seleccionadoId === o.id,
           alAlado: false,
         };
       }),
-    [nodos, slotSeleccionado]
+    [objetos, lugares, seleccionadoId]
   );
 
   const placas = useMemo(
@@ -882,13 +900,13 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
         <Trafico noche={noche} />
         <fog attach="fog" args={[cfg.niebla, 45, 120]} />
         <Iluminacion cfg={cfg} hora={hora} sombras={sombras} hdri={config?.hdri?.[hora]} />
-        <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.06, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
+        <ContactShadows key={`${periodoClave}|${seleccionadoId ?? ''}`} position={[0, -0.06, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
 
         <SombrasCtx.Provider value={sombras}>
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
           <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
-          <Casa hora={hora} noche={noche} nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
+          <Casa hora={hora} noche={noche} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {placas.map(({ g, lineas, pos, ancla }, i) => (
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}

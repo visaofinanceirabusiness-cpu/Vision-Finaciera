@@ -1,102 +1,126 @@
 // lib/visao3dCasa.ts
 //
-// Visão 3D, modelo Familia ("la casa"): la casa ya viene con sus amenidades (auto en la cochera, sofá, TV, cama,
-// escritorio, mesa del comedor, pileta…) y cada amenidad "se pinta" cuando la cuenta que la representa tiene saldo
-// (gris si está en cero, rojo si es negativa). Acá se decide qué cuentas alimentan cada amenidad y se arman nodos
-// resumen (uno por amenidad) para reutilizar el panel de información. Lógica pura y testeada.
+// Visão 3D, modelo Familia ("la casa"): UN objeto por cada cuenta con saldo, las mismas que muestra la "Composición" del
+// Panel de Control (mismo umbral y mismas funciones de agrupación: gruposActivo / gruposPasivo / gruposPatrimonio), más
+// el resultado del ejercicio sin cerrar como objeto de Patrimonio (para que Ativo = Passivo + PL cierre). Las cuentas en
+// cero no se dibujan. Acá se decide qué objeto es cada cuenta y dónde va (llenado corrido: hasta 5 por habitación, en el
+// orden de los grupos del Panel). Lógica pura y testeada.
 
+import { grupoDeCuentaActivo, normalizar } from './gruposActivo';
+import { grupoDeCuentaPasivo } from './gruposPasivo';
+import { grupoDeCuentaPatrimonio } from './gruposPatrimonio';
 import { tipoObjeto, type TipoObjeto } from './visao3dObjetos';
 import type { GrupoId, NodoEdificio } from './visao3d';
 
-export type SlotId =
-  | 'auto' | 'inmueble' | 'muebles' | 'electro' | 'ahorro' | 'banco' | 'efectivo' | 'cobrar' | 'otros'
-  | 'tarjeta' | 'prestamo' | 'apagar'
-  | 'capital' | 'resultado';
+export const CAPACIDAD_SALA = 5;
+// Mismo umbral que el Panel de Control: por debajo de 0,50 la cuenta se considera en cero.
+export const UMBRAL_SALDO = 0.5;
 
-export type SlotCasa = {
-  id: SlotId;
-  grupo: GrupoId;
-  nombre: { es: string; pt: string };
-  coincide: (nombre: string, tipo: TipoObjeto, sintetico: boolean) => boolean;
+export type SalaId = 'garage' | 'living' | 'dormitorio' | 'oficina' | 'comedor' | 'entrada';
+
+// Habitaciones de cada grupo en el orden en que se llenan (modelo base; más adelante crecen con cuartos al lado y pisos).
+export const SALAS_POR_ZONA: Record<GrupoId, SalaId[]> = {
+  ACTIVO: ['garage', 'living', 'dormitorio'],
+  PASIVO: ['oficina'],
+  PATRIMONIO: ['comedor'],
 };
 
-const sinAcentos = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const tiene = (nombre: string, palabras: string[]) => palabras.some((p) => sinAcentos(nombre).includes(p));
+// 'plinto' = objeto sobre un pilar; los demás son piezas grandes que van en el piso (el auto en la entrada, el sofá y la TV en el living).
+export type ModoObjeto = 'plinto' | 'auto' | 'sofa' | 'tv';
 
-// El orden dentro de cada grupo importa: el primero que coincide se queda con la cuenta; el último es el comodín.
-export const SLOTS_CASA: SlotCasa[] = [
-  { id: 'auto', grupo: 'ACTIVO', nombre: { es: 'Vehículos', pt: 'Veículos' }, coincide: (_n, t) => t === 'auto' },
-  { id: 'inmueble', grupo: 'ACTIVO', nombre: { es: 'Inmuebles', pt: 'Imóveis' }, coincide: (_n, t) => t === 'casa' },
-  { id: 'muebles', grupo: 'ACTIVO', nombre: { es: 'Muebles y útiles', pt: 'Móveis e utensílios' }, coincide: (_n, t) => t === 'mesa' },
-  { id: 'electro', grupo: 'ACTIVO', nombre: { es: 'Electrodomésticos y equipos', pt: 'Eletrodomésticos e equipamentos' }, coincide: (_n, t) => t === 'equipo' },
-  { id: 'ahorro', grupo: 'ACTIVO', nombre: { es: 'Ahorros e inversiones', pt: 'Poupança e investimentos' }, coincide: (_n, t) => t === 'ahorro' },
-  { id: 'banco', grupo: 'ACTIVO', nombre: { es: 'Cuentas bancarias', pt: 'Contas bancárias' }, coincide: (_n, t) => t === 'banco' },
-  { id: 'efectivo', grupo: 'ACTIVO', nombre: { es: 'Efectivo y billeteras', pt: 'Dinheiro e carteiras' }, coincide: (_n, t) => t === 'billetes' },
-  // Solo lo que realmente se cobra: un activo como "Límite tarjeta" también es 'documento' por su nombre, pero no es plata que nos deban.
-  { id: 'cobrar', grupo: 'ACTIVO', nombre: { es: 'Por cobrar', pt: 'A receber' }, coincide: (n, t) => t === 'documento' && tiene(n, ['cobrar', 'receber', 'cliente']) },
-  { id: 'otros', grupo: 'ACTIVO', nombre: { es: 'Otros activos', pt: 'Outros ativos' }, coincide: () => true },
-  { id: 'tarjeta', grupo: 'PASIVO', nombre: { es: 'Tarjetas de crédito', pt: 'Cartões de crédito' }, coincide: (n) => tiene(n, ['tarjeta', 'cartao', 'credito']) },
-  { id: 'prestamo', grupo: 'PASIVO', nombre: { es: 'Préstamos y financiaciones', pt: 'Empréstimos e financiamentos' }, coincide: (n) => tiene(n, ['prestamo', 'emprestimo', 'financ']) },
-  { id: 'apagar', grupo: 'PASIVO', nombre: { es: 'Cuentas por pagar', pt: 'Contas a pagar' }, coincide: () => true },
-  { id: 'resultado', grupo: 'PATRIMONIO', nombre: { es: 'Resultado del ejercicio', pt: 'Resultado do exercício' }, coincide: (n, t, s) => s || t === 'resultado' },
-  { id: 'capital', grupo: 'PATRIMONIO', nombre: { es: 'Capital y resultados acumulados', pt: 'Capital e resultados acumulados' }, coincide: () => true },
-];
+export type ObjetoCasa = {
+  id: string; // id del nodo de la cuenta: sirve para seleccionarla y mostrar sus movimientos
+  nodo: NodoEdificio;
+  zona: GrupoId;
+  grupoPanel: string; // DINERO, POR_COBRAR, AHORROS, BIENES… (los del Panel de Control)
+  tipo: TipoObjeto;
+  modo: ModoObjeto;
+  sala: SalaId;
+  fila: number; // 0 = al frente; más filas solo si se supera lo que entra en las habitaciones del grupo
+  indice: number; // posición dentro de su fila
+  enFila: number; // cuántos objetos tiene su fila (para centrarla)
+};
 
-function hojasDe(nodo: NodoEdificio): NodoEdificio[] {
-  return nodo.hijos.length === 0 ? [nodo] : nodo.hijos.flatMap(hojasDe);
+type Hoja = { nodo: NodoEdificio; ancestros: string[] };
+
+function hojasConRuta(nodo: NodoEdificio, ancestros: string[] = []): Hoja[] {
+  if (nodo.hijos.length === 0) return [{ nodo, ancestros }];
+  return nodo.hijos.flatMap((h) => hojasConRuta(h, [...ancestros, nodo.nombre]));
 }
 
-const redondear = (n: number) => Math.round(n * 100) / 100;
+const esPorCobrar = (nombre: string) => /COBRAR|RECEBER|CLIENTE/.test(normalizar(nombre));
 
-// Un nodo resumen por amenidad: su saldo es la suma de las cuentas hoja que la alimentan (nunca se suma
-// una cuenta y su rubro a la vez, porque solo se recorren hojas).
-export function construirNodosCasa(raiz: NodoEdificio, esPT: boolean): Record<SlotId, NodoEdificio> {
-  const resultado = {} as Record<SlotId, NodoEdificio>;
+function grupoPanelDe(zona: GrupoId, { nodo, ancestros }: Hoja, tipo: TipoObjeto): string {
+  if (zona === 'ACTIVO') {
+    // El Panel sabe qué cuentas son medios de pago por las formas de pago; acá se aproxima por el tipo de objeto.
+    return grupoDeCuentaActivo({ nombre: nodo.nombre, codigo: nodo.codigo, ancestros, esPorCobrar: esPorCobrar(nodo.nombre), esMedio: tipo === 'banco' || tipo === 'billetes' });
+  }
+  if (zona === 'PASIVO') return grupoDeCuentaPasivo({ nombre: nodo.nombre, codigo: nodo.codigo, ancestros });
+  return grupoDeCuentaPatrimonio({ nombre: nodo.nombre, codigo: nodo.codigo });
+}
+
+export function construirObjetosCasa(raiz: NodoEdificio): ObjetoCasa[] {
+  const resultado: ObjetoCasa[] = [];
 
   for (const grupo of raiz.hijos) {
-    const slots = SLOTS_CASA.filter((s) => s.grupo === grupo.grupo);
-    const asignadas = new Map<SlotId, NodoEdificio[]>(slots.map((s) => [s.id, []]));
+    const zona = grupo.grupo;
+    const con: Array<Hoja & { tipo: TipoObjeto; grupoPanel: string }> = hojasConRuta(grupo)
+      .filter((h) => Math.abs(h.nodo.saldo) >= UMBRAL_SALDO)
+      .map((h) => {
+        const tipo = tipoObjeto(h.nodo.nombre, h.nodo.sintetico);
+        return { ...h, tipo, grupoPanel: grupoPanelDe(zona, h, tipo) };
+      });
 
-    for (const hoja of hojasDe(grupo)) {
-      const tipo = tipoObjeto(hoja.nombre, hoja.sintetico);
-      const destino = slots.find((s) => s.coincide(hoja.nombre, tipo, hoja.sintetico)) ?? slots[slots.length - 1];
-      asignadas.get(destino.id)!.push(hoja);
+    // Orden del Panel: los grupos de mayor a menor total; dentro de cada grupo, la cuenta de mayor saldo primero.
+    const totales = new Map<string, number>();
+    con.forEach((h) => totales.set(h.grupoPanel, (totales.get(h.grupoPanel) ?? 0) + Math.abs(h.nodo.saldo)));
+    con.sort((a, b) => (totales.get(b.grupoPanel)! - totales.get(a.grupoPanel)!) || a.grupoPanel.localeCompare(b.grupoPanel) || Math.abs(b.nodo.saldo) - Math.abs(a.nodo.saldo));
+
+    const salas = SALAS_POR_ZONA[zona];
+    let autos = 0;
+    let haySofa = false;
+    let hayTv = false;
+    const enPlinto: typeof con = [];
+    const piezas: ObjetoCasa[] = [];
+
+    for (const h of con) {
+      const base = { id: h.nodo.id, nodo: h.nodo, zona, grupoPanel: h.grupoPanel, tipo: h.tipo, fila: 0, indice: 0, enFila: 1 };
+      if (zona === 'ACTIVO' && h.tipo === 'auto') {
+        piezas.push({ ...base, modo: 'auto', sala: 'entrada', indice: autos, enFila: 1 });
+        autos += 1;
+      } else if (zona === 'ACTIVO' && h.tipo === 'mesa' && !haySofa) {
+        haySofa = true;
+        piezas.push({ ...base, modo: 'sofa', sala: 'living' });
+      } else if (zona === 'ACTIVO' && h.tipo === 'equipo' && !hayTv) {
+        hayTv = true;
+        piezas.push({ ...base, modo: 'tv', sala: 'living' });
+      } else {
+        enPlinto.push(h);
+      }
     }
 
-    for (const slot of slots) {
-      const hojas = asignadas.get(slot.id)!.sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
-      const saldo = redondear(hojas.reduce((s, h) => s + h.saldo, 0));
-      const anteriores = hojas.map((h) => h.saldoAnterior);
-      const saldoAnterior = anteriores.some((s) => s === null) ? null : redondear(anteriores.reduce<number>((s, v) => s + (v ?? 0), 0));
-      const variacion = saldoAnterior === null ? null : redondear(saldo - saldoAnterior);
+    // Llenado corrido: 5 por habitación en el orden de las habitaciones; lo que sobra pasa a filas de atrás de la última.
+    const capacidadTotal = salas.length * CAPACIDAD_SALA;
+    const colocados: ObjetoCasa[] = enPlinto.map((h, i) => {
+      const dentro = i < capacidadTotal;
+      const sala = dentro ? salas[Math.floor(i / CAPACIDAD_SALA)] : salas[salas.length - 1];
+      const fila = dentro ? 0 : 1 + Math.floor((i - capacidadTotal) / CAPACIDAD_SALA);
+      return { id: h.nodo.id, nodo: h.nodo, zona, grupoPanel: h.grupoPanel, tipo: h.tipo, modo: 'plinto', sala, fila, indice: 0, enFila: 1 };
+    });
+    const porFila = new Map<string, ObjetoCasa[]>();
+    colocados.forEach((o) => {
+      const clave = `${o.sala}|${o.fila}`;
+      porFila.set(clave, [...(porFila.get(clave) ?? []), o]);
+    });
+    porFila.forEach((lista) => lista.forEach((o, i) => { o.indice = i; o.enFila = lista.length; }));
 
-      resultado[slot.id] = {
-        id: `slot:${slot.id}`,
-        codigo: null,
-        nombre: esPT ? slot.nombre.pt : slot.nombre.es,
-        grupo: slot.grupo,
-        nivel: 2,
-        saldo,
-        saldoAnterior,
-        variacion,
-        variacionPct: variacion === null || !saldoAnterior ? null : redondear((variacion / Math.abs(saldoAnterior)) * 100),
-        participacion: grupo.saldo > 0 ? redondear((saldo / grupo.saldo) * 100) : null,
-        hijos: hojas,
-        esHoja: false,
-        sintetico: true,
-        cuentasDependientes: hojas.length,
-        cuentaNombre: null,
-      };
-    }
+    resultado.push(...piezas, ...colocados);
   }
 
   return resultado;
 }
 
-// Para resaltar en la casa la amenidad de una cuenta elegida en el panel.
-export function slotDeCuenta(nodos: Record<SlotId, NodoEdificio>, cuentaId: string): SlotId | null {
-  for (const slot of SLOTS_CASA) {
-    if (nodos[slot.id]?.hijos.some((h) => h.id === cuentaId)) return slot.id;
-  }
-  return null;
+// Para resaltar en la casa el objeto de una cuenta elegida en el panel.
+export function objetoDeCuenta(objetos: ObjetoCasa[], cuentaId: string): ObjetoCasa | null {
+  return objetos.find((o) => o.id === cuentaId) ?? null;
 }
