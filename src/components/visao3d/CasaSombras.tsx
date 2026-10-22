@@ -5,15 +5,14 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS as Z0 } from './CasaLayout';
 
 type Huella = { x: number; z: number; w: number; d: number; r?: number; fuerza?: number };
 
 const PX = 80; // píxeles por unidad del mundo
-const Z0 = -3.45;
-const PROF = 6.9;
 
-const PLANTA_BAJA = { x0: -10.6, x1: 5.8, y: 0 };
-const PLANTA_ALTA = { x0: -4.7, x1: 5.8, y: 3.15 };
+const PLANTA_BAJA = { x0: X_IZQ, x1: X_DER, y: 0 };
+const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.15 };
 
 const HUELLAS_BAJA: Huella[] = [
   { x: -7.7, z: 0.4, w: 4.3, d: 1.85, fuerza: 1 }, // auto
@@ -40,12 +39,12 @@ const HUELLAS_ALTA: Huella[] = [
   { x: 3.2, z: -1.5, w: 0.7, d: 0.7, r: 0.35 }, // silla
   { x: 5.2, z: -3.0, w: 0.7, d: 0.6 }, // archivero
   { x: 1.35, z: -3.15, w: 1.3, d: 0.4 }, // estante
-  ...[-3.9, -2.5, -1.1, 1.9, 3.3, 4.7].map((x) => ({ x, z: 2.3, w: 1, d: 1, r: 0.5 })), // plintos
+  ...[-4.1, -2.05, 0.0, 1.4, 3.2, 5.0].map((x) => ({ x, z: 2.3, w: 1, d: 1, r: 0.5 })), // plintos
 ];
 
 // Bordes de los cuartos donde el piso se oscurece (pared del fondo y tabiques).
-const TABIQUES_BAJA = [-10.6, -4.7, 0.6, 5.8];
-const TABIQUES_ALTA = [-4.7, 0.6, 5.8];
+const TABIQUES_BAJA = [X_IZQ, X_COCHERA, X_CENTRO, X_DER];
+const TABIQUES_ALTA = [X_COCHERA, X_CENTRO, X_DER];
 
 function dibujar(planta: { x0: number; x1: number }, huellas: Huella[], tabiques: number[]): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
@@ -79,7 +78,7 @@ function dibujar(planta: { x0: number; x1: number }, huellas: Huella[], tabiques
   const lejos = W + 400;
   ctx.fillStyle = '#000';
   huellas.forEach((h) => {
-    const cx = (h.x - planta.x0) * PX;
+    const cx = (desplazarX(h.x) - planta.x0) * PX;
     const cy = (h.z - Z0) * PX;
     [[1.1, 0.9], [0.3, 0.8]].forEach(([blur, alfa]) => {
       ctx.shadowColor = `rgba(0,0,0,${alfa * (h.fuerza ?? 0.85)})`;

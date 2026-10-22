@@ -22,10 +22,12 @@ import {
 } from './CasaMobiliario';
 import { SombrasCasa } from './CasaSombras';
 import { Montanas, Nubes, Trafico } from './CasaEntorno';
+import { Fachada } from './CasaFachada';
+import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
-const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-16, 0, -6), new THREE.Vector3(12, 7.5, 8));
+const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 7.5, 8));
 
 type V3 = [number, number, number];
 
@@ -41,7 +43,9 @@ type Props = {
 };
 
 // Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z).
-const AMENIDADES: Record<SlotId, { pos: V3; escala?: number }> = {
+// Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z). Se escriben con las
+// medidas anteriores de los cuartos y `desplazarX` las centra en los cuartos ensanchados.
+const AMEN_ORIG: Record<SlotId, { pos: V3; escala?: number }> = {
   auto: { pos: [-7.7, 0, 0.4] },
   inmueble: { pos: [-2.25, 0.35, 0.7], escala: 0.68 },
   muebles: { pos: [-1.5, 0, -2.75] },
@@ -50,14 +54,17 @@ const AMENIDADES: Record<SlotId, { pos: V3; escala?: number }> = {
   capital: { pos: [3.2, 0.82, 0.3], escala: 0.75 },
   // Las amenidades chicas se exhiben al frente de cada cuarto sobre un plinto (la altura del plinto va en PLINTOS).
   cobrar: { pos: [-0.5, 0.7, 2.3], escala: 0.8 },
-  ahorro: { pos: [-3.9, 3.85, 2.3], escala: 0.8 },
-  efectivo: { pos: [-2.5, 3.85, 2.3], escala: 0.8 },
-  banco: { pos: [-1.1, 3.85, 2.3], escala: 0.7 },
-  tarjeta: { pos: [1.9, 3.85, 2.3], escala: 0.8 },
-  prestamo: { pos: [3.3, 3.85, 2.3], escala: 0.8 },
-  apagar: { pos: [4.7, 3.85, 2.3], escala: 0.8 },
+  ahorro: { pos: [-4.1, 3.85, 2.3], escala: 0.8 },
+  efectivo: { pos: [-2.05, 3.85, 2.3], escala: 0.8 },
+  banco: { pos: [0.0, 3.85, 2.3], escala: 0.7 },
+  tarjeta: { pos: [1.4, 3.85, 2.3], escala: 0.8 },
+  prestamo: { pos: [3.2, 3.85, 2.3], escala: 0.8 },
+  apagar: { pos: [5.0, 3.85, 2.3], escala: 0.8 },
   resultado: { pos: [3.2, 0.7, 2.4], escala: 0.9 },
 };
+const AMENIDADES = Object.fromEntries(
+  (Object.entries(AMEN_ORIG) as Array<[SlotId, { pos: V3; escala?: number }]>).map(([id, a]) => [id, { ...a, pos: [desplazarX(a.pos[0]), a.pos[1], a.pos[2]] as V3 }])
+) as Record<SlotId, { pos: V3; escala?: number }>;
 
 // Cuánto se acerca la cámara al tocar cada amenidad (los objetos chicos necesitan más cerca) y a qué altura sobre su base mira.
 const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
@@ -73,15 +80,16 @@ const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
 ];
 
 const ZONAS = {
-  garage: { x0: -10.6, x1: -4.7, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
-  living: { x0: -4.7, x1: 0.6, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
-  dormitorio: { x0: -4.7, x1: 0.6, y0: 3.15, y1: 6.15, grupo: 'ACTIVO' as GrupoId },
-  oficina: { x0: 0.6, x1: 5.8, y0: 3.15, y1: 6.15, grupo: 'PASIVO' as GrupoId },
-  comedor: { x0: 0.6, x1: 5.8, y0: 0, y1: 3, grupo: 'PATRIMONIO' as GrupoId },
+  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
+  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
+  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.15, y1: 6.15, grupo: 'ACTIVO' as GrupoId },
+  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.15, y1: 6.15, grupo: 'PASIVO' as GrupoId },
+  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0, y1: 3, grupo: 'PATRIMONIO' as GrupoId },
 };
 
-const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#dfe9ff', PASIVO: '#ffe6d1', PATRIMONIO: '#efe3fb' };
-const PROF = 6.9;
+// Pintura suave de cada habitación (color del grupo en pastel) y un tono algo más marcado en los vértices, para que se lean como límites.
+const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#d9e6ff', PASIVO: '#ffe5d0', PATRIMONIO: '#eddffb' };
+const PINTURA_VERTICE: Record<GrupoId, string> = { ACTIVO: '#9bbfff', PASIVO: '#ffc593', PATRIMONIO: '#d3adf5' };
 
 type Hora = PaletaCielo;
 const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, number]; sol: [string, number]; exposicion: number; niebla: string; formas: [number, number, number]; piso: number }> = {
@@ -94,12 +102,11 @@ const CLAVE_HORA = 'visao3d_hora';
 // Paredes: todas menos la de frente (z positivo), que falta a propósito para ver el interior.
 const GROSOR = 0.14;
 const COLOR_PARED = '#eef1f6';
-function Pared({ x, y0, y1, hueco }: { x: number; y0: number; y1: number; hueco?: [number, number, number] }) {
+function Pared({ x, y0, y1, hueco, grosor = GROSOR, color = COLOR_PARED }: { x: number; y0: number; y1: number; hueco?: [number, number, number]; grosor?: number; color?: string }) {
   const zA = Z_ATRAS;
   const zB = Z_ATRAS + PROF;
-  const alto = y1 - y0;
   const tramo = (za: number, zb: number, ya: number, yb: number, k: string) => (
-    <Caja key={k} p={[x, (ya + yb) / 2, (za + zb) / 2]} s={[GROSOR, yb - ya, zb - za]} color={COLOR_PARED} rough={0.9} />
+    <Caja key={k} p={[x, (ya + yb) / 2, (za + zb) / 2]} s={[grosor, yb - ya, zb - za]} color={color} rough={0.9} />
   );
   if (!hueco) return tramo(zA, zB, y0, y1, 'p');
   const [h0, h1, hAlto] = hueco;
@@ -110,6 +117,13 @@ function Pared({ x, y0, y1, hueco }: { x: number; y0: number; y1: number; hueco?
       {tramo(h0, h1, y0 + hAlto, y1, 'c')}
     </>
   );
+}
+
+// Pasos entre cuartos (mismo hueco en la pared y en su pintura): [z desde, z hasta, alto].
+function huecoEn(xBorde: number, y0: number): [number, number, number] | undefined {
+  if (xBorde === X_COCHERA && y0 === 0) return [0.3, 1.7, 2.2];
+  if (xBorde === X_CENTRO) return [0.3, 2.0, 2.3];
+  return undefined;
 }
 
 const VENTANA: Record<Hora, { color: string; emi: number }> = {
@@ -196,7 +210,6 @@ function Estrellas() {
     </points>
   );
 }
-const Z_ATRAS = -3.45;
 
 function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture; tinte: number }) {
   const color = COLOR_GRUPO[zona.grupo];
@@ -207,7 +220,7 @@ function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof Z
   const cz = Z_ATRAS + PROF / 2;
 
   return (
-    <group>
+    <Fundido>
       {/* Piso. */}
       <mesh position={[cx, zona.y0 - 0.075, cz]}>
         <boxGeometry args={[ancho, 0.15, PROF]} />
@@ -220,9 +233,18 @@ function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof Z
           <meshBasicMaterial color={color} toneMapped={false} />
         </mesh>
       ))}
-      {/* Pared del fondo teñida con el color de la zona. */}
-      <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} emissive={color} ei={0.14} rough={0.85} />
-    </group>
+      {/* Pared del fondo y paredes laterales pintadas en pastel con el color de la zona; los vértices llevan un tono más marcado. */}
+      <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} rough={0.85} />
+      {([[zona.x0, 1], [zona.x1, -1]] as const).map(([xb, lado]) => (
+        <group key={xb}>
+          <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={huecoEn(xb, zona.y0)} />
+          {[Z_ATRAS + 0.06 + 0.14, Z_ATRAS + PROF - 0.14].map((zv) => (
+            <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+          ))}
+          <Caja p={[xb + lado * (GROSOR / 2 + 0.14), cy, Z_ATRAS + 0.06 + 0.013]} s={[0.28, alto, 0.024]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+        </group>
+      ))}
+    </Fundido>
   );
 }
 
@@ -309,6 +331,38 @@ function Matas({ matas }: { matas: Array<[number, number, number]> }) {
   );
 }
 
+// Persona con movimiento barato: un grupo propio (su Fundido la deja en pocas mallas) y solo se mueve ese grupo.
+// "quieta" gira apenas la cabeza/cuerpo y respira; "paseo" camina de ida y vuelta en x girando al llegar a cada extremo.
+function PersonaViva({ modo, p, hasta, rot = 0, esc = 1, fase, ropa, pantalon, pelo }: { modo: 'quieta' | 'paseo'; p: V3; hasta?: number; rot?: number; esc?: number; fase: number; ropa: string; pantalon: string; pelo: string }) {
+  const ref = useRef<THREE.Group>(null);
+  const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  useFrame(({ clock }) => {
+    const g = ref.current;
+    if (!g || reducido) return;
+    const t = clock.elapsedTime;
+    if (modo === 'quieta') {
+      g.rotation.y = rot + Math.sin(t * 0.5 + fase) * 0.4;
+      g.scale.y = 1 + Math.sin(t * 1.8) * 0.012;
+      return;
+    }
+    const a = p[0];
+    const b = hasta ?? a;
+    const ciclo = t * 0.3 + fase * 3;
+    g.position.x = a + (b - a) * (0.5 - 0.5 * Math.cos(ciclo));
+    const sentido = Math.sin(ciclo) * (b - a) >= 0 ? 1 : -1;
+    const meta = sentido * Math.PI / 2;
+    g.rotation.y += (meta - g.rotation.y) * 0.08;
+    g.position.y = p[1] + Math.abs(Math.sin(t * 4.2 + fase)) * 0.05 * esc;
+  });
+  return (
+    <group ref={ref} position={p} rotation={[0, rot, 0]}>
+      <Fundido>
+        <Persona p={[0, 0, 0]} esc={esc} ropa={ropa} pantalon={pantalon} pelo={pelo} />
+      </Fundido>
+    </group>
+  );
+}
+
 // Palmera que se mece apenas con el viento; tiene su propio Fundido (se mueve entera, sigue siendo pocas mallas).
 function PalmeraViva({ p, escala, fase }: { p: V3; escala: number; fase: number }) {
   const ref = useRef<THREE.Group>(null);
@@ -343,7 +397,7 @@ function Exterior({ noche }: { noche: boolean }) {
   });
   const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })), []);
   const arboles: Array<[number, number, number]> = [[-11, -7.6, 1.1], [-6, -8, 1.3], [-0.5, -7.6, 1], [5, -8, 1.25], [10.5, -7.4, 1.1]];
-  const faroles: Array<[number, number]> = [[-4.1, 4.9], [1.2, 4.7], [6.4, 4.9], [-9.6, 4.8], [10.2, 11]];
+  const faroles: Array<[number, number]> = [[-4.1, 4.9], [1.2, 4.7], [6.4, 4.9], [-10.6, 4.8], [10.2, 11]];
   // Matas de pasto y flores en una sola malla instanciada cada una (cientos de piezas = 1 llamada de dibujo).
   const matas = useMemo(() => {
     const lista: Array<[number, number, number]> = [];
@@ -352,7 +406,7 @@ function Exterior({ noche }: { noche: boolean }) {
     while (lista.length < 520) {
       const x = -20 + azar() * 36;
       const z = 4.6 + azar() * 9.6;
-      const enCamino = x > -10.6 && x < -4.2 && z < 15.5; // entrada de autos
+      const enCamino = x > -11.9 && x < -5.4 && z < 15.5; // entrada de autos
       const enPileta = x > 0.8 && x < 11 && z > 4.8 && z < 11.4;
       const enSendero = x > -2.5 && x < -0.3 && z < 17;
       if (!enCamino && !enPileta && !enSendero) lista.push([x, z, 0.6 + azar() * 0.8]);
@@ -368,8 +422,8 @@ function Exterior({ noche }: { noche: boolean }) {
         <boxGeometry args={[70, 0.1, 40]} />
         <meshStandardMaterial map={t.pasto} roughness={1} />
       </mesh>
-      <mesh position={[-7.4, -0.1, 9.7]}>
-        <boxGeometry args={[6.2, 0.1, 11.4]} />
+      <mesh position={[-8.65, -0.1, 9.7]}>
+        <boxGeometry args={[6.4, 0.1, 11.4]} />
         <meshStandardMaterial map={t.concreto} roughness={0.85} />
       </mesh>
       {/* La calle va por encima del pasto (antes quedaba tapada por él), con vereda y línea central. */}
@@ -452,7 +506,7 @@ function Exterior({ noche }: { noche: boolean }) {
         </group>
       ))}
     </Fundido>
-    <PalmeraViva p={[-13.5, -0.05, 6.2]} escala={1.1} fase={0} />
+    <PalmeraViva p={[-14.5, -0.05, 6.2]} escala={1.1} fase={0} />
     <PalmeraViva p={[11.2, -0.05, 9.6]} escala={1.3} fase={1.7} />
     <PalmeraViva p={[11.4, -0.05, 5.0]} escala={1.0} fase={3.1} />
     </>
@@ -486,8 +540,9 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
 
       <Fundido key={hora}>
       {/* Techos. */}
-      <Caja p={[0.55, 6.3, 0.0]} s={[11.4, 0.16, 8]} color="#e9edf3" rough={0.6} />
-      <Caja p={[-7.9, 3.08, 0.0]} s={[6.2, 0.16, 8]} color="#e9edf3" rough={0.6} />
+      <Caja p={[(X_COCHERA + X_DER) / 2, 6.3, 0.0]} s={[X_DER - X_COCHERA + 0.4, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
+      <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.08, 0.0]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
+      <Fachada />
 
       {PLINTOS.map(({ id, grupo }) => {
         const [x, y, z] = AMENIDADES[id].pos;
@@ -496,21 +551,24 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       })}
 
       {/* Paredes exteriores e interiores (con pasos entre cuartos) y ventanas. */}
-      <Pared x={-10.6} y0={0} y1={3.08} />
-      <Pared x={-4.7} y0={0} y1={3.0} hueco={[0.3, 1.7, 2.2]} />
-      <Pared x={0.6} y0={0} y1={3.0} hueco={[0.3, 2.0, 2.3]} />
-      <Pared x={5.8} y0={0} y1={3.0} />
-      <Pared x={-4.7} y0={3.15} y1={6.22} />
-      <Pared x={0.6} y0={3.15} y1={6.22} hueco={[0.3, 2.0, 2.3]} />
-      <Pared x={5.8} y0={3.15} y1={6.22} />
-      <Ventana x={-10.6} y={1.7} z={-1.0} lado={1} hora={hora} reflejo={reflejo} />
-      <Ventana x={5.8} y={1.7} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
-      <Ventana x={5.8} y={4.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
-      <Ventana x={-4.7} y={4.9} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
+      <Pared x={X_IZQ} y0={0} y1={3.08} />
+      <Pared x={X_COCHERA} y0={0} y1={3.0} hueco={huecoEn(X_COCHERA, 0)} />
+      <Pared x={X_CENTRO} y0={0} y1={3.0} hueco={huecoEn(X_CENTRO, 0)} />
+      <Pared x={X_DER} y0={0} y1={3.0} />
+      <Pared x={X_COCHERA} y0={3.15} y1={6.22} />
+      <Pared x={X_CENTRO} y0={3.15} y1={6.22} hueco={huecoEn(X_CENTRO, 3.15)} />
+      <Pared x={X_DER} y0={3.15} y1={6.22} />
+      <Ventana x={X_IZQ} y={1.7} z={-1.0} lado={1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={1.7} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={4.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
 
+      <group position={[-1, 0, 0]}>
       {/* Cochera: cargador del auto eléctrico. */}
       <CargadorEV p={[-5.1, 0, -3.25]} />
+      </group>
 
+      <group position={[-0.5, 0, 0]}>
       {/* Living. */}
       <Alfombra p={[-2.1, 0.02, 0.5]} s={[3.8, 2.6]} color="#7e8ba6" />
       <Estante p={[0.05, 0, -3.1]} s={[1.0, 2.3, 0.4]} />
@@ -526,6 +584,8 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Lampara p={[-0.8, 3.75, -3.0]} />
       <Cuadro p={[-3.2, 5.2, -3.37]} s={[0.7, 0.9]} tono={2} />
       <Cuadro p={[-1.6, 5.2, -3.37]} s={[0.7, 0.9]} tono={3} />
+      </group>
+      <group position={[0.5, 0, 0]}>
 
       {/* Oficina. */}
       <Escritorio p={[3.2, 3.15, -2.6]} />
@@ -543,28 +603,31 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <LamparaColgante p={[4.0, 2.2, 0.3]} />
       <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#b57bff" ei={0.18} />
       <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
+      </group>
 
       {/* Focos empotrados en el techo de cada habitación. */}
-      {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[x, y, z]} />))}
+      {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
 
       {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.15], [-1.0, 3.15], [2.2, 3.15], [4.4, 3.15], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
-        <mesh key={`lz${x}${y}${z}`} position={[x, y + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh key={`lz${x}${y}${z}`} position={[desplazarX(x), y + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[3.2, 3.2]} />
           <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>
       )))}
 
-      {/* Personas: la familia en su casa. */}
-      <Persona p={[-1.3, 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" />
-      <Persona p={[-2.0, 0.5, -2.45]} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
-      <Persona p={[-1.15, 0.5, -2.45]} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
-      <Persona p={[3.2, 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
-      <Persona p={[2.1, 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
-      <Persona p={[3.2, 0.46, -0.8]} sentado ropa="#5da3c9" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
-      <Persona p={[4.3, 0.46, 1.4]} rot={Math.PI} sentado esc={0.7} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" />
-      <Persona p={[9.0, 0, 4.6]} rot={Math.PI * 0.85} ropa="#f2f2f2" pantalon="#3e5a8a" pelo="#2a1c12" />
-      <Persona p={[8.2, 0, 4.7]} rot={Math.PI * 0.9} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" />
+      {/* Personas sentadas: quedan fundidas con la casa (no se mueven). */}
+      <Persona p={[desplazarX(-2.0), 0.5, -2.45]} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
+      <Persona p={[desplazarX(-1.15), 0.5, -2.45]} sentado ropa="#e0a63c" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      <Persona p={[desplazarX(3.2), 3.65, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
+      <Persona p={[desplazarX(2.1), 0.46, 1.4]} rot={Math.PI} sentado ropa="#c9647f" pantalon="#2a2f3b" pelo="#8a5a2b" />
+      <Persona p={[desplazarX(3.2), 0.46, -0.8]} sentado ropa="#5da3c9" pantalon="#364763" piel="#c98f66" pelo="#1c1410" />
+      <Persona p={[desplazarX(4.3), 0.46, 1.4]} rot={Math.PI} sentado esc={0.7} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" />
       </Fundido>
+
+      {/* Personas con movimiento: cada una con su propio Fundido (pocas mallas) y solo se anima su grupo. */}
+      <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
+      <PersonaViva modo="paseo" p={[9.4, 0, 4.6]} hasta={7.4} ropa="#f2f2f2" pantalon="#3e5a8a" pelo="#2a1c12" fase={0} />
+      <PersonaViva modo="paseo" p={[8.6, 0, 4.75]} hasta={6.6} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0.5} />
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
       {amen('otros', (p) => <CajaOtros pintura={p} />)}
@@ -618,7 +681,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       const { dist, alto } = ENCUADRE[slotSeleccionado];
       return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
-    return { objetivo: new THREE.Vector3(-2.3, 3.0, 1.2), distancia: 23 };
+    return { objetivo: new THREE.Vector3(-2.4, 3.0, 1.2), distancia: 25 };
   }, [slotSeleccionado]);
 
   const etiquetas = useMemo<Etiqueta[]>(
@@ -647,7 +710,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
         g,
         lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-2.1, 5.55, 2.6] : g === 'PASIVO' ? [3.2, 5.55, 2.6] : [3.2, 2.4, 2.6]) as V3,
+        pos: (g === 'ACTIVO' ? [-2.55, 5.7, 3.4] : g === 'PASIVO' ? [3.7, 5.7, 3.4] : [3.7, 2.55, 3.4]) as V3,
       })),
     [totales, formatear]
   );
@@ -684,7 +747,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
           <Exterior noche={noche} />
           <Casa hora={hora} noche={noche} nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {!slotSeleccionado && placas.map(({ g, lineas, pos }) => (
-            <Letrero key={g} lineas={lineas} brillo={COLOR_GRUPO[g]} ancho={2.8} alto={1.0} posicion={pos} fondo={`${COLOR_GRUPO[g]}cc`} />
+            <Letrero key={g} lineas={lineas} brillo={COLOR_GRUPO[g]} ancho={2.4} alto={0.8} posicion={pos} fondo={`${COLOR_GRUPO[g]}cc`} />
           ))}
         </GrupoAnimado>
 
