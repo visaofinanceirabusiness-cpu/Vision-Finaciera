@@ -16,10 +16,11 @@ import type { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import type { SlotId } from '@/lib/visao3dCasa';
 import { CamaraGuiada, Cielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
-  Alfombra, Archivero, AutoSUV, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
-  Foco, Florero, Maqueta, Mesa, MesaCentro, MesaLateral, ObjetoPintado, Palmera, Persona, Planta, Silla, SillaOficina, Sofa, Tarjeta, TexturasCtx, TV, useTexturas,
+  Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
+  Foco, Mesa, MesaCentro, MesaLateral, Palmera, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
   type TexturasCasa,
 } from './CasaMobiliario';
+import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
 type V3 = [number, number, number];
 
@@ -36,20 +37,26 @@ type Props = {
 // Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z).
 const AMENIDADES: Record<SlotId, { pos: V3; escala?: number }> = {
   auto: { pos: [-7.7, 0, 0.4] },
-  inmueble: { pos: [-2.25, 0.35, 0.7] },
-  cobrar: { pos: [-1.55, 0.35, 0.7], escala: 0.6 },
+  inmueble: { pos: [-2.25, 0.35, 0.7], escala: 0.6 },
   muebles: { pos: [-1.5, 0, -2.75] },
   electro: { pos: [-3.9, 0, -3.0] },
-  ahorro: { pos: [-4.0, 3.75, -3.0], escala: 0.6 },
-  efectivo: { pos: [-0.8, 3.75, -3.0], escala: 0.6 },
-  banco: { pos: [-4.3, 5.0, -3.1], escala: 0.5 },
-  otros: { pos: [-10.0, 0, -2.6] },
-  tarjeta: { pos: [2.55, 3.95, -2.0] },
-  prestamo: { pos: [3.9, 3.95, -2.2], escala: 0.7 },
-  apagar: { pos: [5.2, 4.5, -3.0], escala: 0.6 },
-  capital: { pos: [3.2, 0.82, 0.3], escala: 0.9 },
-  resultado: { pos: [3.2, 1.55, -3.3], escala: 1.3 },
+  otros: { pos: [-9.3, 0, 2.2], escala: 0.9 },
+  capital: { pos: [3.2, 0.82, 0.3], escala: 0.75 },
+  // Las amenidades chicas se exhiben al frente de cada cuarto sobre un plinto (la altura del plinto va en PLINTOS).
+  cobrar: { pos: [-0.5, 0.7, 2.3], escala: 0.8 },
+  ahorro: { pos: [-3.9, 3.85, 2.3], escala: 0.8 },
+  efectivo: { pos: [-2.5, 3.85, 2.3], escala: 0.8 },
+  banco: { pos: [-1.1, 3.85, 2.3], escala: 0.7 },
+  tarjeta: { pos: [1.9, 3.85, 2.3], escala: 0.8 },
+  prestamo: { pos: [3.3, 3.85, 2.3], escala: 0.8 },
+  apagar: { pos: [4.7, 3.85, 2.3], escala: 0.8 },
+  resultado: { pos: [3.2, 0.7, 2.4], escala: 0.9 },
 };
+
+const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
+  { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
+  { id: 'tarjeta', grupo: 'PASIVO' }, { id: 'prestamo', grupo: 'PASIVO' }, { id: 'apagar', grupo: 'PASIVO' }, { id: 'resultado', grupo: 'PATRIMONIO' },
+];
 
 const ZONAS = {
   garage: { x0: -10.6, x1: -4.7, y0: 0, y1: 3, grupo: 'ACTIVO' as GrupoId },
@@ -92,17 +99,17 @@ function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; 
 }
 
 // Punto rojo con borde blanco (el rojo solo lo usa el saldo negativo, el borde lo distingue); late y sube y baja para llamar la atención.
-function MarcadorCuenta() {
+function MarcadorCuenta({ y }: { y: number }) {
   const ref = useRef<THREE.Group>(null);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   useFrame(({ clock }) => {
     if (!ref.current || reducido) return;
     const t = clock.elapsedTime * 2.4;
-    ref.current.position.y = 2.1 + Math.sin(t) * 0.07;
+    ref.current.position.y = y + Math.sin(t) * 0.07;
     ref.current.scale.setScalar(1 + Math.sin(t) * 0.14);
   });
   return (
-    <group ref={ref} position={[0, 2.1, 0]}>
+    <group ref={ref} position={[0, y, 0]}>
       <mesh>
         <sphereGeometry args={[0.2, 14, 14]} />
         <meshBasicMaterial color="#e11d2e" toneMapped={false} />
@@ -141,7 +148,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
     >
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
-        <MarcadorCuenta />
+        <MarcadorCuenta y={PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
         <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo })}</Fundido>
       </group>
     </group>
@@ -309,13 +316,15 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} />
 
       <Fundido>
-      {/* Techos con jardín. */}
+      {/* Techos. */}
       <Caja p={[0.55, 6.3, 0.0]} s={[11.4, 0.16, 8]} color="#e9edf3" rough={0.6} />
       <Caja p={[-7.7, 3.08, 0.0]} s={[6.6, 0.16, 8]} color="#e9edf3" rough={0.6} />
-      <Planta p={[-1.5, 6.38, -1.5]} escala={1.3} variante={1} />
-      <Planta p={[3.8, 6.38, -2.0]} escala={1.1} />
-      <Planta p={[-8.5, 3.16, -1.8]} escala={1.1} variante={1} />
-      <Planta p={[-6.0, 3.16, -2.4]} escala={0.9} />
+
+      {PLINTOS.map(({ id, grupo }) => {
+        const [x, y, z] = AMENIDADES[id].pos;
+        const h = 0.7;
+        return <Plinto key={id} p={[x, y - h, z]} h={h} acento={COLOR_GRUPO[grupo]} />;
+      })}
 
       {/* Cochera: cargador del auto eléctrico. */}
       <CargadorEV p={[-5.1, 0, -3.25]} />
@@ -326,8 +335,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Cuadro p={[-1.5, 2.0, -3.37]} s={[1.0, 0.7]} tono={0} />
       <Cuadro p={[-0.2, 1.9, -3.37]} s={[0.6, 0.8]} tono={1} />
       <MesaCentro p={[-1.9, 0, 0.7]} />
-      <Planta p={[-4.3, 0, 1.9]} escala={1.5} />
-      <Planta p={[0.2, 0, 2.2]} escala={1.2} variante={1} />
 
       {/* Dormitorio. */}
       <Cama p={[-2.4, 3.15, -2.1]} />
@@ -337,8 +344,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Lampara p={[-0.8, 3.75, -3.0]} />
       <Cuadro p={[-3.2, 5.2, -3.37]} s={[0.7, 0.9]} tono={2} />
       <Cuadro p={[-1.6, 5.2, -3.37]} s={[0.7, 0.9]} tono={3} />
-      <Caja p={[-4.3, 4.9, -3.25]} s={[0.7, 0.05, 0.3]} color="#3a3f4d" />
-      <Planta p={[0.2, 3.15, 1.8]} escala={1.3} />
 
       {/* Oficina. */}
       <Escritorio p={[3.2, 3.15, -2.6]} />
@@ -347,7 +352,6 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       <Estante p={[1.35, 3.15, -3.15]} s={[1.3, 2.3, 0.4]} libros={false} />
       <Cajas p={[1.3, 4.1, -3.15]} n={3} />
       <Cajas p={[1.3, 5.0, -3.15]} n={2} />
-      <Planta p={[0.9, 3.15, 1.9]} escala={1.3} variante={1} />
       <Cuadro p={[4.3, 5.4, -3.37]} s={[0.9, 0.6]} tono={0} />
 
       {/* Comedor. */}
@@ -355,10 +359,7 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       {[-1.1, 0, 1.1].flatMap((x) => [-1, 1].map((s) => <Silla key={`${x}${s}`} p={[3.2 + x, 0, 0.3 + s * 1.05]} rot={s > 0 ? Math.PI : 0} color="#cfe9d8" />))}
       <LamparaColgante p={[2.4, 2.2, 0.3]} />
       <LamparaColgante p={[4.0, 2.2, 0.3]} />
-      <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#27e17f" ei={0.18} />
-      <Planta p={[5.3, 0, -2.4]} escala={1.6} />
-      <Planta p={[1.1, 0, 2.3]} escala={1.2} variante={1} />
-      <Florero p={[3.2, 0.82, -0.2]} />
+      <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#b57bff" ei={0.18} />
       <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
 
       {/* Focos empotrados en el techo de cada habitación. */}
@@ -377,20 +378,20 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       </Fundido>
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
-      {amen('otros', (p) => <ObjetoPintado tipo="caja" pintura={p} />)}
+      {amen('otros', (p) => <CajaOtros pintura={p} />)}
       {amen('auto', (p) => <AutoSUV pintura={p} />)}
       {amen('electro', (p) => <TV pintura={p} />)}
       {amen('muebles', (p) => <Sofa pintura={p} />)}
       {amen('inmueble', (p) => <Maqueta pintura={p} />)}
-      {amen('cobrar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
-      {amen('ahorro', (p) => <ObjetoPintado tipo="ahorro" pintura={p} />)}
-      {amen('efectivo', (p) => <ObjetoPintado tipo="billetes" pintura={p} />)}
-      {amen('banco', (p) => <ObjetoPintado tipo="banco" pintura={p} />)}
+      {amen('cobrar', (p) => <Documentos pintura={p} variante={0} />)}
+      {amen('ahorro', (p) => <Ahorro pintura={p} />)}
+      {amen('efectivo', (p) => <Billetes pintura={p} />)}
+      {amen('banco', (p) => <Banco pintura={p} />)}
       {amen('tarjeta', (p) => <Tarjeta pintura={p} />)}
-      {amen('prestamo', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
-      {amen('apagar', (p) => <ObjetoPintado tipo="documento" pintura={p} />)}
-      {amen('capital', (p) => <ObjetoPintado tipo="capital" pintura={p} />)}
-      {amen('resultado', (p) => <ObjetoPintado tipo="resultado" pintura={p} />)}
+      {amen('prestamo', (p) => <Documentos pintura={p} variante={1} />)}
+      {amen('apagar', (p) => <Documentos pintura={p} variante={2} />)}
+      {amen('capital', (p) => <Capital pintura={p} />)}
+      {amen('resultado', (p) => <Resultado pintura={p} />)}
     </group>
     </TexturasCtx.Provider>
   );
