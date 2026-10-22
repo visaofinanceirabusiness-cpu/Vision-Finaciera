@@ -197,6 +197,41 @@ function Ventana({ x, y, z, lado, ancho = 1.8, alto = 1.1, hora, reflejo, desfas
   );
 }
 
+// Ventana en la cara trasera (mira a -z) de la casa, sobre el ladrillo.
+function VentanaFondo({ x, y, ancho = 1.6, alto = 1.1, hora, reflejo }: { x: number; y: number; ancho?: number; alto?: number; hora: Hora; reflejo: THREE.Texture }) {
+  const v = VENTANA[hora];
+  const zi = Z_ATRAS - 0.06 - 0.03 - 0.005;
+  return (
+    <group>
+      <Caja p={[x, y, zi]} s={[ancho + 0.16, alto + 0.16, 0.03]} color="#f7f8fb" rough={0.5} />
+      <Caja p={[x, y, zi - 0.012]} s={[ancho, alto, 0.02]} color={v.color} emissive={v.color} ei={v.emi} rough={0.1} metal={0.3} />
+      <Caja p={[x, y, zi - 0.03]} s={[0.05, alto, 0.012]} color="#f7f8fb" />
+      <Caja p={[x, y, zi - 0.03]} s={[ancho, 0.05, 0.012]} color="#f7f8fb" />
+      <mesh position={[x, y, zi - 0.026]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[ancho, alto]} />
+        <meshBasicMaterial map={reflejo} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+      </mesh>
+      <Caja p={[x, y - alto / 2 - 0.1, zi - 0.02]} s={[ancho + 0.25, 0.04, 0.1]} color="#e4e8ef" rough={0.5} />
+    </group>
+  );
+}
+
+// Puerta trasera: hoja de madera con marco, picaporte, vidrio alto, escalón y farol.
+function PuertaFondo({ x, noche }: { x: number; noche: boolean }) {
+  const zi = Z_ATRAS - 0.06 - 0.03 - 0.005;
+  return (
+    <group>
+      <Caja p={[x, 1.1, zi]} s={[1.2, 2.2, 0.03]} color="#f7f8fb" rough={0.5} />
+      <Caja p={[x, 1.05, zi - 0.015]} s={[1.0, 2.1, 0.03]} color="#6b4a2f" rough={0.7} />
+      <Caja p={[x, 1.55, zi - 0.036]} s={[0.55, 0.9, 0.012]} color="#9fc8ea" emissive="#9fc8ea" ei={0.5} rough={0.1} />
+      <Caja p={[x, 0.55, zi - 0.036]} s={[0.7, 0.7, 0.012]} color="#5a3d26" rough={0.8} />
+      <Cilindro p={[x + 0.36, 1.05, zi - 0.05]} r={0.03} h={0.05} color="#d9b872" metal={0.9} rough={0.3} rot={[Math.PI / 2, 0, 0]} />
+      <Caja p={[x, 0.04, zi - 0.35]} s={[1.5, 0.08, 0.7]} color="#c9ced8" rough={0.8} />
+      <Caja p={[x + 0.85, 2.15, zi - 0.1]} s={[0.12, 0.2, 0.12]} color={noche ? '#fff0c0' : '#8a8575'} emissive={noche ? '#ffd27a' : '#000000'} ei={noche ? 1.6 : 0} />
+    </group>
+  );
+}
+
 function texturaReflejo(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = 128;
@@ -628,7 +663,7 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Fundido key={hora}>
       {/* Techos. */}
       <Caja p={[(X_COCHERA + X_DER) / 2, 6.3, 0.0]} s={[X_DER - X_COCHERA + 0.4, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
-      <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.08, 0.0]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
+      <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.08, 0.325]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 7.75]} color="#e9edf3" rough={0.6} />
       <Fachada />
 
       {PLINTOS.map(({ id, grupo }) => {
@@ -654,6 +689,13 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Ventana x={X_DER} y={1.7} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
       <Ventana x={X_DER} y={4.9} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
       <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      {/* Fondo de la casa: ventanas y puerta trasera. */}
+      <VentanaFondo x={-8.65} y={1.7} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={-2.55} y={1.7} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={5.4} y={1.7} hora={hora} reflejo={reflejo} />
+      <PuertaFondo x={2.4} noche={noche} />
+      <VentanaFondo x={-2.55} y={4.85} ancho={2.0} hora={hora} reflejo={reflejo} />
+      <VentanaFondo x={3.7} y={4.85} ancho={2.0} hora={hora} reflejo={reflejo} />
 
       <group position={[-1, 0, 0]}>
       {/* Cochera: cargador del auto eléctrico. */}
