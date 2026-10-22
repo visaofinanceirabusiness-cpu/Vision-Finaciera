@@ -133,9 +133,9 @@ const VENTANA: Record<Hora, { color: string; emi: number }> = {
 };
 
 // Ventana en una pared exterior: marco, vidrio con el color del cielo de la hora, cruz y reflejo en diagonal.
-function Ventana({ x, y, z, lado, ancho = 1.8, alto = 1.1, hora, reflejo }: { x: number; y: number; z: number; lado: 1 | -1; ancho?: number; alto?: number; hora: Hora; reflejo: THREE.Texture }) {
+function Ventana({ x, y, z, lado, ancho = 1.8, alto = 1.1, hora, reflejo, desfase = 0 }: { x: number; y: number; z: number; lado: 1 | -1; ancho?: number; alto?: number; hora: Hora; reflejo: THREE.Texture; desfase?: number }) {
   const v = VENTANA[hora];
-  const xi = x + lado * (GROSOR / 2 + 0.005);
+  const xi = x + lado * (GROSOR / 2 + 0.005 + desfase);
   return (
     <group>
       <Caja p={[xi, y, z]} s={[0.03, alto + 0.16, ancho + 0.16]} color="#f7f8fb" rough={0.5} />
@@ -328,6 +328,48 @@ function Matas({ matas }: { matas: Array<[number, number, number]> }) {
       <coneGeometry args={[0.07, 0.34, 4]} />
       <meshStandardMaterial color="#3f9d58" emissive="#16532b" emissiveIntensity={0.35} roughness={1} flatShading />
     </instancedMesh>
+  );
+}
+
+// Hilo fino que une un globo con la casa (cilindro delgado entre dos puntos).
+function Hilo({ a, b, color }: { a: V3; b: V3; color: string }) {
+  const { pos, quat, largo } = useMemo(() => {
+    const va = new THREE.Vector3(...a);
+    const vb = new THREE.Vector3(...b);
+    const dir = vb.clone().sub(va);
+    return { pos: va.clone().add(vb).multiplyScalar(0.5), quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize()), largo: dir.length() };
+  }, [a, b]);
+  return (
+    <group>
+      <mesh position={pos} quaternion={quat}>
+        <cylinderGeometry args={[0.018, 0.018, largo, 5]} />
+        <meshBasicMaterial color={color} toneMapped={false} />
+      </mesh>
+      <mesh position={b}>
+        <sphereGeometry args={[0.09, 8, 6]} />
+        <meshBasicMaterial color={color} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+// Globo flotante con el total de una zona; sube y baja apenas. Va afuera de la casa para dejar la escena limpia.
+function Globo({ pos, ancla, lineas, color, fase }: { pos: V3; ancla: V3; lineas: string[]; color: string; fase: number }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.position.y = Math.sin(clock.elapsedTime * 0.9 + fase) * 0.12;
+  });
+  return (
+    <>
+      <Hilo a={[pos[0], pos[1] - 0.45, pos[2]]} b={ancla} color={color} />
+      <group ref={ref}>
+        <mesh position={[pos[0], pos[1], pos[2] - 0.01]}>
+          <planeGeometry args={[2.82, 1.02]} />
+          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        </mesh>
+        <Letrero lineas={lineas} brillo={color} ancho={2.7} alto={0.9} posicion={pos} fondo={`${color}dd`} />
+      </group>
+    </>
   );
 }
 
@@ -562,6 +604,11 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       <Ventana x={X_DER} y={1.7} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
       <Ventana x={X_DER} y={4.9} z={-0.2} lado={-1} hora={hora} reflejo={reflejo} />
       <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={1} hora={hora} reflejo={reflejo} />
+      {/* Las mismas ventanas vistas desde afuera, sobre el ladrillo. */}
+      <Ventana x={X_IZQ} y={1.7} z={-1.0} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={1.7} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_DER} y={4.9} z={-0.2} lado={1} desfase={0.03} hora={hora} reflejo={reflejo} />
+      <Ventana x={X_COCHERA} y={4.9} z={0.2} lado={-1} desfase={0.03} hora={hora} reflejo={reflejo} />
 
       <group position={[-1, 0, 0]}>
       {/* Cochera: cargador del auto eléctrico. */}
@@ -609,9 +656,9 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
       {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
 
       {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.15], [-1.0, 3.15], [2.2, 3.15], [4.4, 3.15], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
-        <mesh key={`lz${x}${y}${z}`} position={[desplazarX(x), y + 0.03, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh key={`lz${x}${y}${z}`} position={[desplazarX(x), y + 0.058, z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[3.2, 3.2]} />
-          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
         </mesh>
       )))}
 
@@ -710,7 +757,8 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
       (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
         g,
         lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-2.55, 5.7, 3.4] : g === 'PASIVO' ? [3.7, 5.7, 3.4] : [3.7, 2.55, 3.4]) as V3,
+        pos: (g === 'ACTIVO' ? [-8.4, 7.8, 1.0] : g === 'PASIVO' ? [8.6, 7.9, 1.0] : [9.4, 4.5, 0.6]) as V3,
+        ancla: (g === 'ACTIVO' ? [-5.7, 4.9, 0.6] : g === 'PASIVO' ? [6.8, 4.9, 0.6] : [6.8, 1.7, 0.2]) as V3,
       })),
     [totales, formatear]
   );
@@ -746,8 +794,8 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
           <Casa hora={hora} noche={noche} nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
-          {!slotSeleccionado && placas.map(({ g, lineas, pos }) => (
-            <Letrero key={g} lineas={lineas} brillo={COLOR_GRUPO[g]} ancho={2.4} alto={0.8} posicion={pos} fondo={`${COLOR_GRUPO[g]}cc`} />
+          {placas.map(({ g, lineas, pos, ancla }, i) => (
+            <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}
         </GrupoAnimado>
 
