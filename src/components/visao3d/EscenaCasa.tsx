@@ -53,6 +53,14 @@ const AMENIDADES: Record<SlotId, { pos: V3; escala?: number }> = {
   resultado: { pos: [3.2, 0.7, 2.4], escala: 0.9 },
 };
 
+// Cuánto se acerca la cámara al tocar cada amenidad (los objetos chicos necesitan más cerca) y a qué altura sobre su base mira.
+const ENCUADRE: Record<SlotId, { dist: number; alto: number }> = {
+  auto: { dist: 10, alto: 0.8 }, muebles: { dist: 7.5, alto: 0.6 }, electro: { dist: 7, alto: 0.9 }, otros: { dist: 5.5, alto: 0.4 },
+  inmueble: { dist: 4.6, alto: 0.4 }, capital: { dist: 4.2, alto: 0.4 }, resultado: { dist: 5.4, alto: 0.8 },
+  cobrar: { dist: 4.2, alto: 0.4 }, ahorro: { dist: 4.2, alto: 0.6 }, efectivo: { dist: 4.2, alto: 0.4 }, banco: { dist: 4.4, alto: 0.6 },
+  tarjeta: { dist: 4.2, alto: 0.5 }, prestamo: { dist: 4.2, alto: 0.4 }, apagar: { dist: 4.2, alto: 0.4 },
+};
+
 const PLINTOS: Array<{ id: SlotId; grupo: GrupoId }> = [
   { id: 'cobrar', grupo: 'ACTIVO' }, { id: 'ahorro', grupo: 'ACTIVO' }, { id: 'efectivo', grupo: 'ACTIVO' }, { id: 'banco', grupo: 'ACTIVO' },
   { id: 'tarjeta', grupo: 'PASIVO' }, { id: 'prestamo', grupo: 'PASIVO' }, { id: 'apagar', grupo: 'PASIVO' }, { id: 'resultado', grupo: 'PATRIMONIO' },
@@ -406,7 +414,8 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
   const { objetivo, distancia } = useMemo(() => {
     if (slotSeleccionado) {
       const [x, y, z] = AMENIDADES[slotSeleccionado].pos;
-      return { objetivo: new THREE.Vector3(x, y + 0.6, z), distancia: 12 };
+      const { dist, alto } = ENCUADRE[slotSeleccionado];
+      return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
     return { objetivo: new THREE.Vector3(-2.3, 3.0, 1.2), distancia: 23 };
   }, [slotSeleccionado]);
@@ -469,12 +478,12 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior />
           <Casa nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
-          {placas.map(({ g, lineas, pos }) => (
+          {!slotSeleccionado && placas.map(({ g, lineas, pos }) => (
             <Letrero key={g} lineas={lineas} brillo={COLOR_GRUPO[g]} ancho={2.8} alto={1.0} posicion={pos} fondo={`${COLOR_GRUPO[g]}cc`} />
           ))}
         </GrupoAnimado>
 
-        <OrbitControls makeDefault enablePan={false} minDistance={6} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan={false} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={objetivo} distancia={distancia} focoId="casa" movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>

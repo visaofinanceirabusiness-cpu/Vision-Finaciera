@@ -283,7 +283,10 @@ export function Ahorro({ pintura }: { pintura: Pintura }) {
   const moneda = { color: c, emissive: e, ei, metal: 0.7, rough: 0.25 };
   return (
     <group>
-      <Cilindro p={[0, 0.5, 0]} r={0.36} h={0.9} color="#d8ecf5" rough={0.1} seg={20} />
+      <mesh position={[0, 0.5, 0]}>
+        <cylinderGeometry args={[0.36, 0.36, 0.9, 20]} />
+        <meshStandardMaterial color="#d8ecf5" transparent opacity={0.28} roughness={0.05} metalness={0.2} depthWrite={false} />
+      </mesh>
       <Cilindro p={[0, 0.98, 0]} r={0.31} h={0.1} color={oscuro} emissive={e} ei={ei} seg={20} />
       <Caja p={[0, 1.05, 0]} s={[0.2, 0.03, 0.04]} color="#0c0f16" />
       {[0.12, 0.24, 0.36, 0.48, 0.6].map((y, i) => <Cilindro key={y} p={[i % 2 ? 0.04 : -0.03, y, i % 2 ? -0.03 : 0.04]} r={0.27} h={0.1} seg={18} {...moneda} />)}
