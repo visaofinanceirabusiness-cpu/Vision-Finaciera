@@ -18,6 +18,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { cargarDatosVisao3D } from '@/lib/visao3dDatos';
+import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
 
@@ -81,6 +82,12 @@ export default function Visao3DPage() {
       if (errorPerfil || !perfil?.empresa_id) {
         setError('No se encontró la empresa del usuario.');
         setCargando(false);
+        return;
+      }
+
+      // Piloto: por ahora solo las empresas habilitadas (ver lib/visao3dEmpresas.ts).
+      if (!empresaTieneVisao3D(perfil.empresa_id)) {
+        router.push('/');
         return;
       }
 

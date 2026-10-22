@@ -22,6 +22,7 @@ import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacid
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { useEstadoDemo } from '@/lib/demoEstado';
 import { EVENTO_PANTALLA_BLOQUEADA, rutaPermitidaEnDemo } from '@/lib/modoEspectador';
+import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
 
 type Herramienta = {
   href: string;
@@ -106,7 +107,9 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
           // Igual que en el lobby: el asistente no ve Informes.
-          if (herramienta.href === '/informes' || herramienta.href === '/visao-3d') return perfil.tipo_usuario !== 'ASISTENTE';
+          if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
+          // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
+          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id) && perfil.tipo_usuario !== 'ASISTENTE';
           return true;
         })
       );
