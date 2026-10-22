@@ -7,7 +7,7 @@
 // Se carga con import dinámico (ssr: false).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { colorDeSaldo } from '@/lib/visao3dObjetos';
@@ -91,6 +91,30 @@ function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; 
   );
 }
 
+// Punto rojo con borde blanco (el rojo solo lo usa el saldo negativo, el borde lo distingue); late y sube y baja para llamar la atención.
+function MarcadorCuenta() {
+  const ref = useRef<THREE.Group>(null);
+  const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  useFrame(({ clock }) => {
+    if (!ref.current || reducido) return;
+    const t = clock.elapsedTime * 2.4;
+    ref.current.position.y = 2.1 + Math.sin(t) * 0.07;
+    ref.current.scale.setScalar(1 + Math.sin(t) * 0.14);
+  });
+  return (
+    <group ref={ref} position={[0, 2.1, 0]}>
+      <mesh>
+        <sphereGeometry args={[0.2, 14, 14]} />
+        <meshBasicMaterial color="#e11d2e" toneMapped={false} />
+      </mesh>
+      <mesh scale={1.4}>
+        <sphereGeometry args={[0.2, 14, 14]} />
+        <meshBasicMaterial color="#ffffff" side={THREE.BackSide} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode }) {
   const { pos, escala = 1 } = AMENIDADES[id];
   const color = colorDeSaldo(nodo.saldo, COLOR_GRUPO[nodo.grupo]);
@@ -117,11 +141,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
     >
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
-        {/* Punto rojo: distingue lo que representa una cuenta de lo que es decorado, tenga o no saldo. */}
-        <mesh position={[0, 2.1, 0]}>
-          <sphereGeometry args={[0.16, 12, 12]} />
-          <meshBasicMaterial color="#e11d2e" toneMapped={false} />
-        </mesh>
+        <MarcadorCuenta />
         <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo })}</Fundido>
       </group>
     </group>
