@@ -107,9 +107,9 @@ function Piso({ planta, huellas, tabiques }: { planta: { x0: number; x1: number;
   if (!textura) return null;
   const ancho = planta.x1 - planta.x0;
   return (
-    <mesh position={[(planta.x0 + planta.x1) / 2, planta.y + 0.02, Z0 + PROF / 2]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+    <mesh position={[(planta.x0 + planta.x1) / 2, planta.y + 0.05, Z0 + PROF / 2]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
       <planeGeometry args={[ancho, PROF]} />
-      <meshBasicMaterial map={textura} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+      <meshBasicMaterial map={textura} transparent depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
     </mesh>
   );
 }
