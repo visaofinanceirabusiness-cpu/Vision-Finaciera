@@ -12,6 +12,9 @@ type V3 = [number, number, number];
 export type TexturasCasa = { tela: THREE.Texture; tv: THREE.Texture; monitor: THREE.Texture; arte: THREE.Texture[] };
 export const TexturasCtx = createContext<TexturasCasa | null>(null);
 
+// De noche las luces de la casa (focos, lámparas) se encienden; de día quedan apagadas.
+export const NocheCtx = createContext(false);
+
 // Caja con material estándar: la pieza básica de todo el mobiliario.
 export function Caja({ p, s, color, emissive, ei = 0, rough = 0.6, metal = 0.1, opacity = 1, map, rot }: { p: V3; s: V3; color: string; emissive?: string; ei?: number; rough?: number; metal?: number; opacity?: number; map?: THREE.Texture; rot?: V3 }) {
   return (
@@ -47,24 +50,26 @@ export function Cuadro({ p, s = [0.9, 0.7], tono = 0 }: { p: V3; s?: [number, nu
 }
 
 export function Lampara({ p, color = '#ffe2b0' }: { p: V3; color?: string }) {
+  const noche = useContext(NocheCtx);
   return (
     <group position={p}>
       <Cilindro p={[0, 0.18, 0]} r={0.05} h={0.36} color="#2a2f3b" />
       <mesh position={[0, 0.5, 0]}>
         <coneGeometry args={[0.22, 0.28, 16, 1, true]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.1} side={THREE.DoubleSide} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={noche ? 1.8 : 0.12} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
 }
 
 export function LamparaColgante({ p, color = '#ffe2b0' }: { p: V3; color?: string }) {
+  const noche = useContext(NocheCtx);
   return (
     <group position={p}>
       <Cilindro p={[0, 0.5, 0]} r={0.012} h={1} color="#222" />
       <mesh>
         <sphereGeometry args={[0.2, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.2} side={THREE.DoubleSide} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={noche ? 2 : 0.12} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
@@ -260,10 +265,11 @@ export function Persona({ p, rot = 0, sentado = false, esc = 1, ropa = '#3e6fb0'
 
 // Foco empotrado en el techo (emite luz propia sin costo de iluminación).
 export function Foco({ p }: { p: V3 }) {
+  const noche = useContext(NocheCtx);
   return (
     <mesh position={p}>
       <cylinderGeometry args={[0.13, 0.13, 0.03, 14]} />
-      <meshBasicMaterial color="#fff3d1" toneMapped={false} />
+      <meshBasicMaterial color={noche ? '#fff3d1' : '#bdb9ab'} toneMapped={false} />
     </mesh>
   );
 }

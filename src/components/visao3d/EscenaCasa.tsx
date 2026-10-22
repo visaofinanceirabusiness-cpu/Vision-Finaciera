@@ -14,10 +14,10 @@ import { colorDeSaldo } from '@/lib/visao3dObjetos';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import type { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import type { SlotId } from '@/lib/visao3dCasa';
-import { CamaraGuiada, Cielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
+import { CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
   Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
-  Foco, Mesa, MesaCentro, MesaLateral, Palmera, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
+  Foco, Mesa, MesaCentro, MesaLateral, NocheCtx, Palmera, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
   type TexturasCasa,
 } from './CasaMobiliario';
 import { SombrasCasa } from './CasaSombras';
@@ -36,6 +36,7 @@ type Props = {
   formatear: (valor: number) => string;
   movimientoReducido: boolean;
   periodoClave: string;
+  esPT?: boolean;
 };
 
 // Dónde vive cada amenidad dentro de la casa (coordenadas del mundo; el frente de la casa mira a +z).
@@ -80,9 +81,57 @@ const ZONAS = {
 
 const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#dfe9ff', PASIVO: '#ffe6d1', PATRIMONIO: '#efe3fb' };
 const PROF = 6.9;
+
+type Hora = PaletaCielo;
+const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, number]; sol: [string, number]; exposicion: number; niebla: string; formas: [number, number, number]; piso: number }> = {
+  dia: { ambiente: 1.25, hemisferio: ['#cfe6ff', '#6b8b5a', 0.8], sol: ['#fff4dc', 2.0], exposicion: 1.05, niebla: '#cfe3f2', formas: [3.2, 4, 2.4], piso: 0.1 },
+  atardecer: { ambiente: 1.15, hemisferio: ['#bcd0ff', '#3a2f26', 0.5], sol: ['#ffffff', 1.1], exposicion: 1.2, niebla: '#2a2f55', formas: [4, 3, 2], piso: 0.14 },
+  noche: { ambiente: 0.42, hemisferio: ['#6f86c9', '#141a2a', 0.3], sol: ['#9fb4ff', 0.35], exposicion: 1.15, niebla: '#050813', formas: [0.8, 1.2, 0.6], piso: 0.05 },
+};
+const CLAVE_HORA = 'visao3d_hora';
+
+// Charco de luz: gradiente radial aditivo que se apoya en el piso bajo cada foco o farol de noche.
+function useTexturaLuz() {
+  const t = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    r.addColorStop(0, 'rgba(255,226,170,0.85)');
+    r.addColorStop(0.45, 'rgba(255,200,120,0.3)');
+    r.addColorStop(1, 'rgba(255,190,100,0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }, []);
+  useEffect(() => () => t?.dispose(), [t]);
+  return t;
+}
+
+function Estrellas() {
+  const geo = useMemo(() => {
+    const pos: number[] = [];
+    let n = 11;
+    const azar = () => ((n = (n * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 260; i++) {
+      const a = azar() * Math.PI * 2;
+      const e = 0.12 + azar() * 0.75;
+      pos.push(Math.cos(a) * Math.cos(e) * 140, Math.sin(e) * 140, Math.sin(a) * Math.cos(e) * 140 - 30);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    return g;
+  }, []);
+  return (
+    <points geometry={geo}>
+      <pointsMaterial color="#ffffff" size={1.6} sizeAttenuation={false} toneMapped={false} fog={false} />
+    </points>
+  );
+}
 const Z_ATRAS = -3.45;
 
-function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture }) {
+function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture; tinte: number }) {
   const color = COLOR_GRUPO[zona.grupo];
   const ancho = zona.x1 - zona.x0;
   const alto = zona.y1 - zona.y0;
@@ -95,7 +144,7 @@ function Habitacion({ zona, piso }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; 
       {/* Piso. */}
       <mesh position={[cx, zona.y0 - 0.075, cz]}>
         <boxGeometry args={[ancho, 0.15, PROF]} />
-        <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={0.3} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
+        <meshStandardMaterial map={piso} emissive={color} emissiveIntensity={tinte * 2.1} roughness={0.28} metalness={0.08} envMapIntensity={1.35} />
       </mesh>
       {/* Borde fino de color en el perímetro del piso. */}
       {([[cx, Z_ATRAS + 0.04, ancho, 0.08], [cx, Z_ATRAS + PROF - 0.04, ancho, 0.08], [zona.x0 + 0.04, cz, 0.08, PROF], [zona.x1 - 0.04, cz, 0.08, PROF]] as const).map(([x, z, w, d], i) => (
@@ -189,7 +238,7 @@ function Matas({ matas }: { matas: Array<[number, number, number]> }) {
   );
 }
 
-function Exterior() {
+function Exterior({ noche }: { noche: boolean }) {
   const t = useTexturas({
     pasto: () => texturaProcedural('pasto', 18),
     concreto: () => texturaProcedural('concreto', 6),
@@ -218,7 +267,7 @@ function Exterior() {
   const flores = useMemo(() => Array.from({ length: 46 }, (_, i) => ({ x: -4 + ((i * 37) % 100) * 0.115, z: 5.4 + ((i * 53) % 10) * 0.12, c: ['#ff6b8a', '#ffd166', '#ffffff', '#c77dff'][i % 4] })), []);
 
   return (
-    <Fundido>
+    <Fundido key={noche ? 'n' : 'd'}>
       <mesh position={[-1, -0.17, 5]}>
         <boxGeometry args={[70, 0.1, 40]} />
         <meshStandardMaterial map={t.pasto} roughness={1} />
@@ -283,7 +332,7 @@ function Exterior() {
           <Cilindro p={[0, 0.35, 0]} r={0.045} h={0.7} color="#1c2231" />
           <mesh position={[0, 0.75, 0]}>
             <sphereGeometry args={[0.1, 10, 8]} />
-            <meshBasicMaterial color="#ffd89a" toneMapped={false} />
+            <meshBasicMaterial color={noche ? '#ffd89a' : '#8a8575'} toneMapped={false} />
           </mesh>
         </group>
       ))}
@@ -306,11 +355,12 @@ function Exterior() {
   );
 }
 
-function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar }: { nodos: Record<SlotId, NodoEdificio>; totales: Props['totales']; slotSeleccionado: SlotId | null; hover: SlotId | null; setHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
+function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; nodos: Record<SlotId, NodoEdificio>; totales: Props['totales']; slotSeleccionado: SlotId | null; hover: SlotId | null; setHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
   const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
   const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
+  const luz = useTexturaLuz();
   const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number }) => React.ReactNode) => (
     <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar}>
       {hijo}
@@ -318,17 +368,18 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
   );
 
   return (
+    <NocheCtx.Provider value={noche}>
     <TexturasCtx.Provider value={texturas}>
     <group>
       {/* Habitaciones. */}
-      <Habitacion zona={ZONAS.garage} piso={piso.concreto} />
-      <Habitacion zona={ZONAS.living} piso={piso.madera} />
-      <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} />
-      <Habitacion zona={ZONAS.oficina} piso={piso.madera} />
-      <Habitacion zona={ZONAS.comedor} piso={piso.madera} />
+      <Habitacion zona={ZONAS.garage} piso={piso.concreto} tinte={HORAS[hora].piso} />
+      <Habitacion zona={ZONAS.living} piso={piso.madera} tinte={HORAS[hora].piso} />
+      <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} tinte={HORAS[hora].piso} />
+      <Habitacion zona={ZONAS.oficina} piso={piso.madera} tinte={HORAS[hora].piso} />
+      <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
       <SombrasCasa />
 
-      <Fundido>
+      <Fundido key={noche ? 'n' : 'd'}>
       {/* Techos. */}
       <Caja p={[0.55, 6.3, 0.0]} s={[11.4, 0.16, 8]} color="#e9edf3" rough={0.6} />
       <Caja p={[-7.7, 3.08, 0.0]} s={[6.6, 0.16, 8]} color="#e9edf3" rough={0.6} />
@@ -378,6 +429,13 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       {/* Focos empotrados en el techo de cada habitación. */}
       {[[-7.7, 2.95], [-3.0, 2.95], [-1.0, 2.95], [-3.0, 6.1], [-1.0, 6.1], [2.2, 6.1], [4.4, 6.1], [2.2, 2.95], [4.4, 2.95]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[x, y, z]} />))}
 
+      {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.15], [-1.0, 3.15], [2.2, 3.15], [4.4, 3.15], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
+        <mesh key={`lz${x}${y}${z}`} position={[x, y + 0.012, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[3.2, 3.2]} />
+          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>
+      )))}
+
       {/* Personas: la familia en su casa. */}
       <Persona p={[-1.3, 3.15, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" />
       <Persona p={[-2.0, 0.5, -2.45]} sentado ropa="#3d7a5a" pantalon="#2a2f3b" pelo="#2a1c12" />
@@ -407,10 +465,30 @@ function Casa({ nodos, totales, slotSeleccionado, hover, setHover, onSeleccionar
       {amen('resultado', (p) => <Resultado pintura={p} />)}
     </group>
     </TexturasCtx.Provider>
+    </NocheCtx.Provider>
   );
 }
 
-export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSeleccionar, formatear, movimientoReducido, periodoClave }: Props) {
+export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT }: Props) {
+  const [hora, setHoraEstado] = useState<Hora>('atardecer');
+  useEffect(() => {
+    try {
+      const guardada = localStorage.getItem(CLAVE_HORA);
+      if (guardada === 'dia' || guardada === 'atardecer' || guardada === 'noche') setHoraEstado(guardada);
+    } catch {
+      // sin almacenamiento: queda el atardecer
+    }
+  }, []);
+  const setHora = (h: Hora) => {
+    setHoraEstado(h);
+    try {
+      localStorage.setItem(CLAVE_HORA, h);
+    } catch {
+      // no pasa nada si no se puede recordar
+    }
+  };
+  const cfg = HORAS[hora];
+  const noche = hora === 'noche';
   const [hover, setHover] = useState<SlotId | null>(null);
   // En teléfonos se baja la resolución interna: es lo que más pesa al dibujar.
   const [dprMax] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.75));
@@ -468,21 +546,22 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
           gl.toneMappingExposure = 1.2;
         }}
       >
-        <Cielo activo />
-        <fog attach="fog" args={['#2a2f55', 45, 120]} />
-        <ambientLight intensity={1.15} />
-        <hemisphereLight args={['#bcd0ff', '#3a2f26', 0.5]} />
-        <directionalLight position={[10, 16, 14]} intensity={1.1}  />
-        <Environment frames={1} resolution={256} background={false}>
-          <Lightformer form="rect" intensity={4} color="#ffd2a0" position={[-8, 5, 9]} scale={[12, 5, 1]} />
-          <Lightformer form="rect" intensity={3} color="#8fb4ff" position={[10, 6, -5]} scale={[10, 5, 1]} />
-          <Lightformer form="ring" intensity={2} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={8} />
+        <Cielo activo paleta={hora} />
+        {noche && <Estrellas />}
+        <fog attach="fog" args={[cfg.niebla, 45, 120]} />
+        <ambientLight intensity={cfg.ambiente} />
+        <hemisphereLight args={cfg.hemisferio} />
+        <directionalLight position={[10, 16, 14]} color={cfg.sol[0]} intensity={cfg.sol[1]} />
+        <Environment key={hora} frames={1} resolution={256} background={false}>
+          <Lightformer form="rect" intensity={cfg.formas[0]} color="#ffd2a0" position={[-8, 5, 9]} scale={[12, 5, 1]} />
+          <Lightformer form="rect" intensity={cfg.formas[1]} color="#8fb4ff" position={[10, 6, -5]} scale={[10, 5, 1]} />
+          <Lightformer form="ring" intensity={cfg.formas[2]} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={8} />
         </Environment>
         <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.01, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
 
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
-          <Exterior />
-          <Casa nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
+          <Exterior noche={noche} />
+          <Casa hora={hora} noche={noche} nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {!slotSeleccionado && placas.map(({ g, lineas, pos }) => (
             <Letrero key={g} lineas={lineas} brillo={COLOR_GRUPO[g]} ancho={2.8} alto={1.0} posicion={pos} fondo={`${COLOR_GRUPO[g]}cc`} />
           ))}
@@ -492,6 +571,21 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
         <CamaraGuiada objetivo={objetivo} distancia={distancia} focoId="casa" movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>
+      <div style={{ position: 'absolute', right: 12, top: 84, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 5 }}>
+        {([['dia', '☀️', esPT ? 'Dia' : 'Día'], ['atardecer', '🌇', esPT ? 'Entardecer' : 'Atardecer'], ['noche', '🌙', 'Noche']] as const).map(([h, emoji, nombre]) => (
+          <button
+            key={h}
+            type="button"
+            title={nombre}
+            aria-label={nombre}
+            aria-pressed={hora === h}
+            onClick={() => setHora(h)}
+            style={{ width: 38, height: 38, borderRadius: 12, border: hora === h ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.35)', background: hora === h ? 'rgba(31,58,95,0.95)' : 'rgba(15,23,42,0.7)', fontSize: 18, cursor: 'pointer' }}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
 
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
         {etiquetas

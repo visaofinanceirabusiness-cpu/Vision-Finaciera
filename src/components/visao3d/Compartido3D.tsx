@@ -267,7 +267,14 @@ export function texturaProcedural(tipo: 'asfalto' | 'vereda' | 'madera' | 'concr
 }
 
 // Cielo del atardecer (degradé), como en las imágenes de referencia. Solo en la apariencia oscura.
-export function Cielo({ activo }: { activo: boolean }) {
+export type PaletaCielo = 'dia' | 'atardecer' | 'noche';
+const COLORES_CIELO: Record<PaletaCielo, string[]> = {
+  dia: ['#3f86d9', '#7fb6ec', '#bcdcf5', '#e8f2f9'],
+  atardecer: ['#0a1226', '#1b2c55', '#5b4a78', '#c27d5a'],
+  noche: ['#02040b', '#070d22', '#0f1a3b', '#1b2a55'],
+};
+
+export function Cielo({ activo, paleta = 'atardecer' }: { activo: boolean; paleta?: PaletaCielo }) {
   const { scene } = useThree();
 
   useEffect(() => {
@@ -277,10 +284,11 @@ export function Cielo({ activo }: { activo: boolean }) {
     lienzo.height = 256;
     const g = lienzo.getContext('2d')!;
     const degrade = g.createLinearGradient(0, 0, 0, 256);
-    degrade.addColorStop(0, '#0a1226');
-    degrade.addColorStop(0.55, '#1b2c55');
-    degrade.addColorStop(0.85, '#5b4a78');
-    degrade.addColorStop(1, '#c27d5a');
+    const [c0, c1, c2, c3] = COLORES_CIELO[paleta];
+    degrade.addColorStop(0, c0);
+    degrade.addColorStop(0.55, c1);
+    degrade.addColorStop(0.85, c2);
+    degrade.addColorStop(1, c3);
     g.fillStyle = degrade;
     g.fillRect(0, 0, 4, 256);
     const textura = new THREE.CanvasTexture(lienzo);
@@ -291,7 +299,7 @@ export function Cielo({ activo }: { activo: boolean }) {
       scene.background = anterior;
       textura.dispose();
     };
-  }, [activo, scene]);
+  }, [activo, paleta, scene]);
 
   return null;
 }

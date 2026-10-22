@@ -314,6 +314,7 @@ export default function Visao3DPage() {
             formatear={dinero}
             movimientoReducido={movimientoReducido}
             periodoClave={mes}
+            esPT={esPT}
           />
         </div>
       ) : vista === '3d' && webgl ? (
