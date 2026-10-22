@@ -24,8 +24,6 @@ const HUELLAS_BAJA: Huella[] = [
   { x: 3.7, z: 0.3, w: 3.2, d: 1.5, fuerza: 0.8 }, // mesa del comedor
   ...[-1.1, 0, 1.1].flatMap((dx) => [-1, 1].map((s) => ({ x: 3.7 + dx, z: 0.3 + s * 1.05, w: 0.5, d: 0.5, fuerza: 0.8 }))),
   ...[-8.65, -4.8, -3.0, 2.7, 4.8].map((x) => ({ x, z: 2.4, w: 1, d: 1, r: 0.5 })), // plintos
-  { x: 2.6, z: 1.4, w: 0.6, d: 0.6, r: 0.3 }, // persona
-  { x: 4.8, z: 1.4, w: 0.5, d: 0.5, r: 0.25 },
 ];
 
 const HUELLAS_ALTA: Huella[] = [
