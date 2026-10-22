@@ -3,7 +3,7 @@
 // Piezas 3D compartidas por las escenas de Visão 3D (edificio y casa): cámara guiada, letreros con texto, cielo del
 // atardecer, sombras, animación de entrada, proyección de etiquetas y texturas procedurales (canvas 2D).
 
-import { useLayoutEffect, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useLayoutEffect, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -319,8 +319,12 @@ function claveMaterial(m: THREE.Material): string | null {
 // objetos chicos pasan a unas pocas llamadas de dibujo, y la escena se mueve fluida también en teléfonos.
 // Lo que se mete acá no debe ser interactivo ni animarse.
 // Con `desvanecibles`, los materiales fundidos nacen transparentes y se devuelven en esa lista para animar su opacidad.
+// Si es verdadero, las mallas fundidas proyectan y reciben sombras (solo en equipos no táctiles de calidad alta).
+export const SombrasCtx = createContext(false);
+
 export function Fundido({ children, desvanecibles }: { children: React.ReactNode; desvanecibles?: React.MutableRefObject<THREE.MeshStandardMaterial[]> }) {
   const ref = useRef<THREE.Group>(null);
+  const sombras = useContext(SombrasCtx);
 
   useLayoutEffect(() => {
     const grupo = ref.current;
@@ -386,8 +390,8 @@ export function Fundido({ children, desvanecibles }: { children: React.ReactNode
       geometrias.forEach((g) => g.dispose());
       if (!unida) return;
       const malla = new THREE.Mesh(unida, material);
-      malla.castShadow = false;
-      malla.receiveShadow = false;
+      malla.castShadow = sombras;
+      malla.receiveShadow = sombras;
       grupo.add(malla);
       nuevas.push(malla);
     });

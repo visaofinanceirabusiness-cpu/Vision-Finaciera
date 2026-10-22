@@ -14,7 +14,7 @@ import { colorDeSaldo } from '@/lib/visao3dObjetos';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import type { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import type { SlotId } from '@/lib/visao3dCasa';
-import { CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
+import { SombrasCtx, CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
   Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
   Foco, Mesa, MesaCentro, MesaLateral, NocheCtx, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
@@ -23,6 +23,9 @@ import {
 import { SombrasCasa } from './CasaSombras';
 import { Montanas, Nubes, Trafico } from './CasaEntorno';
 import { Fachada } from './CasaFachada';
+import { ObjetoCatalogo, useConfigCatalogo } from './catalogo/ObjetoCatalogo';
+import { Iluminacion } from './Iluminacion';
+import { leerCalidad, usaSombras } from '@/lib/visao3dCalidad';
 import { Sabio } from './CasaSabio';
 import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
@@ -361,7 +364,7 @@ function MarcadorCuenta({ y }: { y: number }) {
   );
 }
 
-function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, children }: { id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode }) {
+function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, directo = false, children }: { directo?: boolean; id: SlotId; nodo: NodoEdificio; hover: boolean; seleccionada: boolean; onHover: (id: SlotId | null) => void; onSeleccionar: (n: NodoEdificio) => void; children: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode }) {
   const { pos, escala = 1, rot = 0 } = AMENIDADES[id];
   const color = colorDeSaldo(nodo.saldo, COLOR_GRUPO[nodo.grupo]);
   const apagado = Math.round(nodo.saldo) === 0;
@@ -389,7 +392,7 @@ function Amenidad({ id, nodo, hover, seleccionada, onHover, onSeleccionar, child
       {/* Cada amenidad se funde en pocas mallas; se rearma solo cuando cambia su color o su brillo. */}
       <group scale={escala}>
         <MarcadorCuenta y={id === 'muebles' ? 3.5 : PLINTOS.some((x) => x.id === id) ? 1.5 : 2.1} />
-        <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>
+        {directo ? children({ color, apagado, brillo, negativo: nodo.saldo < 0 }) : <Fundido key={`${color}|${brillo}`}>{children({ color, apagado, brillo, negativo: nodo.saldo < 0 })}</Fundido>}
       </group>
     </group>
   );
@@ -646,11 +649,14 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
   const texturas = useMemo<TexturasCasa>(() => ({ ...pantallas, arte: [arte.a0, arte.a1, arte.a2, arte.a3] }), [pantallas, arte]);
   const luz = useTexturaLuz();
   const { reflejo } = useTexturas({ reflejo: texturaReflejo });
-  const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode) => (
-    <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar}>
+  const amen = (id: SlotId, hijo: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode, directo = false) => (
+    <Amenidad key={id} id={id} nodo={nodos[id]} hover={hover === id} seleccionada={slotSeleccionado === id} onHover={setHover} onSeleccionar={onSeleccionar} directo={directo}>
       {hijo}
     </Amenidad>
   );
+  // Amenidad que puede reemplazarse por un modelo GLB del catálogo (si no hay, se ve el procedural de siempre).
+  const amenCatalogo = (id: SlotId, idCatalogo: string, procedural: (p: { color: string; apagado: boolean; brillo: number; negativo: boolean }) => React.ReactNode) =>
+    amen(id, (p) => <ObjetoCatalogo id={idCatalogo} estado={p} claveFundido={`${p.color}|${p.brillo}`} procedural={procedural(p)} />, true);
 
   return (
     <NocheCtx.Provider value={noche}>
@@ -767,9 +773,9 @@ function Casa({ hora, noche, nodos, totales, slotSeleccionado, hover, setHover, 
 
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
       {amen('otros', (p) => <CajaOtros pintura={p} />)}
-      {amen('auto', (p) => <AutoSUV pintura={p} />)}
+      {amenCatalogo('auto', 'auto', (p) => <AutoSUV pintura={p} />)}
       {amen('electro', (p) => <TV pintura={p} />)}
-      {amen('muebles', (p) => <Armario pintura={p} />)}
+      {amenCatalogo('muebles', 'armario', (p) => <Armario pintura={p} />)}
       {amen('inmueble', (p) => <Maqueta pintura={p} />)}
       {amen('cobrar', (p) => <Documentos pintura={p} variante={0} />)}
       {amen('ahorro', (p) => <Ahorro pintura={p} />)}
@@ -805,6 +811,10 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
     }
   };
   const cfg = HORAS[hora];
+  const config = useConfigCatalogo();
+  // Calidad del equipo: sombras suaves en tiempo real solo en equipos no táctiles de calidad alta.
+  const [{ calidad, tactil }] = useState(leerCalidad);
+  const sombras = usaSombras(calidad, tactil);
   const noche = hora === 'noche';
   const [hover, setHover] = useState<SlotId | null>(null);
   // En teléfonos se baja la resolución interna: es lo que más pesa al dibujar.
@@ -855,6 +865,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
+        shadows={sombras}
         dpr={[1, dprMax]}
         camera={{ position: [3, 8, 27], fov: 40, near: 0.5, far: 500 }}
         style={{ touchAction: 'none' }}
@@ -870,16 +881,10 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
         <Nubes hora={hora} />
         <Trafico noche={noche} />
         <fog attach="fog" args={[cfg.niebla, 45, 120]} />
-        <ambientLight intensity={cfg.ambiente} />
-        <hemisphereLight args={cfg.hemisferio} />
-        <directionalLight position={[10, 16, 14]} color={cfg.sol[0]} intensity={cfg.sol[1]} />
-        <Environment key={hora} frames={1} resolution={256} background={false}>
-          <Lightformer form="rect" intensity={cfg.formas[0]} color="#ffd2a0" position={[-8, 5, 9]} scale={[12, 5, 1]} />
-          <Lightformer form="rect" intensity={cfg.formas[1]} color="#8fb4ff" position={[10, 6, -5]} scale={[10, 5, 1]} />
-          <Lightformer form="ring" intensity={cfg.formas[2]} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={8} />
-        </Environment>
+        <Iluminacion cfg={cfg} hora={hora} sombras={sombras} hdri={config?.hdri?.[hora]} />
         <ContactShadows key={`${periodoClave}|${slotSeleccionado ?? ''}`} position={[0, -0.06, 0]} opacity={0.6} scale={50} blur={2.6} far={9} resolution={384} frames={40} color="#000000" />
 
+        <SombrasCtx.Provider value={sombras}>
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
           <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
@@ -888,6 +893,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}
         </GrupoAnimado>
+        </SombrasCtx.Provider>
 
         <OrbitControls makeDefault enablePan screenSpacePanning={false} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} onChange={(e) => e?.target.target.clamp(LIMITE_PAN.min, LIMITE_PAN.max)} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={objetivo} distancia={distancia} focoId="casa" movimientoReducido={movimientoReducido} />
