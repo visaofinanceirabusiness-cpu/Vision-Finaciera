@@ -23,7 +23,8 @@ import {
 import { SombrasCasa } from './CasaSombras';
 import { Montanas, Nubes, Trafico } from './CasaEntorno';
 import { Fachada } from './CasaFachada';
-import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto, Piedra } from './CasaJardin';
+import { Sabio } from './CasaSabio';
+import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
 
@@ -47,8 +48,8 @@ type Props = {
 // cuarto: primero hasta 3 AL FRENTE (las chicas sobre un plinto), luego en las paredes laterales, si hacen falta más en la pared
 // del fondo y por último en el medio. `rot` gira el objeto sobre su eje (y).
 const AMENIDADES: Record<SlotId, { pos: V3; escala?: number; rot?: number }> = {
-  // Cochera: las cajas al frente (el auto ocupa casi todo el ancho y las taparía) y el auto detrás.
-  auto: { pos: [-8.7, 0, -0.9] },
+  // Cochera: las cajas al frente; el auto espera en la entrada, mirando hacia la casa (así la cochera queda libre para otras cuentas).
+  auto: { pos: [-8.65, 0, 8.4], rot: Math.PI / 2 },
   otros: { pos: [-8.7, 0, 2.6], escala: 0.9 },
   // Living: al frente el documento, la maqueta y la TV; el sofá contra la pared lateral mirando al centro.
   cobrar: { pos: [-4.8, 0.7, 2.4], escala: 0.8 },
@@ -102,6 +103,14 @@ const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, numbe
 const CLAVE_HORA = 'visao3d_hora';
 
 // Paredes: todas menos la de frente (z positivo), que falta a propósito para ver el interior.
+// Camino de entrada: losas parejas desde la vereda hasta la casa, con cordón y balizas; el pasto y las flores lo respetan.
+const CAMINO_X = -2.4;
+const CAMINO_ANCHO = 1.9;
+const sobreCamino = (x: number) => Math.abs(x - CAMINO_X) < CAMINO_ANCHO / 2 + 0.55;
+// Lugar donde espera Sabio, a un costado del camino.
+const SABIO_POS: V3 = [-0.8, 0, 11.4];
+const enSabio = (x: number, z: number) => Math.hypot(x - SABIO_POS[0], z - SABIO_POS[2]) < 1.5;
+
 const GROSOR = 0.14;
 const COLOR_PARED = '#eef1f6';
 function Pared({ x, y0, y1, hueco, grosor = GROSOR, color = COLOR_PARED }: { x: number; y0: number; y1: number; hueco?: [number, number, number]; grosor?: number; color?: string }) {
@@ -496,9 +505,9 @@ function Exterior({ noche }: { noche: boolean }) {
     t.agua.offset.x += delta * 0.012;
     t.agua.offset.y += delta * 0.006;
   });
-  const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })), []);
+  const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })).filter((a) => !sobreCamino(a.x)), []);
   const arboles: Array<[number, number, number]> = [[-11, -7.6, 1.1], [-6, -8, 1.3], [-0.5, -7.6, 1], [5, -8, 1.25], [10.5, -7.4, 1.1]];
-  const faroles: Array<[number, number]> = [[-4.1, 4.9], [1.2, 4.7], [6.4, 4.9], [-10.6, 4.8], [10.2, 11]];
+  const faroles: Array<[number, number]> = [[6.4, 4.9], [-10.6, 4.8], [10.2, 11]];
   // Matas de pasto y flores en una sola malla instanciada cada una (cientos de piezas = 1 llamada de dibujo).
   const matas = useMemo(() => {
     const lista: Array<[number, number, number]> = [];
@@ -509,16 +518,23 @@ function Exterior({ noche }: { noche: boolean }) {
       const z = 4.6 + azar() * 9.6;
       const enCamino = x > -11.9 && x < -5.4 && z < 15.5; // entrada de autos
       const enPileta = x > 0.8 && x < 11 && z > 4.8 && z < 11.4;
-      const enSendero = x > -2.5 && x < -0.3 && z < 17;
+      const enSendero = sobreCamino(x) || enSabio(x, z);
       if (!enCamino && !enPileta && !enSendero) lista.push([x, z, 0.6 + azar() * 0.8]);
     }
     return lista;
   }, []);
   const flores = useMemo(() => {
     const azar = (() => { let n = 31; return () => ((n = (n * 16807) % 2147483647) / 2147483647); })();
-    return Array.from({ length: 70 }, () => ({ x: -4.8 + azar() * 5.6, z: 5.3 + azar() * 2.2, e: 0.85 + azar() * 0.5 }));
+    const lista: Array<{ x: number; z: number; e: number }> = [];
+    while (lista.length < 80) {
+      // Canteros a ambos lados del camino y delante de la casa; nunca sobre el camino ni donde está Sabio.
+      const x = -5.2 + azar() * 6.2;
+      const z = 4.4 + azar() * 7.4;
+      if (sobreCamino(x) || enSabio(x, z)) continue;
+      lista.push({ x, z, e: 0.85 + azar() * 0.5 });
+    }
+    return lista;
   }, []);
-  const piedras = useMemo(() => Array.from({ length: 9 }, (_, i) => ({ p: [-4.6 + i * 0.62 + ((i * 7) % 3) * 0.1, -0.1, 7.7 + ((i * 5) % 4) * 0.14] as V3, e: 0.7 + ((i * 3) % 4) * 0.2, giro: (i * 1.3) % 3 })), []);
 
   return (
     <>
@@ -545,10 +561,23 @@ function Exterior({ noche }: { noche: boolean }) {
       {/* Sendero de piedras hasta la entrada. */}
       <Pasto matas={matas} />
       <Flores lugares={flores} />
-      {piedras.map((r, i) => <Piedra key={`pi${i}`} p={r.p} e={r.e} giro={r.giro} />)}
-      {Array.from({ length: 6 }, (_, i) => (
-        <Caja key={i} p={[-1.8 + (i % 2) * 0.35, -0.08, 5.3 + i * 1.8]} s={[1.3, 0.08, 1.0]} color="#9aa3b5" rough={0.8} />
-      ))}
+      {/* Camino de entrada: base, losas en dos columnas, cordones a los lados y balizas. */}
+      <Caja p={[CAMINO_X, -0.085, 9.05]} s={[CAMINO_ANCHO, 0.07, 11]} color="#c3c9d4" rough={0.9} />
+      {Array.from({ length: 9 }, (_, i) =>
+        [-0.45, 0.45].map((dx, k) => (
+          <Caja key={`lo${i}${k}`} p={[CAMINO_X + dx, -0.04, 4.2 + i * 1.2]} s={[0.84, 0.05, 1.05]} color={(i + k) % 2 ? '#d4d9e2' : '#dde1e9'} rough={0.75} />
+        ))
+      )}
+      {[-1, 1].map((l) => <Caja key={`cd${l}`} p={[CAMINO_X + l * (CAMINO_ANCHO / 2 + 0.06), -0.03, 9.05]} s={[0.12, 0.14, 11]} color="#8f98a8" rough={0.8} />)}
+      {[5.4, 9.0, 12.6].flatMap((z) => [-1, 1].map((l) => (
+        <group key={`ba${z}${l}`} position={[CAMINO_X + l * (CAMINO_ANCHO / 2 + 0.55), 0, z]}>
+          <Cilindro p={[0, 0.25, 0]} r={0.05} h={0.5} color="#2a303c" />
+          <mesh position={[0, 0.55, 0]}>
+            <sphereGeometry args={[0.09, 10, 8]} />
+            <meshBasicMaterial color={noche ? '#ffd89a' : '#8a8575'} toneMapped={false} />
+          </mesh>
+        </group>
+      )))}
 
       {/* Pileta con deck de madera, agua y reposeras. */}
       <mesh position={[5.8, -0.09, 8]}>
@@ -847,6 +876,7 @@ export default function EscenaCasa({ nodos, totales, slotSeleccionado, onSelecci
 
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
+          <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
           <Casa hora={hora} noche={noche} nodos={nodos} totales={totales} slotSeleccionado={slotSeleccionado} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {placas.map(({ g, lineas, pos, ancla }, i) => (
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />

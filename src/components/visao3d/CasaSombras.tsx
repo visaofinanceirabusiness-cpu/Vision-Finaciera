@@ -16,7 +16,6 @@ const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.15 };
 
 // Huellas en coordenadas finales del mundo.
 const HUELLAS_BAJA: Huella[] = [
-  { x: -8.7, z: -0.9, w: 4.3, d: 1.85, fuerza: 1 }, // auto
   { x: -8.7, z: 2.6, w: 1.5, d: 1.3 }, // cajas
   { x: -6.1, z: -3.25, w: 0.4, d: 0.25 }, // cargador
   { x: -5.0, z: -0.2, w: 1.05, d: 2.8 }, // sofá contra la pared
