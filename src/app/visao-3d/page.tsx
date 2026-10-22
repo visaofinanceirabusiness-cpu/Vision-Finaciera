@@ -140,7 +140,7 @@ export default function Visao3DPage() {
   const seleccionado = seleccionadoId ? resolverNodo(edificio.raiz, seleccionadoId, mostrarCeros, etiquetaOtras) : null;
   const nodoPanel = seleccionado ?? foco;
 
-  const { volumenes } = useMemo(() => disenarVolumenes(foco, mostrarCeros, etiquetaOtras), [foco, mostrarCeros, etiquetaOtras]);
+  const { volumenes } = useMemo(() => disenarVolumenes(foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo), [foco, mostrarCeros, etiquetaOtras, edificio.raiz.saldo]);
   const { visibles: hijosPanel, ocultosEnCero } = hijosVisibles(nodoPanel, mostrarCeros, etiquetaOtras);
   const camino = caminoResuelto(edificio.raiz, nodoPanel.id, mostrarCeros, etiquetaOtras);
 

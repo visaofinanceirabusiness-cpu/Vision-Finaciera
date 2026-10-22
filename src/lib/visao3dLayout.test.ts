@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { construirEdificio, buscarNodo, type CuentaPlan, type NodoEdificio } from './visao3d';
-import { ALTURA_EDIFICIO, disenarVolumenes, hijosVisibles } from './visao3dLayout';
+import { ALTURA_EDIFICIO, alturaPorValor, disenarVolumenes, hijosVisibles } from './visao3dLayout';
 
 const nodo = (id: string, saldo: number, extra: Partial<NodoEdificio> = {}): NodoEdificio => ({
   id, codigo: id, nombre: id, grupo: 'ACTIVO', nivel: 2, saldo, saldoAnterior: null, variacion: null, variacionPct: null, participacion: null,
@@ -42,15 +42,32 @@ describe('disenarVolumenes', () => {
     const [activo, patrimonio, pasivo] = volumenes;
     expect(activo.alto).toBe(ALTURA_EDIFICIO);
     expect(activo.x).toBeLessThan(0);
-    expect(patrimonio.alto + pasivo.alto).toBeCloseTo(ALTURA_EDIFICIO, 5);
+    // A escala: 100/300 y 200/300 del Activo (que mide 6).
+    expect(pasivo.alto).toBeCloseTo(2, 5);
+    expect(patrimonio.alto).toBeCloseTo(4, 5);
     expect(pasivo.y).toBeCloseTo(patrimonio.alto, 5);
     expect(patrimonio.alto).toBeGreaterThan(pasivo.alto);
   });
 
   it('un grupo: pisos apilados con altura total del edificio', () => {
-    const { volumenes } = disenarVolumenes(buscarNodo(e.raiz, 'grupo:ACTIVO')!, false, 'Otras');
+    const { volumenes } = disenarVolumenes(buscarNodo(e.raiz, 'grupo:ACTIVO')!, false, 'Otras', e.raiz.saldo);
     const pisos = volumenes[0].pisos;
     expect(pisos.map((p) => p.id)).toEqual(['caja']);
-    expect(pisos.reduce((s, p) => s + p.altura, 0)).toBeCloseTo(ALTURA_EDIFICIO, 5);
+    expect(pisos.reduce((s, p) => s + p.altura, 0)).toBeCloseTo(volumenes[0].alto, 5);
+    expect(volumenes[0].alto).toBe(ALTURA_EDIFICIO);
+  });
+
+  it('el alto de un grupo depende de su valor (mismo criterio en todo el edificio)', () => {
+    const activo = disenarVolumenes(buscarNodo(e.raiz, 'grupo:ACTIVO')!, false, 'Otras', e.raiz.saldo).volumenes[0].alto;
+    const pasivo = disenarVolumenes(buscarNodo(e.raiz, 'grupo:PASIVO')!, false, 'Otras', e.raiz.saldo).volumenes[0].alto;
+    expect(pasivo).toBeCloseTo(2, 5);
+    expect(pasivo).toBeLessThan(activo);
+  });
+
+  it('alturaPorValor: mínimo visible, tope y espacio para los pisos', () => {
+    expect(alturaPorValor(0, 1000)).toBeGreaterThan(1);
+    expect(alturaPorValor(5000, 1000)).toBe(ALTURA_EDIFICIO);
+    expect(alturaPorValor(-500, 1000)).toBe(3);
+    expect(alturaPorValor(10, 1000, 12)).toBeGreaterThanOrEqual(12 * 0.32);
   });
 });
