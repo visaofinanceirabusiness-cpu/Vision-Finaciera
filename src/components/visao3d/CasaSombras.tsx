@@ -14,16 +14,13 @@ const PX = 80; // píxeles por unidad del mundo
 const PLANTA_BAJA = { x0: X_IZQ, x1: X_DER, y: 0 };
 const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.75 };
 
-// Huellas en coordenadas finales del mundo.
+// Huellas fijas (decorado) en coordenadas finales del mundo; las de los objetos de cuentas llegan por `extra`.
 const HUELLAS_BAJA: Huella[] = [
   { x: -6.1, z: -3.25, w: 0.4, d: 0.25 }, // cargador
-  { x: -11.2, z: -0.4, w: 0.7, d: 1.95 }, // armario contra la pared
-  { x: -0.9, z: 2.3, w: 2.0, d: 0.5 }, // TV
   { x: -2.4, z: 0.7, w: 1.5, d: 0.8, fuerza: 0.7 }, // mesa de centro
   { x: -0.45, z: -3.1, w: 1.0, d: 0.4 }, // estante
   { x: 3.7, z: 0.3, w: 3.2, d: 1.5, fuerza: 0.8 }, // mesa del comedor
   ...[-1.1, 0, 1.1].flatMap((dx) => [-1, 1].map((s) => ({ x: 3.7 + dx, z: 0.3 + s * 1.05, w: 0.5, d: 0.5, fuerza: 0.8 }))),
-  ...[-8.65, -4.8, -3.0, 2.7, 4.8].map((x) => ({ x, z: 2.4, w: 1, d: 1, r: 0.5 })), // plintos
 ];
 
 const HUELLAS_ALTA: Huella[] = [
@@ -34,7 +31,6 @@ const HUELLAS_ALTA: Huella[] = [
   { x: 3.7, z: -1.5, w: 0.7, d: 0.7, r: 0.35 }, // silla
   { x: 5.7, z: -3.0, w: 0.7, d: 0.6 }, // archivero
   { x: 1.85, z: -3.15, w: 1.3, d: 0.4 }, // estante
-  ...[-4.6, -2.55, -0.5, 1.9, 3.7, 5.5].map((x) => ({ x, z: 2.3, w: 1, d: 1, r: 0.5 })), // plintos
 ];
 
 // Bordes de los cuartos donde el piso se oscurece (pared del fondo y tabiques).
@@ -109,11 +105,13 @@ function Piso({ planta, huellas, tabiques }: { planta: { x0: number; x1: number;
   );
 }
 
-export function SombrasCasa() {
+export function SombrasCasa({ extra }: { extra: { baja: Huella[]; alta: Huella[] } }) {
+  const baja = useMemo(() => [...HUELLAS_BAJA, ...extra.baja], [extra.baja]);
+  const alta = useMemo(() => [...HUELLAS_ALTA, ...extra.alta], [extra.alta]);
   return (
     <>
-      <Piso planta={PLANTA_BAJA} huellas={HUELLAS_BAJA} tabiques={TABIQUES_BAJA} />
-      <Piso planta={PLANTA_ALTA} huellas={HUELLAS_ALTA} tabiques={TABIQUES_ALTA} />
+      <Piso planta={PLANTA_BAJA} huellas={baja} tabiques={TABIQUES_BAJA} />
+      <Piso planta={PLANTA_ALTA} huellas={alta} tabiques={TABIQUES_ALTA} />
     </>
   );
 }

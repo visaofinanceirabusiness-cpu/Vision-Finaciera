@@ -90,13 +90,13 @@ function Modelo({ url, entrada, estado }: { url: string; entrada: EntradaCatalog
 }
 
 // `procedural` se funde en pocas mallas (Fundido) y se rearma cuando cambia `claveFundido`; el GLB, en cambio, va suelto.
-export function ObjetoCatalogo({ id, estado, procedural, claveFundido, calidad: calidadForzada }: { id: string; estado: EstadoObjeto; procedural: ReactNode; claveFundido: string; calidad?: Calidad }) {
+export function ObjetoCatalogo({ id, estado, procedural, claveFundido, sinFundir = false, calidad: calidadForzada }: { id: string; estado: EstadoObjeto; procedural: ReactNode; claveFundido: string; sinFundir?: boolean; calidad?: Calidad }) {
   const config = useConfigCatalogo();
   const calidad = useMemo(() => calidadForzada ?? leerCalidad().calidad, [calidadForzada]);
   const entrada = useMemo(() => fusionarCatalogo(CATALOGO_BASE, config).get(id), [config, id]);
   const url = rutaModelo(entrada, calidad);
 
-  const proc = <Fundido key={claveFundido}>{procedural}</Fundido>;
+  const proc = sinFundir ? <>{procedural}</> : <Fundido key={claveFundido}>{procedural}</Fundido>;
   if (!entrada || !url) return proc;
   return (
     <Limite alFallar={proc} key={url}>
