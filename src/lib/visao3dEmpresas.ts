@@ -4,8 +4,8 @@
 // La apertura es progresiva: por perfil de empresa (PERFILES_ABIERTOS) o, para el piloto, por empresa puntual.
 export const EMPRESAS_CON_VISAO_3D = ['8512b8b0-1985-4731-981b-955f1d62a898']; // Buenaventura
 
-// Perfiles abiertos a todas sus empresas. Vacío hasta decidir el lanzamiento; el primero será 'FAMILIAR'.
-export const PERFILES_ABIERTOS: string[] = [];
+// Perfiles abiertos a todas sus empresas (apertura progresiva): por ahora solo Familia.
+export const PERFILES_ABIERTOS: string[] = ['FAMILIAR'];
 
 export function empresaTieneVisao3D(empresaId: string | null | undefined, perfilCodigo?: string | null): boolean {
   if (perfilCodigo && PERFILES_ABIERTOS.includes(perfilCodigo)) return true;
