@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcularCalidad, usaSombras } from './visao3dCalidad';
+import { calcularCalidad, resolverCalidad, usaSombras } from './visao3dCalidad';
 
 describe('calcularCalidad', () => {
   it('un teléfono común es calidad baja', () => {
@@ -20,5 +20,13 @@ describe('calcularCalidad', () => {
     expect(usaSombras('alto', false)).toBe(true);
     expect(usaSombras('alto', true)).toBe(false);
     expect(usaSombras('medio', false)).toBe(false);
+  });
+
+  it('prioridad: dirección > elección del menú > automático', () => {
+    const equipo = { tactil: true, memoriaGB: 4, nucleos: 8 };
+    expect(resolverCalidad({ equipo })).toBe('bajo');
+    expect(resolverCalidad({ equipo, preferencia: 'alto' })).toBe('alto');
+    expect(resolverCalidad({ equipo, preferencia: 'alto', url: 'medio' })).toBe('medio');
+    expect(resolverCalidad({ equipo, preferencia: 'auto', url: 'cualquiera' })).toBe('bajo');
   });
 });
