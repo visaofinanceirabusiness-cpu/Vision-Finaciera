@@ -154,6 +154,7 @@ export function CentralDeLanzamientosTab({
   const [operacion, setOperacion] = useState(valoresIniciales?.operacion ?? '');
 
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [rubroPorCategoria, setRubroPorCategoria] = useState<Record<string, string>>({});
   const [categoria, setCategoria] = useState(valoresIniciales?.categoria ?? '');
   // Aviso "ya lo devengaste": la categoría elegida tiene compromisos devengados con saldo.
   const [compromisosAbiertos, setCompromisosAbiertos] = useState<CompromisoAbierto[]>([]);
@@ -725,7 +726,7 @@ export function CentralDeLanzamientosTab({
     async function cargarCategorias() {
       const { data, error: errorCategorias } = await supabase
         .from('matriz_operaciones')
-        .select('categoria, stock')
+        .select('categoria, stock, cuenta_debito, cuenta_credito')
         .eq('empresa_id', empresaId)
         .eq('operacion', operacion);
 
@@ -737,6 +738,17 @@ export function CentralDeLanzamientosTab({
 
       const unicas = Array.from(new Set((data ?? []).map((f) => f.categoria).filter(Boolean))) as string[];
 
+      // Una categoría de producto comparte nombre con su categoría de Pérdida (cuenta de Gasto): buscar el rubro por nombre las
+      // agrupaba como "Despesa". En Compra el rubro es el de la cuenta que se debita (Stock = Activo) y en Venta el de la que se acredita.
+      const cuentaDestino = operacion === 'COMPRA' ? 'cuenta_debito' : operacion === 'VENTA' ? 'cuenta_credito' : null;
+      const rubros: Record<string, string> = {};
+      if (cuentaDestino) {
+        for (const fila of data ?? []) {
+          const digito = fila.categoria ? rubroPorCuenta[fila[cuentaDestino] ?? ''] : undefined;
+          if (digito && !(fila.categoria in rubros)) rubros[fila.categoria] = digito;
+        }
+      }
+      setRubroPorCategoria(rubros);
       setCategorias(unicas);
       setStockPorCategoria(Object.fromEntries((data ?? []).map((f) => [f.categoria, f.stock])));
 
@@ -1634,7 +1646,7 @@ export function CentralDeLanzamientosTab({
             >
               <option value="">{t('seleccionar')}</option>
 
-              {agruparCategoriasPorRubro(categorias, rubroPorCuenta, idioma).map((grupo) => (
+              {agruparCategoriasPorRubro(categorias, { ...rubroPorCuenta, ...rubroPorCategoria }, idioma).map((grupo) => (
                 <optgroup key={grupo.rubro} label={grupo.rubro}>
                   {grupo.categorias.map((c) => (
                     <option key={c} value={c}>
@@ -1942,6 +1954,9 @@ export function CentralDeLanzamientosTab({
                       <span
                         style={{
                           ...campoInput,
+                          // campoInput trae width:100%: sin esto la unidad ocupaba toda la fila y mandaba el monto a otra línea.
+                          width: 'auto',
+                          minWidth: 90,
                           flex: '0 0 auto',
                           display: 'flex',
                           alignItems: 'center',

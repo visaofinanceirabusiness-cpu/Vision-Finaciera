@@ -400,10 +400,60 @@ export async function obtenerRecetaActiva(
 // receta pide 250 G de harina, el insumo "Harina" se compra y se
 // stockea en KG → se convierte antes de comparar contra el stock).
 
+type MovimientoSimple = { tipo: string; cantidad: number | string | null; fecha: string };
+
+// Lógica pura de stockDisponibleAFecha para un insumo (movimientos ya filtrados, en cualquier orden).
+export function stockUtilizableAFecha(movimientos: MovimientoSimple[], fecha: string): number {
+  const ordenados = [...movimientos].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const delta = (m: MovimientoSimple) => (m.tipo === 'ENTRADA' ? 1 : -1) * Number(m.cantidad ?? 0);
+  let saldo = 0;
+  let i = 0;
+
+  while (i < ordenados.length && String(ordenados[i].fecha) <= fecha) {
+    saldo += delta(ordenados[i]);
+    i += 1;
+  }
+
+  let minimo = saldo;
+
+  while (i < ordenados.length) {
+    saldo += delta(ordenados[i]);
+    // Los movimientos de un mismo día se suman antes de mirar el saldo de ese día.
+    if (i + 1 >= ordenados.length || ordenados[i + 1].fecha !== ordenados[i].fecha) minimo = Math.min(minimo, saldo);
+    i += 1;
+  }
+
+  return minimo;
+}
+
+// Stock de cada insumo que se puede consumir produciendo en `fecha`: lo que había a esa fecha (entradas − salidas hasta ese día) y,
+// además, sin dejar el saldo en negativo en ningún día posterior (una venta o producción ya cargada después necesita ese stock).
+// Es el mínimo del saldo corrido desde `fecha` en adelante.
+export async function stockDisponibleAFecha(empresaId: string, insumoIds: string[], fecha: string): Promise<Map<string, number>> {
+  const { data, error } = await supabase
+    .from('movimientos_stock')
+    .select('producto_id, tipo, cantidad, fecha')
+    .eq('empresa_id', empresaId)
+    .in('producto_id', insumoIds)
+    .in('tipo', ['ENTRADA', 'SALIDA'])
+    .order('fecha', { ascending: true });
+
+  if (error) throw error;
+
+  const resultado = new Map<string, number>();
+
+  for (const id of insumoIds) {
+    resultado.set(id, stockUtilizableAFecha((data ?? []).filter((m) => m.producto_id === id), fecha));
+  }
+
+  return resultado;
+}
+
 export async function calcularConsumo(
   empresaId: string,
   productoId: string,
-  cantidadProducir: number
+  cantidadProducir: number,
+  fecha?: string
 ): Promise<CalculoProduccion> {
   if (!cantidadProducir || cantidadProducir <= 0) {
     throw new Error('La cantidad a producir debe ser mayor que cero.');
@@ -447,9 +497,10 @@ export async function calcularConsumo(
 
   if (errorSaldos) throw errorSaldos;
 
-  const saldoPorProducto = new Map(
-    (saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)])
-  );
+  // Con fecha, el stock sale del histórico a esa fecha (no del saldo de hoy): producir en el pasado exige que los insumos ya existieran.
+  const saldoPorProducto = fecha
+    ? await stockDisponibleAFecha(empresaId, insumoIds, fecha)
+    : new Map((saldos ?? []).map((saldo) => [saldo.producto_id, Number(saldo.saldo ?? 0)]));
 
   const calculados: InsumoRecetaCalculado[] = detalles.map((detalle) => {
     const insumo = insumoPorId.get(detalle.insumo_id);
@@ -618,7 +669,7 @@ export async function confirmarProduccion(
   cantidadProducir: number,
   fecha: string
 ): Promise<ResultadoProduccion> {
-  const calculo = await calcularConsumo(empresaId, productoTerminadoId, cantidadProducir);
+  const calculo = await calcularConsumo(empresaId, productoTerminadoId, cantidadProducir, fecha);
 
   if (!calculo.stockSuficiente) {
     return {
