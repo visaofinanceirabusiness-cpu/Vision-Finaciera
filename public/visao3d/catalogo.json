@@ -1,1 +1,7 @@
-{ "objetos": [], "hdri": {}, "pbr": {} }
+{
+  "objetos": [
+    { "id": "sabio", "tipo": "decoracion", "nombre": "Sabio (lechuza)", "glb": "/visao3d/modelos/sabio.glb", "escala": 0.66, "pos": [-0.03, 0, 0] }
+  ],
+  "hdri": {},
+  "pbr": {}
+}
