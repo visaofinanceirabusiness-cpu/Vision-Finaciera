@@ -12,7 +12,9 @@ describe('empresaTieneVisao3D', () => {
 
   it('escena por perfil', () => {
     expect(escenaDePerfil('FAMILIAR')).toBe('casa');
-    expect(escenaDePerfil('COMERCIAL')).toBe('edificio');
+    expect(escenaDePerfil('COMERCIAL')).toBe('casa');
+    expect(escenaDePerfil('PRODUCCION')).toBe('casa');
+    expect(escenaDePerfil('OTRO')).toBe('edificio');
     expect(escenaDePerfil(null)).toBe('edificio');
   });
 });

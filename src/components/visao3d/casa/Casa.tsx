@@ -7,7 +7,9 @@ import { Cascaron, Decorado, IDS_BASE, esCuartoAgregado } from './Ampliacion';
 import { Fachada, FachadaPlano } from './Fachada';
 import { Habitacion } from './Habitacion';
 import { useTexturaLuz } from './LuzNoche';
-import { Alfombra, Archivero, Caja, Cajas, Cama, Cuadro, Escritorio, Estante, Foco, Lampara, LamparaColgante, Mesa, MesaCentro, MesaLateral, NocheCtx, Persona, Silla, SillaOficina, TexturasCasa, TexturasCtx, useTexturas } from './Mobiliario';
+import { Caja, Foco, NocheCtx, Persona, TexturasCasa, TexturasCtx, useTexturas } from './Mobiliario';
+import { MueblesBase } from './Muebles';
+import { TemaCtx, type TemaCasa } from './temas';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, TV, Tarjeta } from './Objetos';
 import { Pared, PuertaFondo, Tabiques, Ventana, VentanaFondo, huecoEn, texturaReflejo } from './Paredes';
 import { PersonaViva } from './Personas';
@@ -23,7 +25,7 @@ import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
-export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; esPT: boolean; plano: PlanoCasa; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
+export function Casa({ hora, noche, esPT, tema, nombreEmpresa, plano, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; esPT: boolean; tema: TemaCasa; nombreEmpresa: string; plano: PlanoCasa; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
   const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
@@ -33,7 +35,8 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
   type Pintura = { color: string; apagado: boolean; brillo: number; negativo: boolean };
   const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o, plano)])), [objetos, plano]);
   const huellas = useMemo(() => huellasDeObjetos(objetos, lugares), [objetos, lugares]);
-  const ampliada = plano.cuartos.length > IDS_BASE.length;
+  // Los negocios usan siempre la fachada genérica (la de la casa base, con ladrillo y tejado, es solo de Familia).
+  const ampliada = plano.cuartos.length > IDS_BASE.length || tema.id !== 'familia';
   const agregados = useMemo(() => plano.cuartos.filter(esCuartoAgregado), [plano]);
   // Variante de cada objeto entre los de su mismo tipo (frascos, alcancía, cofre…): que los repetidos no se vean todos iguales.
   const variantes = useMemo(() => {
@@ -73,6 +76,7 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
   };
 
   return (
+    <TemaCtx.Provider value={tema}>
     <NocheCtx.Provider value={noche}>
     <TexturasCtx.Provider value={texturas}>
     <group>
@@ -85,7 +89,7 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
 
       <Fundido key={hora}>
       {ampliada ? (
-        <FachadaPlano cuartos={plano.cuartos} />
+        <FachadaPlano cuartos={plano.cuartos} tema={tema} nombre={nombreEmpresa} />
       ) : (
         <>
       {/* Techos. */}
@@ -134,44 +138,10 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
         </>
       )}
 
-      <group position={[-0.5, 0, 0]}>
-      {/* Living. */}
-      <Alfombra p={[-2.1, 0.02, 0.5]} s={[3.8, 2.6]} color="#7e8ba6" />
-      <Estante p={[0.05, 0, -3.1]} s={[1.0, 2.8, 0.4]} />
-      <Cuadro p={[-1.5, 2.3, -3.37]} s={[1.0, 0.7]} tono={0} />
-      <Cuadro p={[-0.2, 2.2, -3.37]} s={[0.6, 0.8]} tono={1} />
-      <MesaCentro p={[-1.9, 0, 0.7]} />
+      {ampliada && <PuertaFondo x={2.4} noche={noche} />}
+      <MueblesBase tipo={tema.muebles} />
 
-      {/* Dormitorio. */}
-      <Cama p={[-2.4, 3.75, -2.1]} />
-      <MesaLateral p={[-4.0, 3.75, -3.0]} />
-      <MesaLateral p={[-0.8, 3.75, -3.0]} />
-      <Lampara p={[-4.0, 4.35, -3.0]} />
-      <Lampara p={[-0.8, 4.35, -3.0]} />
-      <Cuadro p={[-3.2, 5.8, -3.37]} s={[0.7, 0.9]} tono={2} />
-      <Cuadro p={[-1.6, 5.8, -3.37]} s={[0.7, 0.9]} tono={3} />
-      </group>
-      <group position={[0.5, 0, 0]}>
-
-      {/* Oficina. */}
-      <Escritorio p={[3.2, 3.75, -2.6]} />
-      <SillaOficina p={[3.2, 3.75, -1.5]} rot={Math.PI} />
-      <Archivero p={[5.2, 3.75, -3.0]} />
-      <Estante p={[1.35, 3.75, -3.15]} s={[1.3, 2.8, 0.4]} libros={false} />
-      <Cajas p={[1.3, 4.7, -3.15]} n={3} />
-      <Cajas p={[1.3, 5.6, -3.15]} n={2} />
-      <Cuadro p={[4.3, 6.0, -3.37]} s={[0.9, 0.6]} tono={0} />
-
-      {/* Comedor. */}
-      <Mesa p={[3.2, 0, 0.3]} ancho={3.2} fondo={1.5} />
-      {[-1.1, 0, 1.1].flatMap((x) => [-1, 1].map((s) => <Silla key={`${x}${s}`} p={[3.2 + x, 0, 0.3 + s * 1.05]} rot={s > 0 ? Math.PI : 0} color="#cfe9d8" />))}
-      <LamparaColgante p={[2.4, 2.8, 0.3]} />
-      <LamparaColgante p={[4.0, 2.8, 0.3]} />
-      <Caja p={[3.2, 1.55, -3.37]} s={[2.5, 1.45, 0.05]} color="#0e1814" emissive="#b57bff" ei={0.18} />
-      <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
-      </group>
-
-      {agregados.map((c) => <Decorado key={c.id} cuarto={c} />)}
+      {agregados.map((c) => <Decorado key={c.id} cuarto={c} tipo={tema.muebles} />)}
 
       {/* Focos empotrados en el techo de cada habitación. */}
       {[[-7.7, 3.55], [-3.0, 3.55], [-1.0, 3.55], [-3.0, 7.3], [-1.0, 7.3], [2.2, 7.3], [4.4, 7.3], [2.2, 3.55], [4.4, 3.55]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
@@ -191,9 +161,11 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
       )))}
 
       {/* Familia: 3 adultos (dormitorio, oficina y la mamá que camina living ↔ cochera) y 2 niños jugando en el jardín. */}
-      <Persona p={[desplazarX(3.2), 4.25, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />
+      {tema.personas && <Persona p={[desplazarX(3.2), 4.25, -1.45]} rot={Math.PI} sentado ropa="#4a6fb5" pantalon="#232936" pelo="#3a2a1e" />}
       </Fundido>
 
+      {tema.personas && (
+        <>
       {/* Personas con movimiento: cada una con su propio Fundido (pocas mallas) y solo se anima su grupo. */}
       <PersonaViva modo="quieta" p={[desplazarX(-1.3), 3.75, 0.3]} rot={Math.PI * 0.85} ropa="#c9647f" pantalon="#2f3a52" pelo="#5b3a22" fase={0} />
       {/* La mamá camina del living a la cochera por el paso entre cuartos; los dos niños juegan a perseguirse en el jardín. */}
@@ -201,10 +173,14 @@ export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover,
       <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#ff8a5c" pantalon="#364763" pelo="#8a5a2b" fase={0} />
       <PersonaViva modo="juego" p={[4.6, 0, 12.7]} radio={1.4} esc={0.62} ropa="#e0a63c" pantalon="#364763" pelo="#5b3a22" fase={0.42} />
 
+        </>
+      )}
+
       {/* Amenidades: son interactivas y cambian de color con el saldo, por eso no se funden. */}
       {objetos.map(objetoPorCuenta)}
     </group>
     </TexturasCtx.Provider>
     </NocheCtx.Provider>
+    </TemaCtx.Provider>
   );
 }

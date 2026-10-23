@@ -2,7 +2,8 @@
 
 import { Fundido } from '../base/Compartido3D';
 import { Caja, Cilindro } from './Mobiliario';
-import { FONDO_PARED, Hora, PINTURA_VERTICE } from './estructura';
+import { Hora } from './estructura';
+import { useTema } from './temas';
 import { PROF, X_CENTRO, X_COCHERA, Z_ATRAS } from './layout';
 import { GrupoId } from '@/lib/visao3d';
 import type { Cuarto } from '@/lib/visao3dCasaPlano';
@@ -55,13 +56,15 @@ export function esInteriorEn(cuartos: Rect[], c: Rect, xBorde: number): boolean 
 export function PinturaBorde({ zona, xb, lado, hueco }: { zona: { y0: number; y1: number; grupo: GrupoId }; xb: number; lado: 1 | -1; hueco?: [number, number, number] }) {
   const alto = zona.y1 - zona.y0;
   const cy = (zona.y0 + zona.y1) / 2;
+  const { pared } = useTema();
+  const { fondo, vertice } = pared[zona.grupo];
   return (
     <group>
-      <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={hueco ?? huecoEn(xb, zona.y0)} />
+      <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={fondo} hueco={hueco ?? huecoEn(xb, zona.y0)} />
       {[Z_ATRAS + 0.06 + 0.14, Z_ATRAS + PROF - 0.14].map((zv) => (
-        <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+        <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={vertice} rough={0.85} />
       ))}
-      <Caja p={[xb + lado * (GROSOR / 2 + 0.14), cy, Z_ATRAS + 0.06 + 0.013]} s={[0.28, alto, 0.024]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
+      <Caja p={[xb + lado * (GROSOR / 2 + 0.14), cy, Z_ATRAS + 0.06 + 0.013]} s={[0.28, alto, 0.024]} color={vertice} rough={0.85} />
     </group>
   );
 }

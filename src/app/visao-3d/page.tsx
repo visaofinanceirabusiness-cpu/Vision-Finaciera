@@ -28,7 +28,7 @@ const Escena = dynamic(() => import('@/components/visao3d/edificio/Escena'), {
   loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
 });
 
-const EscenaCasa = dynamic(() => import('@/components/visao3d/familia/EscenaFamilia'), {
+const EscenaCasa = dynamic(() => import('@/components/visao3d/casa/EscenaCasa'), {
   ssr: false,
   loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
 });
@@ -66,7 +66,8 @@ export default function Visao3DPage() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [vista, setVista] = useState<'3d' | 'lista'>('3d');
   // Perfil Familia: la empresa se ve como una casa amueblada (cada amenidad es una cuenta); también se puede ver el edificio.
-  const [esFamiliar, setEsFamiliar] = useState(false);
+  const [esFamiliar, setEsFamiliar] = useState(false); // = el perfil usa la casa (todos, con su tema)
+  const [perfilCodigo, setPerfilCodigo] = useState<string | null>(null);
   const [modo, setModo] = useState<'casa' | 'edificio'>('edificio');
   const [webgl, setWebgl] = useState(true);
   // Pantalla inmersiva: el edificio ocupa todo; los controles viven en un menú y el panel es una hoja plegable.
@@ -147,6 +148,7 @@ export default function Visao3DPage() {
       }
 
       setEsFamiliar(familiar);
+      setPerfilCodigo(perfilCodigo);
       if (familiar) setModo('casa');
       setMoneda(empresa?.moneda ?? null);
       setNombreEmpresa(empresa?.nombre ?? '');
@@ -323,6 +325,8 @@ export default function Visao3DPage() {
             movimientoReducido={movimientoReducido}
             periodoClave={mes}
             esPT={esPT}
+            perfilCodigo={perfilCodigo}
+            nombreEmpresa={nombreEmpresa}
           />
         </div>
       ) : vista === '3d' && webgl ? (

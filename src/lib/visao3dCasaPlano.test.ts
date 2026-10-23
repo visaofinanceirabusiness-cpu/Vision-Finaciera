@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { X_CENTRO, X_COCHERA, X_DER, X_IZQ } from '@/components/visao3d/familia/layout';
+import { X_CENTRO, X_COCHERA, X_DER, X_IZQ } from '@/components/visao3d/casa/layout';
 import { CAPACIDAD_CUARTO, MAX_COLUMNAS_ACTIVO, MAX_COLUMNAS_DERECHA, planificarCasa } from './visao3dCasaPlano';
 
 const plano = (a: number, p: number, n: number) => planificarCasa({ ACTIVO: a, PASIVO: p, PATRIMONIO: n });

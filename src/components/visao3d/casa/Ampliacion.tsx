@@ -4,12 +4,21 @@
 // Los cuartos agregados llevan pisos y paredes del color de su grupo y un decorado elegido al azar (siempre el mismo para el
 // mismo cuarto: la semilla sale de su id), con el frente libre para los pilares de las cuentas.
 
-import { Alfombra, Archivero, Cuadro, Estante, Foco, Lampara, MesaLateral } from './Mobiliario';
+import { Alfombra, Archivero, Cajas, Cuadro, Escritorio, Estante, Foco, Lampara, MesaLateral, SillaOficina } from './Mobiliario';
 import { Pared, Ventana, VentanaFondo, esInteriorEn, huecoInterior } from './Paredes';
 import { Hora, V3 } from './estructura';
+import type { TipoMuebles } from './temas';
 import { Z_ATRAS } from './layout';
 import type { Cuarto } from '@/lib/visao3dCasaPlano';
 import * as THREE from 'three';
+
+type Pieza = 'cuadros' | 'estante' | 'mesa' | 'alfombra' | 'archivero' | 'cajas' | 'puesto' | 'gondola';
+const PIEZAS: Record<TipoMuebles, Pieza[]> = {
+  familia: ['cuadros', 'estante', 'mesa', 'alfombra', 'archivero'],
+  comercial: ['cuadros', 'gondola', 'cajas', 'archivero', 'alfombra'],
+  oficina: ['cuadros', 'puesto', 'archivero', 'alfombra', 'estante'],
+  taller: ['cajas', 'gondola', 'puesto', 'archivero', 'cuadros'],
+};
 
 export const IDS_BASE = ['garage', 'living', 'dormitorio', 'oficina', 'comedor'];
 export const esCuartoAgregado = (c: Cuarto) => !IDS_BASE.includes(c.id);
@@ -29,11 +38,12 @@ function alAzar(texto: string) {
 }
 
 // Un puñado de piezas elegidas al azar contra la pared del fondo y el centro; nada en el frente (z > 1), donde van los pilares.
-export function Decorado({ cuarto }: { cuarto: Cuarto }) {
+export function Decorado({ cuarto, tipo }: { cuarto: Cuarto; tipo: TipoMuebles }) {
   const azar = alAzar(cuarto.id);
   const { x0, x1, y0 } = cuarto;
   const ancho = x1 - x0;
-  const piezas: Array<'cuadros' | 'estante' | 'mesa' | 'alfombra' | 'archivero'> = ['cuadros', 'estante', 'mesa', 'alfombra', 'archivero'];
+  // Cada tema elige entre sus propias piezas: la casa, cuadros/estante/mesa lateral…; el negocio, góndolas, cajas y puestos de trabajo.
+  const piezas = PIEZAS[tipo];
   const elegidas = piezas.filter(() => azar() < 0.62);
   if (elegidas.length === 0) elegidas.push('cuadros');
   const lado = azar() < 0.5 ? -1 : 1;
@@ -53,6 +63,14 @@ export function Decorado({ cuarto }: { cuarto: Cuarto }) {
         <>
           <MesaLateral p={[cx - lado * (ancho / 2 - 0.8), y0, Z_ATRAS + 0.45]} />
           <Lampara p={[cx - lado * (ancho / 2 - 0.8), y0 + 0.6, Z_ATRAS + 0.45]} />
+        </>
+      )}
+      {elegidas.includes('gondola') && <Estante p={[cx - lado * (ancho / 2 - 1.2), y0, Z_ATRAS + 0.35]} s={[1.5, 2.6, 0.4]} libros={false} />}
+      {elegidas.includes('cajas') && <Cajas p={[cx + lado * (ancho / 2 - 1.0), y0, Z_ATRAS + 0.7]} n={3 + Math.floor(azar() * 2)} />}
+      {elegidas.includes('puesto') && (
+        <>
+          <Escritorio p={[cx, y0, -2.4]} />
+          <SillaOficina p={[cx, y0, -1.3]} rot={Math.PI} />
         </>
       )}
       {elegidas.includes('archivero') && <Archivero p={[cx + lado * 0.2, y0, Z_ATRAS + 0.45]} />}
