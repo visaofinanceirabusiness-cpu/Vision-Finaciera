@@ -482,7 +482,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
       </>} />
 
       {/* Saludo flotante, siempre de frente a la cámara. */}
-      <group ref={cartel} position={[0, 2.55, 0]}>
+      <group ref={cartel} position={[0, 2.75, 0]}>
         <mesh position={[0, 0, -0.01]}>
           <planeGeometry args={[1.62, 0.48]} />
           <meshBasicMaterial color="#ffffff" toneMapped={false} />
