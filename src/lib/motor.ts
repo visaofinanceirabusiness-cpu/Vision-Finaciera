@@ -6,6 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { aCentavos } from './centavos';
+import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
 import { supabase } from './supabase';
 import { cuentaMedioDeLiquidacion, medioNoValidoParaLiquidar } from './liquidacion';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
@@ -939,15 +940,14 @@ export async function registrarOperacion(
         } = await supabase
           .from('movimientos_stock')
           .select(
-            'tipo, cantidad, costo_unitario'
+            'tipo, cantidad, costo_unitario, fecha'
           )
           .eq('empresa_id', empresaId)
           .eq(
             'producto_id',
             linea.producto
           )
-          .in('tipo', ['ENTRADA', 'SALIDA'])
-          .lte('fecha', formulario.fecha);
+          .in('tipo', ['ENTRADA', 'SALIDA']);
 
         if (error) {
           throw error;
@@ -956,7 +956,9 @@ export async function registrarOperacion(
         let cantidadDisponible = 0;
         let valorDisponible = 0;
 
-        for (const movimiento of movimientosProducto ?? []) {
+        // El costo y la cantidad disponible son los de la fecha de la operación; el histórico posterior
+        // solo se usa para comprobar que lo que se consume siga alcanzando para las salidas ya cargadas.
+        for (const movimiento of (movimientosProducto ?? []).filter((m) => String(m.fecha) <= formulario.fecha)) {
           const cantidadMov = Number(movimiento.cantidad ?? 0);
           const costoMov = Number(movimiento.costo_unitario ?? 0);
 
@@ -986,6 +988,22 @@ export async function registrarOperacion(
 
           throw new Error(
             `No hay stock suficiente de "${nombreProducto}" en la fecha elegida (${formulario.fecha}) — quedan ${cantidadDisponible} unidades disponibles y se pidieron ${Number(linea.cantidad)}.`
+          );
+        }
+
+        // Una salida con fecha atrasada no puede "robarle" el stock a una salida ya cargada más adelante
+        // (ej.: compra 12/06, venta 17/09 y una venta nueva 18/06 → la del 17/09 quedaría sin stock).
+        if (Number(linea.cantidad) > stockUtilizableAFecha(movimientosProducto ?? [], formulario.fecha)) {
+          const { data: productoInfo } = await supabase
+            .from('productos')
+            .select('nombre')
+            .eq('id', linea.producto)
+            .maybeSingle();
+
+          const dia = primerDiaSinStock(movimientosProducto ?? [], formulario.fecha, Number(linea.cantidad));
+
+          throw new Error(
+            `Esta operación dejaría sin stock de "${productoInfo?.nombre ?? 'seleccionado'}" a una salida ya cargada con fecha posterior (el ${dia ?? 'día siguiente'}). Cargá antes una Compra con fecha anterior a esa salida, o usá una fecha posterior a ella.`
           );
         }
 
@@ -1348,10 +1366,71 @@ export async function registrarOperacion(
 // ELIMINAR OPERACIÓN
 // =====================================================
 
+// Antes de borrar o editar una operación: si sus movimientos de stock abastecen salidas ya cargadas en fechas posteriores
+// (una Compra, una Producción), quitarlos o cambiarlos dejaría el stock en negativo. Se rechaza ANTES de tocar nada.
+// `nuevos` son los movimientos que la versión editada volvería a generar (vacío al eliminar).
+async function validarQueElCambioNoDejeStockNegativo(
+  empresaId: string,
+  idOperacion: string,
+  nuevos: { producto_id: string; tipo: string; cantidad: number; fecha: string }[]
+) {
+  const { data: viejos, error: errorViejos } = await supabase
+    .from('movimientos_stock')
+    .select('producto_id')
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', idOperacion);
+
+  if (errorViejos) throw errorViejos;
+
+  const productoIds = Array.from(new Set([...(viejos ?? []).map((m) => m.producto_id as string), ...nuevos.map((m) => m.producto_id)]));
+
+  if (productoIds.length === 0) return;
+
+  const { data: historial, error: errorHistorial } = await supabase
+    .from('movimientos_stock')
+    .select('producto_id, tipo, cantidad, fecha, id_operacion')
+    .eq('empresa_id', empresaId)
+    .in('producto_id', productoIds)
+    .in('tipo', ['ENTRADA', 'SALIDA']);
+
+  if (errorHistorial) throw errorHistorial;
+
+  const problemas: { producto_id: string; dia: string }[] = [];
+
+  for (const productoId of productoIds) {
+    const delProducto = (historial ?? []).filter((m) => m.producto_id === productoId);
+    const antes = delProducto.map((m) => ({ tipo: m.tipo as string, cantidad: m.cantidad as number, fecha: String(m.fecha) }));
+    const despues = [
+      ...delProducto.filter((m) => m.id_operacion !== idOperacion).map((m) => ({ tipo: m.tipo as string, cantidad: m.cantidad as number, fecha: String(m.fecha) })),
+      ...nuevos.filter((m) => m.producto_id === productoId).map((m) => ({ tipo: m.tipo, cantidad: m.cantidad, fecha: m.fecha })),
+    ];
+    const fechas = [
+      ...delProducto.filter((m) => m.id_operacion === idOperacion).map((m) => String(m.fecha)),
+      ...nuevos.filter((m) => m.producto_id === productoId).map((m) => m.fecha),
+    ].sort();
+
+    if (fechas.length === 0) continue;
+
+    const dia = cambioDejaStockNegativo(antes, despues, fechas[0]);
+    if (dia) problemas.push({ producto_id: productoId, dia });
+  }
+
+  if (problemas.length === 0) return;
+
+  const { data: productos } = await supabase.from('productos').select('id, nombre').in('id', problemas.map((p) => p.producto_id));
+  const nombre = new Map((productos ?? []).map((p) => [p.id as string, p.nombre as string]));
+
+  throw new Error(
+    `No se puede cambiar ${idOperacion}: el stock de ${problemas.map((p) => `"${nombre.get(p.producto_id) ?? p.producto_id}" (quedaría en negativo el ${p.dia})`).join(', ')} lo necesitan salidas ya cargadas con fecha posterior. Cargá antes una Compra con fecha anterior, o corregí primero esas salidas.`
+  );
+}
+
 export async function eliminarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
+  await validarQueElCambioNoDejeStockNegativo(empresaId, idOperacion, []);
+
   const errores = await limpiarOperacion(
     empresaId,
     idOperacion
@@ -1399,6 +1478,18 @@ export async function editarOperacion(
   // Antes de borrar la versión anterior: si el medio nuevo no es válido, la
   // edición se rechaza sin tocar nada.
   await validarMedioDeLiquidacion(empresaId, regla);
+
+  // También antes de borrar: ni lo que la versión anterior aportaba al stock ni lo que la nueva consumiría
+  // puede dejar sin stock a una salida posterior (si no, se borraba y recién después fallaba la validación).
+  await validarQueElCambioNoDejeStockNegativo(
+    empresaId,
+    idOperacion,
+    regla.stock === 'SI'
+      ? formulario.lineas
+          .filter((l) => l.producto && Number(l.cantidad) > 0)
+          .map((l) => ({ producto_id: l.producto, tipo: formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA', cantidad: Number(l.cantidad), fecha: formulario.fecha }))
+      : []
+  );
 
   const erroresLimpieza = await limpiarOperacion(empresaId, idOperacion);
 
