@@ -58,14 +58,32 @@ function Modelo({ url, entrada, estado }: { url: string; entrada: EntradaCatalog
       malla.material = Array.isArray(malla.material) ? malla.material.map((m) => m.clone()) : malla.material.clone();
       malla.castShadow = true;
       malla.receiveShadow = true;
+      if (entrada.suavizar && !malla.geometry.getAttribute('normal')) malla.geometry.computeVertexNormals();
     });
+    // Contorno estilo ilustración: casco invertido (la misma malla, por detrás, desplazada a lo largo de sus normales).
+    if (entrada.contorno) {
+      const grosor = entrada.contorno;
+      const mallas: THREE.Mesh[] = [];
+      copia.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) mallas.push(o as THREE.Mesh);
+      });
+      mallas.forEach((malla) => {
+        const material = new THREE.MeshBasicMaterial({ color: '#2b1a10', side: THREE.BackSide });
+        material.onBeforeCompile = (sh) => {
+          sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n transformed += normalize(normal) * ${grosor.toFixed(4)};`);
+        };
+        const borde = new THREE.Mesh(malla.geometry, material);
+        borde.userData.esContorno = true;
+        malla.add(borde);
+      });
+    }
     return copia;
-  }, [gltf]);
+  }, [gltf, entrada.contorno, entrada.suavizar]);
 
   useEffect(() => {
     escena.traverse((o) => {
       const malla = o as THREE.Mesh;
-      if (!malla.isMesh) return;
+      if (!malla.isMesh || malla.userData.esContorno) return;
       (Array.isArray(malla.material) ? malla.material : [malla.material]).forEach((m) => {
         const mat = m as THREE.MeshStandardMaterial;
         if (!mat.color) return;

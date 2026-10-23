@@ -38,7 +38,7 @@ const NAT: Record<string, Natural> = {
   sofa: { c: '#c99a3e', claro: '#dcb35a', oscuro: '#a47a2a' },
   armario: { c: '#9b6a42', claro: '#bd8c5e', oscuro: '#6e4a2c' },
   tv: { c: '#7a5230', claro: '#9a6b3f', oscuro: '#5e3f24' },
-  tarjeta: { c: '#262a33', claro: '#3d4350', oscuro: '#14161b' },
+  tarjeta: { c: '#12a8a0', claro: '#5fd6cf', oscuro: '#0a6f6a' },
   casa: { c: '#efe3cf', claro: '#f8f0e2', oscuro: '#b8654a' },
   ahorro: { c: '#e8b83a', claro: '#f6d96e', oscuro: '#b98a1e' },
   cerdito: { c: '#f2a7b8', claro: '#f9c9d4', oscuro: '#d9788f' },
@@ -491,7 +491,8 @@ export function Documentos({ pintura, variante = 0 }: { pintura: Pintura; varian
   const { c, e, ei, claro, oscuro } = usar(pintura, NAT[`doc${variante}`]);
   const lineas = [0.22, 0.1, -0.02, -0.14].map((z, i) => <Caja key={z} p={[i === 3 ? -0.1 : 0, 0.215, z]} s={[i === 3 ? 0.4 : 0.6, 0.004, 0.035]} color="#6b7385" />);
   return (
-    <group>
+    // Inclinados 45° hacia la cámara: así se leen desde la vista normal sin tener que bajar la cámara.
+    <group position={[0, 0.2, 0.05]} rotation={[-Math.PI / 4, 0, 0]}>
       <Caja p={[0.04, 0.03, 0.02]} s={[0.78, 0.04, 1.0]} color="#f2f4f8" rough={0.9} rot={[0, 0.12, 0]} />
       <Caja p={[-0.03, 0.07, 0]} s={[0.78, 0.04, 1.0]} color="#ffffff" rough={0.9} rot={[0, -0.08, 0]} />
       <Caja p={[0, 0.12, 0]} s={[0.78, 0.05, 1.0]} color={claro} emissive={e} ei={ei} rough={0.8} />

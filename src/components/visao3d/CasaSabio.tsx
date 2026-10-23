@@ -1,7 +1,7 @@
 'use client';
 
 // "Sabio": la lechuza mascota de Visão Financeira da la bienvenida junto al camino de entrada de la casa (modelo Familia).
-// Todo procedural: cuerpo, cabeza con anteojos redondos, saco azul con el logo, libro con el lema y un dedo en alto.
+// Todo procedural: cuerpo, cabeza con anteojos redondos, saco azul con el logo y un dedo en alto (el lema vive en el cuadro de la cochera).
 // Tres <Fundido> (cuerpo, cabeza y brazo en alto) para que se mueva con muy pocas llamadas de dibujo.
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -72,7 +72,7 @@ function Caja({ p, s, color, rot, rough = 0.8 }: { p: V3; s: V3; color: string; 
 
 // Logo de Visão Financeira: dos tildes y la flecha verde que sube.
 // Logo real de Visão Financeira (coordenadas del arte original, 1256 px): dos tildes y la flecha en zigzag que sube.
-// `tilde` = color de los tildes (blanco sobre el saco/libro azul, azul sobre claro).
+// `tilde` = color de los tildes (blanco sobre el saco azul, azul sobre claro).
 const TILDE_IZQ: Array<[number, number]> = [[335, 318], [400, 318], [441, 392], [580, 270], [588, 182], [437, 482]];
 const TILDE_DER: Array<[number, number]> = [[465, 552], [528, 552], [580, 633], [805, 265], [863, 265], [580, 728]];
 const FLECHA: Array<[number, number]> = [[372, 626], [466, 484], [518, 498], [606, 372], [658, 412], [820, 214]];
@@ -152,28 +152,57 @@ function texturaOjo(): THREE.Texture {
   return t;
 }
 
-// Tapa del libro: el lema en tres líneas, "CRECER." en verde, y el logo abajo.
-function texturaLibro(): THREE.Texture {
+// Cuadro de la cochera: logo de Visão Financeira y el lema de la marca.
+export function texturaCuadro(esPT: boolean): THREE.Texture {
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 320;
+  c.width = 1024;
+  c.height = 640;
   const g = c.getContext('2d')!;
-  g.fillStyle = AZUL;
-  g.fillRect(0, 0, 256, 320);
-  g.fillStyle = 'rgba(255,255,255,0.07)';
-  g.fillRect(0, 0, 14, 320);
-  g.textAlign = 'center';
-  g.font = '700 27px system-ui, sans-serif';
+  const fondo = g.createLinearGradient(0, 0, 1024, 640);
+  fondo.addColorStop(0, '#142556');
+  fondo.addColorStop(1, '#1b2f6b');
+  g.fillStyle = fondo;
+  g.fillRect(0, 0, 1024, 640);
+  g.fillStyle = 'rgba(255,255,255,0.05)';
+  g.fillRect(0, 0, 1024, 12);
+  dibujarLogo(g, 70, 90, 300, '#ffffff');
+  g.textAlign = 'left';
   g.fillStyle = '#ffffff';
-  ['CLARIDAD', 'PARA DECIDIR,', 'SEGURIDAD'].forEach((t, i) => g.fillText(t, 134, 70 + i * 36));
-  g.fillText('PARA ', 96, 180);
+  g.font = '800 96px system-ui, sans-serif';
+  g.fillText('VISÃO', 430, 190);
   g.fillStyle = '#35c25f';
-  g.fillText('CRECER.', 178, 180);
-  dibujarLogo(g, 82, 206, 96, '#ffffff');
+  g.font = '800 58px system-ui, sans-serif';
+  g.fillText('FINANCEIRA', 432, 262);
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.fillRect(432, 292, 520, 4);
+  g.font = '700 44px system-ui, sans-serif';
+  const lineas = esPT ? [['CLAREZA PARA DECIDIR,', '#ffffff'], ['SEGURANÇA PARA', '#ffffff'], ['CRESCER.', '#35c25f']] : [['CLARIDAD PARA DECIDIR,', '#ffffff'], ['SEGURIDAD PARA', '#ffffff'], ['CRECER.', '#35c25f']];
+  lineas.forEach(([t, col], i) => {
+    g.fillStyle = col;
+    g.fillText(t, 432, 366 + i * 62);
+  });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
+}
+
+// Cuadro enmarcado para la pared (el frente mira a +z).
+export function CuadroLogo({ p, ancho = 2.8, esPT = false }: { p: V3; ancho?: number; esPT?: boolean }) {
+  const textura = useMemo(() => (typeof document === 'undefined' ? null : texturaCuadro(esPT)), [esPT]);
+  useEffect(() => () => textura?.dispose(), [textura]);
+  if (!textura) return null;
+  const alto = (ancho * 640) / 1024;
+  return (
+    <group position={p}>
+      <Caja p={[0, 0, 0]} s={[ancho + 0.22, alto + 0.22, 0.06]} color="#6b4a2f" rough={0.55} />
+      <Caja p={[0, 0, 0.032]} s={[ancho + 0.1, alto + 0.1, 0.02]} color="#d9b872" rough={0.35} />
+      <mesh position={[0, 0, 0.045]}>
+        <planeGeometry args={[ancho, alto]} />
+        <meshStandardMaterial map={textura} roughness={0.5} />
+      </mesh>
+    </group>
+  );
 }
 
 function texturaSombra(): THREE.Texture {
@@ -245,9 +274,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
   const sombra = useMemo(() => (typeof document === 'undefined' ? null : texturaSombra()), []);
   const logo = useMemo(() => (typeof document === 'undefined' ? null : texturaLogo()), []);
   const ojo = useMemo(() => (typeof document === 'undefined' ? null : texturaOjo()), []);
-  const libro = useMemo(() => (typeof document === 'undefined' ? null : texturaLibro()), []);
   const reducido = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
-  useEffect(() => () => { logo?.dispose(); libro?.dispose(); sombra?.dispose(); ojo?.dispose(); }, [logo, libro, sombra, ojo]);
+  useEffect(() => () => { logo?.dispose(); sombra?.dispose(); ojo?.dispose(); }, [logo, sombra, ojo]);
 
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
@@ -268,7 +296,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
     if (brazo.current) brazo.current.rotation.z = -0.35 + Math.sin(t * 2.2) * 0.1;
   });
 
-  if (!logo || !libro || !sombra || !ojo) return null;
+  if (!logo || !sombra || !ojo) return null;
   const ojos = [-1, 1] as const;
 
   return (
@@ -319,13 +347,13 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           <meshBasicMaterial map={logo} transparent toneMapped={false} />
         </mesh>
 
-        {/* Brazo que sostiene el libro: hombro → codo → muñeca, con puño de camisa y mano. */}
+        {/* Brazo izquierdo: hombro → codo → muñeca, con puño de camisa y mano relajada. */}
         <Fundido>
           <Segmento a={[-0.48, 1.0, 0.08]} b={[-0.66, 0.68, 0.18]} r={0.115} color={AZUL} />
           <Elipsoide p={[-0.66, 0.68, 0.18]} s={[0.12, 0.12, 0.12]} color={AZUL} />
           <Segmento a={[-0.66, 0.68, 0.18]} b={[-0.36, 0.52, 0.5]} r={0.1} color={AZUL} />
           <Elipsoide p={[-0.34, 0.51, 0.51]} s={[0.105, 0.06, 0.105]} color="#f6ecd6" rot={[0.6, 0.6, 0.4]} />
-          {/* Mano que sostiene el libro: palma, cuatro dedos que abrazan el borde inferior y pulgar al frente. */}
+          {/* Mano: palma, cuatro dedos y pulgar. */}
           <Elipsoide p={[-0.3, 0.5, 0.56]} s={[0.12, 0.09, 0.09]} color={MARRON} />
           {[-0.4, -0.335, -0.27, -0.205].map((x, i) => (
             <group key={`df${i}`}>
@@ -336,23 +364,6 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           <Segmento a={[-0.44, 0.5, 0.6]} b={[-0.43, 0.64, 0.66]} r={0.034} color="#7a4326" />
           <Elipsoide p={[-0.43, 0.65, 0.665]} s={[0.036, 0.04, 0.034]} color="#6a381c" />
         </Fundido>
-        {/* Libro de frente, con el lema; se apoya sobre el antebrazo. */}
-        <group position={[-0.3, 0.76, 0.58]} rotation={[0, 0.3, -0.06]}>
-          <Fundido>
-            <Caja p={[0, 0, 0]} s={[0.4, 0.5, 0.08]} color={AZUL} rough={0.6} />
-            <Caja p={[0.21, 0, 0]} s={[0.025, 0.47, 0.07]} color="#f3e8cc" />
-            <Caja p={[-0.2, 0, 0]} s={[0.02, 0.5, 0.09]} color={AZUL_OSCURO} />
-            {[0.18, 0.1, 0.02, -0.06, -0.14].map((y, i) => <Caja key={i} p={[0.215, y, 0]} s={[0.012, 0.004, 0.072]} color="#d9ccaa" />)}
-            <Caja p={[0.17, 0.27, 0.045]} s={[0.03, 0.06, 0.006]} color="#35c25f" />
-            <Caja p={[0.185, 0.235, 0.044]} s={[0.07, 0.07, 0.015]} color="#c9a64a" rough={0.4} />
-            <Caja p={[0.185, -0.235, 0.044]} s={[0.07, 0.07, 0.015]} color="#c9a64a" rough={0.4} />
-          </Fundido>
-          <mesh position={[0, 0, 0.0415]}>
-            <planeGeometry args={[0.38, 0.48]} />
-            <meshStandardMaterial map={libro} roughness={0.6} />
-          </mesh>
-        </group>
-
         {/* Brazo en alto: hombro → codo → antebrazo vertical, con el dedo índice señalando. */}
         <group ref={brazo} position={[0.48, 1.0, 0.08]}>
           <Fundido>

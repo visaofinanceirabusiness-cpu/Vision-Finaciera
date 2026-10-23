@@ -16,6 +16,8 @@ export type EntradaCatalogo = {
   glb?: string; // ruta (desde la raíz del sitio) del modelo normal
   glbLiviano?: string; // ruta del modelo liviano para calidad baja (teléfonos)
   draco?: boolean; // el GLB viene comprimido con Draco
+  contorno?: number; // grosor del contorno oscuro (estilo ilustración); sin valor = sin contorno
+  suavizar?: boolean; // recalcula las normales (modelos exportados sin ellas se ven facetados)
   escala?: number;
   pos?: V3;
   rot?: V3;
