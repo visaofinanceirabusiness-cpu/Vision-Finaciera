@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { construirEdificio, type CuentaPlan } from './visao3d';
-import { construirObjetosCasa, objetoDeCuenta } from './visao3dCasa';
+import { construirObjetosCasa, objetoDeCuenta, planoDeObjetos } from './visao3dCasa';
 
 const c = (id: string, codigo: string, nombre: string, tipo: string, nat: string, padre: string | null = null, ini = 0): CuentaPlan => ({ id, codigo, nombre, cuenta_padre_id: padre, tipo_saldo: tipo, naturaleza: nat, saldo_inicial: ini });
 const plan: CuentaPlan[] = [
@@ -64,5 +64,19 @@ describe('construirObjetosCasa', () => {
   it('encuentra el objeto de una cuenta', () => {
     expect(objetoDeCuenta(objetos, 'pv')?.id).toBe('pv');
     expect(objetoDeCuenta(objetos, 'zzz')).toBeNull();
+  });
+});
+
+describe('casa ampliada', () => {
+  it('lo que no entra en un cuarto va a un cuarto nuevo del plano (nunca a otra fila)', () => {
+    const muchas: CuentaPlan[] = [c('a', '1', 'ACTIVO', 'ACTIVO', 'DEUDORA'), c('p', '2', 'PASIVO', 'PASIVO', 'ACREEDORA')];
+    for (let i = 0; i < 17; i++) muchas.push(c(`x${i}`, `1.${i + 1}`, `Ahorro ${i}`, 'ACTIVO', 'DEUDORA', 'a', 100 + i));
+    const raiz = construirEdificio(muchas, [], null, { empresa: 'E', ACTIVO: 'Ativo', PASIVO: 'Passivo', PATRIMONIO: 'PL', resultado: 'Resultado' }).raiz;
+    const lista = construirObjetosCasa(raiz);
+    const plano = planoDeObjetos(lista);
+    expect(plano.cuartosDe('ACTIVO')).toHaveLength(4);
+    expect(lista.every((o) => o.fila === 0)).toBe(true);
+    expect(lista.filter((o) => o.sala === 'activo-4')).toHaveLength(2);
+    expect(lista.every((o) => plano.cuartos.some((q) => q.id === o.sala) || o.sala === 'entrada')).toBe(true);
   });
 });

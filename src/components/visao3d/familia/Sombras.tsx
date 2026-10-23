@@ -8,14 +8,13 @@ import * as THREE from 'three';
 import { TV } from './Objetos';
 import { Lugar } from './estructura';
 import { ObjetoCasa } from '@/lib/visao3dCasa';
+import type { PlanoCasa } from '@/lib/visao3dCasaPlano';
 import { PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS as Z0 } from './layout';
 
 type Huella = { x: number; z: number; w: number; d: number; r?: number; fuerza?: number };
 
 const PX = 80; // píxeles por unidad del mundo
 
-const PLANTA_BAJA = { x0: X_IZQ, x1: X_DER, y: 0 };
-const PLANTA_ALTA = { x0: X_COCHERA, x1: X_DER, y: 3.75 };
 
 // Huellas fijas (decorado) en coordenadas finales del mundo; las de los objetos de cuentas llegan por `extra`.
 const HUELLAS_BAJA: Huella[] = [
@@ -37,8 +36,6 @@ const HUELLAS_ALTA: Huella[] = [
 ];
 
 // Bordes de los cuartos donde el piso se oscurece (pared del fondo y tabiques).
-const TABIQUES_BAJA = [X_IZQ, X_COCHERA, X_CENTRO, X_DER];
-const TABIQUES_ALTA = [X_COCHERA, X_CENTRO, X_DER];
 
 function dibujar(planta: { x0: number; x1: number }, huellas: Huella[], tabiques: number[]): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
@@ -108,26 +105,41 @@ function Piso({ planta, huellas, tabiques }: { planta: { x0: number; x1: number;
   );
 }
 
-export function SombrasCasa({ extra }: { extra: { baja: Huella[]; alta: Huella[] } }) {
-  const baja = useMemo(() => [...HUELLAS_BAJA, ...extra.baja], [extra.baja]);
-  const alta = useMemo(() => [...HUELLAS_ALTA, ...extra.alta], [extra.alta]);
+export function SombrasCasa({ plano, extra }: { plano: PlanoCasa; extra: Huella[][] }) {
+  // Una "planta" por piso del plano (sus cuartos van pegados). Las huellas fijas de la casa base son de los pisos 0 y 1.
+  const plantas = useMemo(
+    () =>
+      Array.from({ length: plano.pisos }, (_, piso) => {
+        const cuartos = plano.cuartos.filter((c) => c.piso === piso);
+        const x0 = Math.min(...cuartos.map((c) => c.x0));
+        const x1 = Math.max(...cuartos.map((c) => c.x1));
+        const tabiques = [...new Set(cuartos.flatMap((c) => [c.x0, c.x1]))];
+        const huellas = [...(piso === 0 ? HUELLAS_BAJA : piso === 1 ? HUELLAS_ALTA : []), ...(extra[piso] ?? [])];
+        return { planta: { x0, x1, y: piso * 3.75 }, tabiques, huellas };
+      }),
+    [plano, extra]
+  );
   return (
     <>
-      <Piso planta={PLANTA_BAJA} huellas={baja} tabiques={TABIQUES_BAJA} />
-      <Piso planta={PLANTA_ALTA} huellas={alta} tabiques={TABIQUES_ALTA} />
+      {plantas.map((p) => (
+        <Piso key={p.planta.y} planta={p.planta} huellas={p.huellas} tabiques={p.tabiques} />
+      ))}
     </>
   );
 }
 
-// Huellas de sombra de los objetos que dependen de las cuentas (pilares, sofá y TV), en coordenadas del mundo.
-export function huellasDeObjetos(objetos: ObjetoCasa[], lugares: Map<string, Lugar>): { baja: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }>; alta: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }> } {
-  const baja: ReturnType<typeof huellasDeObjetos>['baja'] = [];
-  const alta: ReturnType<typeof huellasDeObjetos>['alta'] = [];
+// Huellas de sombra de los objetos que dependen de las cuentas (pilares, sofá y TV), en coordenadas del mundo, por piso.
+export function huellasDeObjetos(objetos: ObjetoCasa[], lugares: Map<string, Lugar>): Huella[][] {
+  const porPiso: Huella[][] = [];
+  const agregar = (piso: number, h: Huella) => {
+    while (porPiso.length <= piso) porPiso.push([]);
+    porPiso[piso].push(h);
+  };
   for (const o of objetos) {
     const { pos } = lugares.get(o.id)!;
-    if (o.modo === 'plinto') (pos[1] > 3 ? alta : baja).push({ x: pos[0], z: pos[2], w: 1, d: 1, r: 0.5 });
-    else if (o.modo === 'sofa') baja.push({ x: pos[0], z: pos[2], w: 0.95, d: 2.4, fuerza: 0.9 });
-    else if (o.modo === 'tv') baja.push({ x: pos[0], z: pos[2], w: 2, d: 0.5 });
+    if (o.modo === 'plinto') agregar(Math.floor(pos[1] / 3.75), { x: pos[0], z: pos[2], w: 1, d: 1, r: 0.5 });
+    else if (o.modo === 'sofa') agregar(0, { x: pos[0], z: pos[2], w: 0.95, d: 2.4, fuerza: 0.9 });
+    else if (o.modo === 'tv') agregar(0, { x: pos[0], z: pos[2], w: 2, d: 0.5 });
   }
-  return { baja, alta };
+  return porPiso;
 }

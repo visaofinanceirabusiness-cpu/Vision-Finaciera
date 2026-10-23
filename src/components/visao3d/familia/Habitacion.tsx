@@ -2,13 +2,14 @@
 
 import { Fundido } from '../base/Compartido3D';
 import { Caja } from './Mobiliario';
-import { Pared, PinturaBorde, esInterior } from './Paredes';
-import { FONDO_PARED, ZONAS } from './estructura';
+import { PinturaBorde, esInteriorEn } from './Paredes';
+import { FONDO_PARED } from './estructura';
 import { PROF, Z_ATRAS } from './layout';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
+import type { Cuarto } from '@/lib/visao3dCasaPlano';
 import * as THREE from 'three';
 
-export function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof typeof ZONAS]; piso: THREE.Texture; tinte: number }) {
+export function Habitacion({ zona, cuartos, piso, tinte }: { zona: Cuarto; cuartos: Cuarto[]; piso: THREE.Texture; tinte: number }) {
   const color = COLOR_GRUPO[zona.grupo];
   const ancho = zona.x1 - zona.x0;
   const alto = zona.y1 - zona.y0;
@@ -33,7 +34,7 @@ export function Habitacion({ zona, piso, tinte }: { zona: (typeof ZONAS)[keyof t
       {/* Pared del fondo y paredes laterales pintadas en pastel con el color de la zona; los vértices llevan un tono más marcado. */}
       <Caja p={[cx, cy, Z_ATRAS]} s={[ancho, alto, 0.12]} color={FONDO_PARED[zona.grupo]} rough={0.85} />
       {(([[zona.x0, 1], [zona.x1, -1]]) as Array<[number, 1 | -1]>)
-        .filter(([xb]) => !esInterior(xb, zona.y0))
+        .filter(([xb]) => !esInteriorEn(cuartos, zona, xb))
         .map(([xb, lado]) => <PinturaBorde key={xb} zona={zona} xb={xb} lado={lado} />)}
     </Fundido>
   );
