@@ -153,7 +153,7 @@ export default function ProduccionPage() {
     setMensaje('');
   }
 
-  async function handleCalcular() {
+  async function handleCalcular(fechaCalculo: string = fecha) {
     if (!empresaId) {
       setError(t('errorSinEmpresaCalcular'));
       return;
@@ -180,7 +180,8 @@ export default function ProduccionPage() {
       const resultado = await calcularConsumo(
         empresaId,
         productoId,
-        cantidadNumerica
+        cantidadNumerica,
+        fechaCalculo
       );
 
       setCalculo(resultado);
@@ -217,7 +218,7 @@ export default function ProduccionPage() {
         // Se recalcula para que la tabla de insumos/stock quede al
         // día (los que se acaban de consumir) en vez de mostrar el
         // cálculo viejo, ya desactualizado.
-        const recalculo = await calcularConsumo(empresaId, productoId, cantidadNumerica);
+        const recalculo = await calcularConsumo(empresaId, productoId, cantidadNumerica, fecha);
         setCalculo(recalculo);
       }
     } catch (e) {
@@ -225,6 +226,13 @@ export default function ProduccionPage() {
     } finally {
       setConfirmando(false);
     }
+  }
+
+  // Cambiar la fecha cambia el stock disponible: si ya había un cálculo, se rehace con la fecha nueva.
+  function handleFechaChange(valor: string) {
+    setFecha(valor);
+    if (calculo && valor) void handleCalcular(valor);
+    else limpiarCalculo();
   }
 
   function handleCantidadChange(valor: string) {
@@ -495,7 +503,7 @@ export default function ProduccionPage() {
           >
             <button
               type="button"
-              onClick={handleCalcular}
+              onClick={() => handleCalcular()}
               disabled={
                 calculando ||
                 !productoId ||
@@ -671,7 +679,7 @@ export default function ProduccionPage() {
               <div style={bloqueProximaEtapa}>
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
                   <Campo label={t('fechaProduccion')}>
-                    <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
+                    <input type="date" value={fecha} onChange={(e) => handleFechaChange(e.target.value)} style={inputStyle} />
                   </Campo>
 
                   <button
