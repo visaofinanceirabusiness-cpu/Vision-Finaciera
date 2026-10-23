@@ -291,6 +291,7 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
   const cuerpo = useRef<THREE.Group>(null);
   const cabeza = useRef<THREE.Group>(null);
   const brazo = useRef<THREE.Group>(null);
+  const mano = useRef<THREE.Group>(null);
   const cartel = useRef<THREE.Group>(null);
   const parpados = useRef<THREE.Group>(null);
   const sombra = useMemo(() => (typeof document === 'undefined' ? null : texturaSombra()), []);
@@ -315,7 +316,8 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
       cabeza.current.rotation.y = Math.sin(t * 0.7) * 0.22;
       cabeza.current.rotation.z = Math.sin(t * 0.5 + 1) * 0.05;
     }
-    if (brazo.current) brazo.current.rotation.z = -0.35 + Math.sin(t * 2.2) * 0.1;
+    if (brazo.current) brazo.current.rotation.z = -0.25 + Math.sin(t * 2.2) * 0.06;
+    if (mano.current) mano.current.rotation.z = Math.sin(t * 5.5) * 0.4; // saludo: la muñeca va y viene
   });
 
   if (!logo || !sombra || !ojo) return null;
@@ -391,25 +393,25 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           ))}
           <Dedo base={[-0.4, 0.5, 0.55]} dir={[-0.5, -0.35, 0.8]} largo={0.075} r={0.03} doblez={0.5} uña="#3f2210" />
         </Fundido>
-        {/* Brazo en alto: hombro → codo → antebrazo vertical, con el dedo índice señalando. */}
+        {/* Brazo en alto saludando: hombro → codo → antebrazo vertical. */}
         <group ref={brazo} position={[0.48, 1.0, 0.08]}>
           <Fundido>
             <Segmento a={[0, 0, 0]} b={[0.3, -0.2, 0.05]} r={0.115} color={AZUL} />
             <Elipsoide p={[0.3, -0.2, 0.05]} s={[0.12, 0.12, 0.12]} color={AZUL} />
             <Segmento a={[0.3, -0.2, 0.05]} b={[0.38, 0.2, 0.06]} r={0.1} color={AZUL} />
             <Elipsoide p={[0.385, 0.23, 0.06]} s={[0.1, 0.045, 0.1]} color="#f6ecd6" rot={[0, 0, -0.2]} />
-            {/* Mano cerrada con el índice extendido: palma, tres dedos doblados con falanges, nudillos y pulgar sobre ellos. */}
-            <Elipsoide p={[0.4, 0.33, 0.06]} s={[0.11, 0.1, 0.095]} color={MARRON} />
-            <Elipsoide p={[0.4, 0.3, 0.115]} s={[0.07, 0.04, 0.04]} color="#c98f66" />
-            {[-0.05, 0.0, 0.05].map((d, i) => (
-              <Dedo key={`dd${i}`} base={[0.4 + d, 0.355, 0.1]} dir={[0, 0.2, 1]} largo={0.065} r={0.028} doblez={1.4} uña="#3f2210" />
-            ))}
-            <Dedo base={[0.365, 0.35, 0.09]} dir={[0.5, 0.35, 1]} largo={0.06} r={0.03} doblez={0.9} uña="#3f2210" />
-            <Segmento a={[0.43, 0.38, 0.06]} b={[0.44, 0.62, 0.06]} r={0.036} color={MARRON} />
-            <Elipsoide p={[0.437, 0.5, 0.06]} s={[0.04, 0.012, 0.04]} color="#6a381c" />
-            <Elipsoide p={[0.442, 0.625, 0.06]} s={[0.039, 0.048, 0.039]} color={MARRON} />
-            <Elipsoide p={[0.444, 0.628, 0.095]} s={[0.024, 0.032, 0.012]} color="#3f2210" />
           </Fundido>
+          {/* Mano saludando 👋: palma abierta hacia el frente, cinco dedos en abanico; la muñeca se mueve de lado a lado. */}
+          <group ref={mano} position={[0.4, 0.26, 0.06]}>
+            <Fundido>
+              <Elipsoide p={[0, 0.1, 0]} s={[0.115, 0.125, 0.07]} color={MARRON} />
+              <Elipsoide p={[0, 0.1, 0.045]} s={[0.085, 0.09, 0.03]} color="#c98f66" />
+              {[-0.075, -0.025, 0.025, 0.075].map((x, i) => (
+                <Dedo key={`dm${i}`} base={[x, 0.18, 0.0]} dir={[x * 3.2, 1, 0.05]} largo={0.115 - Math.abs(i - 1.5) * 0.012} r={0.03} doblez={0.12} uña="#3f2210" />
+              ))}
+              <Dedo base={[-0.1, 0.07, 0.0]} dir={[-1, 0.7, 0.1]} largo={0.085} r={0.033} doblez={0.2} uña="#3f2210" />
+            </Fundido>
+          </group>
         </group>
       </group>
 
