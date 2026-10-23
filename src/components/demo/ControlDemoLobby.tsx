@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { PREFIJO_INFORME, SECCION_CONTABILIDAD, SECCION_FINANZAS, SECCION_PANEL } from '@/lib/modoEspectador';
+import { HERRAMIENTAS_DEMO, INFORMES_DEMO } from '@/lib/modoEspectador';
 
 type Acceso = { id: string; codigo: string; habilitadas: string[]; activo: boolean; vence_en: string | null };
 type Presencia = { enLinea: number; total: number; porRuta: Record<string, number> };
@@ -24,26 +24,23 @@ export function ControlDemoLobby({ empresaId, idioma }: { empresaId: string; idi
   const [error, setError] = useState('');
 
   const nombresRuta: Record<string, string> = {
-    '/': esPT ? 'Lobby' : 'Lobby',
-    '/panel-de-control': esPT ? 'Painel de Controle' : 'Panel de Control',
+    '/': 'Lobby',
     '/informes': 'Informes',
-    '/contabilidad': esPT ? 'Contabilidade' : 'Contabilidad',
-    '/finanzas': esPT ? 'Finanças' : 'Finanzas',
+    '/panel-de-control': 'Panel de Control',
+    '/contabilidad': 'Contabilidad',
+    '/finanzas': 'Finanzas',
+    '/mercaderia': 'Mercadería',
+    '/produccion': 'Producción',
+    '/recursos-humanos': 'Recursos Humanos',
+    '/visao-3d': 'Visão 3D',
+    '/plan-accion': 'Plan de Acción',
+    '/nuestro-sueno': 'Nuestro Sueño',
+    '/mensajes': 'Mensajes',
+    '/configuracoes': 'Configuraciones',
   };
 
-  const secciones: { clave: string; nombre: string }[] = [
-    { clave: SECCION_PANEL, nombre: esPT ? 'Painel de Controle' : 'Panel de Control' },
-    { clave: SECCION_CONTABILIDAD, nombre: esPT ? 'Contabilidade' : 'Contabilidad' },
-    { clave: SECCION_FINANZAS, nombre: esPT ? 'Finanças' : 'Finanzas' },
-  ];
-
-  const informes: { clave: string; nombre: string }[] = [
-    { clave: `${PREFIJO_INFORME}BALANCE`, nombre: esPT ? 'Balanço Patrimonial (ESP)' : 'Balance Patrimonial (ESP)' },
-    { clave: `${PREFIJO_INFORME}RESULTADO`, nombre: esPT ? 'DRE — Demonstração de Resultado' : 'DRE — Estado de Resultado' },
-    { clave: `${PREFIJO_INFORME}FLUJO`, nombre: esPT ? 'Fluxo de Caixa' : 'Flujo de Caja' },
-    { clave: `${PREFIJO_INFORME}MAYOR`, nombre: esPT ? 'Razão' : 'Mayor' },
-    { clave: `${PREFIJO_INFORME}SUMAS`, nombre: esPT ? 'Balancete' : 'Sumas y Saldos' },
-  ];
+  const secciones: { clave: string; nombre: string }[] = HERRAMIENTAS_DEMO.map((h) => ({ clave: h.clave, nombre: esPT ? h.pt : h.es }));
+  const informes: { clave: string; nombre: string }[] = INFORMES_DEMO.map((h) => ({ clave: h.clave, nombre: esPT ? h.pt : h.es }));
 
   const cargar = useCallback(async () => {
     const { data: filas } = await supabase
