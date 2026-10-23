@@ -673,16 +673,12 @@ export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string
   // operación con fecha atrasada podría aprobarse mirando el saldo de
   // HOY (que ya incluye ingresos posteriores a esa fecha) aunque en
   // esa fecha vieja la cuenta hubiera quedado en negativo.
-  const [
-    { data: comoDebito },
-    { data: comoCredito },
-    { data: autoComoDebito },
-    { data: autoComoCredito },
-  ] = await Promise.all([
-    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite),
-    supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite),
-    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite),
-    supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite),
+  // Por páginas: PostgREST corta en 1000 filas y un saldo armado con el historial cortado sale mal sin avisar.
+  const [comoDebito, comoCredito, autoComoDebito, autoComoCredito] = await Promise.all([
+    traerTodo<{ total: number | string }>((d, h) => supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite).order('id').range(d, h)),
+    traerTodo<{ total: number | string }>((d, h) => supabase.from('registro_operaciones').select('total').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite).order('id').range(d, h)),
+    traerTodo<{ importe: number | string }>((d, h) => supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).lte('fecha', fechaLimite).order('id').range(d, h)),
+    traerTodo<{ importe: number | string }>((d, h) => supabase.from('registros_automaticos').select('importe').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).lte('fecha', fechaLimite).order('id').range(d, h)),
   ]);
 
   const sumar = (filas: { total?: unknown; importe?: unknown }[] | null, campo: 'total' | 'importe') =>
@@ -713,7 +709,7 @@ export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string
 // Para validar contra el saldo de HOY y de las fechas posteriores a la de una operación (ver saldoFecha.ts). PostgREST
 // devuelve como mucho 1000 filas por consulta: se pide por páginas para no calcular el saldo con el historial cortado.
 
-async function traerTodo<T>(pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+export async function traerTodo<T>(pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
   const filas: T[] = [];
   for (let desde = 0; ; desde += 1000) {
     const { data, error } = await pagina(desde, desde + 999);
@@ -1003,31 +999,23 @@ export async function registrarOperacion(
       // ------------------------------------------------
 
       if (tipoMovimiento === 'SALIDA') {
-        const {
-          data: movimientosProducto,
-          error,
-        } = await supabase
-          .from('movimientos_stock')
-          .select(
-            'tipo, cantidad, costo_unitario, fecha'
-          )
-          .eq('empresa_id', empresaId)
-          .eq(
-            'producto_id',
-            linea.producto
-          )
-          .in('tipo', ['ENTRADA', 'SALIDA']);
-
-        if (error) {
-          throw error;
-        }
+        const movimientosProducto = await traerTodo<{ tipo: string; cantidad: number | string; costo_unitario: number | string; fecha: string }>((d, h) =>
+          supabase
+            .from('movimientos_stock')
+            .select('tipo, cantidad, costo_unitario, fecha')
+            .eq('empresa_id', empresaId)
+            .eq('producto_id', linea.producto)
+            .in('tipo', ['ENTRADA', 'SALIDA'])
+            .order('id')
+            .range(d, h)
+        );
 
         let cantidadDisponible = 0;
         let valorDisponible = 0;
 
         // El costo y la cantidad disponible son los de la fecha de la operación; el histórico posterior
         // solo se usa para comprobar que lo que se consume siga alcanzando para las salidas ya cargadas.
-        for (const movimiento of (movimientosProducto ?? []).filter((m) => String(m.fecha) <= formulario.fecha)) {
+        for (const movimiento of movimientosProducto.filter((m) => String(m.fecha) <= formulario.fecha)) {
           const cantidadMov = Number(movimiento.cantidad ?? 0);
           const costoMov = Number(movimiento.costo_unitario ?? 0);
 
@@ -1062,14 +1050,14 @@ export async function registrarOperacion(
 
         // Una salida con fecha atrasada no puede "robarle" el stock a una salida ya cargada más adelante
         // (ej.: compra 12/06, venta 17/09 y una venta nueva 18/06 → la del 17/09 quedaría sin stock).
-        if (Number(linea.cantidad) > stockUtilizableAFecha(movimientosProducto ?? [], formulario.fecha)) {
+        if (Number(linea.cantidad) > stockUtilizableAFecha(movimientosProducto, formulario.fecha)) {
           const { data: productoInfo } = await supabase
             .from('productos')
             .select('nombre')
             .eq('id', linea.producto)
             .maybeSingle();
 
-          const dia = primerDiaSinStock(movimientosProducto ?? [], formulario.fecha, Number(linea.cantidad));
+          const dia = primerDiaSinStock(movimientosProducto, formulario.fecha, Number(linea.cantidad));
 
           throw new Error(
             `Esta operación dejaría sin stock de "${productoInfo?.nombre ?? 'seleccionado'}" a una salida ya cargada con fecha posterior (el ${dia ?? 'día siguiente'}). Cargá antes una Compra con fecha anterior a esa salida, o usá una fecha posterior a ella.`
@@ -1455,19 +1443,21 @@ async function validarQueElCambioNoDejeStockNegativo(
 
   if (productoIds.length === 0) return;
 
-  const { data: historial, error: errorHistorial } = await supabase
-    .from('movimientos_stock')
-    .select('producto_id, tipo, cantidad, fecha, id_operacion')
-    .eq('empresa_id', empresaId)
-    .in('producto_id', productoIds)
-    .in('tipo', ['ENTRADA', 'SALIDA']);
-
-  if (errorHistorial) throw errorHistorial;
+  const historial = await traerTodo<{ producto_id: string; tipo: string; cantidad: number | string; fecha: string; id_operacion: string | null }>((d, h) =>
+    supabase
+      .from('movimientos_stock')
+      .select('producto_id, tipo, cantidad, fecha, id_operacion')
+      .eq('empresa_id', empresaId)
+      .in('producto_id', productoIds)
+      .in('tipo', ['ENTRADA', 'SALIDA'])
+      .order('id')
+      .range(d, h)
+  );
 
   const problemas: { producto_id: string; dia: string }[] = [];
 
   for (const productoId of productoIds) {
-    const delProducto = (historial ?? []).filter((m) => m.producto_id === productoId);
+    const delProducto = historial.filter((m) => m.producto_id === productoId);
     const antes = delProducto.map((m) => ({ tipo: m.tipo as string, cantidad: m.cantidad as number, fecha: String(m.fecha) }));
     const despues = [
       ...delProducto.filter((m) => m.id_operacion !== idOperacion).map((m) => ({ tipo: m.tipo as string, cantidad: m.cantidad as number, fecha: String(m.fecha) })),

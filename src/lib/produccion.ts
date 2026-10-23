@@ -15,7 +15,7 @@
 //    con el motor de CMV que ya existe en motor.ts).
 
 import { supabase } from './supabase';
-import { generarIdOperacion } from './motor';
+import { generarIdOperacion, traerTodo } from './motor';
 import { stockUtilizableAFecha } from './stockFecha';
 
 export type ProductoProduccion = {
@@ -405,20 +405,21 @@ export async function obtenerRecetaActiva(
 // además, sin dejar el saldo en negativo en ningún día posterior (una venta o producción ya cargada después necesita ese stock).
 // Es el mínimo del saldo corrido desde `fecha` en adelante.
 export async function stockDisponibleAFecha(empresaId: string, insumoIds: string[], fecha: string): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from('movimientos_stock')
-    .select('producto_id, tipo, cantidad, fecha')
-    .eq('empresa_id', empresaId)
-    .in('producto_id', insumoIds)
-    .in('tipo', ['ENTRADA', 'SALIDA'])
-    .order('fecha', { ascending: true });
-
-  if (error) throw error;
+  const data = await traerTodo<{ producto_id: string; tipo: string; cantidad: number | string; fecha: string }>((d, h) =>
+    supabase
+      .from('movimientos_stock')
+      .select('producto_id, tipo, cantidad, fecha')
+      .eq('empresa_id', empresaId)
+      .in('producto_id', insumoIds)
+      .in('tipo', ['ENTRADA', 'SALIDA'])
+      .order('id')
+      .range(d, h)
+  );
 
   const resultado = new Map<string, number>();
 
   for (const id of insumoIds) {
-    resultado.set(id, stockUtilizableAFecha((data ?? []).filter((m) => m.producto_id === id), fecha));
+    resultado.set(id, stockUtilizableAFecha(data.filter((m) => m.producto_id === id), fecha));
   }
 
   return resultado;
@@ -577,20 +578,22 @@ async function costoPromedioActual(
   productoId: string,
   fecha: string
 ): Promise<{ costoMedio: number; cantidadDisponible: number }> {
-  const { data: movimientos, error } = await supabase
-    .from('movimientos_stock')
-    .select('tipo, cantidad, costo_unitario')
-    .eq('empresa_id', empresaId)
-    .eq('producto_id', productoId)
-    .in('tipo', ['ENTRADA', 'SALIDA'])
-    .lte('fecha', fecha);
-
-  if (error) throw error;
+  const movimientos = await traerTodo<{ tipo: string; cantidad: number | string; costo_unitario: number | string }>((d, h) =>
+    supabase
+      .from('movimientos_stock')
+      .select('tipo, cantidad, costo_unitario')
+      .eq('empresa_id', empresaId)
+      .eq('producto_id', productoId)
+      .in('tipo', ['ENTRADA', 'SALIDA'])
+      .lte('fecha', fecha)
+      .order('id')
+      .range(d, h)
+  );
 
   let cantidadDisponible = 0;
   let valorDisponible = 0;
 
-  for (const movimiento of movimientos ?? []) {
+  for (const movimiento of movimientos) {
     const cantidad = Number(movimiento.cantidad ?? 0);
     const costo = Number(movimiento.costo_unitario ?? 0);
 
