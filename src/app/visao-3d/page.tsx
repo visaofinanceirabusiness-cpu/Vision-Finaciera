@@ -17,18 +17,18 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { cargarDatosVisao3D } from '@/lib/visao3dDatos';
-import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
+import { empresaTieneVisao3D, escenaDePerfil } from '@/lib/visao3dEmpresas';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
 import { construirObjetosCasa } from '@/lib/visao3dCasa';
 import { guardarPreferencia, leerCalidad, leerPreferencia, type Calidad, type Preferencia } from '@/lib/visao3dCalidad';
 
-const Escena = dynamic(() => import('@/components/visao3d/Escena'), {
+const Escena = dynamic(() => import('@/components/visao3d/edificio/Escena'), {
   ssr: false,
   loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
 });
 
-const EscenaCasa = dynamic(() => import('@/components/visao3d/EscenaCasa'), {
+const EscenaCasa = dynamic(() => import('@/components/visao3d/familia/EscenaFamilia'), {
   ssr: false,
   loading: () => <div style={{ color: '#cbd5e1', display: 'grid', placeItems: 'center', height: '100%' }}>⏳ 3D…</div>,
 });
@@ -125,8 +125,12 @@ export default function Visao3DPage() {
         return;
       }
 
-      // Piloto: por ahora solo las empresas habilitadas (ver lib/visao3dEmpresas.ts).
-      if (!empresaTieneVisao3D(perfil.empresa_id)) {
+      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma, nombre, perfiles_empresa(codigo)').eq('id', perfil.empresa_id).maybeSingle();
+      const relacionPerfil = empresa?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
+      const perfilCodigo = (Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) ?? null;
+      const familiar = escenaDePerfil(perfilCodigo) === 'casa';
+      // Apertura progresiva por perfil / piloto por empresa (ver lib/visao3dEmpresas.ts).
+      if (!empresaTieneVisao3D(perfil.empresa_id, perfilCodigo)) {
         router.push('/');
         return;
       }
@@ -142,9 +146,6 @@ export default function Visao3DPage() {
         return;
       }
 
-      const { data: empresa } = await supabase.from('empresas').select('moneda, idioma, nombre, perfiles_empresa(codigo)').eq('id', perfil.empresa_id).maybeSingle();
-      const relacionPerfil = empresa?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
-      const familiar = (Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) === 'FAMILIAR';
       setEsFamiliar(familiar);
       if (familiar) setModo('casa');
       setMoneda(empresa?.moneda ?? null);

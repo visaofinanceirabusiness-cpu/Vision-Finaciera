@@ -5,7 +5,10 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS as Z0 } from './CasaLayout';
+import { TV } from './Objetos';
+import { Lugar } from './estructura';
+import { ObjetoCasa } from '@/lib/visao3dCasa';
+import { PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS as Z0 } from './layout';
 
 type Huella = { x: number; z: number; w: number; d: number; r?: number; fuerza?: number };
 
@@ -114,4 +117,17 @@ export function SombrasCasa({ extra }: { extra: { baja: Huella[]; alta: Huella[]
       <Piso planta={PLANTA_ALTA} huellas={alta} tabiques={TABIQUES_ALTA} />
     </>
   );
+}
+
+// Huellas de sombra de los objetos que dependen de las cuentas (pilares, sofá y TV), en coordenadas del mundo.
+export function huellasDeObjetos(objetos: ObjetoCasa[], lugares: Map<string, Lugar>): { baja: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }>; alta: Array<{ x: number; z: number; w: number; d: number; r?: number; fuerza?: number }> } {
+  const baja: ReturnType<typeof huellasDeObjetos>['baja'] = [];
+  const alta: ReturnType<typeof huellasDeObjetos>['alta'] = [];
+  for (const o of objetos) {
+    const { pos } = lugares.get(o.id)!;
+    if (o.modo === 'plinto') (pos[1] > 3 ? alta : baja).push({ x: pos[0], z: pos[2], w: 1, d: 1, r: 0.5 });
+    else if (o.modo === 'sofa') baja.push({ x: pos[0], z: pos[2], w: 0.95, d: 2.4, fuerza: 0.9 });
+    else if (o.modo === 'tv') baja.push({ x: pos[0], z: pos[2], w: 2, d: 0.5 });
+  }
+  return { baja, alta };
 }

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { PROF, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
+import { PROF, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './layout';
 
 type V3 = [number, number, number];
 

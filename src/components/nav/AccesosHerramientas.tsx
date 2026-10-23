@@ -74,8 +74,10 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         return;
       }
 
-      const { data: empresa } = await supabase.from('empresas').select('idioma').eq('id', perfil.empresa_id).maybeSingle();
+      const { data: empresa } = await supabase.from('empresas').select('idioma, perfiles_empresa(codigo)').eq('id', perfil.empresa_id).maybeSingle();
       setEsPT(empresa?.idioma === 'PT');
+      const relacionPerfil = empresa?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
+      const perfilCodigo = (Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) ?? null;
 
       // Aviso de mensajes nuevos sobre el acceso a Mensajes (el aislamiento entre
       // empresas lo garantiza la política RLS, igual que en el lobby).
@@ -109,7 +111,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           // Igual que en el lobby: el asistente no ve Informes.
           if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
           // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
-          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id) && perfil.tipo_usuario !== 'ASISTENTE';
+          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id, perfilCodigo) && perfil.tipo_usuario !== 'ASISTENTE';
           return true;
         })
       );

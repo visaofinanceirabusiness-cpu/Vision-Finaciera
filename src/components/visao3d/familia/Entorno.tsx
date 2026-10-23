@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { PaletaCielo } from './Compartido3D';
+import type { PaletaCielo } from '../base/Compartido3D';
 
 const TINTE_MONTANAS: Record<PaletaCielo, [string, string]> = {
   dia: ['#8fb0cf', '#cfe0ee'],

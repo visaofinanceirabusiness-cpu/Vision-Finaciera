@@ -7,7 +7,7 @@ Nada de esto es obligatorio: sin archivos, la casa se arma 100 % en código (pro
 2. Declararlo en `catalogo.json`:
    `{ "objetos": [ { "id": "auto", "glb": "/visao3d/modelos/auto.glb", "glbLiviano": "/visao3d/modelos/auto_liviano.glb", "escala": 1, "draco": true } ] }`
    - `glbLiviano` es la versión para teléfonos (calidad baja); sin ella, en teléfonos se usa el procedural.
-   - Ids disponibles hoy en la casa: `auto`, `armario` (el resto del catálogo está declarado en `components/visao3d/catalogo/catalogo.ts`).
+   - Ids disponibles hoy en la casa: `auto`, `armario` (el resto del catálogo está declarado en `components/visao3d/base/catalogo/catalogo.ts`).
 3. Si el archivo falta o falla, se ve el objeto procedural. El estado de la cuenta (cero = gris, negativo = tinte rojo) se aplica también a los materiales del modelo.
 
 ## HDRI (Poly Haven, CC0)
