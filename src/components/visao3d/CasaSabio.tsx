@@ -234,6 +234,28 @@ function Segmento({ a, b, r, color }: { a: V3; b: V3; r: number; color: string }
   );
 }
 
+// Dedo con dos falanges que se doblan: `base` es donde nace, `dir` hacia dónde apunta (se normaliza), `doblez` cuánto cae la segunda falange.
+function Dedo({ base, dir, largo = 0.1, r = 0.03, doblez = 0.5, color = '#7a4326', punta = '#6a381c', uña }: { base: V3; dir: V3; largo?: number; r?: number; doblez?: number; color?: string; punta?: string; uña?: string }) {
+  const d = new THREE.Vector3(...dir).normalize();
+  const b = new THREE.Vector3(...base);
+  const j = b.clone().addScaledVector(d, largo);
+  const abajo = new THREE.Vector3(0, -1, 0);
+  const d2 = d.clone().lerp(abajo, doblez).normalize();
+  const t = j.clone().addScaledVector(d2, largo * 0.85);
+  const a: V3 = [b.x, b.y, b.z];
+  const m: V3 = [j.x, j.y, j.z];
+  const e: V3 = [t.x, t.y, t.z];
+  return (
+    <group>
+      <Segmento a={a} b={m} r={r} color={color} />
+      <Elipsoide p={m} s={[r * 1.12, r * 1.12, r * 1.12]} color={punta} />
+      <Segmento a={m} b={e} r={r * 0.88} color={color} />
+      <Elipsoide p={e} s={[r * 0.95, r * 0.95, r * 0.95]} color={punta} />
+      {uña && <Elipsoide p={[e[0], e[1] - r * 0.2, e[2] + r * 0.55]} s={[r * 0.55, r * 0.4, r * 0.3]} color={uña} />}
+    </group>
+  );
+}
+
 // Solapa del saco (polígono extruido con muesca) y camisa en V: el pecho se lee como un saco de verdad.
 function Solapa({ lado }: { lado: 1 | -1 }) {
   const geo = useMemo(() => {
@@ -309,17 +331,25 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
       <ObjetoCatalogo id="sabio" estado={{ apagado: false }} claveFundido="sabio" sinFundir procedural={<>
       <group ref={cuerpo}>
         <Fundido>
-          {/* Patas y garras. */}
+          {/* Patas: plumón en el tarso, pie ancho y cuatro dedos (tres al frente, uno atrás) con falanges y garras curvas. */}
           {ojos.map((l) => (
             <group key={`pie${l}`}>
-              <Elipsoide p={[l * 0.2, 0.05, 0.14]} s={[0.17, 0.06, 0.2]} color={NARANJA} />
-              <Elipsoide p={[l * 0.2, 0.2, 0.05]} s={[0.12, 0.17, 0.12]} color={CREMA} />
-              {[-1, 0, 1].map((k) => (
-                <group key={k}>
-                  <Elipsoide p={[l * 0.2 + k * 0.09, 0.04, 0.32]} s={[0.045, 0.04, 0.09]} color={NARANJA} />
-                  <Cono p={[l * 0.2 + k * 0.09, 0.035, 0.41]} r={0.018} h={0.06} color={MARRON_OSCURO} rot={[Math.PI / 2, 0, 0]} />
-                </group>
-              ))}
+              <Elipsoide p={[l * 0.2, 0.05, 0.12]} s={[0.17, 0.06, 0.2]} color={NARANJA} />
+              <Elipsoide p={[l * 0.2, 0.22, 0.05]} s={[0.13, 0.19, 0.13]} color={CREMA} />
+              {[0.14, 0.2, 0.26].map((y, i) => <Elipsoide key={`pl${i}`} p={[l * 0.2 + (i % 2 ? 0.05 : -0.05), y, 0.12]} s={[0.05, 0.035, 0.03]} color="#e4cf9f" />)}
+              {[-1, 0, 1].map((k) => {
+                const x = l * 0.2 + k * 0.085;
+                return (
+                  <group key={k}>
+                    <Segmento a={[x, 0.05, 0.2]} b={[x + k * 0.012, 0.045, 0.31]} r={0.036} color={NARANJA} />
+                    <Elipsoide p={[x + k * 0.012, 0.045, 0.31]} s={[0.042, 0.04, 0.042]} color="#e07a1a" />
+                    <Segmento a={[x + k * 0.012, 0.045, 0.31]} b={[x + k * 0.02, 0.035, 0.38]} r={0.03} color={NARANJA} />
+                    <Cono p={[x + k * 0.022, 0.03, 0.42]} r={0.022} h={0.08} color={MARRON_OSCURO} rot={[Math.PI / 2 + 0.5, 0, 0]} />
+                  </group>
+                );
+              })}
+              <Segmento a={[l * 0.2, 0.05, 0.02]} b={[l * 0.2, 0.04, -0.1]} r={0.03} color={NARANJA} />
+              <Cono p={[l * 0.2, 0.03, -0.15]} r={0.02} h={0.07} color={MARRON_OSCURO} rot={[-Math.PI / 2 - 0.5, 0, 0]} />
             </group>
           ))}
           {/* Cuerpo emplumado y cola. */}
@@ -353,16 +383,13 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
           <Elipsoide p={[-0.66, 0.68, 0.18]} s={[0.12, 0.12, 0.12]} color={AZUL} />
           <Segmento a={[-0.66, 0.68, 0.18]} b={[-0.36, 0.52, 0.5]} r={0.1} color={AZUL} />
           <Elipsoide p={[-0.34, 0.51, 0.51]} s={[0.105, 0.06, 0.105]} color="#f6ecd6" rot={[0.6, 0.6, 0.4]} />
-          {/* Mano: palma, cuatro dedos y pulgar. */}
-          <Elipsoide p={[-0.3, 0.5, 0.56]} s={[0.12, 0.09, 0.09]} color={MARRON} />
-          {[-0.4, -0.335, -0.27, -0.205].map((x, i) => (
-            <group key={`df${i}`}>
-              <Segmento a={[x, 0.5, 0.6]} b={[x + 0.004, 0.58 - (i === 3 ? 0.03 : 0), 0.655]} r={0.03} color="#7a4326" />
-              <Elipsoide p={[x + 0.004, 0.585 - (i === 3 ? 0.03 : 0), 0.66]} s={[0.031, 0.034, 0.03]} color="#6a381c" />
-            </group>
+          {/* Mano relajada: palma con almohadilla, cuatro dedos de dos falanges apenas curvados y pulgar. */}
+          <Elipsoide p={[-0.31, 0.49, 0.56]} s={[0.12, 0.085, 0.11]} color={MARRON} />
+          <Elipsoide p={[-0.3, 0.46, 0.6]} s={[0.075, 0.045, 0.06]} color="#c98f66" />
+          {[0, 1, 2, 3].map((i) => (
+            <Dedo key={`df${i}`} base={[-0.37 + i * 0.045, 0.47 - Math.abs(i - 1.5) * 0.008, 0.62]} dir={[0.2, -0.3, 0.9]} largo={0.085 - Math.abs(i - 1.5) * 0.008} r={0.027} doblez={0.7} uña="#3f2210" />
           ))}
-          <Segmento a={[-0.44, 0.5, 0.6]} b={[-0.43, 0.64, 0.66]} r={0.034} color="#7a4326" />
-          <Elipsoide p={[-0.43, 0.65, 0.665]} s={[0.036, 0.04, 0.034]} color="#6a381c" />
+          <Dedo base={[-0.4, 0.5, 0.55]} dir={[-0.5, -0.35, 0.8]} largo={0.075} r={0.03} doblez={0.5} uña="#3f2210" />
         </Fundido>
         {/* Brazo en alto: hombro → codo → antebrazo vertical, con el dedo índice señalando. */}
         <group ref={brazo} position={[0.48, 1.0, 0.08]}>
@@ -371,20 +398,17 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
             <Elipsoide p={[0.3, -0.2, 0.05]} s={[0.12, 0.12, 0.12]} color={AZUL} />
             <Segmento a={[0.3, -0.2, 0.05]} b={[0.38, 0.2, 0.06]} r={0.1} color={AZUL} />
             <Elipsoide p={[0.385, 0.23, 0.06]} s={[0.1, 0.045, 0.1]} color="#f6ecd6" rot={[0, 0, -0.2]} />
-            {/* Mano cerrada con el índice extendido: palma, tres dedos doblados, nudillos y pulgar sobre ellos. */}
+            {/* Mano cerrada con el índice extendido: palma, tres dedos doblados con falanges, nudillos y pulgar sobre ellos. */}
             <Elipsoide p={[0.4, 0.33, 0.06]} s={[0.11, 0.1, 0.095]} color={MARRON} />
+            <Elipsoide p={[0.4, 0.3, 0.115]} s={[0.07, 0.04, 0.04]} color="#c98f66" />
             {[-0.05, 0.0, 0.05].map((d, i) => (
-              <group key={`dd${i}`}>
-                <Segmento a={[0.4 + d, 0.34, 0.1]} b={[0.4 + d, 0.28, 0.14]} r={0.03} color="#7a4326" />
-                <Elipsoide p={[0.4 + d, 0.275, 0.14]} s={[0.032, 0.03, 0.03]} color="#6a381c" />
-              </group>
+              <Dedo key={`dd${i}`} base={[0.4 + d, 0.355, 0.1]} dir={[0, 0.2, 1]} largo={0.065} r={0.028} doblez={1.4} uña="#3f2210" />
             ))}
-            <Segmento a={[0.37, 0.34, 0.1]} b={[0.4, 0.4, 0.15]} r={0.03} color="#7a4326" />
-            <Elipsoide p={[0.4, 0.405, 0.155]} s={[0.032, 0.032, 0.03]} color="#6a381c" />
+            <Dedo base={[0.365, 0.35, 0.09]} dir={[0.5, 0.35, 1]} largo={0.06} r={0.03} doblez={0.9} uña="#3f2210" />
             <Segmento a={[0.43, 0.38, 0.06]} b={[0.44, 0.62, 0.06]} r={0.036} color={MARRON} />
+            <Elipsoide p={[0.437, 0.5, 0.06]} s={[0.04, 0.012, 0.04]} color="#6a381c" />
             <Elipsoide p={[0.442, 0.625, 0.06]} s={[0.039, 0.048, 0.039]} color={MARRON} />
-            <Elipsoide p={[0.444, 0.628, 0.095]} s={[0.022, 0.03, 0.01]} color="#3f2210" />
-            <Elipsoide p={[0.43, 0.42, 0.075]} s={[0.04, 0.034, 0.034]} color="#6a381c" />
+            <Elipsoide p={[0.444, 0.628, 0.095]} s={[0.024, 0.032, 0.012]} color="#3f2210" />
           </Fundido>
         </group>
       </group>
@@ -424,10 +448,21 @@ export function Sabio({ p, esc = 1, esPT = false, rot = 0 }: { p: V3; esc?: numb
             </group>
           ))}
           <Caja p={[0, 0.045, 0.515]} s={[0.07, 0.024, 0.024]} color="#0f0f12" />
+          {/* Cara: párpados superiores, plumas de la ceja, cera de la nariz y mechón del mentón. */}
+          {ojos.map((l) => (
+            <group key={`cr${l}`}>
+              <Elipsoide p={[l * 0.21, 0.145, 0.46]} s={[0.15, 0.035, 0.05]} color="#5e3319" rot={[0.3, 0, l * 0.12]} />
+              <Elipsoide p={[l * 0.21, -0.1, 0.45]} s={[0.12, 0.022, 0.04]} color="#d8c294" rot={[-0.2, 0, 0]} />
+              {[0, 1, 2, 3].map((k) => <Elipsoide key={`pc${k}`} p={[l * (0.12 + k * 0.07), 0.2 + k * 0.01, 0.4]} s={[0.04, 0.075, 0.03]} color={k % 2 ? '#7a4326' : '#5e3319'} rot={[0.5, 0, -l * (0.25 + k * 0.2)]} />)}
+            </group>
+          ))}
+          <Elipsoide p={[0, -0.025, 0.545]} s={[0.032, 0.022, 0.02]} color="#f1dfba" />
+          <Elipsoide p={[0, -0.36, 0.28]} s={[0.07, 0.07, 0.07]} color="#f1dfba" />
           {/* Pico con boca y lengua. */}
           <Elipsoide p={[0, -0.02, 0.36]} s={[0.11, 0.2, 0.1]} color={CREMA} />
           <Cono p={[0, -0.075, 0.55]} r={0.085} h={0.23} color={NARANJA} rot={[Math.PI / 2 + 0.35, 0, 0]} />
           <Cono p={[0, -0.16, 0.53]} r={0.06} h={0.14} color="#d9791f" rot={[Math.PI / 2 - 0.05, 0, 0]} />
+          <Cono p={[0, -0.145, 0.665]} r={0.032} h={0.075} color="#c97a1d" rot={[Math.PI - 0.5, 0, 0]} />
           <Elipsoide p={[0, -0.135, 0.56]} s={[0.045, 0.012, 0.05]} color="#7a1f1f" />
           <Elipsoide p={[0, -0.14, 0.565]} s={[0.025, 0.008, 0.03]} color="#e07a86" />
           {[-1, 0, 1].map((k) => <Elipsoide key={k} p={[k * 0.2, -0.3, 0.3]} s={[0.1, 0.07, 0.1]} color={CREMA} />)}
