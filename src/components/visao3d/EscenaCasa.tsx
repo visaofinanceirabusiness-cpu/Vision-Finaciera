@@ -27,7 +27,7 @@ import { Fachada } from './CasaFachada';
 import { ObjetoCatalogo, useConfigCatalogo } from './catalogo/ObjetoCatalogo';
 import { Iluminacion } from './Iluminacion';
 import { leerCalidad, usaSombras } from '@/lib/visao3dCalidad';
-import { Sabio } from './CasaSabio';
+import { CuadroLogo, Sabio } from './CasaSabio';
 import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './CasaJardin';
 import { desplazarX, PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './CasaLayout';
 import { Ahorro, AutoSUV, Banco, Billetes, CajaOtros, Capital, Documentos, Maqueta, Plinto, Resultado, Sofa, Tarjeta, TV } from './CasaObjetos';
@@ -651,7 +651,7 @@ function huellasDeObjetos(objetos: ObjetoCasa[], lugares: Map<string, Lugar>): {
   return { baja, alta };
 }
 
-function Casa({ hora, noche, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
+function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; esPT: boolean; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
   const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
@@ -709,6 +709,8 @@ function Casa({ hora, noche, objetos, seleccionadoId, hover, setHover, onSelecci
       <Habitacion zona={ZONAS.oficina} piso={piso.madera} tinte={HORAS[hora].piso} />
       <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
       <SombrasCasa extra={huellas} />
+      {/* Cuadro con el logo y el lema de Visão Financeira en la pared del fondo de la cochera. */}
+      <CuadroLogo p={[(X_IZQ + X_COCHERA) / 2, 2.1, Z_ATRAS + 0.12]} esPT={esPT} />
       <Tabiques />
 
       <Fundido key={hora}>
@@ -915,7 +917,7 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
           <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
-          <Casa hora={hora} noche={noche} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
+          <Casa hora={hora} noche={noche} esPT={Boolean(esPT)} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {placas.map(({ g, lineas, pos, ancla }, i) => (
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}
