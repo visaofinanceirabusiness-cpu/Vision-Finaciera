@@ -5,9 +5,9 @@
 // Reglas del dueño: máximo 5 objetos por cuarto; si no entran se agrega un cuarto AL LADO y, si ya hay uno al lado,
 // se SUBE de piso. El Activo manda y crece hacia la izquierda de la cochera (y luego hacia arriba); el Pasivo crece con
 // cuartos a la derecha y el Patrimonio va SIEMPRE debajo del Pasivo con el mismo ancho. Con pocas cuentas el plano es
-// el de la casa base de 5 cuartos (mismas medidas que `familia/layout.ts`), así nada cambia para las familias chicas.
+// el de la casa base de 5 cuartos (mismas medidas que `casa/layout.ts`), así nada cambia para las familias chicas.
 //
-// Las medidas se repiten acá (y no se importan de `familia/layout.ts`) para que esta lógica siga siendo pura y reutilizable
+// Las medidas se repiten acá (y no se importan de `casa/layout.ts`) para que esta lógica siga siendo pura y reutilizable
 // por los otros perfiles; el test comprueba que el plano base coincide con la casa dibujada.
 
 import type { GrupoId } from './visao3d';
@@ -20,7 +20,7 @@ export const ANCHO_CUARTO = 6.3;
 export const MAX_COLUMNAS_ACTIVO = 4;
 export const MAX_COLUMNAS_DERECHA = 3;
 
-// Mismas posiciones que la casa base (ver `familia/layout.ts`).
+// Mismas posiciones que la casa base (ver `casa/layout.ts`).
 const X_COCHERA = -5.7; // límite cochera | living
 const X_DER_BASE = 6.8;
 

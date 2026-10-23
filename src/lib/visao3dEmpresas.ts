@@ -12,9 +12,12 @@ export function empresaTieneVisao3D(empresaId: string | null | undefined, perfil
   return Boolean(empresaId) && EMPRESAS_CON_VISAO_3D.includes(empresaId as string);
 }
 
-// Familia comparte la casa (lo que cambia por perfil son las cuentas); el resto usa el edificio hasta tener su propia escena.
+// Todos los perfiles usan la misma casa (plano de cuartos y objetos por cuenta); lo que cambia es el tema: fachada, techo,
+// pintura, mobiliario y exterior (ver components/visao3d/casa/temas.ts). El edificio queda como vista alternativa.
 export type TipoEscena = 'casa' | 'edificio';
 
+const PERFILES_CON_CASA = ['FAMILIAR', 'COMERCIAL', 'SERVICIOS', 'MIXTO', 'PRODUCCION'];
+
 export function escenaDePerfil(perfilCodigo: string | null | undefined): TipoEscena {
-  return perfilCodigo === 'FAMILIAR' ? 'casa' : 'edificio';
+  return perfilCodigo && PERFILES_CON_CASA.includes(perfilCodigo) ? 'casa' : 'edificio';
 }

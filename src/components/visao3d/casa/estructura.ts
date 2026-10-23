@@ -31,10 +31,6 @@ export function encuadreDe(o: ObjetoCasa): { dist: number; alto: number } {
   return { dist: 4.3, alto: 0.5 };
 }
 
-// Pintura suave de cada habitación (color del grupo en pastel) y un tono algo más marcado en los vértices, para que se lean como límites.
-export const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#b3cdff', PASIVO: '#ffcda0', PATRIMONIO: '#d8bbf8' };
-export const PINTURA_VERTICE: Record<GrupoId, string> = { ACTIVO: '#6f9cf2', PASIVO: '#ffa860', PATRIMONIO: '#b985ee' };
-
 export type Hora = PaletaCielo;
 export const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, number]; sol: [string, number]; exposicion: number; niebla: string; formas: [number, number, number]; piso: number }> = {
   dia: { ambiente: 0.95, hemisferio: ['#cfe6ff', '#6b8b5a', 0.7], sol: ['#fff4dc', 1.6], exposicion: 1.05, niebla: '#cfe3f2', formas: [3.2, 4, 2.4], piso: 0.1 },

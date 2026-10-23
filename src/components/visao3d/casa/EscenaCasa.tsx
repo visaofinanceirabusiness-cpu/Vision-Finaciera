@@ -9,6 +9,7 @@ import { Exterior } from './Exterior';
 import { Globo } from './Globos';
 import { Estrellas } from './LuzNoche';
 import { Sabio } from './Sabio';
+import { temaDePerfil } from './temas';
 import { CLAVE_HORA, HORAS, Hora, SABIO_POS, V3, encuadreDe, lugarDe } from './estructura';
 import { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import { leerCalidad, usaSombras } from '@/lib/visao3dCalidad';
@@ -28,11 +29,14 @@ type Props = {
   movimientoReducido: boolean;
   periodoClave: string;
   esPT?: boolean;
+  perfilCodigo?: string | null;
+  nombreEmpresa?: string;
 };
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
 
-export default function EscenaCasa({ objetos, totales, seleccionadoId, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT }: Props) {
+export default function EscenaCasa({ objetos, totales, seleccionadoId, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT, perfilCodigo, nombreEmpresa }: Props) {
+  const tema = useMemo(() => temaDePerfil(perfilCodigo), [perfilCodigo]);
   const [hora, setHoraEstado] = useState<Hora>('atardecer');
   useEffect(() => {
     try {
@@ -131,9 +135,9 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
 
         <SombrasCtx.Provider value={sombras}>
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
-          <Exterior noche={noche} />
+          <Exterior noche={noche} tema={tema} />
           <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
-          <Casa plano={plano} hora={hora} noche={noche} esPT={Boolean(esPT)} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
+          <Casa tema={tema} nombreEmpresa={nombreEmpresa ?? ''} plano={plano} hora={hora} noche={noche} esPT={Boolean(esPT)} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {placas.map(({ g, lineas, pos, ancla }, i) => (
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}

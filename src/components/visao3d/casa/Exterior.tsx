@@ -1,6 +1,7 @@
 'use client';
 
 import { Fundido, texturaProcedural } from '../base/Compartido3D';
+import type { TemaCasa } from './temas';
 import { Arbusto, Flores, HojasPalmera, PalmeraDetallada, Pasto } from './Jardin';
 import { Caja, Cilindro, useTexturas } from './Mobiliario';
 import { Sabio } from './Sabio';
@@ -29,7 +30,7 @@ export function PalmeraViva({ p, escala, fase }: { p: V3; escala: number; fase: 
   );
 }
 
-export function Exterior({ noche }: { noche: boolean }) {
+export function Exterior({ noche, tema }: { noche: boolean; tema: TemaCasa }) {
   const t = useTexturas({
     pasto: () => texturaProcedural('pasto', 18),
     concreto: () => texturaProcedural('concreto', 6),
@@ -96,8 +97,14 @@ export function Exterior({ noche }: { noche: boolean }) {
       {Array.from({ length: 24 }, (_, i) => <Caja key={`ln${i}`} p={[-33 + i * 3, 0.0, 17.5]} s={[1.4, 0.02, 0.12]} color="#f3f0d8" rough={0.6} />)}
       {[15.5, 19.5].map((z) => <Caja key={`bo${z}`} p={[-1, -0.0, z]} s={[70, 0.02, 0.1]} color="#e9e9ef" rough={0.6} />)}
       {/* Sendero de piedras hasta la entrada. */}
-      <Pasto matas={matas} />
-      <Flores lugares={flores} />
+      {tema.jardin && <Pasto matas={matas} />}
+      {tema.jardin && <Flores lugares={flores} />}
+      {!tema.jardin && (
+        <mesh position={[-1, -0.1, 9.1]}>
+          <boxGeometry args={[46, 0.08, 11.4]} />
+          <meshStandardMaterial map={t.concreto} roughness={0.85} />
+        </mesh>
+      )}
       {/* Camino de entrada: base, losas en dos columnas, cordones a los lados y balizas. */}
       <Caja p={[CAMINO_X, -0.085, 9.05]} s={[CAMINO_ANCHO, 0.07, 11]} color="#c3c9d4" rough={0.9} />
       {Array.from({ length: 9 }, (_, i) =>
@@ -116,6 +123,8 @@ export function Exterior({ noche }: { noche: boolean }) {
         </group>
       )))}
 
+      {tema.pileta && (
+        <>
       {/* Pileta con deck de madera, agua y reposeras. */}
       <mesh position={[5.8, -0.09, 8]}>
         <boxGeometry args={[9, 0.1, 5.6]} />
@@ -133,7 +142,10 @@ export function Exterior({ noche }: { noche: boolean }) {
         </group>
       ))}
 
-      {arbustos.map((a, i) => <Arbusto key={i} p={[a.x, -0.1, a.z]} r={a.r} flor={a.flor} />)}
+        </>
+      )}
+
+      {tema.jardin && arbustos.map((a, i) => <Arbusto key={i} p={[a.x, -0.1, a.z]} r={a.r} flor={a.flor} />)}
 
       {faroles.map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
@@ -160,9 +172,13 @@ export function Exterior({ noche }: { noche: boolean }) {
         </group>
       ))}
     </Fundido>
-    <PalmeraViva p={[-14.5, -0.05, 6.2]} escala={1.1} fase={0} />
-    <PalmeraViva p={[11.2, -0.05, 9.6]} escala={1.3} fase={1.7} />
-    <PalmeraViva p={[11.4, -0.05, 5.0]} escala={1.0} fase={3.1} />
+    {tema.jardin && (
+      <>
+        <PalmeraViva p={[-14.5, -0.05, 6.2]} escala={1.1} fase={0} />
+        <PalmeraViva p={[11.2, -0.05, 9.6]} escala={1.3} fase={1.7} />
+        <PalmeraViva p={[11.4, -0.05, 5.0]} escala={1.0} fase={3.1} />
+      </>
+    )}
     </>
   );
 }
