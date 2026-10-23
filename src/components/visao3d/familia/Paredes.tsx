@@ -2,9 +2,10 @@
 
 import { Fundido } from '../base/Compartido3D';
 import { Caja, Cilindro } from './Mobiliario';
-import { FONDO_PARED, Hora, PINTURA_VERTICE, ZONAS } from './estructura';
+import { FONDO_PARED, Hora, PINTURA_VERTICE } from './estructura';
 import { PROF, X_CENTRO, X_COCHERA, Z_ATRAS } from './layout';
 import { GrupoId } from '@/lib/visao3d';
+import type { Cuarto } from '@/lib/visao3dCasaPlano';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
@@ -39,18 +40,24 @@ export function huecoEn(xBorde: number, y0: number): [number, number, number] | 
   return undefined;
 }
 
-// Las paredes entre cuartos (interiores) se desvanecen al acercar la cámara; las exteriores no.
-export function esInterior(xBorde: number, y0: number): boolean {
-  return xBorde === X_CENTRO || (xBorde === X_COCHERA && y0 === 0);
+// Paso entre cuartos de las paredes interiores que no son de la casa base (cuartos agregados).
+export const HUECO_GENERICO: [number, number, number] = [0.3, 2.0, 2.6];
+export const huecoInterior = (xBorde: number, y0: number) => huecoEn(xBorde, y0) ?? HUECO_GENERICO;
+
+type Rect = { x0: number; x1: number; y0: number };
+
+// Una pared lateral de un cuarto es interior si al otro lado, en el mismo piso, hay otro cuarto; si no, da al exterior.
+export function esInteriorEn(cuartos: Rect[], c: Rect, xBorde: number): boolean {
+  return cuartos.some((o) => o !== c && o.y0 === c.y0 && Math.abs((xBorde === c.x0 ? o.x1 : o.x0) - xBorde) < 0.05);
 }
 
 // Pintura pastel de una pared lateral de un cuarto, con los vértices (cantos de pared) en un tono más marcado.
-export function PinturaBorde({ zona, xb, lado }: { zona: { y0: number; y1: number; grupo: GrupoId }; xb: number; lado: 1 | -1 }) {
+export function PinturaBorde({ zona, xb, lado, hueco }: { zona: { y0: number; y1: number; grupo: GrupoId }; xb: number; lado: 1 | -1; hueco?: [number, number, number] }) {
   const alto = zona.y1 - zona.y0;
   const cy = (zona.y0 + zona.y1) / 2;
   return (
     <group>
-      <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={huecoEn(xb, zona.y0)} />
+      <Pared x={xb + lado * (GROSOR / 2 + 0.01)} y0={zona.y0} y1={zona.y1} grosor={0.02} color={FONDO_PARED[zona.grupo]} hueco={hueco ?? huecoEn(xb, zona.y0)} />
       {[Z_ATRAS + 0.06 + 0.14, Z_ATRAS + PROF - 0.14].map((zv) => (
         <Caja key={zv} p={[xb + lado * (GROSOR / 2 + 0.013), cy, zv]} s={[0.024, alto, 0.28]} color={PINTURA_VERTICE[zona.grupo]} rough={0.85} />
       ))}
@@ -60,7 +67,7 @@ export function PinturaBorde({ zona, xb, lado }: { zona: { y0: number; y1: numbe
 }
 
 // Tabiques interiores con su pintura: un Fundido transparente cuya opacidad baja con el zoom (se ve lo que hay en el cuarto de al lado).
-export function Tabiques() {
+export function Tabiques({ cuartos }: { cuartos: Cuarto[] }) {
   const materiales = useRef<THREE.MeshStandardMaterial[]>([]);
   const opacidad = useRef(1);
   const { camera, controls } = useThree();
@@ -75,10 +82,10 @@ export function Tabiques() {
   });
   return (
     <Fundido desvanecibles={materiales}>
-      {Object.entries(ZONAS).flatMap(([nombre, z]) =>
-        (([[z.x0, 1], [z.x1, -1]]) as Array<[number, 1 | -1]>)
-          .filter(([xb]) => esInterior(xb, z.y0))
-          .map(([xb, lado]) => <PinturaBorde key={`${nombre}${xb}`} zona={z} xb={xb} lado={lado} />)
+      {cuartos.flatMap((c) =>
+        (([[c.x0, 1], [c.x1, -1]]) as Array<[number, 1 | -1]>)
+          .filter(([xb]) => esInteriorEn(cuartos, c, xb))
+          .map(([xb, lado]) => <PinturaBorde key={`${c.id}${xb}`} zona={c} xb={xb} lado={lado} hueco={huecoInterior(xb, c.y0)} />)
       )}
     </Fundido>
   );

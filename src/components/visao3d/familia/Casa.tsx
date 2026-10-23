@@ -3,7 +3,8 @@
 import { Fundido, texturaArte, texturaProcedural, texturaTela } from '../base/Compartido3D';
 import { ObjetoCatalogo } from '../base/catalogo/ObjetoCatalogo';
 import { Amenidad } from './Amenidad';
-import { Fachada } from './Fachada';
+import { Cascaron, Decorado, IDS_BASE, esCuartoAgregado } from './Ampliacion';
+import { Fachada, FachadaPlano } from './Fachada';
 import { Habitacion } from './Habitacion';
 import { useTexturaLuz } from './LuzNoche';
 import { Alfombra, Archivero, Caja, Cajas, Cama, Cuadro, Escritorio, Estante, Foco, Lampara, LamparaColgante, Mesa, MesaCentro, MesaLateral, NocheCtx, Persona, Silla, SillaOficina, TexturasCasa, TexturasCtx, useTexturas } from './Mobiliario';
@@ -12,16 +13,17 @@ import { Pared, PuertaFondo, Tabiques, Ventana, VentanaFondo, huecoEn, texturaRe
 import { PersonaViva } from './Personas';
 import { CuadroLogo } from './Sabio';
 import { SombrasCasa, huellasDeObjetos } from './Sombras';
-import { ALTO_PILAR, HORAS, Hora, ZONAS, lugarDe } from './estructura';
+import { ALTO_PILAR, HORAS, Hora, lugarDe } from './estructura';
 import { X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS, desplazarX } from './layout';
 import { normalizar } from '@/lib/gruposActivo';
 import { NodoEdificio } from '@/lib/visao3d';
 import { ObjetoCasa } from '@/lib/visao3dCasa';
+import type { PlanoCasa } from '@/lib/visao3dCasaPlano';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
-export function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; esPT: boolean; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
+export function Casa({ hora, noche, esPT, plano, objetos, seleccionadoId, hover, setHover, onSeleccionar }: { hora: Hora; noche: boolean; esPT: boolean; plano: PlanoCasa; objetos: ObjetoCasa[]; seleccionadoId: string | null; hover: string | null; setHover: (id: string | null) => void; onSeleccionar: (n: NodoEdificio) => void }) {
   const piso = useTexturas({ madera: () => texturaProcedural('madera', 3), concreto: () => texturaProcedural('concreto', 3) });
   const arte = useTexturas({ a0: () => texturaArte('abstracto', 1), a1: () => texturaArte('paisaje', 2), a2: () => texturaArte('abstracto', 3), a3: () => texturaArte('paisaje', 4) });
   const pantallas = useTexturas({ tela: texturaTela, tv: () => texturaArte('tv', 5), monitor: () => texturaArte('grafico', 6) });
@@ -29,8 +31,10 @@ export function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHov
   const luz = useTexturaLuz();
   const { reflejo } = useTexturas({ reflejo: texturaReflejo });
   type Pintura = { color: string; apagado: boolean; brillo: number; negativo: boolean };
-  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o)])), [objetos]);
+  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o, plano)])), [objetos, plano]);
   const huellas = useMemo(() => huellasDeObjetos(objetos, lugares), [objetos, lugares]);
+  const ampliada = plano.cuartos.length > IDS_BASE.length;
+  const agregados = useMemo(() => plano.cuartos.filter(esCuartoAgregado), [plano]);
   // Variante de cada objeto entre los de su mismo tipo (frascos, alcancía, cofre…): que los repetidos no se vean todos iguales.
   const variantes = useMemo(() => {
     const cuenta = new Map<string, number>();
@@ -73,27 +77,34 @@ export function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHov
     <TexturasCtx.Provider value={texturas}>
     <group>
       {/* Habitaciones. */}
-      <Habitacion zona={ZONAS.garage} piso={piso.concreto} tinte={HORAS[hora].piso} />
-      <Habitacion zona={ZONAS.living} piso={piso.madera} tinte={HORAS[hora].piso} />
-      <Habitacion zona={ZONAS.dormitorio} piso={piso.madera} tinte={HORAS[hora].piso} />
-      <Habitacion zona={ZONAS.oficina} piso={piso.madera} tinte={HORAS[hora].piso} />
-      <Habitacion zona={ZONAS.comedor} piso={piso.madera} tinte={HORAS[hora].piso} />
-      <SombrasCasa extra={huellas} />
+      {plano.cuartos.map((c) => <Habitacion key={c.id} zona={c} cuartos={plano.cuartos} piso={c.id === 'garage' ? piso.concreto : piso.madera} tinte={HORAS[hora].piso} />)}
+      <SombrasCasa plano={plano} extra={huellas} />
       {/* Cuadro con el logo y el lema de Visão Financeira en la pared del fondo de la cochera. */}
       <CuadroLogo p={[(X_IZQ + X_COCHERA) / 2, 2.1, Z_ATRAS + 0.12]} esPT={esPT} />
-      <Tabiques />
+      <Tabiques cuartos={plano.cuartos} />
 
       <Fundido key={hora}>
+      {ampliada ? (
+        <FachadaPlano cuartos={plano.cuartos} />
+      ) : (
+        <>
       {/* Techos. */}
       <Caja p={[(X_COCHERA + X_DER) / 2, 7.5, 0.0]} s={[X_DER - X_COCHERA + 0.4, 0.16, 8.4]} color="#e9edf3" rough={0.6} />
       <Caja p={[(X_IZQ + X_COCHERA) / 2, 3.68, 0.325]} s={[X_COCHERA - X_IZQ + 0.1, 0.16, 7.75]} color="#e9edf3" rough={0.6} />
       <Fachada />
+
+        </>
+      )}
 
       {objetos.filter((o) => o.modo === 'plinto').map((o) => {
         const [x, y, z] = lugares.get(o.id)!.pos;
         return <Plinto key={o.id} p={[x, y - ALTO_PILAR, z]} h={ALTO_PILAR} acento={COLOR_GRUPO[o.zona]} />;
       })}
 
+      {ampliada ? (
+        <Cascaron cuartos={plano.cuartos} hora={hora} reflejo={reflejo} />
+      ) : (
+        <>
       {/* Paredes exteriores e interiores (con pasos entre cuartos) y ventanas. */}
       <Pared x={X_IZQ} y0={0} y1={3.68} />
       <Pared x={X_COCHERA} y0={0} y1={3.6} hueco={huecoEn(X_COCHERA, 0)} />
@@ -119,6 +130,9 @@ export function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHov
       <VentanaFondo x={-2.55} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
       <VentanaFondo x={3.7} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
 
+
+        </>
+      )}
 
       <group position={[-0.5, 0, 0]}>
       {/* Living. */}
@@ -157,8 +171,17 @@ export function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHov
       <Alfombra p={[3.2, 0.02, 0.3]} s={[4.2, 2.8]} color="#6f9b86" />
       </group>
 
+      {agregados.map((c) => <Decorado key={c.id} cuarto={c} />)}
+
       {/* Focos empotrados en el techo de cada habitación. */}
       {[[-7.7, 3.55], [-3.0, 3.55], [-1.0, 3.55], [-3.0, 7.3], [-1.0, 7.3], [2.2, 7.3], [4.4, 7.3], [2.2, 3.55], [4.4, 3.55]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => <Foco key={`${x}${y}${z}`} p={[desplazarX(x), y, z]} />))}
+
+      {noche && luz && agregados.map((c) => (
+        <mesh key={`lza${c.id}`} position={[(c.x0 + c.x1) / 2, c.y0 + 0.058, 0.1]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[Math.min(c.x1 - c.x0, 6), 5]} />
+          <meshBasicMaterial map={luz} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+        </mesh>
+      ))}
 
       {noche && luz && [[-7.7, 0], [-3.0, 0], [-1.0, 0], [-3.0, 3.75], [-1.0, 3.75], [2.2, 3.75], [4.4, 3.75], [2.2, 0], [4.4, 0]].flatMap(([x, y]) => [-1.2, 1.4].map((z) => (
         <mesh key={`lz${x}${y}${z}`} position={[desplazarX(x), y + 0.058, z]} rotation={[-Math.PI / 2, 0, 0]}>

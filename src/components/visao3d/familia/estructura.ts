@@ -1,9 +1,7 @@
 import { PaletaCielo } from '../base/Compartido3D';
-import { TV } from './Objetos';
-import { Sabio } from './Sabio';
-import { X_CENTRO, X_COCHERA, X_DER, X_IZQ } from './layout';
 import { GrupoId } from '@/lib/visao3d';
-import { ObjetoCasa, SalaId } from '@/lib/visao3dCasa';
+import { ObjetoCasa } from '@/lib/visao3dCasa';
+import type { PlanoCasa } from '@/lib/visao3dCasaPlano';
 
 export type V3 = [number, number, number];
 
@@ -11,24 +9,17 @@ export type V3 = [number, number, number];
 // hasta 5 por habitación, centradas); las piezas grandes tienen sitio propio: el auto en la entrada, el sofá y la TV en el living.
 export type Lugar = { pos: V3; escala: number; rot: number; sobrePilar: boolean };
 
-export const AREA_SALA: Record<Exclude<SalaId, 'entrada'>, { x0: number; x1: number; y0: number }> = {
-  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0 },
-  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0 },
-  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.75 },
-  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.75 },
-  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0 },
-};
 export const ALTO_PILAR = 0.7;
 export const ESCALA_TIPO: Partial<Record<string, number>> = { casa: 0.55, banco: 0.7, resultado: 0.9, capital: 0.8 };
 
-export function lugarDe(o: ObjetoCasa): Lugar {
+export function lugarDe(o: ObjetoCasa, plano: PlanoCasa): Lugar {
   if (o.modo === 'auto') return { pos: [o.indice === 0 ? -9.5 : -7.6, 0, 9.2], escala: 1, rot: Math.PI / 2, sobrePilar: false };
   if (o.modo === 'sofa') return { pos: [-5.15, 0, -1.6], escala: 1, rot: Math.PI / 2, sobrePilar: false };
   if (o.modo === 'tv') return { pos: [-2.6, 0, -3.0], escala: 1, rot: 0, sobrePilar: false };
-  const area = AREA_SALA[o.sala as Exclude<SalaId, 'entrada'>];
+  const area = plano.cuartos.find((c) => c.id === o.sala) ?? plano.cuartos[0];
   const cx = (area.x0 + area.x1) / 2;
   const paso = Math.min(1.3, (area.x1 - area.x0 - 1.4) / Math.max(1, o.enFila - 1));
-  return { pos: [cx + (o.indice - (o.enFila - 1) / 2) * paso, area.y0 + ALTO_PILAR, 2.4 - o.fila * 1.5], escala: ESCALA_TIPO[o.tipo] ?? 0.8, rot: 0, sobrePilar: true };
+  return { pos: [cx + (o.indice - (o.enFila - 1) / 2) * paso, area.y0 + ALTO_PILAR, 2.4], escala: ESCALA_TIPO[o.tipo] ?? 0.8, rot: 0, sobrePilar: true };
 }
 
 // Cuánto se acerca la cámara al tocar cada objeto (los chicos necesitan más cerca) y a qué altura sobre su base mira.
@@ -39,14 +30,6 @@ export function encuadreDe(o: ObjetoCasa): { dist: number; alto: number } {
   if (o.tipo === 'resultado') return { dist: 5.4, alto: 0.8 };
   return { dist: 4.3, alto: 0.5 };
 }
-
-export const ZONAS = {
-  garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, y1: 3.6, grupo: 'ACTIVO' as GrupoId },
-  living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0, y1: 3.6, grupo: 'ACTIVO' as GrupoId },
-  dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.75, y1: 7.35, grupo: 'ACTIVO' as GrupoId },
-  oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.75, y1: 7.35, grupo: 'PASIVO' as GrupoId },
-  comedor: { x0: X_CENTRO, x1: X_DER, y0: 0, y1: 3.6, grupo: 'PATRIMONIO' as GrupoId },
-};
 
 // Pintura suave de cada habitación (color del grupo en pastel) y un tono algo más marcado en los vértices, para que se lean como límites.
 export const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#b3cdff', PASIVO: '#ffcda0', PATRIMONIO: '#d8bbf8' };

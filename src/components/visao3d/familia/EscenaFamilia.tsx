@@ -12,7 +12,7 @@ import { Sabio } from './Sabio';
 import { CLAVE_HORA, HORAS, Hora, SABIO_POS, V3, encuadreDe, lugarDe } from './estructura';
 import { GrupoId, NodoEdificio } from '@/lib/visao3d';
 import { leerCalidad, usaSombras } from '@/lib/visao3dCalidad';
-import { ObjetoCasa } from '@/lib/visao3dCasa';
+import { ObjetoCasa, planoDeObjetos } from '@/lib/visao3dCasa';
 import { COLOR_GRUPO } from '@/lib/visao3dLayout';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
@@ -31,7 +31,6 @@ type Props = {
 };
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
-const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-17, 0, -6), new THREE.Vector3(13, 9, 8));
 
 export default function EscenaCasa({ objetos, totales, seleccionadoId, onSeleccionar, formatear, movimientoReducido, periodoClave, esPT }: Props) {
   const [hora, setHoraEstado] = useState<Hora>('atardecer');
@@ -62,7 +61,10 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
   const [dprMax] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 1.25 : 1.75));
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o)])), [objetos]);
+  const plano = useMemo(() => planoDeObjetos(objetos), [objetos]);
+  const lugares = useMemo(() => new Map(objetos.map((o) => [o.id, lugarDe(o, plano)])), [objetos, plano]);
+  // Los límites del desplazamiento y la cámara inicial siguen el tamaño de la casa (la base mide de -11,6 a 6,8 y 2 pisos).
+  const limitePan = useMemo(() => new THREE.Box3(new THREE.Vector3(plano.x0 - 5.4, 0, -6), new THREE.Vector3(plano.x1 + 6.2, plano.pisos * 3.75 + 1.5, 8)), [plano]);
   const { objetivo, distancia } = useMemo(() => {
     const sel = objetos.find((o) => o.id === seleccionadoId);
     if (sel) {
@@ -70,8 +72,9 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
       const { dist, alto } = encuadreDe(sel);
       return { objetivo: new THREE.Vector3(x, y + alto, z), distancia: dist };
     }
-    return { objetivo: new THREE.Vector3(-0.6, 4.0, 1.2), distancia: 29 };
-  }, [objetos, lugares, seleccionadoId]);
+    const ancho = plano.x1 - plano.x0;
+    return { objetivo: new THREE.Vector3((plano.x0 + plano.x1) / 2 + 1.8, plano.pisos * 2.0, 1.2), distancia: 29 + Math.max(0, ancho - 18.4) * 0.95 + Math.max(0, plano.pisos - 2) * 5 };
+  }, [objetos, lugares, seleccionadoId, plano]);
 
   const etiquetas = useMemo<Etiqueta[]>(
     () =>
@@ -93,16 +96,16 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
     [objetos, lugares, seleccionadoId]
   );
 
-  const placas = useMemo(
-    () =>
-      (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
-        g,
-        lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
-        pos: (g === 'ACTIVO' ? [-9.6, 9.6, 1.0] : g === 'PASIVO' ? [9.9, 9.8, 1.0] : [10.2, 5.4, 0.6]) as V3,
-        ancla: (g === 'ACTIVO' ? [-5.7, 5.5, 0.6] : g === 'PASIVO' ? [6.8, 5.5, 0.6] : [6.8, 1.7, 0.2]) as V3,
-      })),
-    [totales, formatear]
-  );
+  // Los globos de cada grupo siguen el borde de la casa (en la base: Activo a la izquierda, Pasivo y Patrimonio a la derecha).
+  const placas = useMemo(() => {
+    const alto = plano.pisos * 3.75 + 2.1;
+    return (['ACTIVO', 'PASIVO', 'PATRIMONIO'] as GrupoId[]).map((g) => ({
+      g,
+      lineas: [totales[g].nombre.toUpperCase(), formatear(totales[g].saldo)],
+      pos: (g === 'ACTIVO' ? [plano.x0 + 2, alto, 1.0] : g === 'PASIVO' ? [plano.x1 + 3.1, alto + 0.2, 1.0] : [plano.x1 + 3.4, 5.4, 0.6]) as V3,
+      ancla: (g === 'ACTIVO' ? [-5.7, 5.5, 0.6] : g === 'PASIVO' ? [plano.x1, 5.5, 0.6] : [plano.x1, 1.7, 0.2]) as V3,
+    }));
+  }, [totales, formatear, plano]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -130,14 +133,14 @@ export default function EscenaCasa({ objetos, totales, seleccionadoId, onSelecci
         <GrupoAnimado clave={`casa|${periodoClave}`} movimientoReducido={movimientoReducido}>
           <Exterior noche={noche} />
           <Sabio p={SABIO_POS} esc={1.2} rot={-0.35} esPT={esPT} />
-          <Casa hora={hora} noche={noche} esPT={Boolean(esPT)} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
+          <Casa plano={plano} hora={hora} noche={noche} esPT={Boolean(esPT)} objetos={objetos} seleccionadoId={seleccionadoId} hover={hover} setHover={setHover} onSeleccionar={onSeleccionar} />
           {placas.map(({ g, lineas, pos, ancla }, i) => (
             <Globo key={g} pos={pos} ancla={ancla} lineas={lineas} color={COLOR_GRUPO[g]} fase={i * 2.1} />
           ))}
         </GrupoAnimado>
         </SombrasCtx.Provider>
 
-        <OrbitControls makeDefault enablePan screenSpacePanning={false} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} onChange={(e) => e?.target.target.clamp(LIMITE_PAN.min, LIMITE_PAN.max)} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enablePan screenSpacePanning={false} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} onChange={(e) => e?.target.target.clamp(limitePan.min, limitePan.max)} minDistance={2.5} maxDistance={55} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.04} enableDamping dampingFactor={0.08} />
         <CamaraGuiada objetivo={objetivo} distancia={distancia} focoId="casa" movimientoReducido={movimientoReducido} />
         <Proyector etiquetas={etiquetas} refs={refs} />
       </Canvas>

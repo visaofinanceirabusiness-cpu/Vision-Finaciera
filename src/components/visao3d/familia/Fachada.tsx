@@ -5,7 +5,9 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { esInteriorEn } from './Paredes';
 import { PROF, X_COCHERA, X_DER, X_IZQ, Z_ATRAS } from './layout';
+import type { Cuarto } from '@/lib/visao3dCasaPlano';
 
 type V3 = [number, number, number];
 
@@ -219,6 +221,46 @@ export function Fachada() {
         <boxGeometry args={[anchoTecho + 0.05, 0.1, 0.34]} />
         <meshStandardMaterial color="#2a2f39" roughness={0.7} />
       </mesh>
+    </group>
+  );
+}
+
+// Exterior de una casa ampliada (más cuartos que la base): ladrillo por fuera en cada cuarto y techo plano donde no hay otro piso encima.
+// La casa base conserva su fachada con techo a dos aguas (Fachada); acá no hay tejado porque los pisos agregados lo taparían.
+export function FachadaPlano({ cuartos }: { cuartos: Cuarto[] }) {
+  const ladrillo = useMemo(() => (typeof document === 'undefined' ? null : texturaLadrillo()), []);
+  useEffect(() => () => ladrillo?.dispose(), [ladrillo]);
+  if (!ladrillo) return null;
+  const cz = Z_ATRAS + PROF / 2;
+  const afuera = GROSOR_PARED / 2 + PANEL / 2;
+  const zFondo = Z_ATRAS - 0.06 - PANEL / 2;
+  return (
+    <group>
+      {cuartos.map((c) => {
+        const alto = c.y1 - c.y0 + 0.08;
+        const cy = c.y0 + alto / 2 - 0.04;
+        const cx = (c.x0 + c.x1) / 2;
+        const sinSuperior = !cuartos.some((o) => o.y0 > c.y0 && o.x0 < c.x1 - 0.05 && o.x1 > c.x0 + 0.05);
+        return (
+          <group key={c.id}>
+            <Panel p={[cx, cy, zFondo]} s={[c.x1 - c.x0, alto, PANEL]} map={ladrillo} lado={1.6} />
+            {!esInteriorEn(cuartos, c, c.x0) && <Panel p={[c.x0 - afuera, cy, cz]} s={[PANEL, alto, PROF]} map={ladrillo} lado={1.6} />}
+            {!esInteriorEn(cuartos, c, c.x1) && <Panel p={[c.x1 + afuera, cy, cz]} s={[PANEL, alto, PROF]} map={ladrillo} lado={1.6} />}
+            {sinSuperior && (
+              <>
+                <mesh position={[cx, c.y1 + 0.08, 0]}>
+                  <boxGeometry args={[c.x1 - c.x0 + 0.3, 0.16, PROF + 1.1]} />
+                  <meshStandardMaterial color="#e9edf3" roughness={0.6} />
+                </mesh>
+                <mesh position={[cx, c.y1 + 0.2, 0]}>
+                  <boxGeometry args={[c.x1 - c.x0 + 0.3, 0.1, PROF + 1.1]} />
+                  <meshStandardMaterial color="#3a4150" roughness={0.8} />
+                </mesh>
+              </>
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 }

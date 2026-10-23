@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ZONAS } from '@/components/visao3d/familia/estructura';
+import { X_CENTRO, X_COCHERA, X_DER, X_IZQ } from '@/components/visao3d/familia/layout';
 import { CAPACIDAD_CUARTO, MAX_COLUMNAS_ACTIVO, MAX_COLUMNAS_DERECHA, planificarCasa } from './visao3dCasaPlano';
 
 const plano = (a: number, p: number, n: number) => planificarCasa({ ACTIVO: a, PASIVO: p, PATRIMONIO: n });
@@ -9,6 +9,13 @@ describe('planificarCasa', () => {
   it('con pocas cuentas es la casa base de 5 cuartos, con las medidas de la casa dibujada', () => {
     const p = plano(0, 0, 0);
     expect(p.cuartos.map((c) => c.id).sort()).toEqual(['comedor', 'dormitorio', 'garage', 'living', 'oficina']);
+    const ZONAS = {
+      garage: { x0: X_IZQ, x1: X_COCHERA, y0: 0, grupo: 'ACTIVO' },
+      living: { x0: X_COCHERA, x1: X_CENTRO, y0: 0, grupo: 'ACTIVO' },
+      dormitorio: { x0: X_COCHERA, x1: X_CENTRO, y0: 3.75, grupo: 'ACTIVO' },
+      oficina: { x0: X_CENTRO, x1: X_DER, y0: 3.75, grupo: 'PASIVO' },
+      comedor: { x0: X_CENTRO, x1: X_DER, y0: 0, grupo: 'PATRIMONIO' },
+    };
     for (const [id, z] of Object.entries(ZONAS)) {
       const c = p.cuartos.find((x) => x.id === id)!;
       expect(c.grupo).toBe(z.grupo);

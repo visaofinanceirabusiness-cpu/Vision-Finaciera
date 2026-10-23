@@ -10,20 +10,16 @@ import { grupoDeCuentaActivo, normalizar } from './gruposActivo';
 import { grupoDeCuentaPasivo } from './gruposPasivo';
 import { grupoDeCuentaPatrimonio } from './gruposPatrimonio';
 import { tipoObjeto, type TipoObjeto } from './visao3dObjetos';
+import { CAPACIDAD_CUARTO, planificarCasa, type PlanoCasa } from './visao3dCasaPlano';
 import type { GrupoId, NodoEdificio } from './visao3d';
 
-export const CAPACIDAD_SALA = 5;
+export const CAPACIDAD_SALA = CAPACIDAD_CUARTO;
 // Mismo umbral que el Panel de Control: por debajo de 0,50 la cuenta se considera en cero.
 export const UMBRAL_SALDO = 0.5;
 
-export type SalaId = 'garage' | 'living' | 'dormitorio' | 'oficina' | 'comedor' | 'entrada';
-
-// Habitaciones de cada grupo en el orden en que se llenan (modelo base; más adelante crecen con cuartos al lado y pisos).
-export const SALAS_POR_ZONA: Record<GrupoId, SalaId[]> = {
-  ACTIVO: ['garage', 'living', 'dormitorio'],
-  PASIVO: ['oficina'],
-  PATRIMONIO: ['comedor'],
-};
+// Id del cuarto del plano de la casa (ver visao3dCasaPlano.ts): 'garage', 'living', 'dormitorio', 'oficina', 'comedor' en la
+// base y 'activo-4', 'pasivo-2'… los agregados al crecer; 'entrada' es el frente de la cochera (donde se estaciona el auto).
+export type SalaId = string;
 
 // 'plinto' = objeto sobre un pilar; los demás son piezas grandes que van en el piso (el auto en la entrada, el sofá y la TV en el living).
 export type ModoObjeto = 'plinto' | 'auto' | 'sofa' | 'tv';
@@ -36,7 +32,7 @@ export type ObjetoCasa = {
   tipo: TipoObjeto;
   modo: ModoObjeto;
   sala: SalaId;
-  fila: number; // 0 = al frente; más filas solo si se supera lo que entra en las habitaciones del grupo
+  fila: number; // siempre 0: lo que no entra en un cuarto pasa a un cuarto nuevo del plano, no a otra fila
   indice: number; // posición dentro de su fila
   enFila: number; // cuántos objetos tiene su fila (para centrarla)
 };
@@ -59,12 +55,15 @@ function grupoPanelDe(zona: GrupoId, { nodo, ancestros }: Hoja, tipo: TipoObjeto
   return grupoDeCuentaPatrimonio({ nombre: nodo.nombre, codigo: nodo.codigo });
 }
 
-export function construirObjetosCasa(raiz: NodoEdificio): ObjetoCasa[] {
-  const resultado: ObjetoCasa[] = [];
+type Candidato = Hoja & { tipo: TipoObjeto; grupoPanel: string };
+type Clasificado = { zona: GrupoId; piezas: ObjetoCasa[]; enPlinto: Candidato[] };
+
+function clasificar(raiz: NodoEdificio): Clasificado[] {
+  const grupos: Clasificado[] = [];
 
   for (const grupo of raiz.hijos) {
     const zona = grupo.grupo;
-    const con: Array<Hoja & { tipo: TipoObjeto; grupoPanel: string }> = hojasConRuta(grupo)
+    const con: Candidato[] = hojasConRuta(grupo)
       .filter((h) => Math.abs(h.nodo.saldo) >= UMBRAL_SALDO)
       .map((h) => {
         const tipo = tipoObjeto(h.nodo.nombre, h.nodo.sintetico);
@@ -76,11 +75,10 @@ export function construirObjetosCasa(raiz: NodoEdificio): ObjetoCasa[] {
     con.forEach((h) => totales.set(h.grupoPanel, (totales.get(h.grupoPanel) ?? 0) + Math.abs(h.nodo.saldo)));
     con.sort((a, b) => (totales.get(b.grupoPanel)! - totales.get(a.grupoPanel)!) || a.grupoPanel.localeCompare(b.grupoPanel) || Math.abs(b.nodo.saldo) - Math.abs(a.nodo.saldo));
 
-    const salas = SALAS_POR_ZONA[zona];
     let autos = 0;
     let haySofa = false;
     let hayTv = false;
-    const enPlinto: typeof con = [];
+    const enPlinto: Candidato[] = [];
     const piezas: ObjetoCasa[] = [];
 
     for (const h of con) {
@@ -98,21 +96,45 @@ export function construirObjetosCasa(raiz: NodoEdificio): ObjetoCasa[] {
         enPlinto.push(h);
       }
     }
+    grupos.push({ zona, piezas, enPlinto });
+  }
 
-    // Llenado corrido: 5 por habitación en el orden de las habitaciones; lo que sobra pasa a filas de atrás de la última.
-    const capacidadTotal = salas.length * CAPACIDAD_SALA;
-    const colocados: ObjetoCasa[] = enPlinto.map((h, i) => {
-      const dentro = i < capacidadTotal;
-      const sala = dentro ? salas[Math.floor(i / CAPACIDAD_SALA)] : salas[salas.length - 1];
-      const fila = dentro ? 0 : 1 + Math.floor((i - capacidadTotal) / CAPACIDAD_SALA);
-      return { id: h.nodo.id, nodo: h.nodo, zona, grupoPanel: h.grupoPanel, tipo: h.tipo, modo: 'plinto', sala, fila, indice: 0, enFila: 1 };
-    });
-    const porFila = new Map<string, ObjetoCasa[]>();
-    colocados.forEach((o) => {
-      const clave = `${o.sala}|${o.fila}`;
-      porFila.set(clave, [...(porFila.get(clave) ?? []), o]);
-    });
-    porFila.forEach((lista) => lista.forEach((o, i) => { o.indice = i; o.enFila = lista.length; }));
+  return grupos;
+}
+
+// El auto, el sofá y la TV tienen sitio propio y no ocupan lugar en un cuarto: solo cuentan los objetos sobre pilar.
+function planoDeGrupos(grupos: Clasificado[]): PlanoCasa {
+  const conteo: Record<GrupoId, number> = { ACTIVO: 0, PASIVO: 0, PATRIMONIO: 0 };
+  grupos.forEach((g) => {
+    conteo[g.zona] += g.enPlinto.length;
+  });
+  return planificarCasa(conteo);
+}
+
+// Mismo plano a partir de los objetos ya armados (es lo que recibe la escena).
+export function planoDeObjetos(objetos: ObjetoCasa[]): PlanoCasa {
+  const conteo: Record<GrupoId, number> = { ACTIVO: 0, PASIVO: 0, PATRIMONIO: 0 };
+  objetos.forEach((o) => {
+    if (o.modo === 'plinto') conteo[o.zona] += 1;
+  });
+  return planificarCasa(conteo);
+}
+
+export function construirObjetosCasa(raiz: NodoEdificio): ObjetoCasa[] {
+  const grupos = clasificar(raiz);
+  const plano = planoDeGrupos(grupos);
+  const resultado: ObjetoCasa[] = [];
+
+  for (const { zona, piezas, enPlinto } of grupos) {
+    // Llenado corrido: 5 por cuarto en el orden de los cuartos del grupo; si hacen falta más, el plano agrega cuartos.
+    const cuartos = plano.cuartosDe(zona);
+    const colocados: ObjetoCasa[] = enPlinto.map((h, i) => ({
+      id: h.nodo.id, nodo: h.nodo, zona, grupoPanel: h.grupoPanel, tipo: h.tipo, modo: 'plinto',
+      sala: cuartos[Math.floor(i / CAPACIDAD_SALA)].id, fila: 0, indice: i % CAPACIDAD_SALA, enFila: 1,
+    }));
+    const porSala = new Map<string, ObjetoCasa[]>();
+    colocados.forEach((o) => porSala.set(o.sala, [...(porSala.get(o.sala) ?? []), o]));
+    porSala.forEach((lista) => lista.forEach((o) => { o.enFila = lista.length; }));
 
     resultado.push(...piezas, ...colocados);
   }
