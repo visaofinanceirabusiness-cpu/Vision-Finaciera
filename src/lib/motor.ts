@@ -7,6 +7,7 @@
 
 import { aCentavos } from './centavos';
 import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
+import { cambioDejaSaldoNegativo, primerDiaSinSaldo, saldoAFecha, saldoUtilizableAFecha, type MovimientoCuenta } from './saldoFecha';
 import { supabase } from './supabase';
 import { cuentaMedioDeLiquidacion, medioNoValidoParaLiquidar } from './liquidacion';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
@@ -706,6 +707,58 @@ export async function obtenerSaldoCuenta(empresaId: string, nombreCuenta: string
 }
 
 // =====================================================
+// MOVIMIENTOS DE UNA CUENTA (historial completo, con signo)
+// =====================================================
+//
+// Para validar contra el saldo de HOY y de las fechas posteriores a la de una operación (ver saldoFecha.ts). PostgREST
+// devuelve como mucho 1000 filas por consulta: se pide por páginas para no calcular el saldo con el historial cortado.
+
+async function traerTodo<T>(pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const filas: T[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await pagina(desde, desde + 999);
+    if (error) throw error;
+    filas.push(...(data ?? []));
+    if (!data || data.length < 1000) return filas;
+  }
+}
+
+type HistorialCuenta = {
+  naturaleza: string;
+  saldoInicial: number;
+  movimientos: (MovimientoCuenta & { idOperacion: string | null })[];
+};
+
+async function historialDeCuenta(empresaId: string, nombreCuenta: string): Promise<HistorialCuenta | null> {
+  const { data: cuenta } = await supabase
+    .from('plan_cuentas')
+    .select('naturaleza, saldo_inicial')
+    .eq('empresa_id', empresaId)
+    .eq('nombre', nombreCuenta)
+    .maybeSingle();
+
+  if (!cuenta) return null;
+
+  const signoDebito = cuenta.naturaleza === 'ACREEDORA' ? -1 : 1;
+
+  const [opsDebito, opsCredito, autoDebito, autoCredito] = await Promise.all([
+    traerTodo<{ fecha: string; total: number | string; id_operacion: string | null }>((d, h) => supabase.from('registro_operaciones').select('fecha, total, id_operacion').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).order('id').range(d, h)),
+    traerTodo<{ fecha: string; total: number | string; id_operacion: string | null }>((d, h) => supabase.from('registro_operaciones').select('fecha, total, id_operacion').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).order('id').range(d, h)),
+    traerTodo<{ fecha: string; importe: number | string; id_operacion: string | null }>((d, h) => supabase.from('registros_automaticos').select('fecha, importe, id_operacion').eq('empresa_id', empresaId).eq('cuenta_debito', nombreCuenta).order('id').range(d, h)),
+    traerTodo<{ fecha: string; importe: number | string; id_operacion: string | null }>((d, h) => supabase.from('registros_automaticos').select('fecha, importe, id_operacion').eq('empresa_id', empresaId).eq('cuenta_credito', nombreCuenta).order('id').range(d, h)),
+  ]);
+
+  const movimientos = [
+    ...opsDebito.map((f) => ({ fecha: String(f.fecha), delta: signoDebito * Number(f.total ?? 0), idOperacion: f.id_operacion })),
+    ...opsCredito.map((f) => ({ fecha: String(f.fecha), delta: -signoDebito * Number(f.total ?? 0), idOperacion: f.id_operacion })),
+    ...autoDebito.map((f) => ({ fecha: String(f.fecha), delta: signoDebito * Number(f.importe ?? 0), idOperacion: f.id_operacion })),
+    ...autoCredito.map((f) => ({ fecha: String(f.fecha), delta: -signoDebito * Number(f.importe ?? 0), idOperacion: f.id_operacion })),
+  ];
+
+  return { naturaleza: cuenta.naturaleza as string, saldoInicial: Number(cuenta.saldo_inicial ?? 0), movimientos };
+}
+
+// =====================================================
 // VALIDAR EL MEDIO DE UNA LIQUIDACIÓN
 // =====================================================
 //
@@ -829,29 +882,45 @@ export async function registrarOperacion(
   // una cuenta DEUDORA creciendo por el débito.
   // ---------------------------------------------------
 
+  // Además del saldo en la fecha de la operación, lo que se resta no puede dejar sin fondos a un movimiento ya cargado con fecha
+  // posterior (ej.: ingreso 01/06, pago 10/09 y un pago nuevo el 15/06 → el del 10/09 quedaría sin saldo).
   if (regla.cuenta_credito) {
-    const cuentaCredito = await obtenerSaldoCuenta(empresaId, regla.cuenta_credito, formulario.fecha);
+    const historial = await historialDeCuenta(empresaId, regla.cuenta_credito);
 
-    if (cuentaCredito && cuentaCredito.naturaleza === 'DEUDORA') {
-      const saldoResultante = aCentavos(cuentaCredito.saldo - total);
+    if (historial && historial.naturaleza === 'DEUDORA') {
+      const saldo = saldoAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha);
 
-      if (saldoResultante < 0) {
+      if (aCentavos(saldo - total) < 0) {
         throw new Error(
-          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación en la fecha indicada. Saldo disponible al ${formulario.fecha}: R$ ${cuentaCredito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}. Registrá una Inversión (aporte) con fecha anterior o igual a esta para cubrir la diferencia.`
+          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación en la fecha indicada. Saldo disponible al ${formulario.fecha}: R$ ${saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}. Registrá una Inversión (aporte) con fecha anterior o igual a esta para cubrir la diferencia.`
+        );
+      }
+
+      if (aCentavos(saldoUtilizableAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha) - total) < 0) {
+        const dia = primerDiaSinSaldo(historial.saldoInicial, historial.movimientos, formulario.fecha, total);
+        throw new Error(
+          `Esta operación dejaría sin saldo a "${regla.cuenta_credito}" más adelante: un movimiento ya cargado con fecha posterior (el ${dia ?? 'día siguiente'}) necesita ese dinero. Registrá antes un ingreso o aporte con fecha anterior, o usá una fecha posterior.`
         );
       }
     }
   }
 
   if (regla.cuenta_debito) {
-    const cuentaDebito = await obtenerSaldoCuenta(empresaId, regla.cuenta_debito, formulario.fecha);
+    const historial = await historialDeCuenta(empresaId, regla.cuenta_debito);
 
-    if (cuentaDebito && cuentaDebito.naturaleza === 'ACREEDORA') {
-      const saldoResultante = aCentavos(cuentaDebito.saldo - total);
+    if (historial && historial.naturaleza === 'ACREEDORA') {
+      const saldo = saldoAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha);
 
-      if (saldoResultante < 0) {
+      if (aCentavos(saldo - total) < 0) {
         throw new Error(
-          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) en la fecha indicada, y todavía no hay una cuenta de anticipo para eso. Saldo al ${formulario.fecha}: R$ ${cuentaDebito.saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) en la fecha indicada, y todavía no hay una cuenta de anticipo para eso. Saldo al ${formulario.fecha}: R$ ${saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
+        );
+      }
+
+      if (aCentavos(saldoUtilizableAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha) - total) < 0) {
+        const dia = primerDiaSinSaldo(historial.saldoInicial, historial.movimientos, formulario.fecha, total);
+        throw new Error(
+          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) más adelante, el ${dia ?? 'día siguiente'}, por un movimiento ya cargado con fecha posterior. Usá una fecha posterior a ese movimiento.`
         );
       }
     }
@@ -1425,11 +1494,61 @@ async function validarQueElCambioNoDejeStockNegativo(
   );
 }
 
+// Antes de borrar o editar una operación: si algún movimiento suyo sostiene el saldo de una cuenta (un ingreso que financia un pago
+// posterior, una deuda que después se paga), quitarlo o cambiarlo dejaría la cuenta en negativo. Se rechaza ANTES de tocar nada.
+// `nueva` es el asiento principal que la versión editada volvería a generar (null al eliminar); el CMV automático no se simula:
+// solo quita o mueve importes de cuentas de Costo/Stock, y el Stock ya lo cubre validarQueElCambioNoDejeStockNegativo.
+async function validarQueElCambioNoDejeSaldoNegativo(
+  empresaId: string,
+  idOperacion: string,
+  nueva: { cuenta_debito: string | null; cuenta_credito: string | null; total: number; fecha: string } | null
+) {
+  const [{ data: ops }, { data: autos }] = await Promise.all([
+    supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, fecha').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+    supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, fecha').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+  ]);
+
+  const filasViejas = [...(ops ?? []), ...(autos ?? [])];
+  const cuentas = new Set<string>();
+  filasViejas.forEach((f) => [f.cuenta_debito, f.cuenta_credito].forEach((c) => c && cuentas.add(c as string)));
+  if (nueva) [nueva.cuenta_debito, nueva.cuenta_credito].forEach((c) => c && cuentas.add(c));
+
+  const problemas: string[] = [];
+
+  for (const nombre of cuentas) {
+    const historial = await historialDeCuenta(empresaId, nombre);
+    if (!historial) continue;
+
+    const signoDebito = historial.naturaleza === 'ACREEDORA' ? -1 : 1;
+    const antes = historial.movimientos;
+    const despues: MovimientoCuenta[] = antes.filter((mov) => mov.idOperacion !== idOperacion);
+    const fechas = filasViejas.filter((f) => f.cuenta_debito === nombre || f.cuenta_credito === nombre).map((f) => String(f.fecha));
+
+    if (nueva) {
+      if (nueva.cuenta_debito === nombre) despues.push({ fecha: nueva.fecha, delta: signoDebito * nueva.total });
+      if (nueva.cuenta_credito === nombre) despues.push({ fecha: nueva.fecha, delta: -signoDebito * nueva.total });
+      fechas.push(nueva.fecha);
+    }
+
+    if (fechas.length === 0) continue;
+
+    const dia = cambioDejaSaldoNegativo(historial.saldoInicial, antes, despues, fechas.sort()[0]);
+    if (dia) problemas.push(`"${nombre}" (quedaría en negativo el ${dia})`);
+  }
+
+  if (problemas.length > 0) {
+    throw new Error(
+      `No se puede cambiar ${idOperacion}: el saldo de ${problemas.join(', ')} lo necesitan movimientos ya cargados con fecha posterior. Registrá antes un ingreso con fecha anterior, o corregí primero esos movimientos.`
+    );
+  }
+}
+
 export async function eliminarOperacion(
   empresaId: string,
   idOperacion: string
 ) {
   await validarQueElCambioNoDejeStockNegativo(empresaId, idOperacion, []);
+  await validarQueElCambioNoDejeSaldoNegativo(empresaId, idOperacion, null);
 
   const errores = await limpiarOperacion(
     empresaId,
@@ -1490,6 +1609,12 @@ export async function editarOperacion(
           .map((l) => ({ producto_id: l.producto, tipo: formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA', cantidad: Number(l.cantidad), fecha: formulario.fecha }))
       : []
   );
+  await validarQueElCambioNoDejeSaldoNegativo(empresaId, idOperacion, {
+    cuenta_debito: regla.cuenta_debito ?? null,
+    cuenta_credito: regla.cuenta_credito ?? null,
+    total: formulario.lineas.reduce((suma, l) => suma + Number(l.cantidad) * Number(l.monto), 0),
+    fecha: formulario.fecha,
+  });
 
   const erroresLimpieza = await limpiarOperacion(empresaId, idOperacion);
 
