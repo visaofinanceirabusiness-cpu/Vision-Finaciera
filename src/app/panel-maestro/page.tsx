@@ -681,6 +681,13 @@ export default function PanelMaestroPage() {
             />
 
             <TarjetaHerramientaMaestro
+              href="/panel-maestro/apertura-visao-3d"
+              emoji="🏢"
+              titulo="Apertura de Visão 3D"
+              color="#0ea5e9"
+            />
+
+            <TarjetaHerramientaMaestro
               href="/panel-maestro/probar-tutorial"
               emoji="🧪"
               titulo="Probar tutorial de empresas nuevas"

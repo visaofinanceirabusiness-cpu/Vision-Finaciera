@@ -18,6 +18,7 @@ import { nombreCuentaDisplay } from '@/lib/i18n';
 import { empresaTieneOnboardingCompleto } from '@/lib/onboarding';
 import { cargarDatosVisao3D } from '@/lib/visao3dDatos';
 import { empresaTieneVisao3D, escenaDePerfil } from '@/lib/visao3dEmpresas';
+import { cargarAperturaVisao3D } from '@/lib/visao3dApertura';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
 import { construirObjetosCasa } from '@/lib/visao3dCasa';
@@ -131,7 +132,7 @@ export default function Visao3DPage() {
       const perfilCodigo = (Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) ?? null;
       const familiar = escenaDePerfil(perfilCodigo) === 'casa';
       // Apertura progresiva por perfil / piloto por empresa (ver lib/visao3dEmpresas.ts).
-      if (!empresaTieneVisao3D(perfil.empresa_id, perfilCodigo)) {
+      if (!empresaTieneVisao3D(perfil.empresa_id, perfilCodigo, await cargarAperturaVisao3D())) {
         router.push('/');
         return;
       }

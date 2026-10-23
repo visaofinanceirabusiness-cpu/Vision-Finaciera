@@ -23,6 +23,7 @@ import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { useEstadoDemo } from '@/lib/demoEstado';
 import { EVENTO_PANTALLA_BLOQUEADA, rutaPermitidaEnDemo } from '@/lib/modoEspectador';
 import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
+import { cargarAperturaVisao3D } from '@/lib/visao3dApertura';
 
 type Herramienta = {
   href: string;
@@ -88,6 +89,8 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         .eq('leido', false);
       setMensajesSinLeer(count ?? 0);
 
+      const aperturaVisao3D = await cargarAperturaVisao3D();
+
       let tieneProduccion = false;
 
       try {
@@ -111,7 +114,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
           // Igual que en el lobby: el asistente no ve Informes.
           if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
           // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
-          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id, perfilCodigo) && perfil.tipo_usuario !== 'ASISTENTE';
+          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id, perfilCodigo, aperturaVisao3D) && perfil.tipo_usuario !== 'ASISTENTE';
           return true;
         })
       );

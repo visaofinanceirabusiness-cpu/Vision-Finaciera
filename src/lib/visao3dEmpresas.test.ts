@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { empresaTieneVisao3D, escenaDePerfil, PERFILES_ABIERTOS } from './visao3dEmpresas';
+import { empresaTieneVisao3D, escenaDePerfil, PERFILES_ABIERTOS, type FilaApertura } from './visao3dEmpresas';
 
 describe('empresaTieneVisao3D', () => {
   it('abierto a todo el perfil Familia y, de los demás, solo a Buenaventura (piloto)', () => {
@@ -18,5 +18,35 @@ describe('empresaTieneVisao3D', () => {
     expect(escenaDePerfil('PRODUCCION')).toBe('casa');
     expect(escenaDePerfil('OTRO')).toBe('edificio');
     expect(escenaDePerfil(null)).toBe('edificio');
+  });
+});
+
+describe('empresaTieneVisao3D con las reglas de la base', () => {
+  const fila = (tipo: string, clave: string, abierto: boolean): FilaApertura => ({ tipo, clave, abierto });
+  const base = [fila('GLOBAL', 'todos', true), fila('PERFIL', 'FAMILIAR', true), fila('EMPRESA', 'buena', true)];
+
+  it('abre por perfil y por empresa; sin fila está cerrado', () => {
+    expect(empresaTieneVisao3D('x', 'FAMILIAR', base)).toBe(true);
+    expect(empresaTieneVisao3D('buena', 'COMERCIAL', base)).toBe(true);
+    expect(empresaTieneVisao3D('x', 'COMERCIAL', base)).toBe(false);
+    expect(empresaTieneVisao3D(null, null, base)).toBe(false);
+  });
+
+  it('la excepción de la empresa gana sobre su perfil', () => {
+    expect(empresaTieneVisao3D('cerrada', 'FAMILIAR', [...base, fila('EMPRESA', 'cerrada', false)])).toBe(false);
+    expect(empresaTieneVisao3D('x', 'COMERCIAL', [...base, fila('PERFIL', 'COMERCIAL', false), fila('EMPRESA', 'x', true)])).toBe(true);
+  });
+
+  it('el apagado general cierra todo', () => {
+    expect(empresaTieneVisao3D('buena', 'FAMILIAR', [fila('GLOBAL', 'todos', false), ...base.slice(1)])).toBe(false);
+  });
+
+  it('un perfil con fila en cerrado está cerrado', () => {
+    expect(empresaTieneVisao3D('x', 'FAMILIAR', [fila('PERFIL', 'FAMILIAR', false)])).toBe(false);
+  });
+
+  it('si no se pudieron leer las reglas, vale el respaldo del código', () => {
+    expect(empresaTieneVisao3D('x', 'FAMILIAR', null)).toBe(true);
+    expect(empresaTieneVisao3D('x', 'COMERCIAL', null)).toBe(false);
   });
 });
