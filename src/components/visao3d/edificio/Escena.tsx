@@ -14,7 +14,7 @@ import { COLOR_GRUPO, type Piso, type Volumen } from '@/lib/visao3dLayout';
 import type { NodoEdificio } from '@/lib/visao3d';
 import { colorDeSaldo, tipoObjeto } from '@/lib/visao3dObjetos';
 import { ObjetoCuenta } from './Objetos';
-import { CamaraGuiada, Cielo, factorAncho, GrupoAnimado, Letrero, Proyector, Sombras, texturaProcedural, type Etiqueta } from './Compartido3D';
+import { CamaraGuiada, Cielo, factorAncho, GrupoAnimado, Letrero, Proyector, Sombras, texturaProcedural, type Etiqueta } from '../base/Compartido3D';
 
 // Con dos dedos (o botón derecho) se puede desplazar la vista, sin salirse de la escena.
 const LIMITE_PAN = new THREE.Box3(new THREE.Vector3(-14, 0, -10), new THREE.Vector3(14, 16, 10));

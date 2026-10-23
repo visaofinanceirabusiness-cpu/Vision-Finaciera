@@ -7,8 +7,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Fundido, Letrero } from './Compartido3D';
-import { ObjetoCatalogo } from './catalogo/ObjetoCatalogo';
+import { Fundido, Letrero } from '../base/Compartido3D';
+import { ObjetoCatalogo } from '../base/catalogo/ObjetoCatalogo';
 
 type V3 = [number, number, number];
 

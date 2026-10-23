@@ -5,6 +5,7 @@
 // se aplica también a los materiales del modelo para que siga leyéndose igual.
 
 import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -79,6 +80,17 @@ function Modelo({ url, entrada, estado }: { url: string; entrada: EntradaCatalog
     }
     return copia;
   }, [gltf, entrada.contorno, entrada.suavizar]);
+
+  // Animaciones del propio GLB (saludo, parpadeo): se reproducen todas en bucle.
+  const mezclador = useMemo(() => (gltf.animations.length ? new THREE.AnimationMixer(escena) : null), [gltf, escena]);
+  useEffect(() => {
+    if (!mezclador) return;
+    gltf.animations.forEach((clip) => mezclador.clipAction(clip).play());
+    return () => {
+      mezclador.stopAllAction();
+    };
+  }, [mezclador, gltf]);
+  useFrame((_, dt) => mezclador?.update(Math.min(dt, 0.1)));
 
   useEffect(() => {
     escena.traverse((o) => {

@@ -5,7 +5,7 @@
 
 import { useContext, useMemo } from 'react';
 import * as THREE from 'three';
-import { Caja, Cilindro, PantallaPlana, TexturasCtx } from './CasaMobiliario';
+import { Caja, Cilindro, PantallaPlana, TexturasCtx } from './Mobiliario';
 
 type V3 = [number, number, number];
 
