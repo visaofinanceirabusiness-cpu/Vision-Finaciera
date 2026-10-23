@@ -491,8 +491,8 @@ export function Documentos({ pintura, variante = 0 }: { pintura: Pintura; varian
   const { c, e, ei, claro, oscuro } = usar(pintura, NAT[`doc${variante}`]);
   const lineas = [0.22, 0.1, -0.02, -0.14].map((z, i) => <Caja key={z} p={[i === 3 ? -0.1 : 0, 0.215, z]} s={[i === 3 ? 0.4 : 0.6, 0.004, 0.035]} color="#6b7385" />);
   return (
-    // Inclinados 45° hacia la cámara: así se leen desde la vista normal sin tener que bajar la cámara.
-    <group position={[0, 0.2, 0.05]} rotation={[-Math.PI / 4, 0, 0]}>
+    // Inclinados 45° hacia el frente de la casa (+z, la calle): así se leen desde la vista normal sin bajar la cámara.
+    <group position={[0, 0.2, 0.05]} rotation={[Math.PI / 4, 0, 0]}>
       <Caja p={[0.04, 0.03, 0.02]} s={[0.78, 0.04, 1.0]} color="#f2f4f8" rough={0.9} rot={[0, 0.12, 0]} />
       <Caja p={[-0.03, 0.07, 0]} s={[0.78, 0.04, 1.0]} color="#ffffff" rough={0.9} rot={[0, -0.08, 0]} />
       <Caja p={[0, 0.12, 0]} s={[0.78, 0.05, 1.0]} color={claro} emissive={e} ei={ei} rough={0.8} />
