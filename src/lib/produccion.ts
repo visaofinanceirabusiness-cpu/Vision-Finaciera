@@ -16,6 +16,7 @@
 
 import { supabase } from './supabase';
 import { generarIdOperacion } from './motor';
+import { stockUtilizableAFecha } from './stockFecha';
 
 export type ProductoProduccion = {
   id: string;
@@ -399,32 +400,6 @@ export async function obtenerRecetaActiva(
 // receta a la unidad en la que se lleva el stock de ese insumo (ej.
 // receta pide 250 G de harina, el insumo "Harina" se compra y se
 // stockea en KG → se convierte antes de comparar contra el stock).
-
-type MovimientoSimple = { tipo: string; cantidad: number | string | null; fecha: string };
-
-// Lógica pura de stockDisponibleAFecha para un insumo (movimientos ya filtrados, en cualquier orden).
-export function stockUtilizableAFecha(movimientos: MovimientoSimple[], fecha: string): number {
-  const ordenados = [...movimientos].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
-  const delta = (m: MovimientoSimple) => (m.tipo === 'ENTRADA' ? 1 : -1) * Number(m.cantidad ?? 0);
-  let saldo = 0;
-  let i = 0;
-
-  while (i < ordenados.length && String(ordenados[i].fecha) <= fecha) {
-    saldo += delta(ordenados[i]);
-    i += 1;
-  }
-
-  let minimo = saldo;
-
-  while (i < ordenados.length) {
-    saldo += delta(ordenados[i]);
-    // Los movimientos de un mismo día se suman antes de mirar el saldo de ese día.
-    if (i + 1 >= ordenados.length || ordenados[i + 1].fecha !== ordenados[i].fecha) minimo = Math.min(minimo, saldo);
-    i += 1;
-  }
-
-  return minimo;
-}
 
 // Stock de cada insumo que se puede consumir produciendo en `fecha`: lo que había a esa fecha (entradas − salidas hasta ese día) y,
 // además, sin dejar el saldo en negativo en ningún día posterior (una venta o producción ya cargada después necesita ese stock).
