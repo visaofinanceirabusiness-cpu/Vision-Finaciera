@@ -21,6 +21,7 @@ import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
 import { construirEdificio, mesesDisponibles, movimientosDeCuenta, type AsientoVisao, type CuentaPlan, type EtiquetasGrupo, type NodoEdificio } from '@/lib/visao3d';
 import { caminoResuelto, COLOR_GRUPO, disenarVolumenes, hijosVisibles, resolverNodo } from '@/lib/visao3dLayout';
 import { construirObjetosCasa } from '@/lib/visao3dCasa';
+import { guardarPreferencia, leerCalidad, leerPreferencia, type Calidad, type Preferencia } from '@/lib/visao3dCalidad';
 
 const Escena = dynamic(() => import('@/components/visao3d/Escena'), {
   ssr: false,
@@ -70,6 +71,17 @@ export default function Visao3DPage() {
   const [webgl, setWebgl] = useState(true);
   // Pantalla inmersiva: el edificio ocupa todo; los controles viven en un menú y el panel es una hoja plegable.
   const [menuAbierto, setMenuAbierto] = useState(false);
+  // Calidad gráfica de la casa: automática según el equipo, o la que se elija en el menú (se recuerda).
+  const [preferenciaCalidad, setPreferenciaCalidad] = useState<Preferencia>('auto');
+  const [calidadAutomatica, setCalidadAutomatica] = useState<Calidad>('medio');
+  useEffect(() => {
+    setPreferenciaCalidad(leerPreferencia());
+    setCalidadAutomatica(leerCalidad().automatica);
+  }, []);
+  function elegirCalidad(p: Preferencia) {
+    guardarPreferencia(p);
+    setPreferenciaCalidad(p);
+  }
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [pista, setPista] = useState(true);
   // Pantalla de entrada: el toque que la cierra es el gesto que el navegador exige para pasar a pantalla completa.
@@ -297,6 +309,7 @@ export default function Visao3DPage() {
       ) : vista === '3d' && webgl && enCasa && objetosCasa ? (
         <div style={{ position: 'absolute', inset: 0 }}>
           <EscenaCasa
+            key={preferenciaCalidad}
             objetos={objetosCasa}
             totales={{
               ACTIVO: { nombre: edificio.raiz.hijos[0].nombre, saldo: edificio.raiz.hijos[0].saldo },
@@ -422,6 +435,21 @@ export default function Visao3DPage() {
               <button type="button" onClick={() => { setModo('edificio'); setSeleccionadoId(null); }} aria-pressed={modo === 'edificio'} style={interruptor(modo === 'edificio')}>
                 🏢 {esPT ? 'Prédio' : 'Edificio'}
               </button>
+            </div>
+          )}
+          {esFamiliar && modo === 'casa' && webgl && (
+            <div style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700 }}>{esPT ? 'Qualidade gráfica' : 'Calidad gráfica'}</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(['auto', 'bajo', 'medio', 'alto'] as const).map((q) => (
+                  <button key={q} type="button" onClick={() => elegirCalidad(q)} aria-pressed={preferenciaCalidad === q} style={interruptor(preferenciaCalidad === q)}>
+                    {q === 'auto' ? `⚙️ Auto (${calidadAutomatica})` : q === 'bajo' ? (esPT ? 'Baixa' : 'Baja') : q === 'medio' ? (esPT ? 'Média' : 'Media') : esPT ? 'Alta' : 'Alta'}
+                  </button>
+                ))}
+              </div>
+              <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                {esPT ? 'Alta: modelos 3D e sombras (só computador). Baixa: tudo leve.' : 'Alta: modelos 3D y sombras (solo computadora). Baja: todo liviano.'}
+              </span>
             </div>
           )}
           {webgl && (
