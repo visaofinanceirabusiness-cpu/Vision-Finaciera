@@ -17,7 +17,7 @@ import type { ObjetoCasa, SalaId } from '@/lib/visao3dCasa';
 import { normalizar } from '@/lib/gruposActivo';
 import { SombrasCtx, CamaraGuiada, Cielo, type PaletaCielo, Fundido, GrupoAnimado, Letrero, Proyector, texturaArte, texturaProcedural, texturaTela, type Etiqueta } from './Compartido3D';
 import {
-  Alfombra, Archivero, Caja, CargadorEV, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
+  Alfombra, Archivero, Caja, Cajas, Cama, Cilindro, Cuadro, Escritorio, Estante, Lampara, LamparaColgante,
   Foco, Mesa, MesaCentro, MesaLateral, NocheCtx, Persona, Silla, SillaOficina, TexturasCtx, useTexturas,
   type TexturasCasa,
 } from './CasaMobiliario';
@@ -90,12 +90,12 @@ const ZONAS = {
 };
 
 // Pintura suave de cada habitación (color del grupo en pastel) y un tono algo más marcado en los vértices, para que se lean como límites.
-const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#d9e6ff', PASIVO: '#ffe5d0', PATRIMONIO: '#eddffb' };
-const PINTURA_VERTICE: Record<GrupoId, string> = { ACTIVO: '#9bbfff', PASIVO: '#ffc593', PATRIMONIO: '#d3adf5' };
+const FONDO_PARED: Record<GrupoId, string> = { ACTIVO: '#b3cdff', PASIVO: '#ffcda0', PATRIMONIO: '#d8bbf8' };
+const PINTURA_VERTICE: Record<GrupoId, string> = { ACTIVO: '#6f9cf2', PASIVO: '#ffa860', PATRIMONIO: '#b985ee' };
 
 type Hora = PaletaCielo;
 const HORAS: Record<Hora, { ambiente: number; hemisferio: [string, string, number]; sol: [string, number]; exposicion: number; niebla: string; formas: [number, number, number]; piso: number }> = {
-  dia: { ambiente: 1.25, hemisferio: ['#cfe6ff', '#6b8b5a', 0.8], sol: ['#fff4dc', 2.0], exposicion: 1.05, niebla: '#cfe3f2', formas: [3.2, 4, 2.4], piso: 0.1 },
+  dia: { ambiente: 0.95, hemisferio: ['#cfe6ff', '#6b8b5a', 0.7], sol: ['#fff4dc', 1.6], exposicion: 1.05, niebla: '#cfe3f2', formas: [3.2, 4, 2.4], piso: 0.1 },
   atardecer: { ambiente: 1.15, hemisferio: ['#bcd0ff', '#3a2f26', 0.5], sol: ['#ffffff', 1.1], exposicion: 1.2, niebla: '#2a2f55', formas: [4, 3, 2], piso: 0.14 },
   noche: { ambiente: 0.42, hemisferio: ['#6f86c9', '#141a2a', 0.3], sol: ['#9fb4ff', 0.35], exposicion: 1.15, niebla: '#050813', formas: [0.8, 1.2, 0.6], piso: 0.05 },
 };
@@ -120,8 +120,12 @@ function Pared({ x, y0, y1, hueco, grosor = GROSOR, color = COLOR_PARED }: { x: 
   );
   if (!hueco) return tramo(zA, zB, y0, y1, 'p');
   const [h0, h1, hAlto] = hueco;
+  const marco = grosor + 0.06;
   return (
     <>
+      {/* Marco de la puerta: así el paso entre cuartos se lee como una puerta. */}
+      {grosor > 0.05 && [h0, h1].map((z) => <Caja key={`mj${z}`} p={[x, y0 + hAlto / 2, z]} s={[marco, hAlto, 0.1]} color="#f7f8fb" rough={0.5} />)}
+      {grosor > 0.05 && <Caja p={[x, y0 + hAlto + 0.04, (h0 + h1) / 2]} s={[marco, 0.1, h1 - h0 + 0.1]} color="#f7f8fb" rough={0.5} />}
       {tramo(zA, h0, y0, y1, 'a')}
       {tramo(h1, zB, y0, y1, 'b')}
       {tramo(h0, h1, y0 + hAlto, y1, 'c')}
@@ -515,7 +519,7 @@ function Exterior({ noche }: { noche: boolean }) {
   });
   const arbustos = useMemo(() => Array.from({ length: 13 }, (_, i) => ({ x: -4.2 + i * 0.85, z: 5.0 + ((i * 5) % 3) * 0.12, r: 0.24 + ((i * 7) % 4) * 0.05, flor: i % 4 === 0 })).filter((a) => !sobreCamino(a.x)), []);
   const arboles: Array<[number, number, number]> = [[-11, -7.6, 1.1], [-6, -8, 1.3], [-0.5, -7.6, 1], [5, -8, 1.25], [10.5, -7.4, 1.1]];
-  const faroles: Array<[number, number]> = [[6.4, 4.9], [-10.6, 4.8], [10.2, 11]];
+  const faroles: Array<[number, number]> = [[6.4, 4.9], [-12.6, 6.6], [10.2, 11]];
   // Matas de pasto y flores en una sola malla instanciada cada una (cientos de piezas = 1 llamada de dibujo).
   const matas = useMemo(() => {
     const lista: Array<[number, number, number]> = [];
@@ -749,10 +753,6 @@ function Casa({ hora, noche, esPT, objetos, seleccionadoId, hover, setHover, onS
       <VentanaFondo x={-2.55} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
       <VentanaFondo x={3.7} y={5.45} ancho={2.0} hora={hora} reflejo={reflejo} />
 
-      <group position={[-1, 0, 0]}>
-      {/* Cochera: cargador del auto eléctrico. */}
-      <CargadorEV p={[-5.1, 0, -3.25]} />
-      </group>
 
       <group position={[-0.5, 0, 0]}>
       {/* Living. */}
