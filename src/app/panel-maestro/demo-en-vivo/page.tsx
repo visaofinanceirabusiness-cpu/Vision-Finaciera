@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { HERRAMIENTAS_DEMO, PREFIJO_INFORME } from '@/lib/modoEspectador';
 import {
   armarInforme,
   armarParticipacion,
@@ -27,14 +28,12 @@ const HORAS_DE_HISTORIAL = 24;
 type Acceso = { id: string; codigo: string; activo: boolean; vence_en: string | null; habilitadas: string[]; empresa_id: string };
 
 const NOMBRE_HABILITADA: Record<string, string> = {
-  PANEL: 'Panel de Control',
-  CONTABILIDAD: 'Contabilidad',
-  FINANZAS: 'Finanzas',
-  INFORMES_BALANCE: 'Informe: Balance (ESP)',
-  INFORMES_RESULTADO: 'Informe: DRE',
-  INFORMES_FLUJO: 'Informe: Flujo de Caja',
-  INFORMES_MAYOR: 'Informe: Mayor',
-  INFORMES_SUMAS: 'Informe: Sumas y Saldos',
+  ...Object.fromEntries(HERRAMIENTAS_DEMO.map((h) => [h.clave, h.es])),
+  [`${PREFIJO_INFORME}BALANCE`]: 'Informe: Balance (ESP)',
+  [`${PREFIJO_INFORME}RESULTADO`]: 'Informe: DRE',
+  [`${PREFIJO_INFORME}FLUJO`]: 'Informe: Flujo de Caja',
+  [`${PREFIJO_INFORME}MAYOR`]: 'Informe: Mayor',
+  [`${PREFIJO_INFORME}SUMAS`]: 'Informe: Sumas y Saldos',
 };
 
 function hora(fecha: string | null): string {
@@ -175,6 +174,17 @@ export default function DemoEnVivoPage() {
     return eventos.filter((e) => e.tipo !== 'LATIDO').slice(0, 25).map((e) => ({ ...e, nombre: nombres.get(e.user_id) ?? '—' }));
   }, [eventos, espectadores]);
 
+  async function guardarHabilitadas(habilitadas: string[]) {
+    if (!acceso) return;
+    const anterior = acceso;
+    setAcceso({ ...acceso, habilitadas });
+    const { error: errorGuardar } = await supabase.from('demo_accesos').update({ habilitadas }).eq('id', acceso.id);
+    if (errorGuardar) {
+      setAcceso(anterior);
+      setError(`No se pudo guardar: ${errorGuardar.message}`);
+    }
+  }
+
   function descargarCsv() {
     const blob = new Blob(['﻿', eventosACsv(espectadores, eventos)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -242,6 +252,31 @@ export default function DemoEnVivoPage() {
                   ))
                 )}
               </div>
+            </Panel>
+
+            <Panel titulo="Habilitar herramientas para el público (solo lectura: nadie puede cargar ni editar)">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                <button type="button" onClick={() => void guardarHabilitadas(HERRAMIENTAS_DEMO.map((h) => h.clave))} style={{ border: 'none', background: COLORES.verde, color: '#fff', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                  🔓 Habilitar todo
+                </button>
+                <button type="button" onClick={() => void guardarHabilitadas([])} style={{ border: '1px solid #d1d5db', background: '#fff', color: '#374151', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                  🔒 Bloquear todo
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 8 }}>
+                {HERRAMIENTAS_DEMO.map((h) => {
+                  const activa = acceso.habilitadas.includes(h.clave);
+                  return (
+                    <label key={h.clave} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: activa ? '#edf6f0' : '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: COLORES.azul }}>
+                      <input type="checkbox" checked={activa} onChange={() => void guardarHabilitadas(activa ? acceso.habilitadas.filter((x) => x !== h.clave) : [...acceso.habilitadas, h.clave])} style={{ width: 18, height: 18 }} />
+                      {activa ? '🔓' : '🔒'} {h.es}
+                    </label>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 12.5, color: COLORES.gris, margin: '10px 0 0', lineHeight: 1.5 }}>
+                Visión 3D además necesita estar abierta para la empresa demo en Apertura de Visão 3D (excepción por empresa). Mercadería y Producción dependen de los módulos de la empresa demo; Plan de Acción y Nuestro Sueño solo existen para las empresas que los tienen (hoy Buenaventura y Ocaña), así que en la demo rebotan al lobby aunque estén habilitados.
+              </p>
             </Panel>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>

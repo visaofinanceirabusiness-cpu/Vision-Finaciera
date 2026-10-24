@@ -26,26 +26,69 @@ const CLAVE = 'demo:espectador';
 export const SECCION_PANEL = 'PANEL';
 export const SECCION_CONTABILIDAD = 'CONTABILIDAD';
 export const SECCION_FINANZAS = 'FINANZAS';
-export const PREFIJO_INFORME = 'INFORMES_'; // + id de la pestaña: BALANCE, RESULTADO, FLUJO, MAYOR, SUMAS
+export const SECCION_INFORMES = 'INFORMES';
+export const SECCION_MERCADERIA = 'MERCADERIA';
+export const SECCION_PRODUCCION = 'PRODUCCION';
+export const SECCION_RRHH = 'RRHH';
+export const SECCION_VISAO3D = 'VISAO3D';
+export const SECCION_PLAN_ACCION = 'PLAN_ACCION';
+export const SECCION_SUENO = 'NUESTRO_SUENO';
+export const SECCION_MENSAJES = 'MENSAJES';
+export const SECCION_CONFIG = 'CONFIGURACOES';
+// Informes se habilita entero con SECCION_INFORMES; las claves por pestaña (PREFIJO_INFORME + BALANCE, RESULTADO, FLUJO, MAYOR, SUMAS)
+// siguen valiendo por si un acceso ya las tenía guardadas, pero la lista de herramientas ya no las ofrece.
+export const PREFIJO_INFORME = 'INFORMES_';
 
 const SIEMPRE_PERMITIDAS = ['/', '/demo', '/login'];
 
+// Cada herramienta del sistema se habilita de a una. Las pantallas que cuelgan de una herramienta (libro diario, registros y
+// lanzamiento rápido de Contabilidad; stock y movimientos de Mercadería) se abren con la herramienta madre.
 const SECCION_DE_RUTA: Record<string, string> = {
   '/panel-de-control': SECCION_PANEL,
   '/contabilidad': SECCION_CONTABILIDAD,
+  '/libro-diario': SECCION_CONTABILIDAD,
+  '/diario': SECCION_CONTABILIDAD,
+  '/registros': SECCION_CONTABILIDAD,
+  '/lanzamiento-rapido': SECCION_CONTABILIDAD,
   '/finanzas': SECCION_FINANZAS,
+  '/mercaderia': SECCION_MERCADERIA,
+  '/stock': SECCION_MERCADERIA,
+  '/movimientos-stock': SECCION_MERCADERIA,
+  '/produccion': SECCION_PRODUCCION,
+  '/recursos-humanos': SECCION_RRHH,
+  '/visao-3d': SECCION_VISAO3D,
+  '/plan-accion': SECCION_PLAN_ACCION,
+  '/nuestro-sueno': SECCION_SUENO,
+  '/mensajes': SECCION_MENSAJES,
+  '/configuracoes': SECCION_CONFIG,
 };
+
+// Lista que ven quien presenta (lobby de la demo) y el Panel Maestro para ir habilitando. Los Informes van aparte, pestaña por pestaña.
+export const HERRAMIENTAS_DEMO: { clave: string; es: string; pt: string }[] = [
+  { clave: SECCION_PANEL, es: 'Panel de Control', pt: 'Painel de Controle' },
+  { clave: SECCION_CONTABILIDAD, es: 'Contabilidad', pt: 'Contabilidade' },
+  { clave: SECCION_FINANZAS, es: 'Finanzas', pt: 'Finanças' },
+  { clave: SECCION_INFORMES, es: 'Informes', pt: 'Relatórios' },
+  { clave: SECCION_MERCADERIA, es: 'Mercadería', pt: 'Mercadoria' },
+  { clave: SECCION_PRODUCCION, es: 'Producción', pt: 'Produção' },
+  { clave: SECCION_RRHH, es: 'Recursos Humanos', pt: 'Recursos Humanos' },
+  { clave: SECCION_VISAO3D, es: 'Visión 3D', pt: 'Visão 3D' },
+  { clave: SECCION_PLAN_ACCION, es: 'Plan de Acción', pt: 'Plano de Ação' },
+  { clave: SECCION_SUENO, es: 'Nuestro Sueño', pt: 'Nosso Sonho' },
+  { clave: SECCION_MENSAJES, es: 'Mensajes', pt: 'Mensagens' },
+  { clave: SECCION_CONFIG, es: 'Configuraciones', pt: 'Configurações' },
+];
 
 export function rutaPermitidaEnDemo(ruta: string | null | undefined, habilitadas: string[]): boolean {
   if (!ruta || SIEMPRE_PERMITIDAS.some((p) => ruta === p || (p !== '/' && ruta.startsWith(`${p}/`)))) return true;
-  if (ruta === '/informes' || ruta.startsWith('/informes/')) return habilitadas.some((h) => h.startsWith(PREFIJO_INFORME));
+  if (ruta === '/informes' || ruta.startsWith('/informes/')) return habilitadas.includes(SECCION_INFORMES) || habilitadas.some((h) => h.startsWith(PREFIJO_INFORME));
 
   const base = Object.keys(SECCION_DE_RUTA).find((r) => ruta === r || ruta.startsWith(`${r}/`));
   return base ? habilitadas.includes(SECCION_DE_RUTA[base]) : false;
 }
 
 export function pestanaInformeHabilitada(pestana: string, habilitadas: string[]): boolean {
-  return habilitadas.includes(`${PREFIJO_INFORME}${pestana.toUpperCase()}`);
+  return habilitadas.includes(SECCION_INFORMES) || habilitadas.includes(`${PREFIJO_INFORME}${pestana.toUpperCase()}`);
 }
 
 export function leerEspectador(): EstadoEspectador | null {
