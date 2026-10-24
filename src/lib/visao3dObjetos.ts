@@ -16,6 +16,8 @@ const REGLAS: Array<[TipoObjeto, string[]]> = [
   ['documento', ['a cobrar', 'a pagar', 'a receber', 'cuota', 'parcela', 'prestamo', 'emprestimo', 'deuda', 'divida', 'tarjeta', 'cartao', 'credito', 'financiamiento', 'financiamento', 'proveedor', 'fornecedor', 'cliente', 'suscripc', 'assinatura', 'impuesto', 'imposto', 'tributo', 'sueldo', 'salario']],
   ['auto', ['vehicul', 'veiculo', 'auto', 'carro', 'coche', 'moto', 'camion', 'caminhao', 'rodado', 'flota', 'frota']],
   ['casa', ['inmueble', 'imovel', 'imoveis', 'propiedad', 'propriedade', 'departamento', 'apartamento', 'casa', 'terreno', 'edificio', 'predio', 'local comercial']],
+  // Una cuenta de stock es mercadería aunque el rubro suene a otra cosa ('Estoque Eletrônicos' no es un equipo): va antes que mesa/equipo.
+  ['mercaderia', ['estoque', 'stock', 'inventar', 'mercadoria']],
   ['mesa', ['mueble', 'movel', 'moveis', 'mobili', 'util', 'escritorio', 'mesa']],
   ['equipo', ['electro', 'eletro', 'equipo', 'equipamento', 'computad', 'notebook', 'celular', 'maquin', 'tecnolog', 'herramient', 'ferrament', 'instalac']],
   ['mercaderia', ['mercader', 'mercadoria', 'estoque', 'stock', 'inventar', 'producto', 'produto', 'insumo', 'materia prima']],
