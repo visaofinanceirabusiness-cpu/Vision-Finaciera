@@ -133,13 +133,13 @@ export default function Visao3DPage() {
       const familiar = escenaDePerfil(perfilCodigo) === 'casa';
       // Apertura progresiva por perfil / piloto por empresa (ver lib/visao3dEmpresas.ts).
       if (!empresaTieneVisao3D(perfil.empresa_id, perfilCodigo, await cargarAperturaVisao3D())) {
-        router.push('/');
+        router.push('/?vista=empresa');
         return;
       }
 
       // Igual que Informes: el asistente es de solo carga y no ve la información financiera.
       if (perfil.tipo_usuario === 'ASISTENTE') {
-        router.push('/');
+        router.push('/?vista=empresa');
         return;
       }
 
@@ -363,7 +363,7 @@ export default function Visao3DPage() {
 
       {/* Barra superior mínima: salir, ruta y menú. */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '10px 12px 0', display: 'flex', gap: 8, alignItems: 'center', pointerEvents: 'none' }}>
-        <Link href="/" aria-label={esPT ? 'Voltar ao início' : 'Volver al inicio'} style={{ ...redondo, pointerEvents: 'auto' }}>
+        <Link href="/?vista=empresa" aria-label={esPT ? 'Voltar ao início' : 'Volver al inicio'} style={{ ...redondo, pointerEvents: 'auto' }}>
           🏠
         </Link>
         <nav

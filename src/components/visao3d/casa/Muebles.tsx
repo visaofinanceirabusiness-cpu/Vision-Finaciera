@@ -77,6 +77,10 @@ function MueblesComercial() {
       <Cajas p={[-4.6, 4.7, -3.1]} n={3} />
       <Cajas p={[-0.9, 3.75, -2.7]} n={4} />
       <Cajas p={[-0.9, 4.25, -2.7]} n={2} />
+      {/* Mesa de trabajo del depósito: donde se arman y rotulan los pedidos. */}
+      <Mesa p={[-2.9, 3.75, -1.5]} ancho={2.6} fondo={1.2} />
+      <Cajas p={[-3.4, 4.57, -1.5]} n={2} />
+      <Silla p={[-2.9, 3.75, -0.5]} rot={Math.PI} color="#c9d3e0" />
       {/* Administración (oficina). */}
       <Escritorio p={[3.0, 3.75, -2.6]} />
       <SillaOficina p={[3.0, 3.75, -1.5]} rot={Math.PI} />

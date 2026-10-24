@@ -16,6 +16,8 @@ export const PERFILES_SIMULADOS: Array<{ id: PerfilSimulado; nombre: string }> =
 ];
 
 export type DatosSimulados = {
+  // true = el Mini-Juego LEE los datos reales de la empresa (categorías, medios, productos, contactos, saldos) y solo simula el guardado.
+  datosReales?: boolean;
   categorias: Record<string, CategoriaJuego[]>;
   formasPago: Record<string, string[]>;
   productos: ProductoJuego[];
@@ -63,4 +65,10 @@ export function datosSimulados(perfil: PerfilSimulado, idioma: string): DatosSim
       proveedores: pt ? ['Fornecedor de exemplo A', 'Fornecedor de exemplo B'] : ['Proveedor de ejemplo A', 'Proveedor de ejemplo B'],
     },
   };
+}
+
+// Demo en vivo: el espectador ve el Mini-Juego con las categorías, medios de pago, productos, contactos y saldos reales de la empresa demo
+// (la base le permite leerlos), pero al grabar no se guarda nada. Los datos de ejemplo de arriba solo quedan como respaldo del tipo.
+export function simulacionConDatosReales(idioma: string): DatosSimulados {
+  return { ...datosSimulados('MIXTO', idioma), datosReales: true };
 }

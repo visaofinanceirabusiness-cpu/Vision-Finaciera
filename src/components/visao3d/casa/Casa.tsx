@@ -82,7 +82,7 @@ export function Casa({ hora, noche, esPT, tema, nombreEmpresa, plano, objetos, s
     <group>
       {/* Habitaciones. */}
       {plano.cuartos.map((c) => <Habitacion key={c.id} zona={c} cuartos={plano.cuartos} piso={c.id === 'garage' ? piso.concreto : piso.madera} tinte={HORAS[hora].piso} />)}
-      <SombrasCasa plano={plano} extra={huellas} />
+      <SombrasCasa plano={plano} extra={huellas} muebles={tema.muebles} />
       {/* Cuadro con el logo y el lema de Visão Financeira en la pared del fondo de la cochera. */}
       <CuadroLogo p={[(X_IZQ + X_COCHERA) / 2, 2.1, Z_ATRAS + 0.12]} esPT={esPT} />
       <Tabiques cuartos={plano.cuartos} />

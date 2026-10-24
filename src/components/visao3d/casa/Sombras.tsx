@@ -7,6 +7,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { TV } from './Objetos';
 import { Lugar } from './estructura';
+import type { TipoMuebles } from './temas';
 import { ObjetoCasa } from '@/lib/visao3dCasa';
 import type { PlanoCasa } from '@/lib/visao3dCasaPlano';
 import { PROF, X_CENTRO, X_COCHERA, X_DER, X_IZQ, Z_ATRAS as Z0 } from './layout';
@@ -16,24 +17,65 @@ type Huella = { x: number; z: number; w: number; d: number; r?: number; fuerza?:
 const PX = 80; // píxeles por unidad del mundo
 
 
-// Huellas fijas (decorado) en coordenadas finales del mundo; las de los objetos de cuentas llegan por `extra`.
-const HUELLAS_BAJA: Huella[] = [
-  { x: -6.1, z: -3.25, w: 0.4, d: 0.25 }, // cargador
-  { x: -2.4, z: 0.7, w: 1.5, d: 0.8, fuerza: 0.7 }, // mesa de centro
-  { x: -0.45, z: -3.1, w: 1.0, d: 0.4 }, // estante
-  { x: 3.7, z: 0.3, w: 3.2, d: 1.5, fuerza: 0.8 }, // mesa del comedor
-  ...[-1.1, 0, 1.1].flatMap((dx) => [-1, 1].map((s) => ({ x: 3.7 + dx, z: 0.3 + s * 1.05, w: 0.5, d: 0.5, fuerza: 0.8 }))),
-];
-
-const HUELLAS_ALTA: Huella[] = [
-  { x: -2.9, z: -2.1, w: 2.4, d: 2.6 }, // cama
-  { x: -4.5, z: -3.0, w: 0.5, d: 0.5 },
-  { x: -1.3, z: -3.0, w: 0.5, d: 0.5 },
-  { x: 3.7, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, // escritorio
-  { x: 3.7, z: -1.5, w: 0.7, d: 0.7, r: 0.35 }, // silla
-  { x: 5.7, z: -3.0, w: 0.7, d: 0.6 }, // archivero
-  { x: 1.85, z: -3.15, w: 1.3, d: 0.4 }, // estante
-];
+// Huellas fijas del mobiliario de los 5 cuartos base, en coordenadas finales del mundo: cada tema tiene su propio mobiliario
+// (Muebles.tsx), así que cada uno su lista (una sombra de cama donde ya no hay cama se ve como una mancha negra). Las de los objetos
+// de cuentas llegan por `extra`.
+const silla = (x: number, z: number): Huella => ({ x, z, w: 0.6, d: 0.6, r: 0.3 });
+const HUELLAS_MUEBLES: Record<TipoMuebles, { baja: Huella[]; alta: Huella[] }> = {
+  familia: {
+    baja: [
+      { x: -6.1, z: -3.25, w: 0.4, d: 0.25 }, // cargador
+      { x: -2.4, z: 0.7, w: 1.5, d: 0.8, fuerza: 0.7 }, // mesa de centro
+      { x: -0.45, z: -3.1, w: 1.0, d: 0.4 }, // estante
+      { x: 3.7, z: 0.3, w: 3.2, d: 1.5, fuerza: 0.8 }, // mesa del comedor
+      ...[-1.1, 0, 1.1].flatMap((dx) => [-1, 1].map((s) => ({ x: 3.7 + dx, z: 0.3 + s * 1.05, w: 0.5, d: 0.5, fuerza: 0.8 }))),
+    ],
+    alta: [
+      { x: -2.9, z: -2.1, w: 2.4, d: 2.6 }, // cama
+      { x: -4.5, z: -3.0, w: 0.5, d: 0.5 },
+      { x: -1.3, z: -3.0, w: 0.5, d: 0.5 },
+      { x: 3.7, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, // escritorio
+      { x: 3.7, z: -1.5, w: 0.7, d: 0.7, r: 0.35 }, // silla
+      { x: 5.7, z: -3.0, w: 0.7, d: 0.6 }, // archivero
+      { x: 1.85, z: -3.15, w: 1.3, d: 0.4 }, // estante
+    ],
+  },
+  comercial: {
+    baja: [
+      { x: -0.8, z: -3.1, w: 1.5, d: 0.4 }, { x: -3.9, z: -3.1, w: 1.5, d: 0.4 }, // góndolas
+      { x: -1.6, z: -0.4, w: 2.8, d: 0.8, fuerza: 0.8 }, // mostrador
+      { x: 3.7, z: 0.3, w: 3.0, d: 1.3, fuerza: 0.8 }, // mesa
+      ...[-1, 0, 1].map((x) => silla(3.7 + x, 1.3)),
+    ],
+    alta: [
+      { x: -4.6, z: -3.1, w: 1.5, d: 0.4 }, { x: -2.9, z: -3.1, w: 1.5, d: 0.4 }, // estantes del depósito
+      { x: -2.9, z: -1.5, w: 2.6, d: 1.2, fuerza: 0.8 }, // mesa de trabajo
+      { x: -0.9, z: -2.7, w: 0.8, d: 0.8 }, // cajas
+      { x: 3.0, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(3.0, -1.5), { x: 5.6, z: -3.0, w: 0.7, d: 0.6 },
+    ],
+  },
+  oficina: {
+    baja: [
+      { x: -0.9, z: -2.6, w: 2.6, d: 0.8, fuerza: 0.8 }, // recepción
+      { x: 2.4, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(2.4, -1.5), { x: 5.0, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(5.0, -1.5),
+    ],
+    alta: [
+      { x: -2.55, z: -1.0, w: 3.4, d: 1.4, fuerza: 0.8 }, // sala de reuniones
+      ...[-1.2, -0.4, 0.4, 1.2].map((x) => silla(-2.55 + x, 0.0)),
+      { x: 2.4, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(2.4, -1.5), { x: 5.0, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(5.0, -1.5), { x: 6.3, z: -3.0, w: 0.7, d: 0.6 },
+    ],
+  },
+  taller: {
+    baja: [
+      { x: -0.9, z: -3.1, w: 1.6, d: 0.4 }, { x: -1.4, z: 0.6, w: 1.2, d: 1.2 }, // depósito
+      { x: 3.7, z: -0.4, w: 3.4, d: 1.2, fuerza: 0.8 }, { x: 5.6, z: 0.9, w: 1.0, d: 1.0 }, { x: 1.4, z: 1.0, w: 1.0, d: 1.0 }, // empaque
+    ],
+    alta: [
+      { x: -2.9, z: -1.6, w: 3.6, d: 1.0, fuerza: 0.8 }, { x: -2.9, z: 0.2, w: 3.6, d: 1.0, fuerza: 0.8 }, { x: -0.8, z: -2.9, w: 0.8, d: 0.8 },
+      { x: 2.8, z: -2.6, w: 2.6, d: 1.0, fuerza: 0.8 }, silla(2.8, -1.5), { x: 5.6, z: -3.0, w: 0.7, d: 0.6 }, { x: 1.35, z: -3.15, w: 1.3, d: 0.4 },
+    ],
+  },
+};
 
 // Bordes de los cuartos donde el piso se oscurece (pared del fondo y tabiques).
 
@@ -105,7 +147,7 @@ function Piso({ planta, huellas, tabiques }: { planta: { x0: number; x1: number;
   );
 }
 
-export function SombrasCasa({ plano, extra }: { plano: PlanoCasa; extra: Huella[][] }) {
+export function SombrasCasa({ plano, extra, muebles }: { plano: PlanoCasa; extra: Huella[][]; muebles: TipoMuebles }) {
   // Una "planta" por piso del plano (sus cuartos van pegados). Las huellas fijas de la casa base son de los pisos 0 y 1.
   const plantas = useMemo(
     () =>
@@ -114,10 +156,11 @@ export function SombrasCasa({ plano, extra }: { plano: PlanoCasa; extra: Huella[
         const x0 = Math.min(...cuartos.map((c) => c.x0));
         const x1 = Math.max(...cuartos.map((c) => c.x1));
         const tabiques = [...new Set(cuartos.flatMap((c) => [c.x0, c.x1]))];
-        const huellas = [...(piso === 0 ? HUELLAS_BAJA : piso === 1 ? HUELLAS_ALTA : []), ...(extra[piso] ?? [])];
+        const fijas = HUELLAS_MUEBLES[muebles];
+        const huellas = [...(piso === 0 ? fijas.baja : piso === 1 ? fijas.alta : []), ...(extra[piso] ?? [])];
         return { planta: { x0, x1, y: piso * 3.75 }, tabiques, huellas };
       }),
-    [plano, extra]
+    [plano, extra, muebles]
   );
   return (
     <>
