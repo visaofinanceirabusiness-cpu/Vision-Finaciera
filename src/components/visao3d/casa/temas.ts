@@ -41,7 +41,8 @@ export const TEMAS: Record<TemaId, TemaCasa> = {
   familia: { id: 'familia', fachada: 'ladrillo', techo: 'dosAguas', muebles: 'familia', pared: PARED_FAMILIA, toldo: null, cartel: false, pileta: true, jardin: true, personas: true, fondoCartel: '#1f3a5f' },
   comercial: { id: 'comercial', fachada: 'concreto', techo: 'plano', muebles: 'comercial', pared: PARED_NEGOCIO, toldo: '#c2413a', cartel: true, pileta: false, jardin: false, personas: false, fondoCartel: '#7a1f1a' },
   servicios: { id: 'servicios', fachada: 'vidrio', techo: 'plano', muebles: 'oficina', pared: PARED_NEGOCIO, toldo: null, cartel: true, pileta: false, jardin: false, personas: false, fondoCartel: '#123d5c' },
-  mixto: { id: 'mixto', fachada: 'ladrillo', techo: 'dosAguas', muebles: 'comercial', pared: PARED_NEGOCIO, toldo: '#2f7d5b', cartel: true, pileta: false, jardin: true, personas: false, fondoCartel: '#1d5a40' },
+  // Mixto es un negocio (local con taller o servicios): ladrillo a la vista pero techo plano, toldo verde y patio de concreto; el tejado a dos aguas con jardín y palmeras es de la casa de Familia.
+  mixto: { id: 'mixto', fachada: 'ladrillo', techo: 'plano', muebles: 'comercial', pared: PARED_NEGOCIO, toldo: '#2f7d5b', cartel: true, pileta: false, jardin: false, personas: false, fondoCartel: '#1d5a40' },
   produccion: { id: 'produccion', fachada: 'concreto', techo: 'sierra', muebles: 'taller', pared: PARED_NEGOCIO, toldo: null, cartel: true, pileta: false, jardin: false, personas: false, fondoCartel: '#3a3f4a' },
 };
 
