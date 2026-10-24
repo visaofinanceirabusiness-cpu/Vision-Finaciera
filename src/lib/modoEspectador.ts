@@ -26,6 +26,7 @@ const CLAVE = 'demo:espectador';
 export const SECCION_PANEL = 'PANEL';
 export const SECCION_CONTABILIDAD = 'CONTABILIDAD';
 export const SECCION_FINANZAS = 'FINANZAS';
+export const SECCION_INFORMES = 'INFORMES';
 export const SECCION_MERCADERIA = 'MERCADERIA';
 export const SECCION_PRODUCCION = 'PRODUCCION';
 export const SECCION_RRHH = 'RRHH';
@@ -34,7 +35,9 @@ export const SECCION_PLAN_ACCION = 'PLAN_ACCION';
 export const SECCION_SUENO = 'NUESTRO_SUENO';
 export const SECCION_MENSAJES = 'MENSAJES';
 export const SECCION_CONFIG = 'CONFIGURACOES';
-export const PREFIJO_INFORME = 'INFORMES_'; // + id de la pestaña: BALANCE, RESULTADO, FLUJO, MAYOR, SUMAS
+// Informes se habilita entero con SECCION_INFORMES; las claves por pestaña (PREFIJO_INFORME + BALANCE, RESULTADO, FLUJO, MAYOR, SUMAS)
+// siguen valiendo por si un acceso ya las tenía guardadas, pero la lista de herramientas ya no las ofrece.
+export const PREFIJO_INFORME = 'INFORMES_';
 
 const SIEMPRE_PERMITIDAS = ['/', '/demo', '/login'];
 
@@ -65,6 +68,7 @@ export const HERRAMIENTAS_DEMO: { clave: string; es: string; pt: string }[] = [
   { clave: SECCION_PANEL, es: 'Panel de Control', pt: 'Painel de Controle' },
   { clave: SECCION_CONTABILIDAD, es: 'Contabilidad', pt: 'Contabilidade' },
   { clave: SECCION_FINANZAS, es: 'Finanzas', pt: 'Finanças' },
+  { clave: SECCION_INFORMES, es: 'Informes', pt: 'Relatórios' },
   { clave: SECCION_MERCADERIA, es: 'Mercadería', pt: 'Mercadoria' },
   { clave: SECCION_PRODUCCION, es: 'Producción', pt: 'Produção' },
   { clave: SECCION_RRHH, es: 'Recursos Humanos', pt: 'Recursos Humanos' },
@@ -75,24 +79,16 @@ export const HERRAMIENTAS_DEMO: { clave: string; es: string; pt: string }[] = [
   { clave: SECCION_CONFIG, es: 'Configuraciones', pt: 'Configurações' },
 ];
 
-export const INFORMES_DEMO: { clave: string; es: string; pt: string }[] = [
-  { clave: `${PREFIJO_INFORME}BALANCE`, es: 'Balance Patrimonial (ESP)', pt: 'Balanço Patrimonial (ESP)' },
-  { clave: `${PREFIJO_INFORME}RESULTADO`, es: 'DRE — Estado de Resultado', pt: 'DRE — Demonstração de Resultado' },
-  { clave: `${PREFIJO_INFORME}FLUJO`, es: 'Flujo de Caja', pt: 'Fluxo de Caixa' },
-  { clave: `${PREFIJO_INFORME}MAYOR`, es: 'Mayor', pt: 'Razão' },
-  { clave: `${PREFIJO_INFORME}SUMAS`, es: 'Sumas y Saldos', pt: 'Balancete' },
-];
-
 export function rutaPermitidaEnDemo(ruta: string | null | undefined, habilitadas: string[]): boolean {
   if (!ruta || SIEMPRE_PERMITIDAS.some((p) => ruta === p || (p !== '/' && ruta.startsWith(`${p}/`)))) return true;
-  if (ruta === '/informes' || ruta.startsWith('/informes/')) return habilitadas.some((h) => h.startsWith(PREFIJO_INFORME));
+  if (ruta === '/informes' || ruta.startsWith('/informes/')) return habilitadas.includes(SECCION_INFORMES) || habilitadas.some((h) => h.startsWith(PREFIJO_INFORME));
 
   const base = Object.keys(SECCION_DE_RUTA).find((r) => ruta === r || ruta.startsWith(`${r}/`));
   return base ? habilitadas.includes(SECCION_DE_RUTA[base]) : false;
 }
 
 export function pestanaInformeHabilitada(pestana: string, habilitadas: string[]): boolean {
-  return habilitadas.includes(`${PREFIJO_INFORME}${pestana.toUpperCase()}`);
+  return habilitadas.includes(SECCION_INFORMES) || habilitadas.includes(`${PREFIJO_INFORME}${pestana.toUpperCase()}`);
 }
 
 export function leerEspectador(): EstadoEspectador | null {

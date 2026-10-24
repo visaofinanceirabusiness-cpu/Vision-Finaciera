@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { HERRAMIENTAS_DEMO, INFORMES_DEMO } from '@/lib/modoEspectador';
+import { HERRAMIENTAS_DEMO, PREFIJO_INFORME } from '@/lib/modoEspectador';
 import {
   armarInforme,
   armarParticipacion,
@@ -29,7 +29,11 @@ type Acceso = { id: string; codigo: string; activo: boolean; vence_en: string | 
 
 const NOMBRE_HABILITADA: Record<string, string> = {
   ...Object.fromEntries(HERRAMIENTAS_DEMO.map((h) => [h.clave, h.es])),
-  ...Object.fromEntries(INFORMES_DEMO.map((h) => [h.clave, `Informe: ${h.es}`])),
+  [`${PREFIJO_INFORME}BALANCE`]: 'Informe: Balance (ESP)',
+  [`${PREFIJO_INFORME}RESULTADO`]: 'Informe: DRE',
+  [`${PREFIJO_INFORME}FLUJO`]: 'Informe: Flujo de Caja',
+  [`${PREFIJO_INFORME}MAYOR`]: 'Informe: Mayor',
+  [`${PREFIJO_INFORME}SUMAS`]: 'Informe: Sumas y Saldos',
 };
 
 function hora(fecha: string | null): string {
@@ -252,7 +256,7 @@ export default function DemoEnVivoPage() {
 
             <Panel titulo="Habilitar herramientas para el público (solo lectura: nadie puede cargar ni editar)">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button type="button" onClick={() => void guardarHabilitadas([...HERRAMIENTAS_DEMO, ...INFORMES_DEMO].map((h) => h.clave))} style={{ border: 'none', background: COLORES.verde, color: '#fff', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                <button type="button" onClick={() => void guardarHabilitadas(HERRAMIENTAS_DEMO.map((h) => h.clave))} style={{ border: 'none', background: COLORES.verde, color: '#fff', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
                   🔓 Habilitar todo
                 </button>
                 <button type="button" onClick={() => void guardarHabilitadas([])} style={{ border: '1px solid #d1d5db', background: '#fff', color: '#374151', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
@@ -260,12 +264,12 @@ export default function DemoEnVivoPage() {
                 </button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 8 }}>
-                {[...HERRAMIENTAS_DEMO, ...INFORMES_DEMO].map((h) => {
+                {HERRAMIENTAS_DEMO.map((h) => {
                   const activa = acceso.habilitadas.includes(h.clave);
                   return (
                     <label key={h.clave} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: activa ? '#edf6f0' : '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: COLORES.azul }}>
                       <input type="checkbox" checked={activa} onChange={() => void guardarHabilitadas(activa ? acceso.habilitadas.filter((x) => x !== h.clave) : [...acceso.habilitadas, h.clave])} style={{ width: 18, height: 18 }} />
-                      {activa ? '🔓' : '🔒'} {h.clave.startsWith('INFORMES_') ? `Informe: ${h.es}` : h.es}
+                      {activa ? '🔓' : '🔒'} {h.es}
                     </label>
                   );
                 })}

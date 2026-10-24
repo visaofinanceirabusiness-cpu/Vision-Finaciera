@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HERRAMIENTAS_DEMO, rutaPermitidaEnDemo, SECCION_MERCADERIA, SECCION_VISAO3D } from './modoEspectador';
+import { HERRAMIENTAS_DEMO, pestanaInformeHabilitada, rutaPermitidaEnDemo, SECCION_INFORMES, SECCION_MERCADERIA, SECCION_VISAO3D } from './modoEspectador';
 
 describe('rutaPermitidaEnDemo', () => {
   it('el lobby, la demo y el login siempre están permitidos', () => {
@@ -22,12 +22,20 @@ describe('rutaPermitidaEnDemo', () => {
   });
 
   it('todas las herramientas de la lista tienen una ruta que las abre', () => {
-    const rutas: Record<string, string> = { PANEL: '/panel-de-control', CONTABILIDAD: '/contabilidad', FINANZAS: '/finanzas', MERCADERIA: '/mercaderia', PRODUCCION: '/produccion', RRHH: '/recursos-humanos', VISAO3D: '/visao-3d', PLAN_ACCION: '/plan-accion', NUESTRO_SUENO: '/nuestro-sueno', MENSAJES: '/mensajes', CONFIGURACOES: '/configuracoes' };
+    const rutas: Record<string, string> = { PANEL: '/panel-de-control', CONTABILIDAD: '/contabilidad', FINANZAS: '/finanzas', INFORMES: '/informes', MERCADERIA: '/mercaderia', PRODUCCION: '/produccion', RRHH: '/recursos-humanos', VISAO3D: '/visao-3d', PLAN_ACCION: '/plan-accion', NUESTRO_SUENO: '/nuestro-sueno', MENSAJES: '/mensajes', CONFIGURACOES: '/configuracoes' };
     for (const h of HERRAMIENTAS_DEMO) expect(rutaPermitidaEnDemo(rutas[h.clave], [h.clave])).toBe(true);
   });
 
-  it('los informes se habilitan por pestaña', () => {
-    expect(rutaPermitidaEnDemo('/informes', ['INFORMES_BALANCE'])).toBe(true);
+  it('Informes se habilita como una herramienta más, con todas sus pestañas', () => {
+    expect(rutaPermitidaEnDemo('/informes', [SECCION_INFORMES])).toBe(true);
     expect(rutaPermitidaEnDemo('/informes', ['PANEL'])).toBe(false);
+    for (const pestana of ['balance', 'resultado', 'flujo', 'mayor', 'sumas']) expect(pestanaInformeHabilitada(pestana, [SECCION_INFORMES])).toBe(true);
+    expect(pestanaInformeHabilitada('balance', ['PANEL'])).toBe(false);
+  });
+
+  it('un acceso con pestañas sueltas guardadas sigue funcionando', () => {
+    expect(rutaPermitidaEnDemo('/informes', ['INFORMES_BALANCE'])).toBe(true);
+    expect(pestanaInformeHabilitada('balance', ['INFORMES_BALANCE'])).toBe(true);
+    expect(pestanaInformeHabilitada('flujo', ['INFORMES_BALANCE'])).toBe(false);
   });
 });

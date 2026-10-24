@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { HERRAMIENTAS_DEMO, INFORMES_DEMO } from '@/lib/modoEspectador';
+import { HERRAMIENTAS_DEMO } from '@/lib/modoEspectador';
 
 type Acceso = { id: string; codigo: string; habilitadas: string[]; activo: boolean; vence_en: string | null };
 type Presencia = { enLinea: number; total: number; porRuta: Record<string, number> };
@@ -40,7 +40,6 @@ export function ControlDemoLobby({ empresaId, idioma }: { empresaId: string; idi
   };
 
   const secciones: { clave: string; nombre: string }[] = HERRAMIENTAS_DEMO.map((h) => ({ clave: h.clave, nombre: esPT ? h.pt : h.es }));
-  const informes: { clave: string; nombre: string }[] = INFORMES_DEMO.map((h) => ({ clave: h.clave, nombre: esPT ? h.pt : h.es }));
 
   const cargar = useCallback(async () => {
     const { data: filas } = await supabase
@@ -112,7 +111,7 @@ export function ControlDemoLobby({ empresaId, idioma }: { empresaId: string; idi
 
   if (!acceso) return null;
 
-  const todas = [...secciones, ...informes].map((s) => s.clave);
+  const todas = secciones.map((s) => s.clave);
   const caja = (clave: string, nombre: string) => (
     <label key={clave} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: acceso.habilitadas.includes(clave) ? '#edf6f0' : '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#1f3a5f' }}>
       <input type="checkbox" checked={acceso.habilitadas.includes(clave)} onChange={() => alternar(clave)} style={{ width: 18, height: 18 }} />
@@ -165,11 +164,6 @@ export function ControlDemoLobby({ empresaId, idioma }: { empresaId: string; idi
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
         {secciones.map((s) => caja(s.clave, s.nombre))}
-      </div>
-
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, color: '#6b7280', margin: '14px 0 8px' }}>{esPT ? 'INFORMES (cada relatório)' : 'INFORMES (cada informe)'}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
-        {informes.map((s) => caja(s.clave, s.nombre))}
       </div>
 
       {error && <p style={{ color: '#dc2626', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
