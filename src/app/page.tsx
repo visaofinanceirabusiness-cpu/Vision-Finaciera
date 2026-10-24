@@ -35,7 +35,7 @@ import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
 import { ControlDemoLobby } from '@/components/demo/ControlDemoLobby';
-import { datosSimulados } from '@/lib/tutorialSimulacion';
+import { simulacionConDatosReales } from '@/lib/tutorialSimulacion';
 import { SECCION_PANEL } from '@/lib/modoEspectador';
 import { PieVisao } from '@/components/panel/PieVisao';
 import { PanelCotizaciones } from '@/components/panel/PanelCotizaciones';
@@ -981,8 +981,8 @@ export default function InicioPage() {
             esFamiliar={esFamiliar}
             simbolo={simboloMoneda(empresa?.moneda ?? null)}
             colores={{ azul: colores.azul, verde: colores.verde, acento: colores.acento, blanco: colores.blanco }}
-            // El espectador juega de verdad pero en simulación: no consulta ni escribe nada.
-            simulacion={espectador ? datosSimulados('MIXTO', espectador.idioma) : undefined}
+            // El espectador juega con los datos reales de la empresa demo (categorías, medios, productos, saldos) pero en simulación: al grabar no se escribe nada.
+            simulacion={espectador ? simulacionConDatosReales(espectador.idioma) : undefined}
             onCerrar={() => setMiniJuegoAbierto(false)}
           />
         )}

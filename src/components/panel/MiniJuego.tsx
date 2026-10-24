@@ -158,10 +158,13 @@ export function MiniJuego({
   // Si vino de la lista de pendientes (salta categoría y medio), Volver sale de la jugada.
   const [desdePendientes, setDesdePendientes] = useState(false);
 
+  // En la demo en vivo se simula solo el guardado: lo que se lee (categorías, medios, productos, contactos, saldos) es lo real de la empresa.
+  const leeDatosDeEjemplo = Boolean(simulacion) && !simulacion?.datosReales;
+
   useEffect(() => {
     if (!operacion) return;
 
-    if (simulacion) {
+    if (simulacion && leeDatosDeEjemplo) {
       setCategorias(simulacion.categorias[operacion] ?? []);
       return;
     }
@@ -171,7 +174,7 @@ export function MiniJuego({
       .then(setCategorias)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando categorías.'))
       .finally(() => setCargandoOpciones(false));
-  }, [empresaId, operacion, simulacion]);
+  }, [empresaId, operacion, simulacion, leeDatosDeEjemplo]);
 
   // Si la operación tiene una única categoría posible (ej. Aporte/
   // Retiro), no tiene sentido mostrar la tarjeta para elegirla: se
@@ -187,7 +190,7 @@ export function MiniJuego({
   useEffect(() => {
     if (!operacion || !categoria) return;
 
-    if (simulacion) {
+    if (simulacion && leeDatosDeEjemplo) {
       setFormasPago(simulacion.formasPago[operacion] ?? simulacion.formasPago.default);
       return;
     }
@@ -197,12 +200,12 @@ export function MiniJuego({
       .then(setFormasPago)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error cargando formas de pago.'))
       .finally(() => setCargandoOpciones(false));
-  }, [empresaId, operacion, categoria, simulacion]);
+  }, [empresaId, operacion, categoria, simulacion, leeDatosDeEjemplo]);
 
   // Saldo de las categorías que son una deuda (al pagar) o algo por cobrar (al
   // cobrar): se ve antes de elegir cuánto se debe, igual que en el medio.
   useEffect(() => {
-    if (simulacion || !operacion || categorias.length === 0) {
+    if (leeDatosDeEjemplo || !operacion || categorias.length === 0) {
       setSaldosPorCategoria({});
       return;
     }
@@ -225,7 +228,7 @@ export function MiniJuego({
   // Stock de cada producto a la fecha, visible al elegirlo — igual que el
   // saldo de las cuentas de dinero.
   useEffect(() => {
-    if (simulacion || paso !== 'producto') return;
+    if (leeDatosDeEjemplo || paso !== 'producto') return;
 
     let cancelado = false;
 
@@ -246,7 +249,7 @@ export function MiniJuego({
   // Pasivo: Tarjeta, Préstamo...) — para elegir el medio viendo antes
   // dónde hay plata (o deuda), no a ciegas por el nombre solo.
   useEffect(() => {
-    if (simulacion || formasPago.length === 0) {
+    if (leeDatosDeEjemplo || formasPago.length === 0) {
       setSaldosPorMedio({});
       return;
     }
@@ -271,7 +274,7 @@ export function MiniJuego({
     if (operacionNecesitaProducto(operacion, formaPago, categoriaSeleccionada)) {
       setCargandoOpciones(true);
       try {
-        if (productos.length === 0) setProductos(simulacion ? simulacion.productos : await obtenerProductosJuego(empresaId));
+        if (productos.length === 0) setProductos(simulacion && leeDatosDeEjemplo ? simulacion.productos : await obtenerProductosJuego(empresaId));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error cargando productos.');
       } finally {
@@ -329,7 +332,7 @@ export function MiniJuego({
 
   async function tocarCategoria(cat: string) {
     setPendienteElegido(null);
-    if (simulacion || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
+    if (leeDatosDeEjemplo || (operacion !== 'COBRO' && operacion !== 'PAGO')) {
       elegirCategoria(cat);
       return;
     }
@@ -373,7 +376,7 @@ export function MiniJuego({
     if (tabla) {
       setCargandoOpciones(true);
       try {
-        setContactos(simulacion ? simulacion.contactos[tabla] : await obtenerContactosJuego(empresaId, tabla));
+        setContactos(simulacion && leeDatosDeEjemplo ? simulacion.contactos[tabla] : await obtenerContactosJuego(empresaId, tabla));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error cargando contactos.');
       } finally {
@@ -576,7 +579,7 @@ export function MiniJuego({
     setCantidadCuotas('2');
     setTipoCuotas(null);
 
-    if (simulacion || !operacion || !formaPago) return;
+    if (leeDatosDeEjemplo || !operacion || !formaPago) return;
 
     let cancelado = false;
     tipoCuotasDeFormaPago(empresaId, operacion, formaPago)
@@ -852,7 +855,7 @@ export function MiniJuego({
     >
       {simulacion && (
         <div style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 10, padding: '6px 12px', fontSize: 12.5, fontWeight: 800, textAlign: 'center', marginBottom: 12 }}>
-          🧪 MODO PRUEBA — datos de ejemplo, no se guarda nada
+          {simulacion.datosReales ? '🧪 MODO DEMO — datos reales de la empresa, no se guarda nada' : '🧪 MODO PRUEBA — datos de ejemplo, no se guarda nada'}
         </div>
       )}
 
@@ -1161,13 +1164,13 @@ export function MiniJuego({
                     productos={productosFiltrados}
                     saldos={saldosStock}
                     operacion={operacion}
-                    ignorarSaldo={Boolean(simulacion)}
+                    ignorarSaldo={leeDatosDeEjemplo}
                     idioma={idioma}
                     hayBusqueda={busqueda.trim() !== ''}
                     oscuro
                     disposicion="grilla"
                     renderProducto={(p, sinSaldo) => {
-                      const sub = simulacion
+                      const sub = leeDatosDeEjemplo
                         ? undefined
                         : `${esPT ? 'Estoque' : 'Stock'}: ${(saldosStock[p.id] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 })}${p.unidad_medida ? ` ${p.unidad_medida}` : ''}`;
                       // Vender o dar de baja sin saldo no se puede: se ve pero no se elige.
@@ -1301,7 +1304,7 @@ export function MiniJuego({
               {simbolo} {monto || '0'}
             </div>
 
-            {!simulacion && operacion === 'VENTA' && necesitaProducto && productoId && (
+            {!leeDatosDeEjemplo && operacion === 'VENTA' && necesitaProducto && productoId && (
               <CartelPrecioSugerido
                 empresaId={empresaId}
                 productoId={productoId}
