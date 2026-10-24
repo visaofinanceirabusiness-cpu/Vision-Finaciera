@@ -387,7 +387,8 @@ function Toldo({ x0, x1, color }: { x0: number; x1: number; color: string }) {
   const zFrente = Z_ATRAS + PROF;
   const largo = 1.3;
   const caida = 0.38;
-  const yAlto = 3.3;
+  // Arranca justo bajo el borde del piso de arriba (el piso 1 empieza en 3,675): así queda pegado a la casa y no flotando.
+  const yAlto = 3.62;
   const yBajo = yAlto - largo * Math.sin(caida);
   return (
     <group position={[0, 0, zFrente]}>
@@ -397,6 +398,11 @@ function Toldo({ x0, x1, color }: { x0: number; x1: number; color: string }) {
           <meshStandardMaterial color={i % 2 ? '#f4f1ea' : color} roughness={0.85} />
         </mesh>
       ))}
+      {/* Riel de anclaje contra el frente, a todo lo ancho. */}
+      <mesh position={[(x0 + x1) / 2, yAlto - 0.02, 0.04]}>
+        <boxGeometry args={[x1 - x0, 0.16, 0.08]} />
+        <meshStandardMaterial color="#2a2f39" roughness={0.6} />
+      </mesh>
       <mesh position={[(x0 + x1) / 2, yBajo - 0.07, largo * Math.cos(caida)]}>
         <boxGeometry args={[x1 - x0, 0.14, 0.05]} />
         <meshStandardMaterial color={color} roughness={0.85} />
