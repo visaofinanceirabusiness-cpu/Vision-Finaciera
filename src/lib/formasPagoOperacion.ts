@@ -71,6 +71,13 @@ async function medioDeLiquidacionSolo(empresaId: string, operacion: string, cate
 // Las cuentas internas de los compromisos (devengo) se saldan desde
 // Compromisos, no son un medio del día a día. `conservar` es el medio que ya
 // tiene un asiento que se está editando: no se oculta para no vaciar el campo.
+// Categorías de una operación que se dieron de baja (activo = false): la matriz las conserva para poder editar operaciones viejas
+// y buscar su regla, pero los selectores no las ofrecen. Hoy pasa con la categoría de una cuenta de compromiso que ya se saldó.
+export async function categoriasInactivas(empresaId: string, operacion: string): Promise<Set<string>> {
+  const { data } = await supabase.from('categorias_operacion').select('nombre').eq('empresa_id', empresaId).eq('operacion', operacion).eq('activo', false);
+  return new Set((data ?? []).map((c) => c.nombre as string));
+}
+
 export async function obtenerFormasPagoOperacion(
   empresaId: string,
   operacion: string,
@@ -86,12 +93,16 @@ export async function obtenerFormasPagoOperacion(
 
   if (error) throw error;
 
-  const [internas, soloPlata] = await Promise.all([
+  const [internas, soloPlata, { data: dadasDeBaja }] = await Promise.all([
     nombresCuentasCompromiso(empresaId),
     medioDeLiquidacionSolo(empresaId, operacion, categoria),
+    supabase.from('formas_pago').select('nombre').eq('empresa_id', empresaId).eq('activo', false),
   ]);
 
+  // Una forma de pago dada de baja (la cuenta de un compromiso ya saldado) no se ofrece más; `conservar` es la de la operación que se edita.
+  const inactivas = new Set((dadasDeBaja ?? []).map((f) => f.nombre as string));
+
   return (Array.from(new Set((data ?? []).map((f) => f.forma_pago).filter(Boolean))) as string[]).filter(
-    (nombre) => nombre === conservar || (!internas.has(nombre) && (soloPlata === null || soloPlata.has(nombre)))
+    (nombre) => nombre === conservar || (!inactivas.has(nombre) && !internas.has(nombre) && (soloPlata === null || soloPlata.has(nombre)))
   );
 }

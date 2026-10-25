@@ -12,7 +12,7 @@ import { PendientesParaCargar } from '@/components/panel/PendientesParaCargar';
 import { Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
+import { categoriasInactivas, obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import {
   registrarOperacion,
   editarOperacion,
@@ -736,7 +736,9 @@ export function CentralDeLanzamientosTab({
         return;
       }
 
-      const unicas = Array.from(new Set((data ?? []).map((f) => f.categoria).filter(Boolean))) as string[];
+      // Las categorías dadas de baja (cuenta de compromiso ya saldada) no se ofrecen, salvo la de la operación que se está editando.
+      const dadasDeBaja = await categoriasInactivas(empresaId as string, operacion);
+      const unicas = Array.from(new Set((data ?? []).map((f) => f.categoria).filter((c) => Boolean(c) && (!dadasDeBaja.has(c as string) || c === valoresIniciales?.categoria)))) as string[];
 
       // Una categoría de producto comparte nombre con su categoría de Pérdida (cuenta de Gasto): buscar el rubro por nombre las
       // agrupaba como "Despesa". En Compra el rubro es el de la cuenta que se debita (Stock = Activo) y en Venta el de la que se acredita.

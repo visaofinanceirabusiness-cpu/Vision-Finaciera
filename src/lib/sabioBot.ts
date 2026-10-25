@@ -35,7 +35,7 @@
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, estaVencido, etiquetaPeriodo, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from './compromisosAbiertos';
 import { supabase } from './supabase';
-import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
+import { categoriasInactivas, obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { simboloMoneda, formatearNumeroEntero } from './moneda';
@@ -565,7 +565,8 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       );
     }
 
-    const categorias = Array.from(new Set(filasMatriz.map((f) => f.categoria).filter(Boolean))) as string[];
+    const dadasDeBaja = await categoriasInactivas(empresaId, operacion);
+    const categorias = Array.from(new Set(filasMatriz.map((f) => f.categoria).filter((c) => Boolean(c) && !dadasDeBaja.has(c as string)))) as string[];
     const stockPorCategoria = Object.fromEntries(filasMatriz.map((f) => [f.categoria, f.stock]));
 
     const nuevosDatos: Datos = { ...datos, operacion, opciones: categorias, stockPorCategoria };

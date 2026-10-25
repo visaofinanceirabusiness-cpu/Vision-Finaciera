@@ -34,7 +34,7 @@ import {
   renombrarFormaPago,
   siguienteCodigoDeCuenta,
 } from './categorias';
-import { generarMatrizOperaciones } from './motor';
+import { generarMatrizOperaciones, obtenerSaldoCuenta } from './motor';
 import {
   nombreCuentaCompromiso,
   nombreYaExiste,
@@ -441,10 +441,39 @@ export async function liberarCuentaSiCorresponde(empresaId: string, formaPagoId:
     .eq('empresa_id', empresaId)
     .maybeSingle();
 
+  // Solo se da de baja con la cuenta en cero: con saldo todavía hay algo por cobrar o pagar y tiene que seguir a la vista.
+  if (forma?.cuenta_id) {
+    const { data: cuenta } = await supabase.from('plan_cuentas').select('nombre').eq('id', forma.cuenta_id).maybeSingle();
+
+    if (cuenta?.nombre) {
+      const saldo = await obtenerSaldoCuenta(empresaId, cuenta.nombre, '9999-12-31');
+      if (saldo && Math.abs(saldo.saldo) >= 0.005) {
+        return false;
+      }
+    }
+  }
+
   await supabase.from('formas_pago').update({ activo: false }).eq('id', formaPagoId);
 
   if (forma?.cuenta_id) {
     await supabase.from('plan_cuentas').update({ activo: false }).eq('id', forma.cuenta_id);
+
+    // La categoría de Cobro / Pago que apunta SOLO a esta cuenta también se da de baja (los selectores no la ofrecen más; la matriz
+    // y las operaciones viejas no se tocan).
+    const { data: vinculos } = await supabase.from('categorias_operacion_cuentas').select('categoria_operacion_id').eq('empresa_id', empresaId).eq('cuenta_id', forma.cuenta_id).eq('activo', true);
+
+    for (const v of vinculos ?? []) {
+      const { count: otras } = await supabase
+        .from('categorias_operacion_cuentas')
+        .select('id', { count: 'exact', head: true })
+        .eq('categoria_operacion_id', v.categoria_operacion_id)
+        .eq('activo', true)
+        .neq('cuenta_id', forma.cuenta_id);
+
+      if ((otras ?? 0) === 0) {
+        await supabase.from('categorias_operacion').update({ activo: false }).eq('id', v.categoria_operacion_id);
+      }
+    }
   }
 
   return true;
