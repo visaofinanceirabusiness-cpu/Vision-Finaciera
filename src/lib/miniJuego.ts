@@ -5,7 +5,7 @@
 // válidas para armar las tarjetas, no todo el resto del formulario.
 
 import { supabase } from './supabase';
-import { obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
+import { categoriasInactivas, obtenerFormasPagoOperacion } from '@/lib/formasPagoOperacion';
 import { fechaLocalHoy } from './fecha';
 
 export type CategoriaJuego = { nombre: string; stock: string | null };
@@ -19,9 +19,10 @@ export async function obtenerCategoriasJuego(empresaId: string, operacion: strin
 
   if (error) throw error;
 
+  const dadasDeBaja = await categoriasInactivas(empresaId, operacion);
   const porNombre = new Map<string, string | null>();
   for (const fila of data ?? []) {
-    if (fila.categoria) porNombre.set(fila.categoria, fila.stock ?? null);
+    if (fila.categoria && !dadasDeBaja.has(fila.categoria)) porNombre.set(fila.categoria, fila.stock ?? null);
   }
 
   return Array.from(porNombre.entries()).map(([nombre, stock]) => ({ nombre, stock }));
