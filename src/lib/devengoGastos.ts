@@ -20,6 +20,7 @@
 
 import { conciliarCompromisos } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
+import { borrarEventosDeRecordatorios } from './eventosDePlantilla';
 import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { obtenerConfigAPagar, type ConfigAPagar } from './cuentaAPagar';
@@ -536,6 +537,7 @@ export async function eliminarOBajaGastoRecurrente(
   plantilla: { id: string; devengar: boolean }
 ): Promise<'ELIMINADA' | 'BAJA'> {
   if (!plantilla.devengar) {
+    await borrarEventosDeRecordatorios('gastos', plantilla.id);
     const { error } = await supabase.from('gastos_recurrentes').delete().eq('id', plantilla.id);
 
     if (error) {
@@ -575,6 +577,7 @@ export async function eliminarOBajaGastoRecurrente(
 
     resultado = 'BAJA';
   } else {
+    await borrarEventosDeRecordatorios('gastos', plantilla.id);
     const { error } = await supabase.from('gastos_recurrentes').delete().eq('id', plantilla.id);
 
     if (error) {

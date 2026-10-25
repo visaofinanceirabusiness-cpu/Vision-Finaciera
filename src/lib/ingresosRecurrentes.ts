@@ -12,6 +12,7 @@
 // registrar el cobro con un toque.
 
 import { supabase } from './supabase';
+import { borrarEventosDeRecordatorios } from './eventosDePlantilla';
 import { registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import type { EstadoDevengo } from './devengo';
@@ -232,6 +233,7 @@ export async function actualizarIngresoRecurrente(
 }
 
 export async function eliminarIngresoRecurrente(id: string) {
+  await borrarEventosDeRecordatorios('ingresos', id);
   const { error } = await supabase.from('ingresos_recurrentes').delete().eq('id', id);
   if (error) throw error;
 }
