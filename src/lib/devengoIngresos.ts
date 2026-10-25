@@ -20,6 +20,7 @@
 
 import { conciliarCompromisos } from './conciliacionCompromisosDatos';
 import { supabase } from './supabase';
+import { borrarEventosDeRecordatorios } from './eventosDePlantilla';
 import { editarOperacion, registrarOperacion } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { empresaTieneDevengo } from './devengoGastos';
@@ -528,6 +529,7 @@ export async function eliminarOBajaIngresoRecurrente(
   plantilla: { id: string; devengar: boolean }
 ): Promise<'ELIMINADA' | 'BAJA'> {
   if (!plantilla.devengar) {
+    await borrarEventosDeRecordatorios('ingresos', plantilla.id);
     const { error } = await supabase.from('ingresos_recurrentes').delete().eq('id', plantilla.id);
 
     if (error) {
@@ -567,6 +569,7 @@ export async function eliminarOBajaIngresoRecurrente(
 
     resultado = 'BAJA';
   } else {
+    await borrarEventosDeRecordatorios('ingresos', plantilla.id);
     const { error } = await supabase.from('ingresos_recurrentes').delete().eq('id', plantilla.id);
 
     if (error) {
