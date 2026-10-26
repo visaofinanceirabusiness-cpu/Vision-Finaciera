@@ -3,6 +3,7 @@
 import { ChartCard } from './ChartCard';
 import { crearTraductor } from '@/lib/i18n';
 import { diccionarioCharts } from './i18nCharts';
+import { partirEtiqueta } from '@/lib/etiquetasGrafico';
 
 type DatosCategoria = {
   nombre: string;
@@ -39,7 +40,7 @@ export function CategoryChart({
   const margenIzq = 16;
   const margenDer = 16;
   const margenSup = 40;
-  const margenInf = 66;
+  const margenInf = 72;
 
   const maxValor = Math.max(...datos.map((dato) => dato.valor), 1);
 
@@ -49,6 +50,10 @@ export function CategoryChart({
   const anchoBarra = anchoUtil / Math.max(datos.length, 1);
 
   const paleta = [color, ...PALETA];
+
+  // Los nombres largos se parten en varias líneas según el ancho de cada barra (antes se pisaban entre sí).
+  const tamanoLetra = anchoBarra < 90 ? 11 : anchoBarra < 130 ? 12.5 : 14;
+  const maxCaracteres = (anchoBarra - 6) / (tamanoLetra * 0.58);
 
   return (
     <ChartCard titulo={tituloFinal} subtitulo={subtituloFinal}>
@@ -92,15 +97,13 @@ export function CategoryChart({
                 {simbolo}{dato.valor.toLocaleString(locale, { maximumFractionDigits: 0 })}
               </text>
 
-              <text
-                x={x + anchoReal / 2}
-                y={alto - 26}
-                textAnchor="middle"
-                fontSize="15"
-                fontWeight="700"
-                fill="#374151"
-              >
-                {dato.nombre}
+              <text x={x + anchoReal / 2} textAnchor="middle" fontSize={tamanoLetra} fontWeight="700" fill="#374151">
+                {partirEtiqueta(dato.nombre, maxCaracteres).map((linea, n) => (
+                  <tspan key={n} x={x + anchoReal / 2} y={margenSup + altoUtil + 22 + n * (tamanoLetra + 3)}>
+                    {linea}
+                  </tspan>
+                ))}
+                <title>{dato.nombre}</title>
               </text>
             </g>
           );
