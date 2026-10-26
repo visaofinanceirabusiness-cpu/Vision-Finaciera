@@ -39,6 +39,7 @@ const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/contabilidad', titulo: 'Contabilidad', corto: { es: 'Contab.', pt: 'Contab.' }, emoji: '🧾', color: '#7c3aed' },
   { href: '/finanzas', titulo: 'Finanzas', corto: { es: 'Finanzas', pt: 'Finanças' }, emoji: '💼', color: '#0d9488' },
   { href: '/mercaderia', titulo: 'Mercadería', corto: { es: 'Mercad.', pt: 'Mercad.' }, emoji: '📦', color: '#ea580c' },
+  { href: '/mi-local', titulo: 'Mi Local', corto: { es: 'Mi Local', pt: 'Meu Local' }, emoji: '🛍️', color: '#e11d48' },
   { href: '/informes', titulo: 'Informes', corto: { es: 'Informes', pt: 'Relat.' }, emoji: '📈', color: '#0891b2' },
   { href: '/visao-3d', titulo: 'Visão 3D', corto: { es: 'Visión 3D', pt: 'Visão 3D' }, emoji: '🏢', color: '#0ea5e9' },
   { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
@@ -111,6 +112,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         TODAS_LAS_HERRAMIENTAS.filter((herramienta) => {
           if (herramienta.href === '/mercaderia') return manejaMercaderia;
           if (herramienta.href === '/produccion') return tieneProduccion;
+          if (herramienta.href === '/mi-local') return manejaMercaderia && perfil.tipo_usuario !== 'ASISTENTE';
           // Igual que en el lobby: el asistente no ve Informes.
           if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
           // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
