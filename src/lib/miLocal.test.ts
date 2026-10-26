@@ -4,6 +4,7 @@ import {
   agruparCatalogo,
   agruparItemsPorCategoria,
   cambiarCantidad,
+  enlaceBannerValido,
   formatearReales,
   generarSlug,
   precioConMargen,
@@ -126,5 +127,14 @@ describe('catálogo por categoría', () => {
     const g = agruparCatalogo(prods, new Map([['1', 5], ['3', 20], ['4', 0]]));
     expect(g.map((x) => x.categoria)).toEqual(['Labiales', 'Perfumes', '']);
     expect(g[1].lista.map((p) => p.id)).toEqual(['3', '1', '2', '4']);
+  });
+});
+
+describe('enlace de banner', () => {
+  it('solo acepta http/https', () => {
+    expect(enlaceBannerValido('https://wa.me/5511912345678')).toBe(true);
+    expect(enlaceBannerValido('javascript:alert(1)')).toBe(false);
+    expect(enlaceBannerValido('data:text/html,x')).toBe(false);
+    expect(enlaceBannerValido('https://a b')).toBe(false);
   });
 });

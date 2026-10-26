@@ -193,3 +193,8 @@ export function agruparCatalogo<T extends { id: string; nombre: string; categori
       }),
     }));
 }
+
+// Los enlaces de un banner solo pueden ser http(s): nada de javascript: ni data:.
+export function enlaceBannerValido(texto: string): boolean {
+  return /^https?:\/\/[^\s]+$/i.test(texto.trim()) && texto.trim().length <= 300;
+}
