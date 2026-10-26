@@ -7,8 +7,24 @@ import { TemaGlobal } from '@/components/TemaGlobal';
 import { ProveedorEspectador } from '@/components/demo/ProveedorEspectador';
 
 export const metadata: Metadata = {
+  // Las imágenes de la vista previa al compartir un link deben ser URLs absolutas.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://vision-finaciera.vercel.app'),
   title: 'Visão Financeira',
   description: 'Claridad para decidir. Seguridad para crecer.',
+  openGraph: {
+    type: 'website',
+    siteName: 'Visão Financeira',
+    title: 'Visão Financeira',
+    description: 'Clareza para decidir. Segurança para crescer.',
+    locale: 'pt_BR',
+    images: [{ url: '/logo.jpeg', width: 1254, height: 1254, alt: 'Visão Financeira' }],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Visão Financeira',
+    description: 'Clareza para decidir. Segurança para crescer.',
+    images: ['/logo.jpeg'],
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
