@@ -93,6 +93,7 @@ export const RUTAS_SIN_TEMA_EMPRESA = [
   '/aceptar-convite',
   '/bienvenida',
   '/panel-maestro',
+  '/loja',
 ];
 
 function fijarOQuitar(nombre: string, valor: string | null | undefined) {
