@@ -219,6 +219,12 @@ function Pagina({ children, banners = [] }: { children: React.ReactNode; banners
           .lj-rail { display: block; position: sticky; top: 16px; }
           .lj-tira { display: none; }
         }
+        @media (min-width: 1600px) {
+          .lj-grid { grid-template-columns: 340px minmax(0, 720px) 340px; gap: 32px; }
+        }
+        @media (min-width: 1920px) {
+          .lj-grid { grid-template-columns: 460px minmax(0, 720px) 460px; gap: 40px; }
+        }
       `}</style>
       <div className="lj-grid">
         <aside className="lj-rail"><CarruselLateral imagenes={izquierda} /></aside>
