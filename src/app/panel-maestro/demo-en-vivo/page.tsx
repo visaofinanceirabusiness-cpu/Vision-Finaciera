@@ -254,6 +254,20 @@ export default function DemoEnVivoPage() {
               </div>
             </Panel>
 
+            <Panel titulo="Link de acceso a la demo (el mismo que el QR)">
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <code style={{ background: '#f1f5f9', borderRadius: 8, padding: '8px 12px', fontSize: 13.5, wordBreak: 'break-all' }}>{`${typeof window !== 'undefined' ? window.location.origin : ''}/demo?c=${acceso.codigo}`}</code>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/demo?c=${acceso.codigo}`)}
+                  style={{ border: `1px solid ${COLORES.azul}`, background: '#fff', color: COLORES.azul, borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+                >
+                  📋 Copiar link
+                </button>
+                <a href={`/demo?c=${acceso.codigo}`} target="_blank" rel="noreferrer" style={{ color: COLORES.verde, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>Abrir ↗</a>
+              </div>
+            </Panel>
+
             <Panel titulo="Habilitar herramientas para el público (solo lectura: nadie puede cargar ni editar)">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 <button type="button" onClick={() => void guardarHabilitadas(HERRAMIENTAS_DEMO.map((h) => h.clave))} style={{ border: 'none', background: COLORES.verde, color: '#fff', borderRadius: 999, padding: '8px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>

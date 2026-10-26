@@ -24,7 +24,13 @@ type Props = { searchParams: Promise<{ c?: string }> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { c } = await searchParams;
   const empresa = await nombreEmpresaDemo(c);
-  return { title: empresa ? `Visão Financeira - ${empresa}` : 'Visão Financeira' };
+  const titulo = empresa ? `Visão Financeira - ${empresa}` : 'Visão Financeira';
+  // openGraph reemplaza al del layout completo, por eso se repite la imagen.
+  return {
+    title: titulo,
+    openGraph: { type: 'website', siteName: 'Visão Financeira', title: titulo, description: 'Conheça a Visão Financeira: clareza para decidir, segurança para crescer.', locale: 'pt_BR', images: [{ url: '/logo.jpeg', width: 1254, height: 1254 }] },
+    twitter: { card: 'summary', title: titulo, images: ['/logo.jpeg'] },
+  };
 }
 
 export default async function DemoPage({ searchParams }: Props) {
