@@ -6,7 +6,7 @@
 // dispara a mano (registrarVentaDelPedido) y recién ahí pasa por el motor.
 
 import { supabase } from './supabase';
-import { registrarOperacion, generarIdOperacion } from './motor';
+import { registrarOperacion, generarIdOperacion, traerTodo } from './motor';
 import { fechaLocalHoy } from './fecha';
 import { agruparItemsPorCategoria, type EstadoPedido, type ItemVenta } from './miLocal';
 
@@ -119,6 +119,23 @@ export async function saldosStock(empresaId: string): Promise<Map<string, number
   const m = new Map<string, number>();
   for (const f of data ?? []) m.set(f.producto_id as string, (m.get(f.producto_id as string) ?? 0) + Number(f.saldo ?? 0));
   return m;
+}
+
+// Mismo costo promedio ponderado que muestra Mercadería: entradas suman, salidas restan.
+export async function costosPromedio(empresaId: string): Promise<Map<string, number>> {
+  const movs = await traerTodo<{ producto_id: string; tipo: string; cantidad: number | string; costo_unitario: number | string | null }>((d, h) =>
+    supabase.from('movimientos_stock').select('producto_id, tipo, cantidad, costo_unitario').eq('empresa_id', empresaId).order('id').range(d, h)
+  );
+  const acum = new Map<string, { cantidad: number; valor: number }>();
+  for (const m of movs) {
+    if (m.tipo !== 'ENTRADA' && m.tipo !== 'SALIDA') continue;
+    const a = acum.get(m.producto_id) ?? { cantidad: 0, valor: 0 };
+    const signo = m.tipo === 'ENTRADA' ? 1 : -1;
+    a.cantidad += signo * Number(m.cantidad ?? 0);
+    a.valor += signo * Number(m.cantidad ?? 0) * Number(m.costo_unitario ?? 0);
+    acum.set(m.producto_id, a);
+  }
+  return new Map(Array.from(acum.entries()).map(([id, a]) => [id, a.cantidad > 0 ? a.valor / a.cantidad : 0]));
 }
 
 export async function listarPedidos(empresaId: string): Promise<Pedido[]> {

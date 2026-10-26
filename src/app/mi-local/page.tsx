@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import {
   cambiarEstadoPedido,
   cargarMiTienda,
+  costosPromedio,
   guardarPublicacion,
   guardarTienda,
   listarPedidos,
@@ -60,6 +61,7 @@ export default function MiLocalPage() {
   const [productos, setProductos] = useState<ProductoBase[]>([]);
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
   const [saldos, setSaldos] = useState<Map<string, number>>(new Map());
+  const [costos, setCostos] = useState<Map<string, number>>(new Map());
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [cargando, setCargando] = useState(true);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
@@ -67,17 +69,19 @@ export default function MiLocalPage() {
   const tr = useCallback((es: string, pt: string) => (esPT ? pt : es), [esPT]);
 
   const recargar = useCallback(async (id: string) => {
-    const [t, pubs, ped, sal, { data: prods }] = await Promise.all([
+    const [t, pubs, ped, sal, cos, { data: prods }] = await Promise.all([
       cargarMiTienda(id),
       listarPublicaciones(id),
       listarPedidos(id),
       saldosStock(id),
+      costosPromedio(id),
       supabase.from('productos').select('id, nombre, categoria, unidad_medida').eq('empresa_id', id).order('nombre'),
     ]);
     setTienda(t);
     setPublicaciones(pubs);
     setPedidos(ped);
     setSaldos(sal);
+    setCostos(cos);
     setProductos((prods ?? []) as ProductoBase[]);
   }, []);
 
@@ -143,7 +147,7 @@ export default function MiLocalPage() {
           ) : pestana === 'tienda' ? (
             <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'catalogo' ? (
-            <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
+            <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : (
             <PestanaPedidos empresaId={empresaId} pedidos={pedidos} esPT={esPT} tr={tr} onCambio={() => recargar(empresaId)} setAviso={setAviso} />
           )}
@@ -239,7 +243,7 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
 
 // ---------------- CATÁLOGO ----------------
 
-function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, tr, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
+function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, tr, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; costos: Map<string, number>; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
   const porProducto = useMemo(() => new Map(publicaciones.map((p) => [p.producto_id, p])), [publicaciones]);
   const [editando, setEditando] = useState<string | null>(null);
 
@@ -253,17 +257,20 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, tr, onGu
         return (
           <div key={prod.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
             <div className="ml-fila" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-              <div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {pub?.foto_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={pub.foto_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10 }} /> : <div style={{ width: 56, height: 56, borderRadius: 10, background: '#eef3f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: COLORES.gris, textAlign: 'center' }}>{tr('Sin foto', 'Sem foto')}</div>}
+                <div>
                 <strong style={{ color: COLORES.azul }}>{prod.nombre}</strong>
                 <div style={{ fontSize: 12, color: COLORES.gris }}>
-                  {prod.categoria ?? tr('Sin categoría', 'Sem categoria')} · {tr('Stock', 'Estoque')}: {saldos.get(prod.id) ?? 0} {prod.unidad_medida ?? ''}
+                  {prod.categoria ?? tr('Sin categoría', 'Sem categoria')} · {tr('Stock', 'Estoque')}: {saldos.get(prod.id) ?? 0} {prod.unidad_medida ?? ''} · {tr('Costo', 'Custo')}: {formatearReales(costos.get(prod.id) ?? 0)}
                   {pub && ` · ${formatearReales(pub.precio)} · ${pub.publicado ? (pub.disponible ? tr('Publicado', 'Publicado') : tr('Publicado (agotado)', 'Publicado (esgotado)')) : tr('Borrador', 'Rascunho')}`}
                 </div>
+                </div>
               </div>
-              <button onClick={() => setEditando(editando === prod.id ? null : prod.id)} style={botonSecundario}>{pub ? tr('Editar', 'Editar') : tr('Publicar…', 'Publicar…')}</button>
+              <button onClick={() => setEditando(editando === prod.id ? null : prod.id)} style={botonSecundario}>{pub ? tr('Editar / foto', 'Editar / foto') : tr('Publicar y subir foto', 'Publicar e enviar foto')}</button>
             </div>
             {editando === prod.id && (
-              <FormPublicacion empresaId={empresaId} producto={prod} pub={pub} tr={tr} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
+              <FormPublicacion empresaId={empresaId} producto={prod} pub={pub} costo={costos.get(prod.id) ?? 0} tr={tr} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
             )}
           </div>
         );
@@ -272,7 +279,7 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, tr, onGu
   );
 }
 
-function FormPublicacion({ empresaId, producto, pub, tr, setAviso, onListo }: { empresaId: string; producto: ProductoBase; pub?: Publicacion; tr: Tr; setAviso: SetAviso; onListo: () => Promise<void> }) {
+function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onListo }: { empresaId: string; producto: ProductoBase; pub?: Publicacion; costo: number; tr: Tr; setAviso: SetAviso; onListo: () => Promise<void> }) {
   const [titulo, setTitulo] = useState(pub?.titulo ?? producto.nombre);
   const [descripcion, setDescripcion] = useState(pub?.descripcion ?? '');
   const [precio, setPrecio] = useState(pub ? String(pub.precio).replace('.', ',') : '');
@@ -310,7 +317,7 @@ function FormPublicacion({ empresaId, producto, pub, tr, setAviso, onListo }: { 
     <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
       <label style={etiqueta}>{tr('Nombre comercial', 'Nome comercial')}<input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} style={campo} /></label>
       <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} rows={2} style={{ ...campo, resize: 'vertical' }} /></label>
-      <label style={etiqueta}>{tr('Precio publicado (R$)', 'Preço publicado (R$)')}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder="49,90" style={campo} /></label>
+      <label style={etiqueta}>{tr('Precio de venta (R$)', 'Preço de venda (R$)')}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {formatearReales(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder="49,90" style={campo} /></label>
       <div style={etiqueta}>
         {tr('Foto', 'Foto')}
         {foto && /* eslint-disable-next-line @next/next/no-img-element */ <img src={foto} alt="" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12 }} />}
