@@ -182,7 +182,7 @@ export default function LojaPage() {
             <div style={{ padding: 18 }}>
               <h2 style={{ margin: 0, color: AZUL }}>{detalhe.titulo}</h2>
               <div style={{ color: VERDE, fontWeight: 800, fontSize: 20, margin: '6px 0' }}>{formatearReales(Number(detalhe.precio))}</div>
-              {detalhe.descripcion && <p style={{ color: '#475569' }}>{detalhe.descripcion}</p>}
+              {detalhe.descripcion && <p style={{ color: '#475569', whiteSpace: 'pre-line' }}>{detalhe.descripcion}</p>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
                 <button aria-label="Diminuir" onClick={() => setQtd((q) => Math.max(1, q - 1))} style={mini}>−</button>
                 <strong>{qtd}</strong>
