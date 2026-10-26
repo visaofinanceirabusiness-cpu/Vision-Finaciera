@@ -396,7 +396,7 @@ function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onList
   return (
     <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
       <label style={etiqueta}>{tr('Nombre comercial', 'Nome comercial')}<input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} style={campo} /></label>
-      <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} rows={2} style={{ ...campo, resize: 'vertical' }} /></label>
+      <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={2000} rows={8} style={{ ...campo, resize: 'vertical' }} /><span style={{ fontWeight: 400, color: COLORES.gris }}>{descripcion.length}/2000</span></label>
       <label style={etiqueta}>{tr('Precio de venta (R$)', 'Preço de venda (R$)')}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {formatearReales(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder="49,90" style={campo} /></label>
       <div style={etiqueta}>
         {tr('Foto', 'Foto')}
