@@ -28,6 +28,7 @@ export const SECCION_CONTABILIDAD = 'CONTABILIDAD';
 export const SECCION_FINANZAS = 'FINANZAS';
 export const SECCION_INFORMES = 'INFORMES';
 export const SECCION_MERCADERIA = 'MERCADERIA';
+export const SECCION_MI_LOCAL = 'MI_LOCAL';
 export const SECCION_PRODUCCION = 'PRODUCCION';
 export const SECCION_RRHH = 'RRHH';
 export const SECCION_VISAO3D = 'VISAO3D';
@@ -54,6 +55,7 @@ const SECCION_DE_RUTA: Record<string, string> = {
   '/mercaderia': SECCION_MERCADERIA,
   '/stock': SECCION_MERCADERIA,
   '/movimientos-stock': SECCION_MERCADERIA,
+  '/mi-local': SECCION_MI_LOCAL,
   '/produccion': SECCION_PRODUCCION,
   '/recursos-humanos': SECCION_RRHH,
   '/visao-3d': SECCION_VISAO3D,
@@ -70,6 +72,7 @@ export const HERRAMIENTAS_DEMO: { clave: string; es: string; pt: string }[] = [
   { clave: SECCION_FINANZAS, es: 'Finanzas', pt: 'Finanças' },
   { clave: SECCION_INFORMES, es: 'Informes', pt: 'Relatórios' },
   { clave: SECCION_MERCADERIA, es: 'Mercadería', pt: 'Mercadoria' },
+  { clave: SECCION_MI_LOCAL, es: 'Mi Local', pt: 'Meu Local' },
   { clave: SECCION_PRODUCCION, es: 'Producción', pt: 'Produção' },
   { clave: SECCION_RRHH, es: 'Recursos Humanos', pt: 'Recursos Humanos' },
   { clave: SECCION_VISAO3D, es: 'Visión 3D', pt: 'Visão 3D' },

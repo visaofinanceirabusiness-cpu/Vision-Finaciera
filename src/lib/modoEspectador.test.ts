@@ -22,7 +22,7 @@ describe('rutaPermitidaEnDemo', () => {
   });
 
   it('todas las herramientas de la lista tienen una ruta que las abre', () => {
-    const rutas: Record<string, string> = { PANEL: '/panel-de-control', CONTABILIDAD: '/contabilidad', FINANZAS: '/finanzas', INFORMES: '/informes', MERCADERIA: '/mercaderia', PRODUCCION: '/produccion', RRHH: '/recursos-humanos', VISAO3D: '/visao-3d', PLAN_ACCION: '/plan-accion', NUESTRO_SUENO: '/nuestro-sueno', MENSAJES: '/mensajes', CONFIGURACOES: '/configuracoes' };
+    const rutas: Record<string, string> = { PANEL: '/panel-de-control', CONTABILIDAD: '/contabilidad', FINANZAS: '/finanzas', INFORMES: '/informes', MERCADERIA: '/mercaderia', MI_LOCAL: '/mi-local', PRODUCCION: '/produccion', RRHH: '/recursos-humanos', VISAO3D: '/visao-3d', PLAN_ACCION: '/plan-accion', NUESTRO_SUENO: '/nuestro-sueno', MENSAJES: '/mensajes', CONFIGURACOES: '/configuracoes' };
     for (const h of HERRAMIENTAS_DEMO) expect(rutaPermitidaEnDemo(rutas[h.clave], [h.clave])).toBe(true);
   });
 
