@@ -570,7 +570,7 @@ function ModalVenta({ empresaId, pedido, tr, onCerrar, onListo, setAviso }: { em
       await registrarVentaDelPedido({ empresaId, pedidoId: pedido.id, formaPagoPorCategoria: elegidos });
       await onListo();
     } catch (e) {
-      const m = e instanceof Error ? e.message : '';
+      const m = e instanceof Error ? e.message : (e as { message?: string } | null)?.message ?? '';
       setAviso({ tipo: 'error', texto: m.includes('ML_VENTA_EN_CURSO') ? tr('Ya se está registrando esta venta. Esperá unos minutos.', 'Esta venda já está sendo registrada. Aguarde alguns minutos.') : m || tr('No se pudo registrar la venta.', 'Não foi possível registrar a venda.') });
       onCerrar();
     }

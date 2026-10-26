@@ -205,7 +205,11 @@ export async function registrarVentaDelPedido(args: { empresaId: string; pedidoI
           formaPago,
           historico: `Mi Local #${r.numero} · ${grupo.categoria}`,
           clienteProveedor: r.cliente,
-          lineas: grupo.items.map((it) => ({ producto: it.nombre, cantidad: it.cantidad, monto: Number(it.precio_unitario) })),
+          lineas: grupo.items.map((it) => {
+            // El motor identifica el producto por su id, no por el nombre.
+            if (!it.producto_id) throw new Error('El producto de este pedido ya no existe en Mercadería.');
+            return { producto: it.producto_id, cantidad: it.cantidad, monto: Number(it.precio_unitario) };
+          }),
         },
         idOperacion
       );
