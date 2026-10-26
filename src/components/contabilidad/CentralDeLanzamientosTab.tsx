@@ -6,6 +6,7 @@
 // en su propio archivo (Fase 2 de mantenimiento).
 
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
+import { categoriasDeTarjeta, empresaUsaTarjetasDeCompra, grupoDeCategoria, type GrupoCompra, type TipoMercaderia } from '@/lib/comprasPorTarjetas';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from '@/components/panel/AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from '@/components/panel/PendientesParaCargar';
@@ -166,6 +167,9 @@ export function CentralDeLanzamientosTab({
   // (ej. "Clases", "Masoterapia") no tiene productos ni cantidad, se
   // carga igual que una Inversión: categoría + descripción + monto.
   const [stockPorCategoria, setStockPorCategoria] = useState<Record<string, string>>({});
+  // Tarjetas de Compra (piloto demo): qué se compra, y si es mercadería, terminados o insumos.
+  const [grupoCompra, setGrupoCompra] = useState<GrupoCompra>('');
+  const [tipoMercaderia, setTipoMercaderia] = useState<TipoMercaderia>('');
 
   // Rubro contable (Activo/Pasivo/Patrimonio/Ingreso/Gasto) de cada
   // cuenta, según el primer dígito de su código — se usa para agrupar
@@ -259,6 +263,23 @@ export function CentralDeLanzamientosTab({
   // "Masoterapia" es tan válida como una Venta de "Ropa", pero no
   // tiene producto ni cantidad.
   const categoriaEsProducto = Boolean(categoria) && stockPorCategoria[categoria] === 'SI';
+
+  const usaTarjetasDeCompra = operacion === 'COMPRA' && empresaUsaTarjetasDeCompra(empresaId);
+  const categoriasMostradas = usaTarjetasDeCompra
+    ? categoriasDeTarjeta({ categorias, stockPorCategoria, productos, grupo: grupoCompra, tipo: tipoMercaderia, categoriaActual: categoria })
+    : categorias;
+
+  useEffect(() => {
+    if (operacion !== 'COMPRA') {
+      setGrupoCompra('');
+      setTipoMercaderia('');
+    }
+  }, [operacion]);
+
+  // Al editar una compra que ya tiene categoría, la tarjeta se deduce de ella.
+  useEffect(() => {
+    if (usaTarjetasDeCompra && categoria && !grupoCompra) setGrupoCompra(grupoDeCategoria(stockPorCategoria[categoria]));
+  }, [usaTarjetasDeCompra, categoria, grupoCompra, stockPorCategoria]);
 
   const operacionesConProducto =
     (['COMPRA', 'VENTA', 'PERDIDA'].includes(operacion) && categoriaEsProducto) ||
@@ -1626,8 +1647,62 @@ export function CentralDeLanzamientosTab({
           </select>
         </Campo>
 
+        {usaTarjetasDeCompra && (
+          <Campo label={idioma === 'PT' ? 'O que você está comprando?' : '¿Qué estás comprando?'}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {(
+                [
+                  ['MERCADERIA', '📦', idioma === 'PT' ? 'Mercadoria' : 'Mercadería'],
+                  ['BIENES', '🏢', idioma === 'PT' ? 'Bens de uso' : 'Bienes de uso'],
+                ] as [GrupoCompra, string, string][]
+              ).map(([id, icono, texto]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    if (grupoCompra === id) return;
+                    setGrupoCompra(id);
+                    setTipoMercaderia('');
+                    setCategoria('');
+                    setFormaPago('');
+                    setFormasPago([]);
+                  }}
+                  style={{ flex: '1 1 150px', padding: '12px 14px', borderRadius: 14, cursor: 'pointer', fontWeight: 800, fontSize: 14, border: grupoCompra === id ? `2px solid ${COLORES.verde}` : '1px solid #d1d5db', background: grupoCompra === id ? '#edf6f0' : '#fff', color: COLORES.azul }}
+                >
+                  {icono} {texto}
+                </button>
+              ))}
+            </div>
+            {grupoCompra === 'MERCADERIA' && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                {(
+                  [
+                    ['TERMINADO', idioma === 'PT' ? 'Produtos acabados' : 'Productos terminados'],
+                    ['INSUMO', idioma === 'PT' ? 'Insumos' : 'Insumos'],
+                  ] as [TipoMercaderia, string][]
+                ).map(([id, texto]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      if (tipoMercaderia === id) return;
+                      setTipoMercaderia(id);
+                      setCategoria('');
+                      setFormaPago('');
+                      setFormasPago([]);
+                    }}
+                    style={{ padding: '8px 16px', borderRadius: 999, cursor: 'pointer', fontWeight: 700, fontSize: 13, border: tipoMercaderia === id ? `2px solid ${COLORES.verde}` : '1px solid #d1d5db', background: tipoMercaderia === id ? '#edf6f0' : '#fff', color: COLORES.azul }}
+                  >
+                    {texto}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Campo>
+        )}
+
         <Campo label={esTransferencia ? t('labelHaciaCuenta') : t('labelCategoria')}>
-          {categorias.length === 1 ? (
+          {!usaTarjetasDeCompra && categoriasMostradas.length === 1 ? (
             <span
               style={{
                 ...campoInput,
@@ -1637,18 +1712,18 @@ export function CentralDeLanzamientosTab({
                 background: '#f1f5f9',
               }}
             >
-              {categorias[0]}
+              {categoriasMostradas[0]}
             </span>
           ) : (
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              disabled={!operacion}
+              disabled={!operacion || (usaTarjetasDeCompra && categoriasMostradas.length === 0)}
               style={campoInput}
             >
               <option value="">{t('seleccionar')}</option>
 
-              {agruparCategoriasPorRubro(categorias, { ...rubroPorCuenta, ...rubroPorCategoria }, idioma).map((grupo) => (
+              {agruparCategoriasPorRubro(categoriasMostradas, { ...rubroPorCuenta, ...rubroPorCategoria }, idioma).map((grupo) => (
                 <optgroup key={grupo.rubro} label={grupo.rubro}>
                   {grupo.categorias.map((c) => (
                     <option key={c} value={c}>
@@ -1906,7 +1981,7 @@ export function CentralDeLanzamientosTab({
             <div style={filaProducto}>
               {operacionesConProducto ? (
                 <SelectorProductoDesplegable
-                  productos={productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase())}
+                  productos={productos.filter((p) => (p.categoria ?? '').toUpperCase() === categoria.toUpperCase() && (!usaTarjetasDeCompra || grupoCompra !== 'MERCADERIA' || !tipoMercaderia || p.tipo_producto === tipoMercaderia))}
                   saldos={saldoPorProductoAFecha}
                   operacion={operacion}
                   valor={linea.producto}
