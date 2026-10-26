@@ -114,6 +114,15 @@ export async function guardarPublicacion(p: Partial<Publicacion> & { empresa_id:
   if (error) throw error;
 }
 
+export async function publicarVarios(filas: { empresa_id: string; producto_id: string; titulo: string; precio: number }[]): Promise<void> {
+  if (filas.length === 0) return;
+  const ahora = new Date().toISOString();
+  const { error } = await supabase
+    .from('mi_local_publicaciones')
+    .upsert(filas.map((f) => ({ ...f, publicado: true, disponible: true, controla_stock: true, actualizado_en: ahora })), { onConflict: 'empresa_id,producto_id' });
+  if (error) throw error;
+}
+
 export async function saldosStock(empresaId: string): Promise<Map<string, number>> {
   const { data } = await supabase.from('saldo_stock').select('producto_id, saldo').eq('empresa_id', empresaId);
   const m = new Map<string, number>();

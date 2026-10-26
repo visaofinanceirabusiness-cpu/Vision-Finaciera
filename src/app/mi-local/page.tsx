@@ -20,6 +20,7 @@ import {
   guardarTienda,
   listarPedidos,
   listarPublicaciones,
+  publicarVarios,
   registrarVentaDelPedido,
   saldosStock,
   subirFoto,
@@ -32,6 +33,7 @@ import {
   formatearReales,
   generarSlug,
   mensajeSlug,
+  precioConMargen,
   puedeRegistrarVenta,
   rutaTienda,
   transicionesValidas,
@@ -246,18 +248,73 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
 function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, tr, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; costos: Map<string, number>; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
   const porProducto = useMemo(() => new Map(publicaciones.map((p) => [p.producto_id, p])), [publicaciones]);
   const [editando, setEditando] = useState<string | null>(null);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [margen, setMargen] = useState('100');
+  const [publicando, setPublicando] = useState(false);
+  const sinPublicar = productos.filter((p) => !porProducto.has(p.id));
+  const conStock = sinPublicar.filter((p) => (saldos.get(p.id) ?? 0) > 0);
+
+  function alternar(id: string) {
+    setMarcados((m) => {
+      const n = new Set(m);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  async function publicarMarcados() {
+    const m = Number(margen.replace(',', '.'));
+    if (!(m >= 0)) return setAviso({ tipo: 'error', texto: tr('Poné un margen válido (0 o más).', 'Informe uma margem válida (0 ou mais).') });
+    const filas: { empresa_id: string; producto_id: string; titulo: string; precio: number }[] = [];
+    let sinCosto = 0;
+    for (const prod of sinPublicar.filter((p) => marcados.has(p.id))) {
+      const precio = precioConMargen(costos.get(prod.id) ?? 0, m);
+      if (precio === null) sinCosto++;
+      else filas.push({ empresa_id: empresaId, producto_id: prod.id, titulo: prod.nombre, precio });
+    }
+    setPublicando(true);
+    try {
+      await publicarVarios(filas);
+      setMarcados(new Set());
+      await onGuardado();
+      setAviso({ tipo: sinCosto ? 'error' : 'ok', texto: `${tr('Publicados', 'Publicados')}: ${filas.length}.${sinCosto ? ` ${sinCosto} ${tr('no se publicaron porque no tienen costo (publicalos a mano con su precio).', 'não foram publicados por não terem custo (publique-os à mão com o preço).')}` : ''}` });
+    } catch {
+      setAviso({ tipo: 'error', texto: tr('No se pudo publicar.', 'Não foi possível publicar.') });
+    }
+    setPublicando(false);
+  }
 
   if (productos.length === 0) return <p style={{ color: COLORES.gris }}>{tr('Todavía no hay productos en Mercadería. Cargalos primero para poder publicarlos.', 'Ainda não há produtos em Mercadoria. Cadastre-os primeiro para publicá-los.')}</p>;
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <p style={{ margin: 0, color: COLORES.gris, fontSize: 13 }}>{tr('Los productos son los de Mercadería (no hay una segunda base). Acá solo elegís cuáles publicar, con qué nombre, precio y foto.', 'Os produtos são os de Mercadoria (não há uma segunda base). Aqui você só escolhe quais publicar, com que nome, preço e foto.')}</p>
+      {sinPublicar.length > 0 && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
+          <strong style={{ color: COLORES.azul }}>{tr('Publicar varios a la vez (opcional)', 'Publicar vários de uma vez (opcional)')}</strong>
+          <span style={{ fontSize: 13, color: COLORES.gris }}>{tr('Tildá los productos y se publican con precio = costo promedio + margen. Después podés ajustar precio y foto de cada uno. Los que querés cargar a mano, dejalos sin tildar.', 'Marque os produtos e eles são publicados com preço = custo médio + margem. Depois você ajusta preço e foto de cada um. Os que quiser cadastrar à mão, deixe sem marcar.')}</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => setMarcados(new Set(conStock.map((p) => p.id)))} style={botonSecundario}>{tr('Tildar los que tienen stock', 'Marcar os com estoque')} ({conStock.length})</button>
+            <button onClick={() => setMarcados(new Set(sinPublicar.map((p) => p.id)))} style={botonSecundario}>{tr('Tildar todos', 'Marcar todos')}</button>
+            <button onClick={() => setMarcados(new Set())} style={botonSecundario}>{tr('Limpiar', 'Limpar')}</button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <label style={{ fontSize: 13, fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center' }}>
+              {tr('Margen sobre el costo', 'Margem sobre o custo')} (%)
+              <input value={margen} onChange={(e) => setMargen(e.target.value)} inputMode="decimal" style={{ ...campo, width: 80 }} />
+            </label>
+            <button onClick={publicarMarcados} disabled={publicando || marcados.size === 0} style={botonPrimario}>{publicando ? '…' : `${tr('Publicar tildados', 'Publicar marcados')} (${marcados.size})`}</button>
+          </div>
+        </div>
+      )}
       {productos.map((prod) => {
         const pub = porProducto.get(prod.id);
         return (
           <div key={prod.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
             <div className="ml-fila" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {!pub && <input type="checkbox" aria-label={tr('Tildar para publicar', 'Marcar para publicar')} checked={marcados.has(prod.id)} onChange={() => alternar(prod.id)} style={{ width: 20, height: 20 }} />}
                 {pub?.foto_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={pub.foto_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10 }} /> : <div style={{ width: 56, height: 56, borderRadius: 10, background: '#eef3f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: COLORES.gris, textAlign: 'center' }}>{tr('Sin foto', 'Sem foto')}</div>}
                 <div>
                 <strong style={{ color: COLORES.azul }}>{prod.nombre}</strong>
