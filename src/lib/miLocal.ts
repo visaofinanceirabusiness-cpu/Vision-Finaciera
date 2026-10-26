@@ -167,3 +167,29 @@ export function precioConMargen(costo: number, margenPct: number): number | null
   if (!(costo > 0) || !(margenPct >= 0) || !Number.isFinite(margenPct)) return null;
   return Math.round(costo * (1 + margenPct / 100) * 100) / 100;
 }
+
+// Catálogo agrupado por categoría (alfabético, "sin categoría" al final). Dentro de cada una:
+// primero los que tienen saldo, de mayor a menor; después los sin saldo, por nombre.
+export function agruparCatalogo<T extends { id: string; nombre: string; categoria: string | null }>(
+  productos: T[],
+  saldos: Map<string, number>
+): { categoria: string; lista: T[] }[] {
+  const mapa = new Map<string, T[]>();
+  for (const p of productos) {
+    const clave = p.categoria?.trim() || '';
+    mapa.set(clave, [...(mapa.get(clave) ?? []), p]);
+  }
+  const saldo = (p: T) => saldos.get(p.id) ?? 0;
+  return Array.from(mapa.entries())
+    .sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+    .map(([categoria, lista]) => ({
+      categoria,
+      lista: [...lista].sort((x, y) => {
+        const cx = saldo(x) > 0;
+        const cy = saldo(y) > 0;
+        if (cx !== cy) return cx ? -1 : 1;
+        if (cx) return saldo(y) - saldo(x) || x.nombre.localeCompare(y.nombre);
+        return x.nombre.localeCompare(y.nombre);
+      }),
+    }));
+}
