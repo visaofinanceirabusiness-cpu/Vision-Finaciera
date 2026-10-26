@@ -75,6 +75,7 @@ cerrado cualquier cambio de plan de cuentas.
 
 ## Flujo de trabajo esperado
 - **Deploys de Vercel limitados** (plan gratuito, ~100 cada 24 h: cada push a un PR y cada merge cuenta). Agrupar el trabajo en PRs por tema, probar todo local antes de subir, no abrir PRs solo para notas (ver `memory.md` → "Cómo trabajar los PRs").
+- **Mergear siempre, sin pedir aprobación** (instrucción permanente del dueño): con Vercel en verde, mergear (squash) el PR directamente y avisar después; no esperar un "dale". Se sigue agrupando el trabajo en pocos PRs por el límite de deploys.
 - Rama de trabajo: `claude/mobile-financial-vision-edits-1zfouk`
 - Para cambios grandes/ambiguos (sobre todo algo que toque el motor
   contable o datos reales): proponer en texto primero, esperar
