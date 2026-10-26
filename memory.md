@@ -15,6 +15,7 @@ tomada.
 - Banners laterales: tabla `mi_local_banners` (lado izquierda/derecha, enlace http(s) opcional), pestaña Banners en el admin, `CarruselLateral` rota solo. En ≥1280 px van en columnas de 240 px a los costados; en menos, tira arriba. `mi_local_tienda_publica` devuelve `banners`.
 - Clientes (RH): `mi_local_crear_pedido` (migración `mi_local_pedido_alta_cliente_por_telefono`) da de alta en `clientes` al comprador si su teléfono (solo dígitos, con o sin 55) no existe; si existe no toca nada. Código CLI-xxxxx, misma transacción que el pedido.
 - Link compartible: `app/loja/[slug]/page.tsx` es componente de servidor con `generateMetadata` (Open Graph/Twitter: nombre, descripción y portada); la tienda interactiva está en `LojaCliente.tsx`. WhatsApp cachea la vista previa por link: si se cambia la portada, un link ya compartido puede tardar en actualizarse.
+- Demo: Mi Local es una herramienta más del "Control de la demostración" (`SECCION_MI_LOCAL`, ruta `/mi-local`); los espectadores la ven en solo lectura (las tablas `mi_local_*` ya bloquean escrituras de ESPECTADOR). La demo tiene 1 tienda y 40 publicaciones.
 - Pendiente/por confirmar: dominio propio para el link público, notificación al comerciante cuando llega un pedido, modo demo/espectador (`/mi-local` no está en `SECCION_DE_RUTA`, queda bloqueado).
 
 ## Demo: Automóveis (mercadería) vs Veículos da Empresa (bien de uso) + tarjetas en Compras (26/10/2026)

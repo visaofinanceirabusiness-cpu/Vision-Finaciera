@@ -30,6 +30,7 @@ export function ControlDemoLobby({ empresaId, idioma }: { empresaId: string; idi
     '/contabilidad': 'Contabilidad',
     '/finanzas': 'Finanzas',
     '/mercaderia': 'Mercadería',
+    '/mi-local': 'Mi Local',
     '/produccion': 'Producción',
     '/recursos-humanos': 'Recursos Humanos',
     '/visao-3d': 'Visão 3D',
