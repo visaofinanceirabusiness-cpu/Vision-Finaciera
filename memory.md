@@ -17,6 +17,11 @@ tomada.
 - Link compartible: `app/loja/[slug]/page.tsx` es componente de servidor con `generateMetadata` (Open Graph/Twitter: nombre, descripción y portada); la tienda interactiva está en `LojaCliente.tsx`. WhatsApp cachea la vista previa por link: si se cambia la portada, un link ya compartido puede tardar en actualizarse.
 - Pendiente/por confirmar: dominio propio para el link público, notificación al comerciante cuando llega un pedido, modo demo/espectador (`/mi-local` no está en `SECCION_DE_RUTA`, queda bloqueado).
 
+## Demo: Automóveis (mercadería) vs Veículos da Empresa (bien de uso) + tarjetas en Compras (26/10/2026)
+- Datos solo de la empresa demo (migración `demo_automoveis_mercaderia_y_veiculos_bien_de_uso`, vía MCP): la categoría de producto "Veículos" pasó a **Automóveis** (cuentas Estoque/Venda/Custo, categoría de pérdida, reglas, matriz, productos e historial) y se creó el bien de uso **Veículos da Empresa** (cuenta 1.2.1.0.4, categoría COMPRA ACTIVO `VEH`, regla y matriz clonadas de Máquinas e Equipamentos). Auditoría `cuentas_sin_operacion` de la demo: solo quedan las del punto 6.
+- Compras (Central de Lanzamientos): tarjetas **Mercadería** (→ Terminados | Insumos → categorías de producto → productos del tipo elegido) y **Bienes de uso** (categorías sin stock). Lógica pura en `lib/comprasPorTarjetas.ts` (con tests); activa SOLO para la empresa demo (`EMPRESAS_CON_TARJETAS`; para abrirla a otras alcanza con sumar su id). Ventas y Pérdidas siguen con la lista de siempre. Al editar una compra con categoría se muestran todas las categorías para no esconderla.
+- El punto 6 (depreciación, anticipos, impuestos) queda en pausa por decisión del dueño (26/10): no desarrollar por ahora.
+
 ## Compromisos: unificar Cobrar/Pagar + recurrentes (04/10/2026) — EN CURSO
 Problema: 4 conceptos (Cuentas a Cobrar, Pasivos, Ingresos y Gastos
 Recurrentes). Los recurrentes son solo recordatorios (no generan
