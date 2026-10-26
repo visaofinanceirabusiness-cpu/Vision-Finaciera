@@ -5,6 +5,7 @@ import {
   cambiarCantidad,
   formatearReales,
   generarSlug,
+  precioConMargen,
   puedeRegistrarVenta,
   puedeTransicionar,
   quitarDelCarrito,
@@ -94,5 +95,19 @@ describe('venta por categoría', () => {
     ]);
     expect(g.map((x) => x.categoria)).toEqual(['Bebidas', 'Tortas']);
     expect(g[1].items).toHaveLength(2);
+  });
+});
+
+describe('precio con margen', () => {
+  it('aplica el margen y redondea a centavos', () => {
+    expect(precioConMargen(10, 100)).toBe(20);
+    expect(precioConMargen(12.34, 100)).toBe(24.68);
+    expect(precioConMargen(3.333, 50)).toBe(5);
+    expect(precioConMargen(10, 0)).toBe(10);
+  });
+  it('sin costo o con margen inválido no sugiere', () => {
+    expect(precioConMargen(0, 100)).toBeNull();
+    expect(precioConMargen(10, -5)).toBeNull();
+    expect(precioConMargen(10, NaN)).toBeNull();
   });
 });

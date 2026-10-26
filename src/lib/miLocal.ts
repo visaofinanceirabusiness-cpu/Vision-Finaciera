@@ -161,3 +161,9 @@ export function agruparItemsPorCategoria(items: ItemVenta[]): { categoria: strin
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([categoria, lista]) => ({ categoria, items: lista }));
 }
+
+// Precio sugerido = costo + margen%, a centavos. Sin costo no hay base para sugerir: null.
+export function precioConMargen(costo: number, margenPct: number): number | null {
+  if (!(costo > 0) || !(margenPct >= 0) || !Number.isFinite(margenPct)) return null;
+  return Math.round(costo * (1 + margenPct / 100) * 100) / 100;
+}
