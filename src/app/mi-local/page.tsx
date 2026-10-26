@@ -406,7 +406,7 @@ function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onList
     <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
       <label style={etiqueta}>{tr('Nombre comercial', 'Nome comercial')}<input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} style={campo} /></label>
       <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={2000} rows={8} style={{ ...campo, resize: 'vertical' }} /><span style={{ fontWeight: 400, color: COLORES.gris }}>{descripcion.length}/2000</span></label>
-      <label style={etiqueta}>{tr('Precio de venta (R$)', 'Preço de venda (R$)')}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {formatearReales(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder="49,90" style={campo} /></label>
+      <label style={etiqueta}>{tr('Precio de venta (R$)', 'Preço de venda (R$)')}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {formatearReales(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder={tr('Ingresá el precio', 'Informe o preço')} style={campo} /></label>
       <div style={etiqueta}>
         {tr('Foto', 'Foto')}
         {foto && /* eslint-disable-next-line @next/next/no-img-element */ <img src={foto} alt="" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12 }} />}
@@ -570,7 +570,7 @@ function ModalVenta({ empresaId, pedido, tr, onCerrar, onListo, setAviso }: { em
       await registrarVentaDelPedido({ empresaId, pedidoId: pedido.id, formaPagoPorCategoria: elegidos });
       await onListo();
     } catch (e) {
-      const m = e instanceof Error ? e.message : '';
+      const m = e instanceof Error ? e.message : (e as { message?: string } | null)?.message ?? '';
       setAviso({ tipo: 'error', texto: m.includes('ML_VENTA_EN_CURSO') ? tr('Ya se está registrando esta venta. Esperá unos minutos.', 'Esta venda já está sendo registrada. Aguarde alguns minutos.') : m || tr('No se pudo registrar la venta.', 'Não foi possível registrar a venda.') });
       onCerrar();
     }
