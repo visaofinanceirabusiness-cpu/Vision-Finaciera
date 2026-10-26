@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   agregarAlCarrito,
+  agruparCatalogo,
   agruparItemsPorCategoria,
   cambiarCantidad,
   formatearReales,
@@ -109,5 +110,21 @@ describe('precio con margen', () => {
     expect(precioConMargen(0, 100)).toBeNull();
     expect(precioConMargen(10, -5)).toBeNull();
     expect(precioConMargen(10, NaN)).toBeNull();
+  });
+});
+
+describe('catálogo por categoría', () => {
+  it('ordena categorías y, dentro, con saldo (mayor a menor) y luego sin saldo', () => {
+    const prods = [
+      { id: '1', nombre: 'B', categoria: 'Perfumes' },
+      { id: '2', nombre: 'A', categoria: 'Perfumes' },
+      { id: '3', nombre: 'C', categoria: 'Perfumes' },
+      { id: '4', nombre: 'D', categoria: 'Perfumes' },
+      { id: '5', nombre: 'Z', categoria: null },
+      { id: '6', nombre: 'Y', categoria: 'Labiales' },
+    ];
+    const g = agruparCatalogo(prods, new Map([['1', 5], ['3', 20], ['4', 0]]));
+    expect(g.map((x) => x.categoria)).toEqual(['Labiales', 'Perfumes', '']);
+    expect(g[1].lista.map((p) => p.id)).toEqual(['3', '1', '2', '4']);
   });
 });

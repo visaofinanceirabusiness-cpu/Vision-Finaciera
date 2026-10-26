@@ -29,6 +29,7 @@ import {
   type Tienda,
 } from '@/lib/miLocalDatos';
 import {
+  agruparCatalogo,
   etiquetaEstado,
   formatearReales,
   generarSlug,
@@ -251,6 +252,8 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, 
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [margen, setMargen] = useState('100');
   const [publicando, setPublicando] = useState(false);
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  const grupos = useMemo(() => agruparCatalogo(productos, saldos), [productos, saldos]);
   const sinPublicar = productos.filter((p) => !porProducto.has(p.id));
   const conStock = sinPublicar.filter((p) => (saldos.get(p.id) ?? 0) > 0);
 
@@ -308,7 +311,22 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, 
           </div>
         </div>
       )}
-      {productos.map((prod) => {
+      {grupos.map(({ categoria, lista }) => {
+        const abierta = abiertas.has(categoria);
+        const publicados = lista.filter((p) => porProducto.has(p.id)).length;
+        return (
+          <div key={categoria || 'sin'}>
+            <button
+              onClick={() => setAbiertas((a) => { const n = new Set(a); if (n.has(categoria)) n.delete(categoria); else n.add(categoria); return n; })}
+              aria-expanded={abierta}
+              style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid #d6dee5', background: '#f1f5f9', color: COLORES.azul, fontWeight: 700, fontSize: 15, cursor: 'pointer', textAlign: 'left' }}
+            >
+              <span>{abierta ? '▾' : '▸'} {categoria || tr('Sin categoría', 'Sem categoria')}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: COLORES.gris }}>{lista.length} {tr('productos', 'produtos')} · {publicados} {tr('publicados', 'publicados')}</span>
+            </button>
+            {abierta && (
+              <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                {lista.map((prod) => {
         const pub = porProducto.get(prod.id);
         return (
           <div key={prod.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
@@ -328,6 +346,11 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, 
             </div>
             {editando === prod.id && (
               <FormPublicacion empresaId={empresaId} producto={prod} pub={pub} costo={costos.get(prod.id) ?? 0} tr={tr} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
+            )}
+          </div>
+        );
+                })}
+              </div>
             )}
           </div>
         );
