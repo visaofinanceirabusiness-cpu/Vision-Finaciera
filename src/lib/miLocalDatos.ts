@@ -51,7 +51,10 @@ export type Pedido = {
   mi_local_pedido_items: PedidoItem[];
 };
 
+export type Banner = { id: string; lado: 'izquierda' | 'derecha'; imagen_url: string; enlace: string | null; orden: number; activo: boolean };
+
 export type TiendaPublica = {
+  banners?: { lado: 'izquierda' | 'derecha'; imagen_url: string; enlace: string | null }[];
   nombre: string;
   descripcion: string | null;
   portada_url: string | null;
@@ -216,6 +219,27 @@ export async function registrarVentaDelPedido(args: { empresaId: string; pedidoI
   const { error: errorCerrar } = await supabase.rpc('mi_local_cerrar_venta', { p_pedido: args.pedidoId });
   if (errorCerrar) throw errorCerrar;
   return ids;
+}
+
+export async function listarBanners(empresaId: string): Promise<Banner[]> {
+  const { data, error } = await supabase.from('mi_local_banners').select('id, lado, imagen_url, enlace, orden, activo').eq('empresa_id', empresaId).order('orden').order('creado_en');
+  if (error) throw error;
+  return (data ?? []) as Banner[];
+}
+
+export async function agregarBanner(empresaId: string, lado: Banner['lado'], imagenUrl: string, enlace: string | null, orden: number): Promise<void> {
+  const { error } = await supabase.from('mi_local_banners').insert({ empresa_id: empresaId, lado, imagen_url: imagenUrl, enlace, orden });
+  if (error) throw error;
+}
+
+export async function actualizarBanner(id: string, cambios: Partial<Pick<Banner, 'activo' | 'enlace'>>): Promise<void> {
+  const { error } = await supabase.from('mi_local_banners').update(cambios).eq('id', id);
+  if (error) throw error;
+}
+
+export async function borrarBanner(id: string): Promise<void> {
+  const { error } = await supabase.from('mi_local_banners').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ---------- fotos ----------

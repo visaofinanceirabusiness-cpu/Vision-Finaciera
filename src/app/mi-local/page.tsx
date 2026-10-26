@@ -14,6 +14,11 @@ import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { supabase } from '@/lib/supabase';
 import {
   cambiarEstadoPedido,
+  agregarBanner,
+  actualizarBanner,
+  borrarBanner,
+  listarBanners,
+  type Banner,
   cargarMiTienda,
   costosPromedio,
   guardarPublicacion,
@@ -30,6 +35,7 @@ import {
 } from '@/lib/miLocalDatos';
 import {
   agruparCatalogo,
+  enlaceBannerValido,
   etiquetaEstado,
   formatearReales,
   generarSlug,
@@ -52,7 +58,7 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
-type Pestana = 'tienda' | 'catalogo' | 'pedidos';
+type Pestana = 'tienda' | 'catalogo' | 'banners' | 'pedidos';
 type ProductoBase = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null };
 
 export default function MiLocalPage() {
@@ -131,6 +137,7 @@ export default function MiLocalPage() {
             [
               ['tienda', tr('Tienda', 'Loja')],
               ['catalogo', tr('Catálogo', 'Catálogo')],
+              ['banners', tr('Banners', 'Banners')],
               ['pedidos', `${tr('Pedidos', 'Pedidos')}${pendientes ? ` (${pendientes})` : ''}`],
             ] as [Pestana, string][]
           ).map(([id, texto]) => (
@@ -151,6 +158,8 @@ export default function MiLocalPage() {
             <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'catalogo' ? (
             <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
+          ) : pestana === 'banners' ? (
+            <PestanaBanners empresaId={empresaId} tr={tr} setAviso={setAviso} />
           ) : (
             <PestanaPedidos empresaId={empresaId} pedidos={pedidos} esPT={esPT} tr={tr} onCambio={() => recargar(empresaId)} setAviso={setAviso} />
           )}
@@ -407,6 +416,77 @@ function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onList
       <label style={chk}><input type="checkbox" checked={disponible} onChange={(e) => setDisponible(e.target.checked)} /> {tr('Disponible para pedir', 'Disponível para pedir')}</label>
       <label style={chk}><input type="checkbox" checked={controlaStock} onChange={(e) => setControlaStock(e.target.checked)} /> {tr('Ocultar cuando el stock llegue a cero', 'Ocultar quando o estoque chegar a zero')}</label>
       <div><button onClick={guardar} disabled={guardando} style={botonPrimario}>{guardando ? '…' : tr('Guardar producto', 'Salvar produto')}</button></div>
+    </div>
+  );
+}
+
+// ---------------- BANNERS ----------------
+
+function PestanaBanners({ empresaId, tr, setAviso }: { empresaId: string; tr: Tr; setAviso: SetAviso }) {
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [ocupado, setOcupado] = useState(false);
+
+  const recargar = useCallback(async () => setBanners(await listarBanners(empresaId)), [empresaId]);
+  useEffect(() => {
+    recargar().catch(() => setAviso({ tipo: 'error', texto: tr('No se pudieron cargar los banners.', 'Não foi possível carregar os banners.') }));
+  }, [recargar, setAviso, tr]);
+
+  async function subir(lado: Banner['lado'], archivo: File | undefined, enlace: string) {
+    if (!archivo) return;
+    if (enlace.trim() && !enlaceBannerValido(enlace)) return setAviso({ tipo: 'error', texto: tr('El enlace debe empezar con http:// o https://', 'O link deve começar com http:// ou https://') });
+    setOcupado(true);
+    try {
+      const url = await subirFoto(empresaId, archivo);
+      await agregarBanner(empresaId, lado, url, enlace.trim() || null, banners.filter((b) => b.lado === lado).length);
+      await recargar();
+      setAviso({ tipo: 'ok', texto: tr('Banner agregado.', 'Banner adicionado.') });
+    } catch {
+      setAviso({ tipo: 'error', texto: tr('No se pudo agregar el banner.', 'Não foi possível adicionar o banner.') });
+    }
+    setOcupado(false);
+  }
+
+  async function accion(fn: () => Promise<void>) {
+    try {
+      await fn();
+      await recargar();
+    } catch {
+      setAviso({ tipo: 'error', texto: tr('No se pudo guardar el cambio.', 'Não foi possível salvar a alteração.') });
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 22 }}>
+      <p style={{ margin: 0, color: COLORES.gris, fontSize: 13 }}>
+        {tr('Imágenes que rotan solas a los costados de la tienda (en celular se ven como una tira arriba). Sirven para mostrar prendas, medios de pago, promociones… Tamaño recomendado: vertical, unos 600 × 900 px.', 'Imagens que giram sozinhas nas laterais da loja (no celular aparecem como uma faixa no topo). Servem para mostrar peças, meios de pagamento, promoções… Tamanho recomendado: vertical, cerca de 600 × 900 px.')}
+      </p>
+      {(['izquierda', 'derecha'] as const).map((lado) => (
+        <section key={lado} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14, display: 'grid', gap: 12 }}>
+          <strong style={{ color: COLORES.azul }}>{lado === 'izquierda' ? tr('Lado izquierdo', 'Lado esquerdo') : tr('Lado derecho', 'Lado direito')}</strong>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {banners.filter((b) => b.lado === lado).map((b) => (
+              <div key={b.id} style={{ width: 140, display: 'grid', gap: 6, opacity: b.activo ? 1 : 0.5 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={b.imagen_url} alt="" style={{ width: 140, height: 200, objectFit: 'cover', borderRadius: 10 }} />
+                {b.enlace && <span style={{ fontSize: 11, color: COLORES.gris, wordBreak: 'break-all' }}>🔗 {b.enlace}</span>}
+                <button onClick={() => accion(() => actualizarBanner(b.id, { activo: !b.activo }))} style={botonSecundario}>{b.activo ? tr('Ocultar', 'Ocultar') : tr('Mostrar', 'Mostrar')}</button>
+                <button onClick={() => accion(() => borrarBanner(b.id))} style={botonPeligro}>{tr('Borrar', 'Apagar')}</button>
+              </div>
+            ))}
+          </div>
+          <NuevoBanner lado={lado} ocupado={ocupado} tr={tr} onSubir={subir} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function NuevoBanner({ lado, ocupado, tr, onSubir }: { lado: Banner['lado']; ocupado: boolean; tr: Tr; onSubir: (lado: Banner['lado'], archivo: File | undefined, enlace: string) => Promise<void> }) {
+  const [enlace, setEnlace] = useState('');
+  return (
+    <div style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
+      <label style={etiqueta}>{tr('Enlace al tocar (opcional)', 'Link ao tocar (opcional)')}<input value={enlace} onChange={(e) => setEnlace(e.target.value)} placeholder="https://" style={campo} /></label>
+      <label style={etiqueta}>{tr('Agregar imagen', 'Adicionar imagem')}<input type="file" accept="image/*" disabled={ocupado} onChange={(e) => { onSubir(lado, e.target.files?.[0], enlace); e.target.value = ''; }} /></label>
     </div>
   );
 }

@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { CarruselLateral } from '@/components/mi-local/CarruselLateral';
 import { cargarTiendaPublica, crearPedidoPublico, type TiendaPublica } from '@/lib/miLocalDatos';
 import { agregarAlCarrito, cambiarCantidad, cantidadTotal, formatearReales, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
 
@@ -95,7 +96,7 @@ export default function LojaPage() {
   }
 
   return (
-    <Pagina>
+    <Pagina banners={loja.banners ?? []}>
       <header style={{ borderRadius: 20, overflow: 'hidden', background: '#fff', boxShadow: '0 8px 24px rgba(31,58,95,0.10)', marginBottom: 18 }}>
         {loja.portada_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={loja.portada_url} alt="" style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />}
         <div style={{ padding: 18 }}>
@@ -200,8 +201,35 @@ export default function LojaPage() {
   );
 }
 
-function Pagina({ children }: { children: React.ReactNode }) {
-  return <div style={{ minHeight: '100vh', background: '#f4f7fb', padding: '16px 14px' }}><div style={{ maxWidth: 720, margin: '0 auto' }}>{children}</div></div>;
+type BannerPublico = NonNullable<TiendaPublica['banners']>[number];
+
+// En pantallas anchas los banners van en columnas a los costados; en celular y
+// tablet se muestran como una tira rotativa arriba del contenido.
+function Pagina({ children, banners = [] }: { children: React.ReactNode; banners?: BannerPublico[] }) {
+  const izquierda = banners.filter((b) => b.lado === 'izquierda');
+  const derecha = banners.filter((b) => b.lado === 'derecha');
+  return (
+    <div style={{ minHeight: '100vh', background: '#f4f7fb', padding: '16px 14px' }}>
+      <style>{`
+        .lj-grid { display: block; max-width: 720px; margin: 0 auto; }
+        .lj-rail { display: none; }
+        .lj-tira { display: block; margin-bottom: 14px; }
+        @media (min-width: 1280px) {
+          .lj-grid { display: grid; grid-template-columns: 240px minmax(0, 720px) 240px; gap: 24px; max-width: none; justify-content: center; align-items: start; }
+          .lj-rail { display: block; position: sticky; top: 16px; }
+          .lj-tira { display: none; }
+        }
+      `}</style>
+      <div className="lj-grid">
+        <aside className="lj-rail"><CarruselLateral imagenes={izquierda} /></aside>
+        <div>
+          {banners.length > 0 && <div className="lj-tira"><CarruselLateral imagenes={banners} alto={150} /></div>}
+          {children}
+        </div>
+        <aside className="lj-rail"><CarruselLateral imagenes={derecha} /></aside>
+      </div>
+    </div>
+  );
 }
 
 function Cartao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
