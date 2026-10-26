@@ -13,6 +13,7 @@ tomada.
 - Un pedido NO es una venta. "Registrar venta" es acción manual del comerciante (pedido confirmado+): una VENTA por categoría de producto vía `registrarOperacion`, fecha de hoy, id de operación anotado ANTES de registrar → reintento sin duplicar. No hay concepto de reserva de stock (la tienda solo oculta el producto si saldo ≤ 0 y `controla_stock`). Cancelar se bloquea si ya hay venta.
 - Catálogo: se pueden tildar productos sin publicar y publicarlos juntos con precio = costo promedio (de movimientos_stock) + margen % elegible (default 100); sin costo no se publica. Lo que se quiere a mano queda sin tildar.
 - Banners laterales: tabla `mi_local_banners` (lado izquierda/derecha, enlace http(s) opcional), pestaña Banners en el admin, `CarruselLateral` rota solo. En ≥1280 px van en columnas de 240 px a los costados; en menos, tira arriba. `mi_local_tienda_publica` devuelve `banners`.
+- Clientes (RH): `mi_local_crear_pedido` (migración `mi_local_pedido_alta_cliente_por_telefono`) da de alta en `clientes` al comprador si su teléfono (solo dígitos, con o sin 55) no existe; si existe no toca nada. Código CLI-xxxxx, misma transacción que el pedido.
 - Pendiente/por confirmar: dominio propio para el link público, notificación al comerciante cuando llega un pedido, modo demo/espectador (`/mi-local` no está en `SECCION_DE_RUTA`, queda bloqueado).
 
 ## Compromisos: unificar Cobrar/Pagar + recurrentes (04/10/2026) — EN CURSO
