@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { CarruselLateral } from '@/components/mi-local/CarruselLateral';
 import { cargarTiendaPublica, crearPedidoPublico, type TiendaPublica } from '@/lib/miLocalDatos';
-import { agregarAlCarrito, cambiarCantidad, cantidadTotal, formatearReales, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
+import { agregarAlCarrito, cambiarCantidad, cantidadTotal, formatearReales, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, mensajePedidoWhatsapp, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
 
 type Producto = TiendaPublica['productos'][number];
 
@@ -33,7 +33,7 @@ export default function LojaCliente() {
   const [obs, setObs] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [msg, setMsg] = useState('');
-  const [confirmado, setConfirmado] = useState<{ numero: number; total: number } | null>(null);
+  const [confirmado, setConfirmado] = useState<{ numero: number; total: number; nombre: string; items: ItemCarrito[]; observaciones: string } | null>(null);
   const chave = useRef(claveNueva());
 
   useEffect(() => {
@@ -61,7 +61,8 @@ export default function LojaCliente() {
     setMsg('');
     try {
       const r = await crearPedidoPublico({ slug, nombre: nome.trim(), whatsapp, observaciones: obs.trim(), items: carrinho.map((i) => ({ id: i.id, cantidad: i.cantidad })), clave: chave.current });
-      setConfirmado(r);
+      // El resumen se guarda antes de vaciar el carrito: el mensaje de WhatsApp lleva el detalle.
+      setConfirmado({ ...r, nombre: nome.trim(), items: carrinho, observaciones: obs.trim() });
       setCarrinho([]);
       chave.current = claveNueva();
       setEtapa('ok');
@@ -88,7 +89,7 @@ export default function LojaCliente() {
           <p style={{ fontSize: 18 }}>Número do pedido: <strong>#{confirmado.numero}</strong></p>
           <p>Total: <strong>{formatearReales(confirmado.total)}</strong></p>
           <p style={{ color: '#64748b' }}>{loja.nombre} vai entrar em contato pelo WhatsApp para confirmar. Nenhum pagamento foi feito agora.</p>
-          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, `Olá! Fiz o pedido #${confirmado.numero}.`)} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>Falar com a loja</a>}
+          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, mensajePedidoWhatsapp({ numero: confirmado.numero, nombre: confirmado.nombre, items: confirmado.items, total: confirmado.total, observaciones: confirmado.observaciones }))} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>Falar com a loja</a>}
           <div><button onClick={() => { setEtapa('loja'); setConfirmado(null); }} style={{ ...btn2, marginTop: 14 }}>Voltar à loja</button></div>
         </div>
       </Pagina>

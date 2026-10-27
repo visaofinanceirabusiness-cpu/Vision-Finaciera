@@ -198,3 +198,17 @@ export function agruparCatalogo<T extends { id: string; nombre: string; categori
 export function enlaceBannerValido(texto: string): boolean {
   return /^https?:\/\/[^\s]+$/i.test(texto.trim()) && texto.trim().length <= 300;
 }
+
+// Mensaje que el cliente le manda por WhatsApp a la tienda al terminar el pedido: número, nombre y detalle.
+export function mensajePedidoWhatsapp(args: { numero: number; nombre: string; items: ItemCarrito[]; total: number; observaciones?: string }): string {
+  const lineas = args.items.map((i) => `• ${i.cantidad} × ${i.titulo} — ${formatearReales(i.precio * i.cantidad)}`);
+  return [
+    `Olá! Sou ${args.nombre.trim()} e fiz o pedido #${args.numero}.`,
+    '',
+    'Detalhes do pedido:',
+    ...lineas,
+    '',
+    `Total: ${formatearReales(args.total)}`,
+    ...(args.observaciones?.trim() ? ['', `Observações: ${args.observaciones.trim()}`] : []),
+  ].join('\n');
+}
