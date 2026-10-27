@@ -7,6 +7,7 @@ import {
   enlaceBannerValido,
   formatearReales,
   generarSlug,
+  mensajePedidoWhatsapp,
   precioConMargen,
   puedeRegistrarVenta,
   puedeTransicionar,
@@ -136,5 +137,30 @@ describe('enlace de banner', () => {
     expect(enlaceBannerValido('javascript:alert(1)')).toBe(false);
     expect(enlaceBannerValido('data:text/html,x')).toBe(false);
     expect(enlaceBannerValido('https://a b')).toBe(false);
+  });
+});
+
+describe('mensaje del pedido por WhatsApp', () => {
+  it('incluye número, nombre, detalle, total y observaciones', () => {
+    const m = mensajePedidoWhatsapp({
+      numero: 12,
+      nombre: ' Ana Souza ',
+      items: [
+        { id: 'a', titulo: 'Batom', precio: 20, cantidad: 2 },
+        { id: 'b', titulo: 'Perfume', precio: 49.9, cantidad: 1 },
+      ],
+      total: 89.9,
+      observaciones: 'Entregar à tarde',
+    });
+    expect(m).toContain('Sou Ana Souza');
+    expect(m).toContain('pedido #12');
+    expect(m).toContain('2 × Batom');
+    expect(m).toContain('1 × Perfume');
+    expect(m.replace(/\s/g, ' ')).toContain('Total: R$ 89,90');
+    expect(m).toContain('Observações: Entregar à tarde');
+  });
+  it('sin observaciones no agrega esa línea', () => {
+    const m = mensajePedidoWhatsapp({ numero: 1, nombre: 'Bo', items: [{ id: 'a', titulo: 'X', precio: 10, cantidad: 1 }], total: 10 });
+    expect(m).not.toContain('Observações');
   });
 });
