@@ -1,9 +1,8 @@
 // lib/shell.ts
 //
-// NUEVO DISEÑO (cascarón): barra superior + menú lateral fijo + zona central. Piloto solo para Buenaventura. Fase 2: todas las
-// herramientas del menú se muestran dentro del cascarón (las pantallas públicas, el Panel Maestro y el alta quedan fuera).
-
-export const EMPRESAS_CON_SHELL = new Set<string>(['8512b8b0-1985-4731-981b-955f1d62a898']); // Buenaventura
+// NUEVO DISEÑO (cascarón): barra superior + menú lateral fijo + zona central, para TODAS las empresas y perfiles (Fase 3; antes
+// piloto solo de Buenaventura). Todas las herramientas del menú se muestran dentro del cascarón; las pantallas públicas, el Panel
+// Maestro y el alta quedan fuera. Qué herramientas ve cada perfil lo decide lib/herramientasMenu.ts.
 
 // Rutas que ya se muestran dentro del cascarón.
 export const RUTAS_EN_SHELL = [
@@ -31,7 +30,7 @@ export const RUTAS_EN_SHELL = [
 ];
 
 export function empresaUsaShell(empresaId: string | null | undefined): boolean {
-  return Boolean(empresaId) && EMPRESAS_CON_SHELL.has(empresaId as string);
+  return Boolean(empresaId);
 }
 
 export function rutaEnShell(pathname: string | null | undefined): boolean {

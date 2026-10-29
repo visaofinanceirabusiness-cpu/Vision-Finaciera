@@ -3,9 +3,9 @@ import { TODAS_LAS_HERRAMIENTAS } from './herramientasMenu';
 import { empresaUsaShell, herramientaDeRuta, rutaActiva, rutaEnShell } from './shell';
 
 describe('nuevo diseño (cascarón)', () => {
-  it('piloto: solo Buenaventura', () => {
+  it('fase 3: toda empresa con usuario usa el cascarón', () => {
     expect(empresaUsaShell('8512b8b0-1985-4731-981b-955f1d62a898')).toBe(true);
-    expect(empresaUsaShell('c887a052-cbab-47f2-8ec7-a2102af43295')).toBe(false);
+    expect(empresaUsaShell('c887a052-cbab-47f2-8ec7-a2102af43295')).toBe(true);
     expect(empresaUsaShell(null)).toBe(false);
   });
   it('fase 2: todas las herramientas del menú (y sus subrutas) van en el cascarón', () => {
