@@ -132,6 +132,7 @@ export function SabioWidget({
         <div
           ref={sabioRef}
           onClick={handleClick}
+          className="sabio-compacto-avatar"
           style={{ position: 'relative', width: 96, height: 96, flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', transformStyle: 'preserve-3d', perspective: 800, cursor: 'pointer', willChange: 'transform', transition: 'transform 500ms ease-out' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -140,6 +141,7 @@ export function SabioWidget({
         </div>
         <div
           onClick={handleClick}
+          className="sabio-compacto-globo"
           title={esControlado ? undefined : t('tocaParaOtroConsejo')}
           style={{ position: 'relative', background: colores.blanco, color: colores.azul, border: '1px solid #dbe5ef', borderRadius: 14, padding: '9px 13px', maxWidth: 230, minWidth: 140, fontSize: 12, fontWeight: 600, lineHeight: 1.35, boxShadow: '0 4px 12px rgba(31,58,95,0.10)', cursor: 'pointer' }}
         >
