@@ -249,21 +249,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               .shell-activo .sabio-compacto-avatar img { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; }
               .shell-activo .sabio-compacto-globo { align-self: center; font-size: 14px !important; max-width: 245px !important; min-width: 190px !important; padding: 12px 16px !important; }
               .shell-activo .sabio-compacto-globo > div:nth-child(2) { -webkit-line-clamp: 8 !important; }
-              .shell-activo .shell-centro-barra { max-width: 450px; }
+              .shell-activo .shell-centro-barra { max-width: 520px; }
             }
             @media (min-width: 1280px) {
               .shell-activo .shell-marca { flex: 0 0 auto !important; }
               .shell-activo .shell-centro-barra { align-items: center !important; margin: 0 auto; }
             }
             @media (min-width: 1700px) {
-              .shell-activo .shell-centro-barra { max-width: 500px; }
+              .shell-activo .shell-centro-barra { max-width: 560px; }
               .shell-activo .sabio-compacto-globo { max-width: 320px !important; font-size: 15.5px !important; }
             }
             @media (min-width: 1500px) and (max-width: 1699px) {
               .shell-logo { width: 120px !important; height: 120px !important; }
               .shell-activo .sabio-compacto-avatar, .shell-activo .sabio-compacto-avatar img { width: 112px !important; height: 112px !important; }
               .shell-activo .sabio-compacto-globo { max-width: 210px !important; min-width: 150px !important; font-size: 13px !important; }
-              .shell-activo .shell-centro-barra { max-width: 400px; }
+              .shell-activo .shell-centro-barra { max-width: 520px; }
             }
             @media (max-width: 1640px) {
               .shell-nombre { font-size: 26px !important; }
@@ -324,26 +324,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <BotonImagen href="/panel-de-control" imagen="/sabio/sabio-panel-control.png" texto={t('Panel de Control', 'Painel de Controle')} punto />
               <BotonImagen onClick={() => setJuegoAbierto(true)} imagen={SABIO_LUDICO_URL} texto="Mini-Juego" punto />
               <BotonImagen onClick={() => setTrofeosAbierto(true)} emoji="🏆" texto={t('Trofeos', 'Troféus')} />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                {datos?.esAdminPlataforma && (
-                  <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ color: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none', opacity: 0.9 }}>⚙️ Panel Maestro</Link>
-                )}
-                <button
-                  type="button"
-                  onClick={actualizar}
-                  disabled={actualizando}
-                  title={t('Actualizar los datos de esta pantalla sin recargar la página', 'Atualizar os dados desta tela sem recarregar a página')}
-                  aria-label={t('Actualizar', 'Atualizar')}
-                  style={{ border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.22)', borderRadius: 10, padding: '6px 12px', cursor: actualizando ? 'wait' : 'pointer', fontSize: 13, fontWeight: 800, color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <span aria-hidden className={actualizando ? 'shell-girando' : undefined} style={{ display: 'inline-block' }}>🔄</span>
-                  {actualizando ? t('Actualizando…', 'Atualizando…') : t('Actualizar', 'Atualizar')}
-                </button>
-              </div>
+              <BotonImagen onClick={() => setSabioAbierto(true)} emoji="💬" texto="Chat" ayuda={t('Chatear con Sabio', 'Conversar com o Sábio')} />
+              <BotonImagen onClick={actualizar} disabled={actualizando} girando={actualizando} emoji="🔄" texto={actualizando ? t('Actualizando…', 'Atualizando…') : t('Actualizar', 'Atualizar')} ayuda={t('Actualizar los datos de esta pantalla sin recargar la página', 'Atualizar os dados desta tela sem recarregar a página')} />
+              {datos?.esAdminPlataforma && (
+                <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ color: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none', opacity: 0.9 }}>⚙️ Panel Maestro</Link>
+              )}
             </nav>
             </div>
 
-            {/* El Sabio de siempre (con los tips de la herramienta que se está viendo) y, al lado, el chat. */}
+            {/* El Sabio de siempre, con los tips de la herramienta que se está viendo. */}
             <div className="shell-sabio" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 0, marginLeft: 'auto' }}>
               <SabioWidget
                 key={`${pathname}-${datos?.idioma ?? 'ES'}`}
@@ -352,9 +341,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 idioma={datos?.idioma ?? 'ES'}
                 frases={frasesSabioDeRuta(pathname, datos?.idioma ?? 'ES')}
               />
-              <button type="button" onClick={() => setSabioAbierto(true)} title={t('Chatear con Sabio', 'Conversar com o Sábio')} aria-label={t('Chatear con Sabio', 'Conversar com o Sábio')} style={{ border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.16)', color: '#fff', borderRadius: 12, padding: '8px 10px', fontWeight: 800, fontSize: 12, cursor: 'pointer', lineHeight: 1.25 }}>
-                💬<br />{t('Chat', 'Chat')}
-              </button>
             </div>
 
           </header>
@@ -457,14 +443,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function BotonImagen({ href, onClick, imagen, emoji, texto, punto = false }: { href?: string; onClick?: () => void; imagen?: string; emoji?: string; texto: string; punto?: boolean }) {
+function BotonImagen({ href, onClick, imagen, emoji, texto, punto = false, disabled = false, girando = false, ayuda }: { href?: string; onClick?: () => void; imagen?: string; emoji?: string; texto: string; punto?: boolean; disabled?: boolean; girando?: boolean; ayuda?: string }) {
   const contenido = (
     <>
       {imagen ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imagen} alt="" className="shell-boton-img" style={{ objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))' }} />
       ) : (
-        <span aria-hidden className="shell-boton-img" style={{ fontSize: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{emoji}</span>
+        <span aria-hidden className={`shell-boton-img${girando ? ' shell-girando' : ''}`} style={{ fontSize: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{emoji}</span>
       )}
       <span className="shell-boton-texto" style={{ fontSize: 12.5, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{texto}</span>
       {/* Punto rojo fijo, como el de una notificación: invita a entrar. */}
@@ -472,11 +458,11 @@ function BotonImagen({ href, onClick, imagen, emoji, texto, punto = false }: { h
     </>
   );
   // Imagen grande con el nombre debajo: son los accesos más usados, tienen que verse bien.
-  const estilo: React.CSSProperties = { display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '7px 10px 6px', minWidth: 84, position: 'relative', borderRadius: 18, border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.14)', cursor: 'pointer', textDecoration: 'none' };
+  const estilo: React.CSSProperties = { display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '7px 10px 6px', minWidth: 84, position: 'relative', borderRadius: 18, border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.14)', cursor: disabled ? 'wait' : 'pointer', textDecoration: 'none' };
   return href ? (
     <Link href={href} title={texto} aria-label={texto} style={estilo}>{contenido}</Link>
   ) : (
-    <button type="button" onClick={onClick} title={texto} aria-label={texto} style={estilo}>{contenido}</button>
+    <button type="button" onClick={onClick} disabled={disabled} title={ayuda ?? texto} aria-label={ayuda ?? texto} style={estilo}>{contenido}</button>
   );
 }
 
