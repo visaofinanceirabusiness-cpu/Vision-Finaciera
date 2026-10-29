@@ -31,6 +31,7 @@ import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
 import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobby';
+import { useCaja } from '@/components/caja/useCaja';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
@@ -161,6 +162,7 @@ export default function InicioPage() {
   const [error, setError] = useState('');
   const [miniJuegoAbierto, setMiniJuegoAbierto] = useState(false);
   const espectador = useEspectador();
+  const { estaEnCaja: enCaja } = useCaja();
   const [estadoSolicitud, setEstadoSolicitud] = useState<
     'PENDIENTE' | 'RECHAZADA' | null
   >(null);
@@ -953,7 +955,7 @@ export default function InicioPage() {
 
         {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
-        {perfil && (
+        {perfil && !enCaja('lanzamiento-rapido') && (
           <BloqueoDemo>
             <LanzamientoRapidoLobby idioma={idioma} />
           </BloqueoDemo>
