@@ -128,7 +128,7 @@ export function SabioWidget({
 
   if (compacto) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <div className="sabio-compacto" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
         <div
           ref={sabioRef}
           onClick={handleClick}

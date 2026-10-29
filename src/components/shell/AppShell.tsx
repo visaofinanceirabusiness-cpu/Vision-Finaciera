@@ -235,15 +235,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             @keyframes shell-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
             .shell-punto { animation: shell-latido 1.8s ease-in-out infinite; }
             @media (prefers-reduced-motion: reduce) { .shell-punto { animation: none; } }
+            /* Pantallas anchas: el logo y el Sabio ocupan todo el alto de la barra. El contenido va en absoluto para que la
+               imagen no empuje el tamaño: el alto lo da la barra (stretch) y el ancho sale de la proporción 1:1. */
             @media (min-width: 1700px) {
-              .shell-centro-barra { flex-direction: row !important; align-items: center !important; gap: 18px !important; flex-wrap: wrap; }
-              .shell-nivel { width: 400px !important; flex-shrink: 0; }
+              .shell-activo .shell-marca { align-self: stretch; flex: 0 0 auto !important; }
+              .shell-activo .shell-marca span { white-space: nowrap; }
+              .shell-activo .shell-logo { position: relative; width: auto !important; height: auto !important; aspect-ratio: 1 / 1; align-self: stretch; min-height: 100px; }
+              .shell-activo .shell-logo > img { position: absolute; inset: 0; }
+              .shell-activo .shell-logo > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 64px !important; }
+              .shell-activo .shell-sabio { align-self: stretch; }
+              .shell-activo .shell-sabio > .sabio-compacto { align-self: stretch; align-items: stretch !important; }
+              .shell-activo .sabio-compacto-avatar { position: relative !important; width: auto !important; height: auto !important; aspect-ratio: 1 / 1; align-self: stretch; min-height: 100px; }
+              .shell-activo .sabio-compacto-avatar img { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; }
+              .shell-activo .sabio-compacto-globo { align-self: center; font-size: 14px !important; max-width: 245px !important; min-width: 190px !important; padding: 12px 16px !important; }
+              .shell-activo .sabio-compacto-globo > div:nth-child(2) { -webkit-line-clamp: 8 !important; }
+              .shell-activo .shell-centro-barra { max-width: 450px; }
+            }
+            @media (min-width: 1280px) {
+              .shell-activo .shell-marca { flex: 0 0 auto !important; }
+              .shell-activo .shell-centro-barra { align-items: center !important; margin: 0 auto; }
+            }
+            @media (min-width: 1700px) {
+              .shell-activo .shell-centro-barra { max-width: 500px; }
+              .shell-activo .sabio-compacto-globo { max-width: 320px !important; font-size: 15.5px !important; }
+            }
+            @media (min-width: 1500px) and (max-width: 1699px) {
+              .shell-logo { width: 120px !important; height: 120px !important; }
+              .shell-activo .sabio-compacto-avatar, .shell-activo .sabio-compacto-avatar img { width: 112px !important; height: 112px !important; }
+              .shell-activo .sabio-compacto-globo { max-width: 210px !important; min-width: 150px !important; font-size: 13px !important; }
+              .shell-activo .shell-centro-barra { max-width: 400px; }
             }
             @media (max-width: 1640px) {
-              .shell-logo { width: 88px; height: 88px; }
               .shell-nombre { font-size: 26px !important; }
               .shell-boton-img { width: 54px; height: 54px; font-size: 38px !important; }
-                            .shell-activo .sabio-compacto-avatar, .shell-activo .sabio-compacto-avatar img { width: 80px !important; height: 80px !important; }
+            }
+            @media (max-width: 1499px) {
+              .shell-logo { width: 88px; height: 88px; }
+              .shell-activo .sabio-compacto-avatar, .shell-activo .sabio-compacto-avatar img { width: 80px !important; height: 80px !important; }
               .shell-activo .sabio-compacto-globo { max-width: 175px !important; min-width: 120px !important; }
             }
             @media (max-width: 1280px) { .shell-sabio { display: none !important; } }
@@ -268,7 +296,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button type="button" className="shell-burger" aria-label={t('Abrir menú', 'Abrir menu')} onClick={() => setMenuAbierto((a) => !a)} style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: 26, cursor: 'pointer', alignItems: 'center' }}>☰</button>
 
             {/* MI NEGOCIO — el banner del lobby, fusionado con la barra: logo, nombre, saludo y fecha. */}
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 18, textDecoration: 'none', color: 'inherit', minWidth: 0, flex: '0 1 auto' }}>
+            <Link href="/" className="shell-marca" style={{ display: 'flex', alignItems: 'center', gap: 18, textDecoration: 'none', color: 'inherit', minWidth: 0, flex: '0 1 auto' }}>
               <span className="shell-logo" style={{ borderRadius: 24, border: '2px solid rgba(255,255,255,0.55)', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 18px rgba(0,0,0,0.22)' }}>
                 {datos?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -388,7 +416,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {encendido && sabioAbierto && datos && (
           <>
             <div onClick={() => setSabioAbierto(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', zIndex: 60 }} />
-            <aside role="dialog" aria-label={t('Sabio asistente', 'Sábio assistente')} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(440px, 100%)', background: COLORES.blanco, zIndex: 61, padding: 18, boxShadow: '-8px 0 30px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
+            <aside role="dialog" aria-label={t('Sabio asistente', 'Sábio assistente')} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(440px, 100%)', background: COLORES.blanco, zIndex: 61, padding: 18, boxShadow: '-8px 0 30px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', overflowY: 'auto', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: COLORES.azul, fontSize: 17 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -397,7 +425,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
                 <button type="button" onClick={() => setSabioAbierto(false)} style={{ border: '1px solid #d1d5db', background: COLORES.blanco, borderRadius: 10, padding: '6px 12px', fontWeight: 700, cursor: 'pointer', color: COLORES.azul }}>{t('Cerrar', 'Fechar')}</button>
               </div>
-              <SabioBotChat empresaId={datos.empresaId} colores={{ azul: COLORES.azul, verde: COLORES.verde, gris: COLORES.acento, blanco: COLORES.blanco }} altura="calc(100vh - 120px)" />
+              <SabioBotChat empresaId={datos.empresaId} colores={{ azul: COLORES.azul, verde: COLORES.verde, gris: COLORES.acento, blanco: COLORES.blanco }} altura="max(200px, calc(100dvh - 255px))" />
             </aside>
           </>
         )}
