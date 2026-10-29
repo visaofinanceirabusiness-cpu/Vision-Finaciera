@@ -236,34 +236,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             .shell-punto { animation: shell-latido 1.8s ease-in-out infinite; }
             @media (prefers-reduced-motion: reduce) { .shell-punto { animation: none; } }
             /* Pantallas anchas: el logo y el Sabio ocupan todo el alto de la barra. El contenido va en absoluto para que la
-               imagen no empuje el tamaño: el alto lo da la barra (stretch) y el ancho sale de la proporción 1:1. */
-            @media (min-width: 1700px) {
+               imagen no empuje el tamaño. 210px = alto del contenido de la barra (Nivel + accesos); con aspect-ratio+stretch el ancho no se conocía al calcular el de la fila y el globo del Sabio se salía. */
+            @media (min-width: 1500px) {
               .shell-activo .shell-marca { align-self: stretch; flex: 0 0 auto !important; }
               .shell-activo .shell-marca span { white-space: nowrap; }
-              .shell-activo .shell-logo { position: relative; width: auto !important; height: auto !important; aspect-ratio: 1 / 1; align-self: stretch; min-height: 100px; }
+              .shell-activo .shell-logo { position: relative; width: 210px !important; height: 210px !important; }
               .shell-activo .shell-logo > img { position: absolute; inset: 0; }
               .shell-activo .shell-logo > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 64px !important; }
               .shell-activo .shell-sabio { align-self: stretch; }
               .shell-activo .shell-sabio > .sabio-compacto { align-self: stretch; align-items: stretch !important; }
-              .shell-activo .sabio-compacto-avatar { position: relative !important; width: auto !important; height: auto !important; aspect-ratio: 1 / 1; align-self: stretch; min-height: 100px; }
+              .shell-activo .sabio-compacto-avatar { position: relative !important; width: 210px !important; height: 210px !important; }
               .shell-activo .sabio-compacto-avatar img { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; }
               .shell-activo .sabio-compacto-globo { align-self: center; font-size: 14px !important; max-width: 245px !important; min-width: 190px !important; padding: 12px 16px !important; }
               .shell-activo .sabio-compacto-globo > div:nth-child(2) { -webkit-line-clamp: 8 !important; }
-              .shell-activo .shell-centro-barra { max-width: 520px; }
+              .shell-activo .shell-centro-barra { flex: 0 0 auto !important; max-width: none; }
+              .shell-activo .shell-centro-barra nav { flex-wrap: nowrap !important; }
             }
             @media (min-width: 1280px) {
               .shell-activo .shell-marca { flex: 0 0 auto !important; }
               .shell-activo .shell-centro-barra { align-items: center !important; margin: 0 auto; }
             }
             @media (min-width: 1700px) {
-              .shell-activo .shell-centro-barra { max-width: 560px; }
+              .shell-activo .shell-logo, .shell-activo .sabio-compacto-avatar { width: 224px !important; height: 224px !important; }
               .shell-activo .sabio-compacto-globo { max-width: 320px !important; font-size: 15.5px !important; }
             }
             @media (min-width: 1500px) and (max-width: 1699px) {
-              .shell-logo { width: 120px !important; height: 120px !important; }
-              .shell-activo .sabio-compacto-avatar, .shell-activo .sabio-compacto-avatar img { width: 112px !important; height: 112px !important; }
-              .shell-activo .sabio-compacto-globo { max-width: 210px !important; min-width: 150px !important; font-size: 13px !important; }
-              .shell-activo .shell-centro-barra { max-width: 520px; }
+              .shell-activo .shell-barra { column-gap: 10px !important; padding-left: 14px !important; padding-right: 14px !important; }
+              .shell-activo .shell-marca { gap: 12px !important; }
+              .shell-activo .shell-nombre { font-size: 22px !important; }
+              .shell-activo .sabio-compacto-globo { position: relative; z-index: 1; }
+              .shell-activo .sabio-compacto-globo { max-width: 185px !important; min-width: 140px !important; font-size: 13px !important; padding: 10px 12px !important; }
+            }
+            @media (min-width: 1500px) and (max-width: 1599px) {
+              .shell-activo .shell-centro-barra nav > * { min-width: 76px !important; }
+              .shell-activo .sabio-compacto-globo { max-width: 150px !important; min-width: 120px !important; font-size: 12px !important; padding: 8px 10px !important; }
             }
             @media (max-width: 1640px) {
               .shell-nombre { font-size: 26px !important; }
