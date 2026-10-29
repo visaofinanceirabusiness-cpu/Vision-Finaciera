@@ -885,6 +885,9 @@ export default function MiNegocioPage() {
             ayuda={esFamiliar ? t('ayudaSaldoEnCajaFamilia') : t('ayudaSaldoEnCaja')}
             color={colores.azul}
             colorSecundario={colores.verde}
+            composicion={indicadores?.composicionCaja ?? []}
+            simbolo={simbolo}
+            etiquetaComposicion={idioma === 'PT' ? 'Composto por' : 'Compuesto por'}
           />
 
           <div
@@ -1990,13 +1993,20 @@ function SaldoEnCajaGrande({
   ayuda,
   color,
   colorSecundario,
+  composicion,
+  simbolo,
+  etiquetaComposicion,
 }: {
   titulo: string;
   valor: string;
   ayuda: string;
   color: string;
   colorSecundario: string;
+  composicion: { nombre: string; valor: number }[];
+  simbolo: string;
+  etiquetaComposicion: string;
 }) {
+  const totalPositivo = composicion.reduce((suma, c) => suma + Math.max(c.valor, 0), 0);
   return (
     <Link
       href="/informes?pestana=flujo"
@@ -2029,6 +2039,23 @@ function SaldoEnCajaGrande({
         </div>
         <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 900, lineHeight: 1.1, marginTop: 4, wordBreak: 'break-word' }}>{valor}</div>
       </div>
+
+      {composicion.length > 0 && (
+        <div style={{ flex: '2 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 7, padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.28)' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.1, textTransform: 'uppercase', opacity: 0.85 }}>{etiquetaComposicion}</div>
+          {composicion.map((c) => (
+            <div key={c.nombre}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, fontWeight: 700 }}>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
+                <span style={{ whiteSpace: 'nowrap', color: c.valor < 0 ? '#fecaca' : '#ffffff' }}>{simbolo} {formatearNumero(c.valor)}</span>
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.22)', marginTop: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${totalPositivo > 0 ? Math.round((Math.max(c.valor, 0) / totalPositivo) * 100) : 0}%`, height: '100%', background: 'rgba(255,255,255,0.85)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <span aria-hidden="true" style={{ fontSize: 30, fontWeight: 800, opacity: 0.8 }}>›</span>
     </Link>

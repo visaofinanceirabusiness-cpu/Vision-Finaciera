@@ -88,6 +88,7 @@ export type IndicadoresPanel = {
   // Pasivo + Patrimonio a simple vista.
   resultadoAcumulado: number;
   cajaDisponible: number;
+  composicionCaja: { nombre: string; valor: number }[];
   ahorroInversiones: number;
   stockBajo: number;
   composicionActivo: PuntoGrafico[];
@@ -439,9 +440,15 @@ export async function obtenerIndicadores(
   // Caja disponible: solo las cuentas que son medios financieros de
   // verdad (Caja, Bancos, Billetera Virtual...). NO incluye "a
   // Recibir" ni Clientes.
-  const cajaDisponible = hojas
+  const cuentasDeCaja = hojas
     .filter((cuenta) => nombresMedioFinanciero.has(cuenta.nombre))
-    .reduce((suma, cuenta) => suma + saldoConSigno(cuenta, acumuladoTotal, true), 0);
+    .map((cuenta) => ({ nombre: cuenta.nombre, valor: saldoConSigno(cuenta, acumuladoTotal, true) }));
+  const cajaDisponible = cuentasDeCaja.reduce((suma, c) => suma + c.valor, 0);
+  // De qué está hecho ese saldo (para verlo en el banner del Panel de Control); las cuentas en cero no se muestran.
+  const composicionCaja = cuentasDeCaja
+    .filter((c) => Math.abs(c.valor) >= 0.005)
+    .map((c) => ({ nombre: c.nombre, valor: redondear(c.valor) }))
+    .sort((a, b) => b.valor - a.valor);
 
   // Ahorro e inversiones: grupo 1.2.x del plan de Familia (Plazo
   // Fijo, Inversiones). Es lo que alimenta metas libres tipo "Viaje
@@ -808,6 +815,7 @@ export async function obtenerIndicadores(
     patrimonio: redondear(patrimonio),
     resultadoAcumulado: redondear(resultadoAcumulado),
     cajaDisponible: redondear(cajaDisponible),
+    composicionCaja,
     ahorroInversiones: redondear(ahorroInversiones),
     stockBajo,
     composicionActivo,
