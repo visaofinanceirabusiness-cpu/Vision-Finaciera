@@ -5,6 +5,7 @@ import { RegistrarServiceWorker } from '@/components/RegistrarServiceWorker';
 import { GuardiaSesion } from '@/components/GuardiaSesion';
 import { TemaGlobal } from '@/components/TemaGlobal';
 import { ProveedorEspectador } from '@/components/demo/ProveedorEspectador';
+import { AppShell } from '@/components/shell/AppShell';
 
 export const metadata: Metadata = {
   // Las imágenes de la vista previa al compartir un link deben ser URLs absolutas.
@@ -59,7 +60,7 @@ export default function RootLayout({
         <GuardiaSesion />
         <TemaGlobal />
         <ProveedorEspectador />
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

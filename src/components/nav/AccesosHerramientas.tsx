@@ -22,36 +22,13 @@ import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacid
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { useEstadoDemo } from '@/lib/demoEstado';
 import { EVENTO_PANTALLA_BLOQUEADA, rutaPermitidaEnDemo } from '@/lib/modoEspectador';
-import { empresaTieneVisao3D } from '@/lib/visao3dEmpresas';
+import { TODAS_LAS_HERRAMIENTAS, herramientaDisponible, type Herramienta } from '@/lib/herramientasMenu';
+import { useEnShell } from '@/components/shell/ShellContext';
 import { cargarAperturaVisao3D } from '@/lib/visao3dApertura';
-
-type Herramienta = {
-  href: string;
-  titulo: string;
-  // Nombre corto que queda siempre a la vista debajo del ícono.
-  corto: { es: string; pt: string };
-  emoji: string;
-  color: string;
-};
-
-const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
-  { href: '/panel-de-control', titulo: 'Panel de Control', corto: { es: 'Panel', pt: 'Painel' }, emoji: '📊', color: '#2e8b57' },
-  { href: '/contabilidad', titulo: 'Contabilidad', corto: { es: 'Contab.', pt: 'Contab.' }, emoji: '🧾', color: '#7c3aed' },
-  { href: '/finanzas', titulo: 'Finanzas', corto: { es: 'Finanzas', pt: 'Finanças' }, emoji: '💼', color: '#0d9488' },
-  { href: '/mercaderia', titulo: 'Mercadería', corto: { es: 'Mercad.', pt: 'Mercad.' }, emoji: '📦', color: '#ea580c' },
-  { href: '/mi-local', titulo: 'Mi Local', corto: { es: 'Mi Local', pt: 'Meu Local' }, emoji: '🛍️', color: '#e11d48' },
-  { href: '/informes', titulo: 'Informes', corto: { es: 'Informes', pt: 'Relat.' }, emoji: '📈', color: '#0891b2' },
-  { href: '/visao-3d', titulo: 'Visão 3D', corto: { es: 'Visión 3D', pt: 'Visão 3D' }, emoji: '🏢', color: '#0ea5e9' },
-  { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
-  { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
-  { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
-  { href: '/nuestro-sueno', titulo: 'Nuestro Sueño', corto: { es: 'Sueño', pt: 'Sonho' }, emoji: '💞', color: '#db2777' },
-  { href: '/mensajes', titulo: 'Mensajes', corto: { es: 'Mensajes', pt: 'Mensag.' }, emoji: '✉️', color: '#2563eb' },
-  { href: '/configuracoes', titulo: 'Configurações', corto: { es: 'Config.', pt: 'Config.' }, emoji: '⚙️', color: '#475569' },
-];
 
 export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscuro' | 'claro' }) {
   const pathname = usePathname();
+  const enShell = useEnShell();
   const espectador = useEspectador();
   const demo = useEstadoDemo();
   const [disponibles, setDisponibles] = useState<Herramienta[]>([]);
@@ -109,23 +86,24 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
       }
 
       setDisponibles(
-        TODAS_LAS_HERRAMIENTAS.filter((herramienta) => {
-          if (herramienta.href === '/mercaderia') return manejaMercaderia;
-          if (herramienta.href === '/produccion') return tieneProduccion;
-          if (herramienta.href === '/mi-local') return manejaMercaderia && perfil.tipo_usuario !== 'ASISTENTE';
-          // Igual que en el lobby: el asistente no ve Informes.
-          if (herramienta.href === '/informes') return perfil.tipo_usuario !== 'ASISTENTE';
-          // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
-          if (herramienta.href === '/visao-3d') return empresaTieneVisao3D(perfil.empresa_id, perfilCodigo, aperturaVisao3D) && perfil.tipo_usuario !== 'ASISTENTE';
-          return true;
-        })
+        TODAS_LAS_HERRAMIENTAS.filter((herramienta) =>
+          herramientaDisponible(herramienta.href, {
+            empresaId: perfil.empresa_id,
+            perfilCodigo,
+            tipoUsuario: perfil.tipo_usuario,
+            manejaMercaderia,
+            tieneProduccion,
+            aperturaVisao3D,
+          })
+        )
       );
     }
 
     cargar();
   }, []);
 
-  if (disponibles.length === 0) {
+  // En el nuevo diseño las herramientas viven en el menú lateral.
+  if (enShell || disponibles.length === 0) {
     return null;
   }
 

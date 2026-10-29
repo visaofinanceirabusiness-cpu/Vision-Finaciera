@@ -28,6 +28,7 @@ import { operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } f
 import { obtenerRecordatorioIngreso, saldoPendienteCobro, type RecordatorioIngresoRecurrente } from '@/lib/ingresosRecurrentes';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
+import { useEnShell } from '@/components/shell/ShellContext';
 import { diccionarioContabilidad, frasesSabioContabilidad } from './i18n';
 import { SimboloContext, EsFamiliarContext, IdiomaContext, COLORES, type ValoresIniciales } from '@/components/contabilidad/compartido';
 import { fondo, encabezado, volver, eyebrow, panel } from '@/components/contabilidad/estilosCompartidos';
@@ -47,6 +48,7 @@ export default function ContabilidadPage() {
 }
 
 function ContabilidadPageInterno() {
+  const enShell = useEnShell();
   const router = useRouter();
   const searchParams = useSearchParams();
   // Se entra por el Libro Diario; los enlaces que traen algo para cargar (recordatorio o cuota)
@@ -221,12 +223,13 @@ function ContabilidadPageInterno() {
     <IdiomaContext.Provider value={idioma}>
     <EsFamiliarContext.Provider value={esFamiliar}>
     <SimboloContext.Provider value={simboloMoneda(moneda)}>
-    <div style={fondo}>
-      <div style={{ maxWidth: 1450, margin: '0 auto' }}>
+    <div style={enShell ? { ...fondo, minHeight: 0, padding: 0, background: 'transparent' } : fondo}>
+      <div style={enShell ? undefined : { maxWidth: 1450, margin: '0 auto' }}>
         {/* =================================================
             ENCABEZADO
         ================================================== */}
 
+        {!enShell && (
         <header style={encabezado}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
             <div style={{ flex: '1 1 240px', minWidth: 200 }}>
@@ -256,18 +259,21 @@ function ContabilidadPageInterno() {
             <AccesosHerramientas />
           </div>
         </header>
+        )}
 
-        <SabioFlotante
-          colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
-          idioma={idioma ?? 'ES'}
-          frases={frasesSabioContabilidad(idioma)}
-        />
+        {!enShell && (
+          <SabioFlotante
+            colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+            idioma={idioma ?? 'ES'}
+            frases={frasesSabioContabilidad(idioma)}
+          />
+        )}
 
         {/* =================================================
             CONTENIDO
         ================================================== */}
 
-        <main style={panel}>
+        <main style={enShell ? { ...panel, borderRadius: 0, boxShadow: 'none', padding: '18px 22px', minHeight: 'calc(100vh - 68px)' } : panel}>
           {/* =================================================
               PESTAÑAS
           ================================================== */}
