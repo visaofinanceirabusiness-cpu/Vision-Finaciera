@@ -18,7 +18,7 @@ export function NivelCompacto({ g, idioma }: { g: ProgresoGamificacion; idioma: 
   ];
 
   return (
-    <div style={{ borderRadius: 20, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', padding: '12px 16px', width: 310, maxWidth: '100%', boxSizing: 'border-box' }}>
+    <div style={{ borderRadius: 20, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', padding: '12px 16px', width: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, opacity: 0.78 }}>{t('progresoNegocio')}</div>
@@ -45,10 +45,8 @@ export function NivelCompacto({ g, idioma }: { g: ProgresoGamificacion; idioma: 
             ))}
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0, fontSize: 11, lineHeight: 1.3, textAlign: 'right', opacity: 0.92 }}>
-          <b>{t('mision')}:</b> {g.mision}
-          <br />
-          <b>{t('faltan')}:</b> {g.operacionesMax === null ? t('faltanCero') : `${g.faltan} ${t('operacionesPalabra')}`}
+        <div style={{ flex: 1, minWidth: 0, fontSize: 10.5, lineHeight: 1.3, textAlign: 'right', opacity: 0.92 }}>
+          <b>{t('mision')}:</b> {g.mision} · <b>{t('faltan')}:</b> {g.operacionesMax === null ? t('faltanCero') : `${g.faltan} ${t('operacionesPalabra')}`}
         </div>
       </div>
     </div>
