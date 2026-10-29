@@ -85,6 +85,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [sabioAbierto, setSabioAbierto] = useState(false);
   const [juegoAbierto, setJuegoAbierto] = useState(false);
+  // «Actualizar»: vuelve a leer los datos del cascarón y reinicia la pantalla visible para que cargue todo de nuevo, sin recargar la página.
+  const [version, setVersion] = useState(0);
+  const [actualizando, setActualizando] = useState(false);
 
   useEfectoTempranoDelCliente(() => {
     setPrevioActivo(leer(CLAVE_ACTIVO) === '1');
@@ -172,6 +175,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Mientras se carga la empresa se usa el recuerdo de la última vez para no mostrar un destello del diseño anterior.
   const encendido = rutaEnShell(pathname) && (datos !== null || previoActivo);
 
+  async function actualizar() {
+    if (actualizando) return;
+    setActualizando(true);
+    await cargar();
+    setVersion((v) => v + 1);
+    // Un respiro para que se note que se actualizó (la pantalla vuelve a pedir sus datos al reiniciarse).
+    setTimeout(() => setActualizando(false), 700);
+  }
+
   function alternarCompacto() {
     setCompacto((c) => {
       guardar(CLAVE_COMPACTO, c ? null : '1');
@@ -197,12 +209,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             /* Pantallas a pantalla completa (Visão 3D): ocupan la zona central, no toda la ventana. */
             .shell-activo .shell-centro main[style*="position: fixed"], .shell-activo .shell-centro main[style*="position:fixed"] { position: absolute !important; inset: 0 !important; z-index: 1 !important; }
             .shell-burger { display: none; }
+            @keyframes shell-giro { to { transform: rotate(360deg); } }
+            .shell-girando { animation: shell-giro 0.8s linear infinite; }
             /* Las herramientas se dibujaban con su propio encabezado, fondo y márgenes: acá ocupan toda la zona central. */
-            .shell-activo .shell-centro > * > header,
-            .shell-activo .shell-centro > * > * > header,
-            .shell-activo .shell-centro > * > * > * > header { display: none !important; }
-            .shell-activo .shell-centro > div { min-height: 0 !important; padding: 0 !important; background: transparent !important; }
-            .shell-activo .shell-centro > div > div:first-child { max-width: none !important; margin: 0 !important; }
+            .shell-activo .shell-centro > div > * > header,
+            .shell-activo .shell-centro > div > * > * > header,
+            .shell-activo .shell-centro > div > * > * > * > header { display: none !important; }
+            .shell-activo .shell-centro > div > div { min-height: 0 !important; padding: 0 !important; background: transparent !important; }
+            .shell-activo .shell-centro > div > div > div:first-child { max-width: none !important; margin: 0 !important; }
             .shell-activo .shell-centro a[href="/"], .shell-activo .shell-centro a[href="/?vista=empresa"] { display: none !important; }
             .shell-activo .shell-centro main { border-radius: 0 !important; box-shadow: none !important; }
             @media (max-width: 1600px) { .shell-boton-texto { display: none; } }
@@ -275,6 +289,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
                 <button
                   type="button"
+                  onClick={actualizar}
+                  disabled={actualizando}
+                  title={t('Actualizar los datos de esta pantalla sin recargar la página', 'Atualizar os dados desta tela sem recarregar a página')}
+                  aria-label={t('Actualizar', 'Atualizar')}
+                  style={{ border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.22)', borderRadius: 10, padding: '6px 12px', cursor: actualizando ? 'wait' : 'pointer', fontSize: 13, fontWeight: 800, color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span aria-hidden className={actualizando ? 'shell-girando' : undefined} style={{ display: 'inline-block' }}>🔄</span>
+                  {actualizando ? t('Actualizando…', 'Atualizando…') : t('Actualizar', 'Atualizar')}
+                </button>
+                <button
+                  type="button"
                   title={t('Cerrar sesión', 'Sair')}
                   aria-label={t('Cerrar sesión', 'Sair')}
                   onClick={async () => {
@@ -326,7 +351,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="shell-centro" style={encendido ? undefined : { display: 'contents' }}>
-          {children}
+          <div key={version} style={{ display: 'contents' }}>
+            {children}
+          </div>
         </div>
 
         {encendido && menuAbierto && <div onClick={() => setMenuAbierto(false)} style={{ position: 'fixed', inset: '84px 0 0 0', background: 'rgba(15,23,42,0.35)', zIndex: 30 }} />}
