@@ -34,6 +34,7 @@ export function SabioWidget({
   frases,
   imagenUrl,
   insignia,
+  compacto = false,
 }: {
   colores: {
     azul: string;
@@ -48,6 +49,8 @@ export function SabioWidget({
   // de insignia sobre la imagen. Sin ellas se ve el Sabio de siempre.
   imagenUrl?: string;
   insignia?: string;
+  // Versión horizontal para la barra superior del nuevo diseño: mismo Sabio (frases, giro con el mouse, rotación, click).
+  compacto?: boolean;
 }) {
   const t = crearTraductor(diccionarioPanel, idioma);
   const frasesSabio = frases && frases.length > 0 ? frases : FRASES_SABIO_POR_IDIOMA[idioma === 'PT' ? 'PT' : 'ES'];
@@ -122,6 +125,31 @@ export function SabioWidget({
       elemento.removeEventListener('mouseleave', salir);
     };
   }, []);
+
+  if (compacto) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <div
+          ref={sabioRef}
+          onClick={handleClick}
+          style={{ position: 'relative', width: 96, height: 96, flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', transformStyle: 'preserve-3d', perspective: 800, cursor: 'pointer', willChange: 'transform', transition: 'transform 500ms ease-out' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imagenUrl ?? SABIO_URL} alt="Sabio - asistente inteligente de Visão Financeira" style={{ width: 96, height: 96, objectFit: 'contain', display: 'block', pointerEvents: 'none', filter: 'drop-shadow(0 8px 8px rgba(0,0,0,0.22))' }} />
+          {insignia && <span style={{ position: 'absolute', top: 0, right: 0, fontSize: 24, pointerEvents: 'none' }}>{insignia}</span>}
+        </div>
+        <div
+          onClick={handleClick}
+          title={esControlado ? undefined : t('tocaParaOtroConsejo')}
+          style={{ position: 'relative', background: colores.blanco, color: colores.azul, border: '1px solid #dbe5ef', borderRadius: 14, padding: '9px 13px', maxWidth: 230, minWidth: 140, fontSize: 12, fontWeight: 600, lineHeight: 1.35, boxShadow: '0 4px 12px rgba(31,58,95,0.10)', cursor: 'pointer' }}
+        >
+          <div style={{ position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%) rotate(45deg)', width: 11, height: 11, background: colores.blanco, borderLeft: '1px solid #dbe5ef', borderBottom: '1px solid #dbe5ef' }} />
+          <div style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{textoMostrado}</div>
+          {!esControlado && <div style={{ marginTop: 3, fontSize: 10, fontWeight: 600, opacity: 0.6 }}>{t('tocaParaOtroConsejo')}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

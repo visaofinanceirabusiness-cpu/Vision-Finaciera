@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { crearTraductor } from '@/lib/i18n';
+import { useEnShell } from '@/components/shell/ShellContext';
 import { diccionarioMensajes, type ClaveMensajes } from './i18n';
 
 // Colores personalizables por empresa (CONFIGURAÇÕES → Apariencia):
@@ -49,6 +50,7 @@ type MensajeFinanciero = {
 };
 
 export default function MensajesPage() {
+  const enShell = useEnShell();
   const router = useRouter();
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
@@ -290,6 +292,7 @@ export default function MensajesPage() {
 
         <button
           onClick={() => router.push('/?vista=empresa')}
+          hidden={enShell}
           style={{
             background: 'transparent',
             border: 'none',

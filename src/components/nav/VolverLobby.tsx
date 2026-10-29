@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useEnShell } from '@/components/shell/ShellContext';
 
 // Botón "volver al lobby" de las herramientas. Casita bien visible en
 // vez del link de texto chico de antes, porque es la salida que más se
@@ -10,6 +11,10 @@ export function VolverLobby({
   children: React.ReactNode;
   marginBottom?: number;
 }) {
+  const enShell = useEnShell();
+  // En el nuevo diseño el menú lateral reemplaza al botón «volver».
+  if (enShell) return null;
+
   const texto = typeof children === 'string' ? children.replace(/^\s*(←|&larr;)\s*/, '') : children;
 
   return (
