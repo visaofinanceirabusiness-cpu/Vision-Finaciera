@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import { SabioWidget, SABIO_URL } from './SabioWidget';
+import { useEnShell } from '@/components/shell/ShellContext';
 
 const UMBRAL_SCROLL_PX = 260;
 
@@ -40,6 +41,7 @@ export function SabioFlotante({
   onClickFrase?: () => void;
   frases?: string[];
 }) {
+  const enShell = useEnShell();
   const [visible, setVisible] = useState(false);
   const [expandido, setExpandido] = useState(false);
 
@@ -60,7 +62,8 @@ export function SabioFlotante({
     return () => window.removeEventListener('scroll', alScrollear);
   }, []);
 
-  if (!visible) {
+  // En el nuevo diseño Sabio vive en la barra superior.
+  if (enShell || !visible) {
     return null;
   }
 

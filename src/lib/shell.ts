@@ -1,12 +1,34 @@
 // lib/shell.ts
 //
-// NUEVO DISEÑO (cascarón): barra superior + menú lateral fijo + zona central. Fase 1: piloto solo para Buenaventura y solo
-// en Inicio y Contabilidad; las demás herramientas se abren con el diseño anterior hasta que se migren (fase 2).
+// NUEVO DISEÑO (cascarón): barra superior + menú lateral fijo + zona central. Piloto solo para Buenaventura. Fase 2: todas las
+// herramientas del menú se muestran dentro del cascarón (las pantallas públicas, el Panel Maestro y el alta quedan fuera).
 
 export const EMPRESAS_CON_SHELL = new Set<string>(['8512b8b0-1985-4731-981b-955f1d62a898']); // Buenaventura
 
 // Rutas que ya se muestran dentro del cascarón.
-export const RUTAS_EN_SHELL = ['/', '/contabilidad'];
+export const RUTAS_EN_SHELL = [
+  '/',
+  '/panel-de-control',
+  '/contabilidad',
+  '/libro-diario',
+  '/diario',
+  '/registros',
+  '/lanzamiento-rapido',
+  '/finanzas',
+  '/mercaderia',
+  '/stock',
+  '/movimientos-stock',
+  '/mi-local',
+  '/informes',
+  '/visao-3d',
+  '/produccion',
+  '/recursos-humanos',
+  '/plan-accion',
+  '/nuestro-sueno',
+  '/mensajes',
+  '/configuracoes',
+  '/sabio-bot',
+];
 
 export function empresaUsaShell(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_SHELL.has(empresaId as string);

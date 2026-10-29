@@ -19,6 +19,10 @@ import { simboloMoneda } from '@/lib/moneda';
 import { SABIO_LUDICO_URL } from '@/lib/iconosJuego';
 import { SABIO_URL } from '@/components/panel/SabioWidget';
 import { SabioBotChat } from '@/components/panel/SabioBotChat';
+import { SabioWidget } from '@/components/panel/SabioWidget';
+import { NivelCompacto } from './NivelCompacto';
+import { obtenerProgresoGamificacion, type ProgresoGamificacion } from '@/lib/gamificacion';
+import { frasesSabioDeRuta } from '@/lib/sabioPorRuta';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { useCaja } from '@/components/caja/useCaja';
@@ -46,6 +50,9 @@ type Datos = {
   esAdminPlataforma: boolean;
   menu: Herramienta[];
   mensajesSinLeer: number;
+  saludo: string;
+  subtitulo: string | null;
+  gamificacion: ProgresoGamificacion | null;
 };
 
 // Isomórfico: en el servidor useLayoutEffect avisa; así se evita sin perder la lectura previa al primer dibujo.
@@ -105,6 +112,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const rel = emp?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
       const perfilCodigo = (Array.isArray(rel) ? rel[0]?.codigo : rel?.codigo) ?? null;
 
+      const idiomaEmpresa = emp?.idioma === 'PT' ? 'PT' : 'ES';
+      const [{ data: config }, { data: yo }] = await Promise.all([
+        supabase.from('configuracion_dashboard').select('mensaje_bienvenida, subtitulo_dashboard, mostrar_gamificacion').eq('empresa_id', empresaId).maybeSingle(),
+        supabase.from('perfiles').select('nombre').eq('id', u.user.id).maybeSingle(),
+      ]);
+      let gamificacion: ProgresoGamificacion | null = null;
+      if (config?.mostrar_gamificacion !== false) gamificacion = await obtenerProgresoGamificacion(empresaId).catch(() => null);
+      const saludo = (config?.mensaje_bienvenida as string | null) ?? `${idiomaEmpresa === 'PT' ? 'Olá' : 'Hola'}, ${(yo?.nombre as string | null) ?? ''} 👋`;
+
       const [manejaMercaderia, tieneProduccion, aperturaVisao3D, { count }] = await Promise.all([
         empresaManejaMercaderia(empresaId).catch(() => true),
         empresaTieneModulo(empresaId, 'PRODUCCION').catch(() => false),
@@ -125,6 +141,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         // Panel de Control va solo en la barra superior.
         menu: TODAS_LAS_HERRAMIENTAS.filter((h) => h.href !== '/panel-de-control' && herramientaDisponible(h.href, contexto)),
         mensajesSinLeer: count ?? 0,
+        saludo,
+        subtitulo: (config?.subtitulo_dashboard as string | null) ?? null,
+        gamificacion,
       });
       guardar(CLAVE_ACTIVO, '1');
     } catch (e) {
@@ -162,6 +181,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const resaltada = herramientaDeRuta(pathname, ['/', ...menu.map((h) => h.href)]);
   const es = datos?.idioma === 'PT';
+  const hoyTexto = new Date().toLocaleDateString(es ? 'pt-BR' : 'es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   const t = (esTxt: string, ptTxt: string) => (es ? ptTxt : esTxt);
 
   return (
@@ -169,61 +189,104 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className={encendido ? 'shell-activo' : 'shell-apagado'}>
         {encendido && (
           <style>{`
-            .shell-activo { display: grid; grid-template-columns: ${compacto ? '68px' : '256px'} minmax(0, 1fr); grid-template-rows: 68px minmax(0, 1fr); height: 100vh; overflow: hidden; background: var(--fondo-app, #f5f7f9); }
+            .shell-activo { display: grid; grid-template-columns: ${compacto ? '68px' : '256px'} minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; overflow: hidden; background: var(--fondo-app, #f5f7f9); }
             .shell-barra { grid-column: 1 / -1; }
+            .shell-logo { width: 100px; height: 100px; }
             .shell-menu { overflow-y: auto; }
-            .shell-centro { overflow-y: auto; min-width: 0; }
+            .shell-centro { overflow-y: auto; min-width: 0; position: relative; }
+            /* Pantallas a pantalla completa (Visão 3D): ocupan la zona central, no toda la ventana. */
+            .shell-activo .shell-centro main[style*="position: fixed"], .shell-activo .shell-centro main[style*="position:fixed"] { position: absolute !important; inset: 0 !important; z-index: 1 !important; }
             .shell-burger { display: none; }
+            /* Las herramientas se dibujaban con su propio encabezado, fondo y márgenes: acá ocupan toda la zona central. */
+            .shell-activo .shell-centro > * > header,
+            .shell-activo .shell-centro > * > * > header,
+            .shell-activo .shell-centro > * > * > * > header { display: none !important; }
+            .shell-activo .shell-centro > div { min-height: 0 !important; padding: 0 !important; background: transparent !important; }
+            .shell-activo .shell-centro > div > div:first-child { max-width: none !important; margin: 0 !important; }
+            .shell-activo .shell-centro a[href="/"], .shell-activo .shell-centro a[href="/?vista=empresa"] { display: none !important; }
+            .shell-activo .shell-centro main { border-radius: 0 !important; box-shadow: none !important; }
+            @media (max-width: 1600px) { .shell-boton-texto { display: none; } }
+            @media (max-width: 1280px) { .shell-sabio { display: none !important; } }
+            @media (max-width: 1060px) { .shell-nivel { display: none; } }
+            @media (max-width: 960px) { .shell-logo { width: 72px; height: 72px; } .shell-nombre { font-size: 21px !important; } }
             @media (max-width: 760px) {
               .shell-activo { grid-template-columns: minmax(0, 1fr); }
-              .shell-menu { position: fixed; top: 68px; bottom: 0; left: 0; width: 262px; z-index: 40; transform: translateX(-100%); transition: transform 0.2s; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
+              .shell-menu { position: fixed; top: 84px; bottom: 0; left: 0; width: 262px; z-index: 40; transform: translateX(-100%); transition: transform 0.2s; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
               .shell-menu.abierto { transform: translateX(0); }
               .shell-burger { display: inline-flex; }
               .shell-texto-ancho { display: none; }
+              .shell-boton-texto { display: none; }
+              .shell-logo { width: 52px; height: 52px; }
+              .shell-nombre { font-size: 17px !important; }
+              .shell-nivel { display: none; }
             }
           `}</style>
         )}
         {!encendido ? null : (
-          <header className="shell-barra" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', background: COLORES.blanco, borderBottom: '1px solid #e5e7eb', minWidth: 0 }}>
-            <button type="button" className="shell-burger" aria-label={t('Abrir menú', 'Abrir menu')} onClick={() => setMenuAbierto((a) => !a)} style={{ border: 'none', background: 'transparent', fontSize: 24, cursor: 'pointer', alignItems: 'center' }}>☰</button>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', minWidth: 0, flex: '1 1 auto' }}>
-              <span style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${COLORES.acento}`, overflow: 'hidden', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <header className="shell-barra" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px 22px', padding: '16px 22px', background: `linear-gradient(125deg, ${COLORES.azul} 0%, ${COLORES.azul} 58%, ${COLORES.verde} 100%)`, color: COLORES.blanco, minWidth: 0, boxShadow: '0 10px 28px rgba(31,58,95,0.16)', zIndex: 5 }}>
+            <button type="button" className="shell-burger" aria-label={t('Abrir menú', 'Abrir menu')} onClick={() => setMenuAbierto((a) => !a)} style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: 26, cursor: 'pointer', alignItems: 'center' }}>☰</button>
+
+            {/* MI NEGOCIO — el banner del lobby, fusionado con la barra: logo, nombre, saludo y fecha. */}
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 18, textDecoration: 'none', color: 'inherit', minWidth: 0, flex: '0 1 auto' }}>
+              <span className="shell-logo" style={{ borderRadius: 24, border: '2px solid rgba(255,255,255,0.55)', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 18px rgba(0,0,0,0.22)' }}>
                 {datos?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={datos.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 ) : (
-                  <span style={{ fontWeight: 800, fontSize: 20, color: COLORES.azul }}>{(datos?.nombre || 'M').charAt(0).toUpperCase()}</span>
+                  <span style={{ fontWeight: 800, fontSize: 44, color: COLORES.azul }}>{(datos?.nombre || 'M').charAt(0).toUpperCase()}</span>
                 )}
               </span>
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 800, fontSize: 17, color: COLORES.azul, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{datos?.nombre || t('Mi negocio', 'Meu negócio')}</span>
-                <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 12, color: COLORES.gris, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{datos?.rubro ?? t('Mi negocio', 'Meu negócio')}</span>
+                <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', opacity: 0.75, marginBottom: 4 }}>{t('Mi negocio', 'Meu negócio')}</span>
+                <span className="shell-nombre" style={{ display: 'block', fontWeight: 800, fontSize: 30, lineHeight: 1.1 }}>{datos?.nombre || t('Mi negocio', 'Meu negócio')}</span>
+                {datos && <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 17, fontWeight: 600, marginTop: 6 }}>{datos.saludo}</span>}
+                <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 12, opacity: 0.7, marginTop: 4 }}>{hoyTexto}</span>
               </span>
             </Link>
+
+            {datos?.gamificacion && (
+              <div className="shell-nivel">
+                <NivelCompacto g={datos.gamificacion} idioma={datos.idioma} />
+              </div>
+            )}
+
+            <div style={{ flex: '1 1 0', minWidth: 0 }} />
+
+            {/* El Sabio de siempre (con los tips de la herramienta que se está viendo) y, al lado, el chat. */}
+            <div className="shell-sabio" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <SabioWidget
+                key={`${pathname}-${datos?.idioma ?? 'ES'}`}
+                compacto
+                colores={{ azul: COLORES.azul, verde: COLORES.verde, blanco: COLORES.blanco }}
+                idioma={datos?.idioma ?? 'ES'}
+                frases={frasesSabioDeRuta(pathname, datos?.idioma ?? 'ES')}
+              />
+              <button type="button" onClick={() => setSabioAbierto(true)} title={t('Chatear con Sabio', 'Conversar com o Sábio')} aria-label={t('Chatear con Sabio', 'Conversar com o Sábio')} style={{ border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.16)', color: '#fff', borderRadius: 12, padding: '8px 10px', fontWeight: 800, fontSize: 12, cursor: 'pointer', lineHeight: 1.25 }}>
+                💬<br />{t('Chat', 'Chat')}
+              </button>
+            </div>
 
             <nav aria-label={t('Accesos rápidos', 'Acessos rápidos')} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <BotonImagen href="/panel-de-control" imagen="/sabio/sabio-panel-control.png" texto={t('Panel de Control', 'Painel de Controle')} />
               <BotonImagen onClick={() => setJuegoAbierto(true)} imagen={SABIO_LUDICO_URL} texto="Mini-Juego" />
-              <BotonImagen onClick={() => setSabioAbierto(true)} imagen={SABIO_URL} texto={t('Sabio asistente', 'Sábio assistente')} />
-              <span className="shell-texto-ancho" style={{ display: 'inline-flex' }}>
-                <NotificacionesPush variante="claro" mostrarPrueba={false} />
-              </span>
-              {datos?.esAdminPlataforma && (
-                <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ color: COLORES.azul, fontWeight: 700, fontSize: 13, textDecoration: 'none', padding: '8px 10px' }}>⚙️ Panel Maestro</Link>
-              )}
-              <button
-                type="button"
-                title={t('Cerrar sesión', 'Sair')}
-                aria-label={t('Cerrar sesión', 'Sair')}
-                onClick={async () => {
-                  guardar(CLAVE_ACTIVO, null);
-                  await supabase.auth.signOut();
-                  router.push('/login');
-                }}
-                style={{ border: '1px solid #d1d5db', background: COLORES.blanco, borderRadius: 10, padding: '8px 11px', cursor: 'pointer', fontSize: 16 }}
-              >
-                ⎋
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                {datos?.esAdminPlataforma && (
+                  <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ color: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none', opacity: 0.9 }}>⚙️ Panel Maestro</Link>
+                )}
+                <button
+                  type="button"
+                  title={t('Cerrar sesión', 'Sair')}
+                  aria-label={t('Cerrar sesión', 'Sair')}
+                  onClick={async () => {
+                    guardar(CLAVE_ACTIVO, null);
+                    await supabase.auth.signOut();
+                    router.push('/login');
+                  }}
+                  style={{ border: '1px solid rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.14)', borderRadius: 10, padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#fff' }}
+                >
+                  ⎋ {t('Salir', 'Sair')}
+                </button>
+              </div>
             </nav>
           </header>
         )}
@@ -241,10 +304,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 activa={resaltada === h.href}
                 compacto={compacto}
                 insignia={h.href === '/mensajes' ? datos?.mensajesSinLeer : 0}
-                anterior={!rutaEnShell(h.href)}
               />
             ))}
             <div style={{ flex: 1 }} />
+            {!compacto && (
+              <div style={{ padding: '4px 4px 8px' }}>
+                <NotificacionesPush variante="claro" mostrarPrueba={false} />
+              </div>
+            )}
             <button
               type="button"
               onClick={alternarCompacto}
@@ -262,7 +329,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
 
-        {encendido && menuAbierto && <div onClick={() => setMenuAbierto(false)} style={{ position: 'fixed', inset: '68px 0 0 0', background: 'rgba(15,23,42,0.35)', zIndex: 30 }} />}
+        {encendido && menuAbierto && <div onClick={() => setMenuAbierto(false)} style={{ position: 'fixed', inset: '84px 0 0 0', background: 'rgba(15,23,42,0.35)', zIndex: 30 }} />}
 
         {encendido && sabioAbierto && datos && (
           <>
@@ -302,10 +369,10 @@ function BotonImagen({ href, onClick, imagen, texto }: { href?: string; onClick?
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imagen} alt="" style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }} />
-      <span className="shell-texto-ancho" style={{ fontSize: 13, fontWeight: 800, color: COLORES.azul, whiteSpace: 'nowrap' }}>{texto}</span>
+      <span className="shell-boton-texto" style={{ fontSize: 13, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap' }}>{texto}</span>
     </>
   );
-  const estilo: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', borderRadius: 14, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', textDecoration: 'none' };
+  const estilo: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.14)', cursor: 'pointer', textDecoration: 'none' };
   return href ? (
     <Link href={href} title={texto} aria-label={texto} style={estilo}>{contenido}</Link>
   ) : (
@@ -313,17 +380,16 @@ function BotonImagen({ href, onClick, imagen, texto }: { href?: string; onClick?
   );
 }
 
-function ItemMenu({ href, emoji, nombre, color, activa, compacto, insignia = 0, anterior = false }: { href: string; emoji: string; nombre: string; color: string; activa: boolean; compacto: boolean; insignia?: number; anterior?: boolean }) {
+function ItemMenu({ href, emoji, nombre, color, activa, compacto, insignia = 0 }: { href: string; emoji: string; nombre: string; color: string; activa: boolean; compacto: boolean; insignia?: number }) {
   return (
     <Link
       href={href}
-      title={anterior ? `${nombre} (se abre con el diseño anterior)` : nombre}
+      title={nombre}
       aria-current={activa ? 'page' : undefined}
       style={{ display: 'flex', alignItems: 'center', justifyContent: compacto ? 'center' : 'flex-start', gap: 12, padding: compacto ? '11px 6px' : '11px 12px', borderRadius: 12, textDecoration: 'none', fontWeight: activa ? 800 : 600, fontSize: 14, color: activa ? '#fff' : COLORES.azul, background: activa ? color : 'transparent', position: 'relative' }}
     >
       <span aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>{emoji}</span>
       {!compacto && <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>}
-      {!compacto && anterior && <span aria-hidden style={{ width: 6, height: 6, borderRadius: '50%', background: activa ? '#fff' : '#cbd5e1' }} />}
       {insignia > 0 && (
         <span style={{ position: compacto ? 'absolute' : 'static', top: 4, right: 6, background: '#dc2626', color: '#fff', borderRadius: 999, fontSize: 11, fontWeight: 800, padding: '1px 7px' }}>{insignia}</span>
       )}

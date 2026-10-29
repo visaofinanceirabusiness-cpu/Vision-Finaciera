@@ -878,20 +878,22 @@ export default function InicioPage() {
             Sabio interactivo y nivel del emprendedor.
         ================================================== */}
 
-        <SabioHero
-          colores={colores}
-          idioma={idioma}
-          nombreEmpresa={empresa?.nombre}
-          mensajeBienvenida={mensajeBienvenida}
-          subtitulo={subtitulo}
-          hoy={hoy}
-          gamificacion={
-            configuracion?.mostrar_gamificacion
-              ? gamificacion
-              : null
-          }
-          objetivos={objetivos}
-        />
+        {!enShell && (
+                  <SabioHero
+            colores={colores}
+            idioma={idioma}
+            nombreEmpresa={empresa?.nombre}
+            mensajeBienvenida={mensajeBienvenida}
+            subtitulo={subtitulo}
+            hoy={hoy}
+            gamificacion={
+              configuracion?.mostrar_gamificacion
+                ? gamificacion
+                : null
+            }
+            objetivos={objetivos}
+          />
+        )}
 
         {hitoActual && (
           <GamificacionHitoModal hito={hitoActual} idioma={idioma} onCerrar={cerrarHitoActual} />
@@ -963,7 +965,7 @@ export default function InicioPage() {
           </BloqueoDemo>
         )}
 
-        {perfil && (
+        {perfil && !enShell && (
           <BloqueoDemo>
             <SabioBotLobby
               empresaId={perfil.empresa_id}
@@ -974,7 +976,7 @@ export default function InicioPage() {
           </BloqueoDemo>
         )}
 
-        {perfil && (
+        {perfil && !enShell && (
           <VitrinaTrofeos empresaId={perfil.empresa_id} idioma={idioma} colores={colores} tipos={tiposTrofeo} />
         )}
 
