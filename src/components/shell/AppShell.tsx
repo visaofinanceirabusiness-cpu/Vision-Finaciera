@@ -254,7 +254,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
             @media (min-width: 1280px) {
               .shell-activo .shell-marca { flex: 0 0 auto !important; }
-              .shell-activo .shell-centro-barra { align-items: center !important; margin: 0 auto; }
+              .shell-activo .shell-centro-barra { align-items: stretch !important; margin: 0 auto; flex: 0 1 auto !important; }
             }
             @media (min-width: 1700px) {
               .shell-activo .shell-logo, .shell-activo .sabio-compacto-avatar { width: 224px !important; height: 224px !important; }
@@ -327,18 +327,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {/* Centro: el nivel del negocio y, debajo, los accesos grandes. */}
             <div className="shell-centro-barra" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: '1 1 auto', alignItems: 'flex-start' }}>
               {datos?.gamificacion && (
-                <div className="shell-nivel" style={{ width: '100%', maxWidth: 470 }}>
+                <div className="shell-nivel" style={{ width: '100%' }}>
                   <NivelCompacto g={datos.gamificacion} idioma={datos.idioma} />
                 </div>
               )}
-              <nav aria-label={t('Accesos rápidos', 'Acessos rápidos')} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <nav aria-label={t('Accesos rápidos', 'Acessos rápidos')} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, position: 'relative' }}>
               <BotonImagen href="/panel-de-control" imagen="/sabio/sabio-panel-control.png" texto={t('Panel de Control', 'Painel de Controle')} punto />
               <BotonImagen onClick={() => setJuegoAbierto(true)} imagen={SABIO_LUDICO_URL} texto="Mini-Juego" punto />
               <BotonImagen onClick={() => setTrofeosAbierto(true)} emoji="🏆" texto={t('Trofeos', 'Troféus')} />
               <BotonImagen onClick={() => setSabioAbierto(true)} emoji="💬" texto="Chat" ayuda={t('Chatear con Sabio', 'Conversar com o Sábio')} />
               <BotonImagen onClick={actualizar} disabled={actualizando} girando={actualizando} emoji="🔄" texto={actualizando ? t('Actualizando…', 'Atualizando…') : t('Actualizar', 'Atualizar')} ayuda={t('Actualizar los datos de esta pantalla sin recargar la página', 'Atualizar os dados desta tela sem recarregar a página')} />
               {datos?.esAdminPlataforma && (
-                <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ color: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none', opacity: 0.9 }}>⚙️ Panel Maestro</Link>
+                <Link href="/panel-maestro" title="Panel Maestro" className="shell-texto-ancho" style={{ position: 'absolute', left: 'calc(100% + 12px)', bottom: 14, whiteSpace: 'nowrap', color: '#fff', fontWeight: 700, fontSize: 12, textDecoration: 'none', opacity: 0.9 }}>⚙️ Panel Maestro</Link>
               )}
             </nav>
             </div>
