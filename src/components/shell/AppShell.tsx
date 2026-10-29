@@ -285,13 +285,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             @media (max-width: 960px) { .shell-logo { width: 72px; height: 72px; } .shell-nombre { font-size: 21px !important; } }
             @media (max-width: 760px) {
               .shell-activo { grid-template-columns: minmax(0, 1fr); }
-              .shell-menu { position: fixed; top: 84px; bottom: 0; left: 0; width: 262px; z-index: 40; transform: translateX(-100%); transition: transform 0.2s; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
+              .shell-menu { position: fixed; top: 154px; bottom: 0; left: 0; width: 262px; z-index: 40; transform: translateX(-100%); transition: transform 0.2s; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
               .shell-menu.abierto { transform: translateX(0); }
               .shell-burger { display: inline-flex; }
+              .shell-barra { flex-wrap: wrap !important; padding: 10px 12px !important; row-gap: 8px !important; }
+              .shell-marca { flex: 1 1 0 !important; min-width: 0; gap: 10px !important; }
               .shell-texto-ancho { display: none; }
               .shell-boton-texto { display: none; }
-              .shell-boton-img { width: 40px !important; height: 40px !important; font-size: 28px !important; }
-              .shell-logo { width: 52px; height: 52px; }
+              .shell-centro-barra { flex: 1 1 100% !important; order: 3; margin: 0 !important; max-width: none !important; }
+              .shell-centro-barra nav { width: 100%; flex-wrap: nowrap !important; justify-content: space-between; gap: 6px !important; }
+              .shell-centro-barra nav > * { flex: 1 1 0; min-width: 0 !important; padding: 6px 4px !important; border-radius: 14px !important; }
+              .shell-boton-img { width: 32px !important; height: 32px !important; font-size: 24px !important; }
+              .shell-logo { width: 52px !important; height: 52px !important; }
               .shell-nombre { font-size: 17px !important; }
               .shell-nivel { display: none; }
             }
