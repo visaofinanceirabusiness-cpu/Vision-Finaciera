@@ -32,6 +32,7 @@ import { SabioBotLobby } from '@/components/panel/SabioBotLobby';
 import { SabioAzarLobby } from '@/components/panel/SabioAzarLobby';
 import { LanzamientoRapidoLobby } from '@/components/panel/LanzamientoRapidoLobby';
 import { useCaja } from '@/components/caja/useCaja';
+import { useEnShell } from '@/components/shell/ShellContext';
 import { PanelControlLobby } from '@/components/panel/PanelControlLobby';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { BloqueoDemo, useEspectador } from '@/components/demo/ProveedorEspectador';
@@ -163,6 +164,7 @@ export default function InicioPage() {
   const [miniJuegoAbierto, setMiniJuegoAbierto] = useState(false);
   const espectador = useEspectador();
   const { estaEnCaja: enCaja } = useCaja();
+  const enShell = useEnShell();
   const [estadoSolicitud, setEstadoSolicitud] = useState<
     'PENDIENTE' | 'RECHAZADA' | null
   >(null);
@@ -678,25 +680,25 @@ export default function InicioPage() {
   return (
     <main
       style={{
-        minHeight: '100vh',
+        minHeight: enShell ? 0 : '100vh',
         background:
           'var(--fondo-app, radial-gradient(circle at top left, #edf4f1 0%, transparent 34%), #f5f7f9)',
-        padding: 24,
+        padding: enShell ? '16px 20px 24px' : 24,
       }}
     >
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: enShell ? 'none' : 1180,
           margin: '0 auto',
         }}
       >
         {/* =================================================
-            CABECERA
+            CABECERA — en el nuevo diseño vive en la barra superior (AppShell).
         ================================================== */}
 
         <div
           style={{
-            display: 'flex',
+            display: enShell ? 'none' : 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             gap: 16,
@@ -947,15 +949,15 @@ export default function InicioPage() {
 
         {perfil && !espectador && <ControlDemoLobby empresaId={perfil.empresa_id} idioma={idioma} />}
 
-        {perfil && (
+        {perfil && !enShell && (
           <BloqueoDemo seccion={SECCION_PANEL}>
             <PanelControlLobby idioma={idioma} />
           </BloqueoDemo>
         )}
 
-        {perfil && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
+        {perfil && !enShell && <SabioAzarLobby idioma={idioma} onJugar={() => setMiniJuegoAbierto(true)} />}
 
-        {perfil && !enCaja('lanzamiento-rapido') && (
+        {perfil && !enShell && !enCaja('lanzamiento-rapido') && (
           <BloqueoDemo>
             <LanzamientoRapidoLobby idioma={idioma} />
           </BloqueoDemo>
