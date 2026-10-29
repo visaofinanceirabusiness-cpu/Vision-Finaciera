@@ -688,6 +688,13 @@ export default function PanelMaestroPage() {
             />
 
             <TarjetaHerramientaMaestro
+              href="/panel-maestro/caja-de-materiales"
+              emoji="📦"
+              titulo="Caja de materiales"
+              color="#b45309"
+            />
+
+            <TarjetaHerramientaMaestro
               href="/panel-maestro/probar-tutorial"
               emoji="🧪"
               titulo="Probar tutorial de empresas nuevas"

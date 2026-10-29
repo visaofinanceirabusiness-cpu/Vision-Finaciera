@@ -23,6 +23,13 @@ tomada.
 - Compras (Central de Lanzamientos): tarjetas **Mercadería** (→ Terminados | Insumos → categorías de producto → productos del tipo elegido) y **Bienes de uso** (categorías sin stock). Lógica pura en `lib/comprasPorTarjetas.ts` (con tests); activa SOLO para la empresa demo (`EMPRESAS_CON_TARJETAS`; para abrirla a otras alcanza con sumar su id). Ventas y Pérdidas siguen con la lista de siempre. Al editar una compra con categoría se muestran todas las categorías para no esconderla.
 - El punto 6 (depreciación, anticipos, impuestos) queda en pausa por decisión del dueño (26/10): no desarrollar por ahora.
 
+## Caja de materiales (29/10/2026) — V1
+- Idea del dueño: dejar de usar herramientas/partes SIN borrarlas: se "guardan en la caja" (se esconden a las empresas; código, tablas y datos quedan intactos y se pueden sacar). Solo la ve el admin de plataforma: **Panel Maestro → Caja de materiales** (`/panel-maestro/caja-de-materiales`, tarjeta 📦 en el Panel Maestro).
+- `lib/cajaMateriales.ts` = INVENTARIO de todo el sistema (herramientas, pantallas, piezas del lobby, perfiles, pantallas del Panel Maestro; 42 piezas) con archivos, tablas, configuración, `necesita`, y qué se oculta / conserva / qué consecuencias tiene. **Toda herramienta, pantalla o pieza nueva se suma ahí.** Estado en la tabla `caja_materiales_estado` (migración `caja_materiales_estado`: lectura para todos, escritura solo `es_admin_plataforma()`, con las 3 políticas restrictivas de espectador).
+- Reglas (`evaluarEnvioALaCaja`): no se guarda el núcleo (motor contable, lobby, configuraciones, perfiles); no se guarda nada que otra pieza ACTIVA necesite; no se guarda lo que aún no tiene interruptor; antes de confirmar se muestran consecuencias (+ dato real) y hay que tildar «leí las consecuencias».
+- Interruptor: `interruptor: 'conectado'` = el código consulta la caja (`useCaja().estaEnCaja(clave)` en el lobby, `<GuardiaCaja clave>` en un `layout.tsx` de la pantalla: clientes ven aviso, el admin ve cinta). Hoy solo **Lanzamiento rápido** está conectado (banner del lobby + `/lanzamiento-rapido`). Para guardar otra pieza: conectar su interruptor y pasarla a 'conectado'. Si falla la lectura de la caja se asume "nada guardado".
+- Pendiente (decisión del dueño): mapa de conexiones tipo mapa mental (MindMeister) a partir del `necesita` del inventario — después de la caja.
+
 ## Compromisos: unificar Cobrar/Pagar + recurrentes (04/10/2026) — EN CURSO
 Problema: 4 conceptos (Cuentas a Cobrar, Pasivos, Ingresos y Gastos
 Recurrentes). Los recurrentes son solo recordatorios (no generan
