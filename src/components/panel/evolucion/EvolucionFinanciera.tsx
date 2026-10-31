@@ -295,11 +295,12 @@ export function EvolucionFinanciera({
       </div>
 
       <div className="evo-cuerpo">
+        {/* touch-action: con pan-y a secas el celular no deja arrastrar el gráfico hacia el costado (solo la barrita de abajo); pan-x se habilita solo cuando de verdad se desborda, así en gráficos que entran enteros se sigue pudiendo deslizar el dedo para ver cada mes. */}
         <div ref={refGrafico} style={{ overflowX: 'auto', paddingBottom: 4 }}>
          <div style={{ position: 'relative', width: ANCHO }}>
           <svg
             viewBox={`0 0 ${ANCHO} ${ALTO}`}
-            style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y', cursor: 'crosshair' }}
+            style={{ width: '100%', height: 'auto', display: 'block', touchAction: ANCHO > anchoGrafico + 1 ? 'pan-x pan-y' : 'pan-y', cursor: 'crosshair' }}
             onPointerMove={(e) => setHover(indiceDesdeEvento(e))}
             onPointerLeave={() => setHover(null)}
             onPointerDown={(e) => {
