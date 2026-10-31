@@ -37,7 +37,6 @@ import {
   agruparCatalogo,
   enlaceBannerValido,
   etiquetaEstado,
-  formatearReales,
   generarSlug,
   mensajeSlug,
   precioConMargen,
@@ -58,12 +57,17 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
+import { formatearPrecio } from '@/lib/miLocalTexto';
+import { simboloMoneda } from '@/lib/moneda';
+
 type Pestana = 'tienda' | 'catalogo' | 'banners' | 'pedidos';
 type ProductoBase = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null };
 
 export default function MiLocalPage() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [esPT, setEsPT] = useState(false);
+  // Moneda de la empresa: los precios se muestran con su símbolo y formato (antes «R$» fijo).
+  const [moneda, setMoneda] = useState<string | null>(null);
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [pestana, setPestana] = useState<Pestana>('tienda');
   const [tienda, setTienda] = useState<Tienda | null>(null);
@@ -76,6 +80,8 @@ export default function MiLocalPage() {
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
   const tr = useCallback((es: string, pt: string) => (esPT ? pt : es), [esPT]);
+  const fmt = useCallback((v: number) => formatearPrecio(v, moneda), [moneda]);
+  const simbolo = simboloMoneda(moneda);
 
   const recargar = useCallback(async (id: string) => {
     const [t, pubs, ped, sal, cos, { data: prods }] = await Promise.all([
@@ -100,9 +106,10 @@ export default function MiLocalPage() {
       if (!u.user) return;
       const { data: perfil } = await supabase.from('perfiles').select('empresa_id').eq('id', u.user.id).maybeSingle();
       if (!perfil?.empresa_id) return;
-      const { data: emp } = await supabase.from('empresas').select('nombre, idioma').eq('id', perfil.empresa_id).maybeSingle();
+      const { data: emp } = await supabase.from('empresas').select('nombre, idioma, moneda').eq('id', perfil.empresa_id).maybeSingle();
       setEmpresaId(perfil.empresa_id);
       setEsPT(emp?.idioma === 'PT');
+      setMoneda((emp?.moneda as string | null) ?? null);
       setNombreEmpresa((emp?.nombre as string) ?? '');
       try {
         await recargar(perfil.empresa_id);
@@ -157,11 +164,11 @@ export default function MiLocalPage() {
           ) : pestana === 'tienda' ? (
             <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'catalogo' ? (
-            <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
+            <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} fmt={fmt} simbolo={simbolo} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'banners' ? (
             <PestanaBanners empresaId={empresaId} tr={tr} setAviso={setAviso} />
           ) : (
-            <PestanaPedidos empresaId={empresaId} pedidos={pedidos} esPT={esPT} tr={tr} onCambio={() => recargar(empresaId)} setAviso={setAviso} />
+            <PestanaPedidos empresaId={empresaId} pedidos={pedidos} esPT={esPT} tr={tr} fmt={fmt} pais={moneda === 'ARS' ? 'AR' : 'BR'} onCambio={() => recargar(empresaId)} setAviso={setAviso} />
           )}
         </main>
       </div>
@@ -170,6 +177,7 @@ export default function MiLocalPage() {
 }
 
 type Tr = (es: string, pt: string) => string;
+type Fmt = (valor: number) => string;
 type SetAviso = (a: { tipo: 'ok' | 'error'; texto: string } | null) => void;
 
 // ---------------- TIENDA ----------------
@@ -198,7 +206,7 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
   async function guardar() {
     if (errorSlug) return setAviso({ tipo: 'error', texto: mensajeSlug(errorSlug, esPT) });
     if (nombre.trim().length < 2) return setAviso({ tipo: 'error', texto: tr('Poné un nombre para la tienda.', 'Informe um nome para a loja.') });
-    if (activa && !whatsappValido(whatsapp)) return setAviso({ tipo: 'error', texto: tr('Para activar la tienda cargá un WhatsApp válido (con DDD).', 'Para ativar a loja informe um WhatsApp válido (com DDD).') });
+    if (activa && !whatsappValido(whatsapp)) return setAviso({ tipo: 'error', texto: tr('Para activar la tienda cargá un WhatsApp válido (con código de área).', 'Para ativar a loja informe um WhatsApp válido (com DDD).') });
     setGuardando(true);
     try {
       await guardarTienda({ empresa_id: empresaId, slug, nombre: nombre.trim(), descripcion: descripcion.trim() || null, portada_url: portada || null, whatsapp: whatsapp.trim() || null, activa });
@@ -255,7 +263,7 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
 
 // ---------------- CATÁLOGO ----------------
 
-function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, tr, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; costos: Map<string, number>; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
+function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, tr, fmt, simbolo, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; costos: Map<string, number>; tr: Tr; fmt: Fmt; simbolo: string; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
   const porProducto = useMemo(() => new Map(publicaciones.map((p) => [p.producto_id, p])), [publicaciones]);
   const [editando, setEditando] = useState<string | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
@@ -346,15 +354,15 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, 
                 <div>
                 <strong style={{ color: COLORES.azul }}>{prod.nombre}</strong>
                 <div style={{ fontSize: 12, color: COLORES.gris }}>
-                  {prod.categoria ?? tr('Sin categoría', 'Sem categoria')} · {tr('Stock', 'Estoque')}: {saldos.get(prod.id) ?? 0} {prod.unidad_medida ?? ''} · {tr('Costo', 'Custo')}: {formatearReales(costos.get(prod.id) ?? 0)}
-                  {pub && ` · ${formatearReales(pub.precio)} · ${pub.publicado ? (pub.disponible ? tr('Publicado', 'Publicado') : tr('Publicado (agotado)', 'Publicado (esgotado)')) : tr('Borrador', 'Rascunho')}`}
+                  {prod.categoria ?? tr('Sin categoría', 'Sem categoria')} · {tr('Stock', 'Estoque')}: {saldos.get(prod.id) ?? 0} {prod.unidad_medida ?? ''} · {tr('Costo', 'Custo')}: {fmt(costos.get(prod.id) ?? 0)}
+                  {pub && ` · ${fmt(pub.precio)} · ${pub.publicado ? (pub.disponible ? tr('Publicado', 'Publicado') : tr('Publicado (agotado)', 'Publicado (esgotado)')) : tr('Borrador', 'Rascunho')}`}
                 </div>
                 </div>
               </div>
               <button onClick={() => setEditando(editando === prod.id ? null : prod.id)} style={botonSecundario}>{pub ? tr('Editar / foto', 'Editar / foto') : tr('Publicar y subir foto', 'Publicar e enviar foto')}</button>
             </div>
             {editando === prod.id && (
-              <FormPublicacion empresaId={empresaId} producto={prod} pub={pub} costo={costos.get(prod.id) ?? 0} tr={tr} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
+              <FormPublicacion empresaId={empresaId} producto={prod} pub={pub} costo={costos.get(prod.id) ?? 0} tr={tr} fmt={fmt} simbolo={simbolo} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
             )}
           </div>
         );
@@ -368,7 +376,7 @@ function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, 
   );
 }
 
-function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onListo }: { empresaId: string; producto: ProductoBase; pub?: Publicacion; costo: number; tr: Tr; setAviso: SetAviso; onListo: () => Promise<void> }) {
+function FormPublicacion({ empresaId, producto, pub, costo, tr, fmt, simbolo, setAviso, onListo }: { empresaId: string; producto: ProductoBase; pub?: Publicacion; costo: number; tr: Tr; fmt: Fmt; simbolo: string; setAviso: SetAviso; onListo: () => Promise<void> }) {
   const [titulo, setTitulo] = useState(pub?.titulo ?? producto.nombre);
   const [descripcion, setDescripcion] = useState(pub?.descripcion ?? '');
   const [precio, setPrecio] = useState(pub ? String(pub.precio).replace('.', ',') : '');
@@ -406,7 +414,7 @@ function FormPublicacion({ empresaId, producto, pub, costo, tr, setAviso, onList
     <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
       <label style={etiqueta}>{tr('Nombre comercial', 'Nome comercial')}<input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} style={campo} /></label>
       <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={2000} rows={8} style={{ ...campo, resize: 'vertical' }} /><span style={{ fontWeight: 400, color: COLORES.gris }}>{descripcion.length}/2000</span></label>
-      <label style={etiqueta}>{tr('Precio de venta (R$)', 'Preço de venda (R$)')}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {formatearReales(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder={tr('Ingresá el precio', 'Informe o preço')} style={campo} /></label>
+      <label style={etiqueta}>{tr(`Precio de venta (${simbolo})`, `Preço de venda (${simbolo})`)}{costo > 0 && <span style={{ fontWeight: 400, color: COLORES.gris }}>{tr('Costo promedio', 'Custo médio')}: {fmt(costo)}</span>}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder={tr('Ingresá el precio', 'Informe o preço')} style={campo} /></label>
       <div style={etiqueta}>
         {tr('Foto', 'Foto')}
         {foto && /* eslint-disable-next-line @next/next/no-img-element */ <img src={foto} alt="" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12 }} />}
@@ -493,7 +501,7 @@ function NuevoBanner({ lado, ocupado, tr, onSubir }: { lado: Banner['lado']; ocu
 
 // ---------------- PEDIDOS ----------------
 
-function PestanaPedidos({ empresaId, pedidos, esPT, tr, onCambio, setAviso }: { empresaId: string; pedidos: Pedido[]; esPT: boolean; tr: Tr; onCambio: () => Promise<void>; setAviso: SetAviso }) {
+function PestanaPedidos({ empresaId, pedidos, esPT, tr, fmt, pais, onCambio, setAviso }: { empresaId: string; pedidos: Pedido[]; esPT: boolean; tr: Tr; fmt: Fmt; pais: 'BR' | 'AR'; onCambio: () => Promise<void>; setAviso: SetAviso }) {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [ventaDe, setVentaDe] = useState<Pedido | null>(null);
 
@@ -516,16 +524,16 @@ function PestanaPedidos({ empresaId, pedidos, esPT, tr, onCambio, setAviso }: { 
       {pedidos.map((p) => (
         <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 16 }}>
           <div className="ml-fila" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <strong style={{ color: COLORES.azul }}>#{p.numero} · {formatearReales(p.total)}</strong>
+            <strong style={{ color: COLORES.azul }}>#{p.numero} · {fmt(p.total)}</strong>
             <span style={{ ...insignia, background: p.estado === 'cancelled' ? '#fee2e2' : p.estado === 'pending' ? '#fef3c7' : '#dcfce7' }}>{etiquetaEstado(p.estado, esPT)}</span>
           </div>
           <div style={{ fontSize: 13, color: COLORES.gris, margin: '4px 0 8px' }}>
             {new Date(p.creado_en).toLocaleString(esPT ? 'pt-BR' : 'es')} · {p.cliente_nombre} ·{' '}
-            <a href={urlWhatsapp(p.cliente_whatsapp, `Olá ${p.cliente_nombre}! Sobre seu pedido #${p.numero}`)} target="_blank" rel="noreferrer">{p.cliente_whatsapp}</a>
+            <a href={urlWhatsapp(p.cliente_whatsapp, tr(`¡Hola ${p.cliente_nombre}! Te escribo por tu pedido #${p.numero}`, `Olá ${p.cliente_nombre}! Sobre seu pedido #${p.numero}`), pais)} target="_blank" rel="noreferrer">{p.cliente_whatsapp}</a>
           </div>
           <ul style={{ margin: '0 0 8px', paddingLeft: 18, fontSize: 14 }}>
             {p.mi_local_pedido_items.map((i) => (
-              <li key={i.id}>{i.cantidad} × {i.nombre} — {formatearReales(i.precio_unitario)} = {formatearReales(i.subtotal)}</li>
+              <li key={i.id}>{i.cantidad} × {i.nombre} — {fmt(i.precio_unitario)} = {fmt(i.subtotal)}</li>
             ))}
           </ul>
           {p.observaciones && <div style={{ fontSize: 13, background: '#f8fafc', padding: 8, borderRadius: 8, marginBottom: 8 }}>📝 {p.observaciones}</div>}
