@@ -59,6 +59,9 @@ export type TiendaPublica = {
   descripcion: string | null;
   portada_url: string | null;
   whatsapp: string | null;
+  // Idioma y moneda de la empresa dueña (la RPC los devuelve): la tienda se muestra con ellos.
+  idioma?: 'ES' | 'PT';
+  moneda?: string | null;
   productos: { id: string; titulo: string; descripcion: string | null; precio: number; foto_url: string | null }[];
 };
 

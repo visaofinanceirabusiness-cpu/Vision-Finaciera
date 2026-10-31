@@ -18,6 +18,7 @@ import {
   validarSlug,
   whatsappValido,
 } from './miLocal';
+import { formatearPrecio, idiomaDeTienda, textosTienda } from './miLocalTexto';
 
 describe('slug', () => {
   it('normaliza acentos y símbolos', () => {
@@ -162,5 +163,40 @@ describe('mensaje del pedido por WhatsApp', () => {
   it('sin observaciones no agrega esa línea', () => {
     const m = mensajePedidoWhatsapp({ numero: 1, nombre: 'Bo', items: [{ id: 'a', titulo: 'X', precio: 10, cantidad: 1 }], total: 10 });
     expect(m).not.toContain('Observações');
+  });
+});
+
+describe('tienda pública en el idioma y la moneda de la empresa', () => {
+  const items = [{ id: 'a', titulo: 'Torta', precio: 1500, cantidad: 2 }];
+
+  it('precio: pesos con punto de miles y coma decimal; reales como siempre', () => {
+    expect(formatearPrecio(1234.5, 'ARS').replace(/\s/g, ' ')).toBe('$ 1.234,50');
+    expect(formatearPrecio(49.9, 'BRL').replace(/\s/g, ' ')).toBe('R$ 49,90');
+    expect(formatearPrecio(49.9).replace(/\s/g, ' ')).toBe('R$ 49,90');
+  });
+
+  it('idioma: solo ES cambia; cualquier otro dato queda en portugués', () => {
+    expect(idiomaDeTienda('ES')).toBe('ES');
+    expect(idiomaDeTienda('PT')).toBe('PT');
+    expect(idiomaDeTienda(undefined)).toBe('PT');
+    expect(textosTienda('ES').tuCarrito).toBe('Tu carrito');
+    expect(textosTienda('PT').tuCarrito).toBe('Seu carrinho');
+    expect(textosTienda('ES').verCarrito(2, '$ 3.000,00')).toContain('(2)');
+  });
+
+  it('mensaje de WhatsApp en español y pesos', () => {
+    const m = mensajePedidoWhatsapp({ numero: 7, nombre: 'Ana', items, total: 3000, observaciones: 'Tarde', idioma: 'ES', moneda: 'ARS' });
+    expect(m).toContain('¡Hola! Soy Ana y hice el pedido #7.');
+    expect(m).toContain('Detalle del pedido:');
+    expect(m.replace(/\s/g, ' ')).toContain('2 × Torta — $ 3.000,00');
+    expect(m.replace(/\s/g, ' ')).toContain('Total: $ 3.000,00');
+    expect(m).toContain('Observaciones: Tarde');
+  });
+
+  it('WhatsApp de Argentina: 549 + área + número; el de Brasil sigue con 55', () => {
+    expect(urlWhatsapp('11 2345-6789', undefined, 'AR')).toBe('https://wa.me/5491123456789');
+    expect(urlWhatsapp('011 2345-6789', undefined, 'AR')).toBe('https://wa.me/5491123456789');
+    expect(urlWhatsapp('5491123456789', undefined, 'AR')).toBe('https://wa.me/5491123456789');
+    expect(urlWhatsapp('(11) 91234-5678')).toBe('https://wa.me/5511912345678');
   });
 });

@@ -6,6 +6,8 @@
 // solo informativos: el servidor (RPC mi_local_crear_pedido) vuelve a
 // consultar los precios y calcula el total real.
 
+import { formatearPrecio } from './miLocalTexto';
+
 export type EstadoPedido = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 export const ESTADOS_PEDIDO: EstadoPedido[] = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
@@ -94,9 +96,16 @@ export function whatsappValido(texto: string): boolean {
   return d.length >= 10 && d.length <= 13;
 }
 
-export function urlWhatsapp(texto: string, mensaje?: string): string {
+// País del número: en Brasil se agrega 55; en Argentina 54 y, para celulares, el 9 de WhatsApp (549 + área + número).
+export function urlWhatsapp(texto: string, mensaje?: string, pais: 'BR' | 'AR' = 'BR'): string {
   let d = normalizarWhatsapp(texto);
-  if (d.length <= 11) d = '55' + d;
+  if (pais === 'AR') {
+    if (d.startsWith('0')) d = d.slice(1);
+    if (d.length === 10) d = '549' + d;
+    else if (d.length <= 11 && !d.startsWith('54')) d = '54' + d;
+  } else if (d.length <= 11) {
+    d = '55' + d;
+  }
   return `https://wa.me/${d}${mensaje ? `?text=${encodeURIComponent(mensaje)}` : ''}`;
 }
 
@@ -200,15 +209,18 @@ export function enlaceBannerValido(texto: string): boolean {
 }
 
 // Mensaje que el cliente le manda por WhatsApp a la tienda al terminar el pedido: número, nombre y detalle.
-export function mensajePedidoWhatsapp(args: { numero: number; nombre: string; items: ItemCarrito[]; total: number; observaciones?: string }): string {
-  const lineas = args.items.map((i) => `• ${i.cantidad} × ${i.titulo} — ${formatearReales(i.precio * i.cantidad)}`);
+// En el idioma y con la moneda de la tienda (por defecto portugués y reales, como arrancó).
+export function mensajePedidoWhatsapp(args: { numero: number; nombre: string; items: ItemCarrito[]; total: number; observaciones?: string; idioma?: 'ES' | 'PT'; moneda?: string | null }): string {
+  const es = args.idioma === 'ES';
+  const precio = (v: number) => formatearPrecio(v, args.moneda);
+  const lineas = args.items.map((i) => `• ${i.cantidad} × ${i.titulo} — ${precio(i.precio * i.cantidad)}`);
   return [
-    `Olá! Sou ${args.nombre.trim()} e fiz o pedido #${args.numero}.`,
+    es ? `¡Hola! Soy ${args.nombre.trim()} y hice el pedido #${args.numero}.` : `Olá! Sou ${args.nombre.trim()} e fiz o pedido #${args.numero}.`,
     '',
-    'Detalhes do pedido:',
+    es ? 'Detalle del pedido:' : 'Detalhes do pedido:',
     ...lineas,
     '',
-    `Total: ${formatearReales(args.total)}`,
-    ...(args.observaciones?.trim() ? ['', `Observações: ${args.observaciones.trim()}`] : []),
+    `Total: ${precio(args.total)}`,
+    ...(args.observaciones?.trim() ? ['', `${es ? 'Observaciones' : 'Observações'}: ${args.observaciones.trim()}`] : []),
   ].join('\n');
 }
