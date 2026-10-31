@@ -224,7 +224,7 @@ export function VistaComparar({
           <div style={{ position: 'relative', width: ANCHO }}>
             <svg
               viewBox={`0 0 ${ANCHO} ${ALTO}`}
-              style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y', cursor: 'crosshair' }}
+              style={{ width: '100%', height: 'auto', display: 'block', touchAction: ANCHO > anchoGrafico + 1 ? 'pan-x pan-y' : 'pan-y', cursor: 'crosshair' }}
               onPointerMove={(e) => setHover(indiceDesdeEvento(e))}
               onPointerLeave={() => setHover(null)}
               onPointerDown={(e) => {
