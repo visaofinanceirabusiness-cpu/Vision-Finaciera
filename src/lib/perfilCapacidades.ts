@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { perfilVendeServicios } from './miLocalServicios';
 import { EMPRESAS_CON_PLAN_ACCION } from './planAccionEmpresas';
 import { EMPRESAS_CON_NUESTRO_SUENO } from './nuestroSuenoEmpresas';
 
@@ -111,4 +112,19 @@ export function empresaTienePlanAccion(empresaId: string | null | undefined): bo
 // nuestroSuenoEmpresas.ts), mismo criterio que Plan de Acción.
 export function empresaTieneNuestroSueno(empresaId: string | null | undefined): boolean {
   return Boolean(empresaId) && EMPRESAS_CON_NUESTRO_SUENO.includes(empresaId as string);
+}
+
+// Si la empresa vende servicios (Mi Local para Servicios): perfil Servicios, o Mixto con ese componente tildado.
+export async function empresaVendeServicios(empresaId: string, cliente: SupabaseClient = supabase): Promise<boolean> {
+  const { data: empresa } = await cliente
+    .from('empresas')
+    .select('perfiles_empresa(codigo)')
+    .eq('id', empresaId)
+    .maybeSingle();
+
+  const perfilCodigo = (empresa as unknown as { perfiles_empresa?: { codigo: string } | null } | null)?.perfiles_empresa?.codigo ?? null;
+  if (perfilCodigo !== 'MIXTO') return perfilVendeServicios(perfilCodigo);
+
+  const { data: componentes } = await cliente.from('empresa_mixto_componentes').select('componente').eq('empresa_id', empresaId);
+  return perfilVendeServicios(perfilCodigo, (componentes ?? []).map((c) => c.componente as string));
 }

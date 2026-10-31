@@ -6,7 +6,9 @@
 // dispara a mano (registrarVentaDelPedido) y recién ahí pasa por el motor.
 
 import { supabase } from './supabase';
-import { registrarOperacion, generarIdOperacion, traerTodo } from './motor';
+import { registrarOperacion, generarIdOperacion, generarMatrizOperaciones, traerTodo } from './motor';
+import { crearCategoriaIngreso } from './categorias';
+import { lineasDeVenta } from './miLocalServicios';
 import { fechaLocalHoy } from './fecha';
 import { agruparItemsPorCategoria, type EstadoPedido, type ItemVenta } from './miLocal';
 
@@ -23,7 +25,9 @@ export type Tienda = {
 export type Publicacion = {
   id: string;
   empresa_id: string;
-  producto_id: string;
+  // Una publicación es de un producto (stock) o de un servicio (categoría de Venta de servicios): uno u otro.
+  producto_id: string | null;
+  categoria_operacion_id: string | null;
   titulo: string;
   descripcion: string | null;
   precio: number;
@@ -120,6 +124,55 @@ export async function guardarPublicacion(p: Partial<Publicacion> & { empresa_id:
   if (error) throw error;
 }
 
+// ---------------- servicios ----------------
+
+export type ServicioCategoria = { id: string; codigo: string; nombre: string };
+
+// Los servicios de la empresa = sus categorías de Venta ACTIVAS cuya regla es de servicios (las de Configurações →
+// Categorías de servicio). En Mixto conviven con las categorías de productos, que tienen otra regla (motor VENTAS).
+export async function listarServicios(empresaId: string): Promise<ServicioCategoria[]> {
+  const [{ data: reglas, error: errorReglas }, { data: cats, error: errorCats }] = await Promise.all([
+    supabase.from('reglas_contables').select('categoria_codigo').eq('empresa_id', empresaId).eq('operacion', 'VENTA').eq('motor', 'SERVICIOS').not('categoria_codigo', 'is', null),
+    supabase.from('categorias_operacion').select('id, codigo, nombre').eq('empresa_id', empresaId).eq('operacion', 'VENTA').eq('activo', true).order('nombre'),
+  ]);
+  if (errorReglas) throw errorReglas;
+  if (errorCats) throw errorCats;
+  const codigos = new Set((reglas ?? []).map((r) => r.categoria_codigo as string));
+  return ((cats ?? []) as ServicioCategoria[]).filter((c) => codigos.has(c.codigo));
+}
+
+// Guarda lo que Mi Local sabe de un servicio (título, precio, foto…). Sin precio queda en borrador: la base no deja publicarlo.
+export async function guardarServicio(s: { empresa_id: string; categoria_operacion_id: string; titulo: string; descripcion: string | null; precio: number; foto_url: string | null; publicado: boolean; disponible: boolean }): Promise<void> {
+  const { error } = await supabase
+    .from('mi_local_publicaciones')
+    .upsert({ ...s, producto_id: null, controla_stock: false, actualizado_en: new Date().toISOString() }, { onConflict: 'empresa_id,categoria_operacion_id' });
+  if (error) throw error;
+}
+
+// Servicio nuevo desde Mi Local: hace EXACTAMENTE lo que Configurações → Categorías de servicio (categoría de Venta con su cuenta
+// de ingreso y su regla, y regenera la matriz) y recién después lo publica con su precio. Queda a la vista en los dos lugares.
+// Si falla la matriz, la categoría ya existe: se avisa con ML_SERVICIO_MATRIZ (se puede completar el precio igual y reintentar).
+export async function crearServicioNuevo(empresaId: string, s: { nombre: string; descripcion: string | null; precio: number; foto_url: string | null; publicado: boolean }): Promise<void> {
+  const creada = await crearCategoriaIngreso(empresaId, s.nombre, 'VENTA');
+  const { data: cat, error } = await supabase.from('categorias_operacion').select('id').eq('empresa_id', empresaId).eq('operacion', 'VENTA').eq('codigo', creada.codigo).maybeSingle();
+  if (error || !cat) throw error ?? new Error('ML_SERVICIO_SIN_CATEGORIA');
+
+  await guardarServicio({ empresa_id: empresaId, categoria_operacion_id: cat.id as string, titulo: creada.nombre, descripcion: s.descripcion, precio: s.precio, foto_url: s.foto_url, publicado: s.publicado, disponible: true });
+
+  try {
+    await generarMatrizOperaciones(empresaId);
+  } catch (e) {
+    console.error(e);
+    throw new Error('ML_SERVICIO_MATRIZ');
+  }
+}
+
+// ¿La categoría es de servicios (regla de venta de servicios, sin stock)? Decide cómo se arman las líneas de la venta.
+async function categoriaEsServicio(empresaId: string, categoria: string): Promise<boolean> {
+  const { data, error } = await supabase.from('reglas_contables').select('motor, stock').eq('empresa_id', empresaId).eq('operacion', 'VENTA').eq('categoria_nombre', categoria).limit(1);
+  if (error) throw error;
+  return data?.[0]?.motor === 'SERVICIOS' && data[0].stock === 'NO';
+}
 export async function publicarVarios(filas: { empresa_id: string; producto_id: string; titulo: string; precio: number }[]): Promise<void> {
   if (filas.length === 0) return;
   const ahora = new Date().toISOString();
@@ -208,11 +261,8 @@ export async function registrarVentaDelPedido(args: { empresaId: string; pedidoI
           formaPago,
           historico: `Mi Local #${r.numero} · ${grupo.categoria}`,
           clienteProveedor: r.cliente,
-          lineas: grupo.items.map((it) => {
-            // El motor identifica el producto por su id, no por el nombre.
-            if (!it.producto_id) throw new Error('El producto de este pedido ya no existe en Mercadería.');
-            return { producto: it.producto_id, cantidad: it.cantidad, monto: Number(it.precio_unitario) };
-          }),
+          // Producto: el motor lo identifica por su id, no por el nombre. Servicio: sin producto ni stock.
+          lineas: lineasDeVenta(grupo.items, await categoriaEsServicio(args.empresaId, grupo.categoria)),
         },
         idOperacion
       );
