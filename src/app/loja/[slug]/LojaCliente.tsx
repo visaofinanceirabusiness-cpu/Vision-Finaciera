@@ -8,6 +8,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { CarruselLateral } from '@/components/mi-local/CarruselLateral';
+import { CampoWhatsapp } from '@/components/mi-local/CampoWhatsapp';
+import { formatearWhatsapp, paisPorMoneda } from '@/lib/whatsappPais';
 import { cargarTiendaPublica, crearPedidoPublico, type TiendaPublica } from '@/lib/miLocalDatos';
 import { idiomaDeTienda, formatearPrecio, textosTienda } from '@/lib/miLocalTexto';
 import { agregarAlCarrito, cambiarCantidad, cantidadTotal, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, mensajePedidoWhatsapp, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
@@ -97,7 +99,7 @@ export default function LojaCliente() {
           <p style={{ fontSize: 18 }}>{tx.numeroPedido} <strong>#{confirmado.numero}</strong></p>
           <p>{tx.total} <strong>{reais(confirmado.total)}</strong></p>
           <p style={{ color: '#64748b' }}>{tx.contactoPronto(loja.nombre)}</p>
-          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, mensajePedidoWhatsapp({ numero: confirmado.numero, nombre: confirmado.nombre, items: confirmado.items, total: confirmado.total, observaciones: confirmado.observaciones, idioma: idiomaDeTienda(loja.idioma), moneda: moeda }), moeda === 'ARS' ? 'AR' : 'BR')} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>{tx.hablarTienda}</a>}
+          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, mensajePedidoWhatsapp({ numero: confirmado.numero, nombre: confirmado.nombre, items: confirmado.items, total: confirmado.total, observaciones: confirmado.observaciones, idioma: idiomaDeTienda(loja.idioma), moneda: moeda }), paisPorMoneda(moeda))} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>{tx.hablarTienda}</a>}
           <div><button onClick={() => { setEtapa('loja'); setConfirmado(null); }} style={{ ...btn2, marginTop: 14 }}>{tx.volverTienda}</button></div>
         </div>
       </Pagina>
@@ -161,7 +163,7 @@ export default function LojaCliente() {
       {etapa === 'dados' && (
         <Cartao titulo={tx.tusDatos}>
           <label style={lab}>{tx.tuNombre}<input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={80} autoComplete="name" style={campo} /></label>
-          <label style={lab}>{tx.whatsappConArea}<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} inputMode="tel" autoComplete="tel" placeholder={tx.whatsappEjemplo} style={campo} /></label>
+          <div style={lab}>{tx.whatsappConArea}<CampoWhatsapp valor={whatsapp} onChange={setWhatsapp} paisInicial={paisPorMoneda(moeda)} idioma={idiomaDeTienda(loja.idioma)} estiloCampo={campo} /></div>
           <label style={lab}>{tx.observaciones}<textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={3} style={{ ...campo, resize: 'vertical' }} /></label>
           {msg && <p style={{ color: '#b91c1c' }}>{msg}</p>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -175,7 +177,7 @@ export default function LojaCliente() {
         <Cartao titulo={tx.revisaTuPedido}>
           {carrinho.map((i) => <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}><span>{i.cantidad} × {i.titulo}</span><span>{reais(i.precio * i.cantidad)}</span></div>)}
           <p style={{ textAlign: 'right', fontSize: 18 }}>{tx.total} <strong>{reais(total)}</strong></p>
-          <p style={{ fontSize: 14, color: '#475569' }}>{nome} · {whatsapp}{obs && <><br />“{obs}”</>}</p>
+          <p style={{ fontSize: 14, color: '#475569' }}>{nome} · {formatearWhatsapp(whatsapp, paisPorMoneda(moeda))}{obs && <><br />“{obs}”</>}</p>
           <p style={{ fontSize: 13, color: '#64748b' }}>{tx.avisoPago}</p>
           {msg && <p style={{ color: '#b91c1c' }}>{msg}</p>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

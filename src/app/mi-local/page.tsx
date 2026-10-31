@@ -58,6 +58,8 @@ const COLORES = {
 };
 
 import { formatearPrecio } from '@/lib/miLocalTexto';
+import { CampoWhatsapp } from '@/components/mi-local/CampoWhatsapp';
+import { formatearWhatsapp, paisPorMoneda } from '@/lib/whatsappPais';
 import { simboloMoneda } from '@/lib/moneda';
 
 type Pestana = 'tienda' | 'catalogo' | 'banners' | 'pedidos';
@@ -162,7 +164,7 @@ export default function MiLocalPage() {
           {cargando || !empresaId ? (
             <p style={{ color: COLORES.gris }}>{tr('Cargando…', 'Carregando…')}</p>
           ) : pestana === 'tienda' ? (
-            <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
+            <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} pais={moneda === 'ARS' ? 'AR' : 'BR'} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'catalogo' ? (
             <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} fmt={fmt} simbolo={simbolo} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'banners' ? (
@@ -182,7 +184,7 @@ type SetAviso = (a: { tipo: 'ok' | 'error'; texto: string } | null) => void;
 
 // ---------------- TIENDA ----------------
 
-function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado, setAviso }: { empresaId: string; nombreEmpresa: string; tienda: Tienda | null; esPT: boolean; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
+function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, pais, tr, onGuardado, setAviso }: { empresaId: string; nombreEmpresa: string; tienda: Tienda | null; esPT: boolean; pais: 'BR' | 'AR'; tr: Tr; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
   const [nombre, setNombre] = useState(tienda?.nombre ?? nombreEmpresa);
   const [slug, setSlug] = useState(tienda?.slug ?? generarSlug(nombreEmpresa));
   const [descripcion, setDescripcion] = useState(tienda?.descripcion ?? '');
@@ -206,7 +208,7 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
   async function guardar() {
     if (errorSlug) return setAviso({ tipo: 'error', texto: mensajeSlug(errorSlug, esPT) });
     if (nombre.trim().length < 2) return setAviso({ tipo: 'error', texto: tr('Poné un nombre para la tienda.', 'Informe um nome para a loja.') });
-    if (activa && !whatsappValido(whatsapp)) return setAviso({ tipo: 'error', texto: tr('Para activar la tienda cargá un WhatsApp válido (con código de área).', 'Para ativar a loja informe um WhatsApp válido (com DDD).') });
+    if (activa && !whatsappValido(whatsapp)) return setAviso({ tipo: 'error', texto: tr('Para activar la tienda cargá un WhatsApp válido (país, característica y número).', 'Para ativar a loja informe um WhatsApp válido (país, DDD e número).') });
     setGuardando(true);
     try {
       await guardarTienda({ empresa_id: empresaId, slug, nombre: nombre.trim(), descripcion: descripcion.trim() || null, portada_url: portada || null, whatsapp: whatsapp.trim() || null, activa });
@@ -234,10 +236,10 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, tr, onGuardado,
         {tr('Descripción corta', 'Descrição curta')}
         <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={300} rows={3} style={{ ...campo, resize: 'vertical' }} />
       </label>
-      <label style={etiqueta}>
+      <div style={etiqueta}>
         WhatsApp ({tr('para avisos de pedidos', 'para avisos de pedidos')})
-        <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="(11) 91234-5678" inputMode="tel" style={campo} />
-      </label>
+        <CampoWhatsapp valor={whatsapp} onChange={setWhatsapp} paisInicial={pais} idioma={esPT ? 'PT' : 'ES'} estiloCampo={campo} />
+      </div>
       <div style={etiqueta}>
         {tr('Imagen de portada', 'Imagem de capa')}
         {portada && /* eslint-disable-next-line @next/next/no-img-element */ <img src={portada} alt="" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 12 }} />}
@@ -529,7 +531,7 @@ function PestanaPedidos({ empresaId, pedidos, esPT, tr, fmt, pais, onCambio, set
           </div>
           <div style={{ fontSize: 13, color: COLORES.gris, margin: '4px 0 8px' }}>
             {new Date(p.creado_en).toLocaleString(esPT ? 'pt-BR' : 'es')} · {p.cliente_nombre} ·{' '}
-            <a href={urlWhatsapp(p.cliente_whatsapp, tr(`¡Hola ${p.cliente_nombre}! Te escribo por tu pedido #${p.numero}`, `Olá ${p.cliente_nombre}! Sobre seu pedido #${p.numero}`), pais)} target="_blank" rel="noreferrer">{p.cliente_whatsapp}</a>
+            <a href={urlWhatsapp(p.cliente_whatsapp, tr(`¡Hola ${p.cliente_nombre}! Te escribo por tu pedido #${p.numero}`, `Olá ${p.cliente_nombre}! Sobre seu pedido #${p.numero}`), pais)} target="_blank" rel="noreferrer">{formatearWhatsapp(p.cliente_whatsapp, pais)}</a>
           </div>
           <ul style={{ margin: '0 0 8px', paddingLeft: 18, fontSize: 14 }}>
             {p.mi_local_pedido_items.map((i) => (
