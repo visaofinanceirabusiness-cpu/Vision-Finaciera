@@ -35,7 +35,8 @@ export function CampoWhatsapp({
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+    // flexWrap: en pantallas angostas el número pasa solo a su propia línea, a todo el ancho, en vez de quedar cortado.
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'stretch' }}>
       <select
         value={pais}
         onChange={(e) => cambiar(e.target.value as CodigoPais, area, numero)}
@@ -57,7 +58,7 @@ export function CampoWhatsapp({
         maxLength={4}
         aria-label={pais === 'BR' ? 'DDD' : es ? 'Característica' : 'Código de área'}
         placeholder={ej.area || (pais === 'BR' ? 'DDD' : es ? 'Carac.' : 'Cód.')}
-        style={{ ...estiloCampo, width: 70, flex: '0 0 70px', textAlign: 'center' }}
+        style={{ ...estiloCampo, width: 76, flex: '0 0 76px', textAlign: 'center' }}
       />
       <input
         value={numero}
@@ -66,7 +67,7 @@ export function CampoWhatsapp({
         autoComplete="tel-national"
         aria-label={es ? 'Número' : 'Número'}
         placeholder={ej.numero || (es ? 'Número' : 'Número')}
-        style={{ ...estiloCampo, flex: '1 1 0', minWidth: 0 }}
+        style={{ ...estiloCampo, flex: '1 1 180px', minWidth: 160 }}
       />
     </div>
   );
