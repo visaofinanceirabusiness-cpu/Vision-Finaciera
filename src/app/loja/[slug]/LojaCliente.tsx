@@ -3,13 +3,14 @@
 // LOJA PÚBLICA (Mi Local) — sin login. Habla solo con las RPCs públicas
 // mi_local_tienda_publica / mi_local_crear_pedido. Los precios mostrados
 // son informativos: el servidor vuelve a consultarlos al crear el pedido.
-// Pública y para el mercado brasileño: solo portugués.
+// Se muestra en el idioma y la moneda de la empresa dueña (loja.idioma / loja.moneda); sin dato, portugués y reales como siempre.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { CarruselLateral } from '@/components/mi-local/CarruselLateral';
 import { cargarTiendaPublica, crearPedidoPublico, type TiendaPublica } from '@/lib/miLocalDatos';
-import { agregarAlCarrito, cambiarCantidad, cantidadTotal, formatearReales, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, mensajePedidoWhatsapp, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
+import { idiomaDeTienda, formatearPrecio, textosTienda } from '@/lib/miLocalTexto';
+import { agregarAlCarrito, cambiarCantidad, cantidadTotal, LIMITE_CANTIDAD_ITEM, quitarDelCarrito, totalCarrito, mensajePedidoWhatsapp, urlWhatsapp, validarPedido, type ItemCarrito } from '@/lib/miLocal';
 
 type Producto = TiendaPublica['productos'][number];
 
@@ -35,6 +36,9 @@ export default function LojaCliente() {
   const [msg, setMsg] = useState('');
   const [confirmado, setConfirmado] = useState<{ numero: number; total: number; nombre: string; items: ItemCarrito[]; observaciones: string } | null>(null);
   const chave = useRef(claveNueva());
+  const tx = textosTienda(idiomaDeTienda(loja?.idioma));
+  const moeda = loja?.moneda ?? 'BRL';
+  const reais = (v: number) => formatearPrecio(v, moeda);
 
   useEffect(() => {
     cargarTiendaPublica(slug)
@@ -44,6 +48,10 @@ export default function LojaCliente() {
         setLoja(null);
       });
   }, [slug]);
+
+  useEffect(() => {
+    if (loja?.idioma) document.documentElement.lang = loja.idioma === 'ES' ? 'es' : 'pt-BR';
+  }, [loja?.idioma]);
 
   const total = useMemo(() => totalCarrito(carrinho), [carrinho]);
   const itens = cantidadTotal(carrinho);
@@ -56,7 +64,7 @@ export default function LojaCliente() {
 
   async function enviar() {
     const problema = validarPedido(nome, whatsapp, carrinho);
-    if (problema) return setMsg(problema === 'nombre' ? 'Informe seu nome.' : problema === 'whatsapp' ? 'Informe um WhatsApp válido, com DDD.' : 'Seu carrinho está vazio.');
+    if (problema) return setMsg(problema === 'nombre' ? tx.errNombre : problema === 'whatsapp' ? tx.errWhatsapp : tx.errCarritoVacio);
     setEnviando(true);
     setMsg('');
     try {
@@ -69,28 +77,28 @@ export default function LojaCliente() {
     } catch (e) {
       const t = e instanceof Error ? e.message : (e as { message?: string })?.message ?? '';
       setMsg(
-        t.includes('ML_LIMITE') ? 'Muitos pedidos em pouco tempo. Tente novamente em alguns minutos.' :
-        t.includes('ML_PRODUCTO') || t.includes('ML_STOCK') || t.includes('ML_TIENDA') ? 'Algum produto não está mais disponível. Atualize a página e revise o carrinho.' :
-        'Não foi possível enviar o pedido. Tente novamente.'
+        t.includes('ML_LIMITE') ? tx.errLimite :
+        t.includes('ML_PRODUCTO') || t.includes('ML_STOCK') || t.includes('ML_TIENDA') ? tx.errNoDisponible :
+        tx.errEnviar
       );
     }
     setEnviando(false);
   }
 
-  if (loja === undefined) return <Pagina><p style={{ textAlign: 'center', color: '#64748b' }}>Carregando…</p></Pagina>;
-  if (!loja) return <Pagina><div style={{ textAlign: 'center', padding: 40 }}><h1 style={{ color: AZUL }}>Loja não encontrada</h1><p style={{ color: '#64748b' }}>{erro ? 'Não foi possível carregar a loja agora.' : 'Este link não existe ou a loja está fechada no momento.'}</p></div></Pagina>;
+  if (loja === undefined) return <Pagina><p style={{ textAlign: 'center', color: '#64748b' }}>…</p></Pagina>;
+  if (!loja) return <Pagina><div style={{ textAlign: 'center', padding: 40 }}><h1 style={{ color: AZUL }}>{tx.noEncontrada}</h1><p style={{ color: '#64748b' }}>{erro ? tx.noCarga : tx.linkInexistente}</p></div></Pagina>;
 
   if (etapa === 'ok' && confirmado) {
     return (
       <Pagina>
         <div style={{ textAlign: 'center', padding: '40px 8px' }}>
           <div style={{ fontSize: 56 }}>✅</div>
-          <h1 style={{ color: AZUL }}>Pedido recebido!</h1>
-          <p style={{ fontSize: 18 }}>Número do pedido: <strong>#{confirmado.numero}</strong></p>
-          <p>Total: <strong>{formatearReales(confirmado.total)}</strong></p>
-          <p style={{ color: '#64748b' }}>{loja.nombre} vai entrar em contato pelo WhatsApp para confirmar. Nenhum pagamento foi feito agora.</p>
-          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, mensajePedidoWhatsapp({ numero: confirmado.numero, nombre: confirmado.nombre, items: confirmado.items, total: confirmado.total, observaciones: confirmado.observaciones }))} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>Falar com a loja</a>}
-          <div><button onClick={() => { setEtapa('loja'); setConfirmado(null); }} style={{ ...btn2, marginTop: 14 }}>Voltar à loja</button></div>
+          <h1 style={{ color: AZUL }}>{tx.pedidoRecibido}</h1>
+          <p style={{ fontSize: 18 }}>{tx.numeroPedido} <strong>#{confirmado.numero}</strong></p>
+          <p>{tx.total} <strong>{reais(confirmado.total)}</strong></p>
+          <p style={{ color: '#64748b' }}>{tx.contactoPronto(loja.nombre)}</p>
+          {loja.whatsapp && <a href={urlWhatsapp(loja.whatsapp, mensajePedidoWhatsapp({ numero: confirmado.numero, nombre: confirmado.nombre, items: confirmado.items, total: confirmado.total, observaciones: confirmado.observaciones, idioma: idiomaDeTienda(loja.idioma), moneda: moeda }), moeda === 'ARS' ? 'AR' : 'BR')} style={{ ...btn, display: 'inline-block', textDecoration: 'none' }}>{tx.hablarTienda}</a>}
+          <div><button onClick={() => { setEtapa('loja'); setConfirmado(null); }} style={{ ...btn2, marginTop: 14 }}>{tx.volverTienda}</button></div>
         </div>
       </Pagina>
     );
@@ -108,14 +116,14 @@ export default function LojaCliente() {
 
       {etapa === 'loja' && (
         <>
-          {loja.productos.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b' }}>Nenhum produto disponível no momento.</p> : (
+          {loja.productos.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b' }}>{tx.sinProductos}</p> : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, paddingBottom: 90 }}>
               {loja.productos.map((p) => (
                 <button key={p.id} onClick={() => { setDetalhe(p); setQtd(1); }} style={{ textAlign: 'left', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
                   {p.foto_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.foto_url} alt={p.titulo} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} /> : <div style={{ aspectRatio: '1 / 1', background: '#eef3f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🛍️</div>}
                   <div style={{ padding: 10 }}>
                     <div style={{ fontWeight: 700, color: AZUL, fontSize: 14 }}>{p.titulo}</div>
-                    <div style={{ color: VERDE, fontWeight: 800, marginTop: 4 }}>{formatearReales(Number(p.precio))}</div>
+                    <div style={{ color: VERDE, fontWeight: 800, marginTop: 4 }}>{reais(Number(p.precio))}</div>
                   </div>
                 </button>
               ))}
@@ -123,56 +131,56 @@ export default function LojaCliente() {
           )}
           {itens > 0 && (
             <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: 12, background: 'rgba(255,255,255,0.95)', borderTop: '1px solid #e5e7eb' }}>
-              <button onClick={() => setEtapa('carrinho')} style={{ ...btn, width: '100%', maxWidth: 720, margin: '0 auto', display: 'block' }}>🛒 Ver carrinho ({itens}) · {formatearReales(total)}</button>
+              <button onClick={() => setEtapa('carrinho')} style={{ ...btn, width: '100%', maxWidth: 720, margin: '0 auto', display: 'block' }}>{tx.verCarrito(itens, reais(total))}</button>
             </div>
           )}
         </>
       )}
 
       {etapa === 'carrinho' && (
-        <Cartao titulo="Seu carrinho">
-          {carrinho.length === 0 ? <p>Carrinho vazio.</p> : carrinho.map((i) => (
+        <Cartao titulo={tx.tuCarrito}>
+          {carrinho.length === 0 ? <p>{tx.carritoVacio}</p> : carrinho.map((i) => (
             <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{i.titulo}</div><div style={{ fontSize: 13, color: '#64748b' }}>{formatearReales(i.precio)} cada</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{i.titulo}</div><div style={{ fontSize: 13, color: '#64748b' }}>{reais(i.precio)} {tx.cadaUno}</div></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button aria-label="Diminuir" onClick={() => setCarrinho((c) => cambiarCantidad(c, i.id, i.cantidad - 1))} style={mini}>−</button>
+                <button aria-label={tx.disminuir} onClick={() => setCarrinho((c) => cambiarCantidad(c, i.id, i.cantidad - 1))} style={mini}>−</button>
                 <span style={{ minWidth: 22, textAlign: 'center' }}>{i.cantidad}</span>
-                <button aria-label="Aumentar" onClick={() => setCarrinho((c) => cambiarCantidad(c, i.id, i.cantidad + 1))} style={mini}>+</button>
-                <button aria-label="Remover" onClick={() => setCarrinho((c) => quitarDelCarrito(c, i.id))} style={{ ...mini, color: '#b91c1c' }}>🗑</button>
+                <button aria-label={tx.aumentar} onClick={() => setCarrinho((c) => cambiarCantidad(c, i.id, i.cantidad + 1))} style={mini}>+</button>
+                <button aria-label={tx.quitar} onClick={() => setCarrinho((c) => quitarDelCarrito(c, i.id))} style={{ ...mini, color: '#b91c1c' }}>🗑</button>
               </div>
             </div>
           ))}
-          <p style={{ textAlign: 'right', fontSize: 18 }}>Total: <strong>{formatearReales(total)}</strong></p>
+          <p style={{ textAlign: 'right', fontSize: 18 }}>{tx.total} <strong>{reais(total)}</strong></p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setEtapa('loja')} style={btn2}>Continuar comprando</button>
-            <button onClick={() => setEtapa('dados')} disabled={carrinho.length === 0} style={btn}>Continuar</button>
+            <button onClick={() => setEtapa('loja')} style={btn2}>{tx.seguirComprando}</button>
+            <button onClick={() => setEtapa('dados')} disabled={carrinho.length === 0} style={btn}>{tx.continuar}</button>
           </div>
         </Cartao>
       )}
 
       {etapa === 'dados' && (
-        <Cartao titulo="Seus dados">
-          <label style={lab}>Seu nome<input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={80} autoComplete="name" style={campo} /></label>
-          <label style={lab}>WhatsApp (com DDD)<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="(11) 91234-5678" style={campo} /></label>
-          <label style={lab}>Observações (opcional)<textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={3} style={{ ...campo, resize: 'vertical' }} /></label>
+        <Cartao titulo={tx.tusDatos}>
+          <label style={lab}>{tx.tuNombre}<input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={80} autoComplete="name" style={campo} /></label>
+          <label style={lab}>{tx.whatsappConArea}<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} inputMode="tel" autoComplete="tel" placeholder={tx.whatsappEjemplo} style={campo} /></label>
+          <label style={lab}>{tx.observaciones}<textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={3} style={{ ...campo, resize: 'vertical' }} /></label>
           {msg && <p style={{ color: '#b91c1c' }}>{msg}</p>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setEtapa('carrinho')} style={btn2}>Voltar</button>
-            <button onClick={() => { const p = validarPedido(nome, whatsapp, carrinho); if (p) setMsg(p === 'nombre' ? 'Informe seu nome.' : 'Informe um WhatsApp válido, com DDD.'); else { setMsg(''); setEtapa('revisao'); } }} style={btn}>Revisar pedido</button>
+            <button onClick={() => setEtapa('carrinho')} style={btn2}>{tx.volver}</button>
+            <button onClick={() => { const p = validarPedido(nome, whatsapp, carrinho); if (p) setMsg(p === 'nombre' ? tx.errNombre : tx.errWhatsapp); else { setMsg(''); setEtapa('revisao'); } }} style={btn}>{tx.revisarPedido}</button>
           </div>
         </Cartao>
       )}
 
       {etapa === 'revisao' && (
-        <Cartao titulo="Revise seu pedido">
-          {carrinho.map((i) => <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}><span>{i.cantidad} × {i.titulo}</span><span>{formatearReales(i.precio * i.cantidad)}</span></div>)}
-          <p style={{ textAlign: 'right', fontSize: 18 }}>Total: <strong>{formatearReales(total)}</strong></p>
+        <Cartao titulo={tx.revisaTuPedido}>
+          {carrinho.map((i) => <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}><span>{i.cantidad} × {i.titulo}</span><span>{reais(i.precio * i.cantidad)}</span></div>)}
+          <p style={{ textAlign: 'right', fontSize: 18 }}>{tx.total} <strong>{reais(total)}</strong></p>
           <p style={{ fontSize: 14, color: '#475569' }}>{nome} · {whatsapp}{obs && <><br />“{obs}”</>}</p>
-          <p style={{ fontSize: 13, color: '#64748b' }}>O pedido será enviado à loja; o pagamento é combinado direto com ela.</p>
+          <p style={{ fontSize: 13, color: '#64748b' }}>{tx.avisoPago}</p>
           {msg && <p style={{ color: '#b91c1c' }}>{msg}</p>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setEtapa('dados')} disabled={enviando} style={btn2}>Voltar</button>
-            <button onClick={enviar} disabled={enviando} style={btn}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
+            <button onClick={() => setEtapa('dados')} disabled={enviando} style={btn2}>{tx.volver}</button>
+            <button onClick={enviar} disabled={enviando} style={btn}>{enviando ? tx.enviando : tx.enviarPedido}</button>
           </div>
         </Cartao>
       )}
@@ -183,16 +191,16 @@ export default function LojaCliente() {
             {detalhe.foto_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={detalhe.foto_url} alt={detalhe.titulo} style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }} />}
             <div style={{ padding: 18 }}>
               <h2 style={{ margin: 0, color: AZUL }}>{detalhe.titulo}</h2>
-              <div style={{ color: VERDE, fontWeight: 800, fontSize: 20, margin: '6px 0' }}>{formatearReales(Number(detalhe.precio))}</div>
+              <div style={{ color: VERDE, fontWeight: 800, fontSize: 20, margin: '6px 0' }}>{reais(Number(detalhe.precio))}</div>
               {detalhe.descripcion && <p style={{ color: '#475569', whiteSpace: 'pre-line' }}>{detalhe.descripcion}</p>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
-                <button aria-label="Diminuir" onClick={() => setQtd((q) => Math.max(1, q - 1))} style={mini}>−</button>
+                <button aria-label={tx.disminuir} onClick={() => setQtd((q) => Math.max(1, q - 1))} style={mini}>−</button>
                 <strong>{qtd}</strong>
-                <button aria-label="Aumentar" onClick={() => setQtd((q) => Math.min(LIMITE_CANTIDAD_ITEM, q + 1))} style={mini}>+</button>
+                <button aria-label={tx.aumentar} onClick={() => setQtd((q) => Math.min(LIMITE_CANTIDAD_ITEM, q + 1))} style={mini}>+</button>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setDetalhe(null)} style={btn2}>Fechar</button>
-                <button onClick={() => adicionar(detalhe, qtd)} style={{ ...btn, flex: 1 }}>Adicionar · {formatearReales(Number(detalhe.precio) * qtd)}</button>
+                <button onClick={() => setDetalhe(null)} style={btn2}>{tx.cerrar}</button>
+                <button onClick={() => adicionar(detalhe, qtd)} style={{ ...btn, flex: 1 }}>{tx.agregar(reais(Number(detalhe.precio) * qtd))}</button>
               </div>
             </div>
           </div>

@@ -5,8 +5,9 @@
 
 import type { Metadata } from 'next';
 import LojaCliente from './LojaCliente';
+import { idiomaDeTienda, textosTienda } from '@/lib/miLocalTexto';
 
-type TiendaMeta = { nombre: string; descripcion: string | null; portada_url: string | null } | null;
+type TiendaMeta = { nombre: string; descripcion: string | null; portada_url: string | null; idioma?: 'ES' | 'PT' } | null;
 
 async function cargarMeta(slug: string): Promise<TiendaMeta> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,9 +31,10 @@ async function cargarMeta(slug: string): Promise<TiendaMeta> {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const tienda = await cargarMeta(slug);
-  if (!tienda) return { title: 'Loja' };
+  const tx = textosTienda(idiomaDeTienda(tienda?.idioma));
+  if (!tienda) return { title: tx.titulo404 };
 
-  const descripcion = (tienda.descripcion ?? `Conheça os produtos de ${tienda.nombre} e faça seu pedido online.`).replace(/\s+/g, ' ').slice(0, 200);
+  const descripcion = (tienda.descripcion ?? tx.descripcionPorDefecto(tienda.nombre)).replace(/\s+/g, ' ').slice(0, 200);
   return {
     title: tienda.nombre,
     description: descripcion,
@@ -41,7 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       siteName: tienda.nombre,
       title: tienda.nombre,
       description: descripcion,
-      locale: 'pt_BR',
+      locale: tx.localeOg,
       images: tienda.portada_url ? [{ url: tienda.portada_url }] : undefined,
     },
     twitter: {
