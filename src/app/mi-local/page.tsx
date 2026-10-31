@@ -21,18 +21,24 @@ import {
   type Banner,
   cargarMiTienda,
   costosPromedio,
+  crearServicioNuevo,
   guardarPublicacion,
+  guardarServicio,
   guardarTienda,
   listarPedidos,
   listarPublicaciones,
+  listarServicios,
   publicarVarios,
   registrarVentaDelPedido,
   saldosStock,
   subirFoto,
   type Pedido,
   type Publicacion,
+  type ServicioCategoria,
   type Tienda,
 } from '@/lib/miLocalDatos';
+import { empresaManejaMercaderia, empresaVendeServicios } from '@/lib/perfilCapacidades';
+import { estadoDeServicio, precioServicioValido } from '@/lib/miLocalServicios';
 import {
   agruparCatalogo,
   enlaceBannerValido,
@@ -62,7 +68,7 @@ import { CampoWhatsapp } from '@/components/mi-local/CampoWhatsapp';
 import { formatearWhatsapp, paisPorMoneda } from '@/lib/whatsappPais';
 import { simboloMoneda } from '@/lib/moneda';
 
-type Pestana = 'tienda' | 'catalogo' | 'banners' | 'pedidos';
+type Pestana = 'tienda' | 'catalogo' | 'servicios' | 'banners' | 'pedidos';
 type ProductoBase = { id: string; nombre: string; categoria: string | null; unidad_medida: string | null };
 
 export default function MiLocalPage() {
@@ -78,6 +84,11 @@ export default function MiLocalPage() {
   const [saldos, setSaldos] = useState<Map<string, number>>(new Map());
   const [costos, setCostos] = useState<Map<string, number>>(new Map());
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [servicios, setServicios] = useState<ServicioCategoria[]>([]);
+  // Qué vende la empresa: productos (stock) y/o servicios (categorías de Venta de servicios). Define las pestañas.
+  const [vendeProductos, setVendeProductos] = useState(true);
+  const [vendeServicios, setVendeServicios] = useState(false);
+  const [puedeCrear, setPuedeCrear] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
@@ -86,12 +97,13 @@ export default function MiLocalPage() {
   const simbolo = simboloMoneda(moneda);
 
   const recargar = useCallback(async (id: string) => {
-    const [t, pubs, ped, sal, cos, { data: prods }] = await Promise.all([
+    const [t, pubs, ped, sal, cos, serv, { data: prods }] = await Promise.all([
       cargarMiTienda(id),
       listarPublicaciones(id),
       listarPedidos(id),
       saldosStock(id),
       costosPromedio(id),
+      listarServicios(id),
       supabase.from('productos').select('id, nombre, categoria, unidad_medida').eq('empresa_id', id).order('nombre'),
     ]);
     setTienda(t);
@@ -99,6 +111,7 @@ export default function MiLocalPage() {
     setPedidos(ped);
     setSaldos(sal);
     setCostos(cos);
+    setServicios(serv);
     setProductos((prods ?? []) as ProductoBase[]);
   }, []);
 
@@ -106,13 +119,18 @@ export default function MiLocalPage() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
-      const { data: perfil } = await supabase.from('perfiles').select('empresa_id').eq('id', u.user.id).maybeSingle();
+      const { data: perfil } = await supabase.from('perfiles').select('empresa_id, tipo_usuario').eq('id', u.user.id).maybeSingle();
       if (!perfil?.empresa_id) return;
       const { data: emp } = await supabase.from('empresas').select('nombre, idioma, moneda').eq('id', perfil.empresa_id).maybeSingle();
       setEmpresaId(perfil.empresa_id);
       setEsPT(emp?.idioma === 'PT');
       setMoneda((emp?.moneda as string | null) ?? null);
       setNombreEmpresa((emp?.nombre as string) ?? '');
+      // Crear un servicio queda abierto a quien ve Mi Local (igual que en Configurações); el espectador de la demo solo mira.
+      setPuedeCrear(perfil.tipo_usuario !== 'ESPECTADOR' && perfil.tipo_usuario !== 'ASISTENTE' && perfil.tipo_usuario !== 'SOPORTE');
+      const [mercaderia, vende] = await Promise.all([empresaManejaMercaderia(perfil.empresa_id).catch(() => true), empresaVendeServicios(perfil.empresa_id).catch(() => false)]);
+      setVendeProductos(mercaderia);
+      setVendeServicios(vende);
       try {
         await recargar(perfil.empresa_id);
       } catch (e) {
@@ -135,7 +153,7 @@ export default function MiLocalPage() {
               <VolverLobby>{tr('← Volver', '← Voltar')}</VolverLobby>
               <div style={{ color: '#86efac', fontSize: 11, fontWeight: 700, letterSpacing: 1.4, margin: '12px 0 8px' }}>MI LOCAL</div>
               <h1 style={{ margin: 0, fontSize: 32 }}>🛍️ {tr('Mi Local', 'Meu Local')}</h1>
-              <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>{tr('Tu tienda online: publicá productos y recibí pedidos.', 'Sua loja online: publique produtos e receba pedidos.')}</p>
+              <p style={{ margin: '8px 0 0', color: '#dbe5ef', fontSize: 15 }}>{vendeServicios && !vendeProductos ? tr('Tu tienda online: publicá tus servicios y recibí pedidos.', 'Sua loja online: publique seus serviços e receba pedidos.') : tr('Tu tienda online: publicá productos y recibí pedidos.', 'Sua loja online: publique produtos e receba pedidos.')}</p>
             </div>
             <AccesosHerramientas />
           </div>
@@ -145,7 +163,8 @@ export default function MiLocalPage() {
           {(
             [
               ['tienda', tr('Tienda', 'Loja')],
-              ['catalogo', tr('Catálogo', 'Catálogo')],
+              ...(vendeProductos ? ([['catalogo', vendeServicios ? tr('Productos', 'Produtos') : tr('Catálogo', 'Catálogo')]] as [Pestana, string][]) : []),
+              ...(vendeServicios ? ([['servicios', tr('Servicios', 'Serviços')]] as [Pestana, string][]) : []),
               ['banners', tr('Banners', 'Banners')],
               ['pedidos', `${tr('Pedidos', 'Pedidos')}${pendientes ? ` (${pendientes})` : ''}`],
             ] as [Pestana, string][]
@@ -167,6 +186,8 @@ export default function MiLocalPage() {
             <PestanaTienda empresaId={empresaId} nombreEmpresa={nombreEmpresa} tienda={tienda} esPT={esPT} pais={moneda === 'ARS' ? 'AR' : 'BR'} tr={tr} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'catalogo' ? (
             <PestanaCatalogo empresaId={empresaId} productos={productos} publicaciones={publicaciones} saldos={saldos} costos={costos} tr={tr} fmt={fmt} simbolo={simbolo} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
+          ) : pestana === 'servicios' ? (
+            <PestanaServicios empresaId={empresaId} servicios={servicios} publicaciones={publicaciones} puedeCrear={puedeCrear} tr={tr} fmt={fmt} simbolo={simbolo} onGuardado={() => recargar(empresaId)} setAviso={setAviso} />
           ) : pestana === 'banners' ? (
             <PestanaBanners empresaId={empresaId} tr={tr} setAviso={setAviso} />
           ) : (
@@ -266,7 +287,7 @@ function PestanaTienda({ empresaId, nombreEmpresa, tienda, esPT, pais, tr, onGua
 // ---------------- CATÁLOGO ----------------
 
 function PestanaCatalogo({ empresaId, productos, publicaciones, saldos, costos, tr, fmt, simbolo, onGuardado, setAviso }: { empresaId: string; productos: ProductoBase[]; publicaciones: Publicacion[]; saldos: Map<string, number>; costos: Map<string, number>; tr: Tr; fmt: Fmt; simbolo: string; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
-  const porProducto = useMemo(() => new Map(publicaciones.map((p) => [p.producto_id, p])), [publicaciones]);
+  const porProducto = useMemo(() => new Map(publicaciones.filter((p) => p.producto_id).map((p) => [p.producto_id as string, p])), [publicaciones]);
   const [editando, setEditando] = useState<string | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [margen, setMargen] = useState('100');
@@ -426,6 +447,184 @@ function FormPublicacion({ empresaId, producto, pub, costo, tr, fmt, simbolo, se
       <label style={chk}><input type="checkbox" checked={disponible} onChange={(e) => setDisponible(e.target.checked)} /> {tr('Disponible para pedir', 'Disponível para pedir')}</label>
       <label style={chk}><input type="checkbox" checked={controlaStock} onChange={(e) => setControlaStock(e.target.checked)} /> {tr('Ocultar cuando el stock llegue a cero', 'Ocultar quando o estoque chegar a zero')}</label>
       <div><button onClick={guardar} disabled={guardando} style={botonPrimario}>{guardando ? '…' : tr('Guardar producto', 'Salvar produto')}</button></div>
+    </div>
+  );
+}
+
+// ---------------- SERVICIOS ----------------
+
+const textoEstado = (tr: Tr, e: ReturnType<typeof estadoDeServicio>) =>
+  e === 'PUBLICADO' ? tr('Publicado', 'Publicado') : e === 'BORRADOR' ? tr('Borrador', 'Rascunho') : tr('Sin precio', 'Sem preço');
+const colorEstado = (e: ReturnType<typeof estadoDeServicio>): React.CSSProperties =>
+  e === 'PUBLICADO' ? { background: '#dcfce7', color: '#166534' } : e === 'BORRADOR' ? { background: '#e0f2fe', color: '#075985' } : { background: '#fef3c7', color: '#92400e' };
+
+function PestanaServicios({ empresaId, servicios, publicaciones, puedeCrear, tr, fmt, simbolo, onGuardado, setAviso }: { empresaId: string; servicios: ServicioCategoria[]; publicaciones: Publicacion[]; puedeCrear: boolean; tr: Tr; fmt: Fmt; simbolo: string; onGuardado: () => Promise<void>; setAviso: SetAviso }) {
+  const porCategoria = useMemo(() => new Map(publicaciones.filter((p) => p.categoria_operacion_id).map((p) => [p.categoria_operacion_id as string, p])), [publicaciones]);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [nuevo, setNuevo] = useState(false);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+        <p style={{ margin: 0, color: COLORES.gris, fontSize: 14, maxWidth: 640 }}>
+          {tr('Estos son los servicios de tu empresa (las categorías de servicio de Configurações). Para publicar uno en la tienda definí su precio.', 'Estes são os serviços da sua empresa (as categorias de serviço de Configurações). Para publicar um na loja defina o preço.')}
+        </p>
+        {puedeCrear && <button onClick={() => setNuevo(true)} style={botonPrimario}>+ {tr('Nuevo servicio', 'Novo serviço')}</button>}
+      </div>
+
+      {servicios.length === 0 && <p style={{ color: COLORES.gris }}>{tr('Todavía no hay servicios cargados. Creá el primero con «Nuevo servicio».', 'Ainda não há serviços cadastrados. Crie o primeiro com «Novo serviço».')}</p>}
+
+      <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+        {servicios.map((sv) => {
+          const pub = porCategoria.get(sv.id);
+          const estado = estadoDeServicio(pub);
+          return (
+            <div key={sv.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 12 }}>
+              <div className="ml-fila" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {pub?.foto_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={pub.foto_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10 }} /> : <div style={{ width: 56, height: 56, borderRadius: 10, background: '#eef3f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🛎️</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: COLORES.azul }}>{pub?.titulo ?? sv.nombre}</div>
+                  <div style={{ fontSize: 13, color: COLORES.gris }}>
+                    {tr('Categoría de Venta', 'Categoria de Venda')}: {sv.nombre}{estado !== 'SIN_PRECIO' && pub ? ` · ${fmt(pub.precio)}` : ''}
+                  </div>
+                </div>
+                <span style={{ ...insignia, ...colorEstado(estado) }}>{textoEstado(tr, estado)}</span>
+                <button onClick={() => setEditando(editando === sv.id ? null : sv.id)} style={botonSecundario}>{editando === sv.id ? tr('Cerrar', 'Fechar') : estado === 'SIN_PRECIO' ? tr('Definir precio', 'Definir preço') : tr('Editar', 'Editar')}</button>
+              </div>
+              {editando === sv.id && (
+                <FormServicio empresaId={empresaId} servicio={sv} pub={pub} tr={tr} simbolo={simbolo} setAviso={setAviso} onListo={async () => { setEditando(null); await onGuardado(); }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {nuevo && <ModalNuevoServicio empresaId={empresaId} existentes={servicios.map((x) => x.nombre)} tr={tr} simbolo={simbolo} setAviso={setAviso} onCerrar={() => setNuevo(false)} onListo={async () => { setNuevo(false); await onGuardado(); }} />}
+    </div>
+  );
+}
+
+const aNumero = (texto: string) => Number(texto.replace(/\./g, '').replace(',', '.'));
+
+function FormServicio({ empresaId, servicio, pub, tr, simbolo, setAviso, onListo }: { empresaId: string; servicio: ServicioCategoria; pub?: Publicacion; tr: Tr; simbolo: string; setAviso: SetAviso; onListo: () => Promise<void> }) {
+  const [titulo, setTitulo] = useState(pub?.titulo ?? servicio.nombre);
+  const [descripcion, setDescripcion] = useState(pub?.descripcion ?? '');
+  const [precio, setPrecio] = useState(pub && pub.precio > 0 ? String(pub.precio).replace('.', ',') : '');
+  const [foto, setFoto] = useState(pub?.foto_url ?? '');
+  const [publicado, setPublicado] = useState(pub?.publicado ?? false);
+  const [disponible, setDisponible] = useState(pub?.disponible ?? true);
+  const [guardando, setGuardando] = useState(false);
+
+  async function subir(archivo: File | undefined) {
+    if (!archivo) return;
+    try {
+      setFoto(await subirFoto(empresaId, archivo));
+    } catch {
+      setAviso({ tipo: 'error', texto: tr('No se pudo subir la foto.', 'Não foi possível enviar a foto.') });
+    }
+  }
+
+  async function guardar() {
+    const valor = aNumero(precio);
+    if (publicado && !precioServicioValido(valor)) return setAviso({ tipo: 'error', texto: tr('Para publicar el servicio definí un precio mayor que cero.', 'Para publicar o serviço defina um preço maior que zero.') });
+    if (titulo.trim().length < 2) return setAviso({ tipo: 'error', texto: tr('Poné un nombre comercial.', 'Informe um nome comercial.') });
+    setGuardando(true);
+    try {
+      await guardarServicio({ empresa_id: empresaId, categoria_operacion_id: servicio.id, titulo: titulo.trim(), descripcion: descripcion.trim() || null, precio: precioServicioValido(valor) ? valor : 0, foto_url: foto || null, publicado, disponible });
+      setAviso({ tipo: 'ok', texto: tr('Servicio guardado.', 'Serviço salvo.') });
+      await onListo();
+    } catch {
+      setAviso({ tipo: 'error', texto: tr('No se pudo guardar.', 'Não foi possível salvar.') });
+    }
+    setGuardando(false);
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
+      <label style={etiqueta}>{tr('Nombre comercial', 'Nome comercial')}<input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} style={campo} /></label>
+      <label style={etiqueta}>{tr('Descripción', 'Descrição')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={2000} rows={5} style={{ ...campo, resize: 'vertical' }} /></label>
+      <label style={etiqueta}>{tr(`Precio (${simbolo})`, `Preço (${simbolo})`)}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" placeholder={tr('Obligatorio para publicar', 'Obrigatório para publicar')} style={campo} /></label>
+      <div style={etiqueta}>
+        {tr('Foto', 'Foto')}
+        {foto && /* eslint-disable-next-line @next/next/no-img-element */ <img src={foto} alt="" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12 }} />}
+        <input type="file" accept="image/*" onChange={(e) => subir(e.target.files?.[0])} />
+      </div>
+      <label style={chk}><input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} /> {tr('Publicado en la tienda', 'Publicado na loja')}</label>
+      <label style={chk}><input type="checkbox" checked={disponible} onChange={(e) => setDisponible(e.target.checked)} /> {tr('Disponible para pedir', 'Disponível para pedir')}</label>
+      <div><button onClick={guardar} disabled={guardando} style={botonPrimario}>{guardando ? '…' : tr('Guardar servicio', 'Salvar serviço')}</button></div>
+    </div>
+  );
+}
+
+// «Nuevo servicio» sin salir de Mi Local: crea la categoría de Venta (con su cuenta de ingreso y su regla), regenera la matriz
+// y publica con su precio — lo mismo que Configurações → Categorías de servicio.
+function ModalNuevoServicio({ empresaId, existentes, tr, simbolo, setAviso, onCerrar, onListo }: { empresaId: string; existentes: string[]; tr: Tr; simbolo: string; setAviso: SetAviso; onCerrar: () => void; onListo: () => Promise<void> }) {
+  const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [precio, setPrecio] = useState('');
+  const [foto, setFoto] = useState('');
+  const [publicar, setPublicar] = useState(true);
+  const [trabajando, setTrabajando] = useState(false);
+  const [error, setError] = useState('');
+
+  async function subir(archivo: File | undefined) {
+    if (!archivo) return;
+    try {
+      setFoto(await subirFoto(empresaId, archivo));
+    } catch {
+      setError(tr('No se pudo subir la foto.', 'Não foi possível enviar a foto.'));
+    }
+  }
+
+  async function crear() {
+    const valor = aNumero(precio);
+    const limpio = nombre.trim();
+    if (limpio.length < 2) return setError(tr('Poné un nombre para el servicio.', 'Informe um nome para o serviço.'));
+    if (existentes.some((x) => x.trim().toLowerCase() === limpio.toLowerCase())) return setError(tr('Ya existe un servicio con ese nombre.', 'Já existe um serviço com esse nome.'));
+    if (!precioServicioValido(valor)) return setError(tr('Definí un precio mayor que cero para el servicio.', 'Defina um preço maior que zero para o serviço.'));
+    setTrabajando(true);
+    setError('');
+    try {
+      await crearServicioNuevo(empresaId, { nombre: limpio, descripcion: descripcion.trim() || null, precio: valor, foto_url: foto || null, publicado: publicar });
+      setAviso({ tipo: 'ok', texto: tr('Servicio creado: también quedó en Configurações → Categorías de servicio.', 'Serviço criado: também ficou em Configurações → Categorias de serviço.') });
+      await onListo();
+      return;
+    } catch (e) {
+      const m = e instanceof Error ? e.message : '';
+      if (m === 'ML_SERVICIO_MATRIZ') {
+        setAviso({ tipo: 'error', texto: tr('El servicio se creó, pero no se pudo regenerar la matriz de operaciones. Entrá a Configurações → Inicialización y regenerala antes de registrar ventas.', 'O serviço foi criado, mas não foi possível regenerar a matriz de operações. Entre em Configurações → Inicialização e regenere antes de registrar vendas.') });
+        await onListo();
+        return;
+      }
+      setError(tr('No se pudo crear el servicio.', 'Não foi possível criar o serviço.'));
+    }
+    setTrabajando(false);
+  }
+
+  return (
+    <div onClick={trabajando ? undefined : onCerrar} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 14 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, padding: 22, width: '100%', maxWidth: 520, maxHeight: '92vh', overflow: 'auto' }}>
+        <h3 style={{ margin: '0 0 8px', color: COLORES.azul }}>{tr('Nuevo servicio', 'Novo serviço')}</h3>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '9px 12px' }}>
+          {tr('Ojo: este servicio se crea también en Configurações → Categorías de servicio, con su cuenta de ingreso, y se regenera la matriz de operaciones. No hace falta salir de Mi Local.', 'Atenção: este serviço também é criado em Configurações → Categorias de serviço, com sua conta de receita, e a matriz de operações é regenerada. Não precisa sair do Meu Local.')}
+        </p>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <label style={etiqueta}>{tr('Nombre del servicio', 'Nome do serviço')}<input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={80} style={campo} /></label>
+          <label style={etiqueta}>{tr(`Precio (${simbolo})`, `Preço (${simbolo})`)}<input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" style={campo} /></label>
+          <label style={etiqueta}>{tr('Descripción (opcional)', 'Descrição (opcional)')}<textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={2000} rows={4} style={{ ...campo, resize: 'vertical' }} /></label>
+          <div style={etiqueta}>
+            {tr('Foto (opcional)', 'Foto (opcional)')}
+            {foto && /* eslint-disable-next-line @next/next/no-img-element */ <img src={foto} alt="" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 12 }} />}
+            <input type="file" accept="image/*" onChange={(e) => subir(e.target.files?.[0])} />
+          </div>
+          <label style={chk}><input type="checkbox" checked={publicar} onChange={(e) => setPublicar(e.target.checked)} /> {tr('Publicarlo ya en la tienda', 'Publicar já na loja')}</label>
+        </div>
+        {error && <p style={{ color: '#b91c1c', fontSize: 14, margin: '12px 0 0' }}>{error}</p>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onCerrar} disabled={trabajando} style={botonSecundario}>{tr('Cancelar', 'Cancelar')}</button>
+          <button onClick={crear} disabled={trabajando} style={botonPrimario}>{trabajando ? tr('Creando…', 'Criando…') : tr('Crear servicio', 'Criar serviço')}</button>
+        </div>
+      </div>
     </div>
   );
 }

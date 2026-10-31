@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TODAS_LAS_HERRAMIENTAS, herramientaDisponible, type Herramienta } from '@/lib/herramientasMenu';
-import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo, empresaVendeServicios } from '@/lib/perfilCapacidades';
 import { cargarAperturaVisao3D } from '@/lib/visao3dApertura';
 import { empresaUsaShell, herramientaDeRuta, rutaEnShell } from '@/lib/shell';
 import { simboloMoneda } from '@/lib/moneda';
@@ -127,14 +127,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (config?.mostrar_gamificacion !== false) gamificacion = await obtenerProgresoGamificacion(empresaId).catch(() => null);
       const saludo = (config?.mensaje_bienvenida as string | null) ?? `${idiomaEmpresa === 'PT' ? 'Olá' : 'Hola'}, ${(yo?.nombre as string | null) ?? ''} 👋`;
 
-      const [manejaMercaderia, tieneProduccion, aperturaVisao3D, { count }] = await Promise.all([
+      const [manejaMercaderia, vendeServicios, tieneProduccion, aperturaVisao3D, { count }] = await Promise.all([
         empresaManejaMercaderia(empresaId).catch(() => true),
+        empresaVendeServicios(empresaId).catch(() => false),
         empresaTieneModulo(empresaId, 'PRODUCCION').catch(() => false),
         cargarAperturaVisao3D(),
         supabase.from('mensajes_financieros').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('leido', false),
       ]);
 
-      const contexto = { empresaId, perfilCodigo, tipoUsuario: (perfil.tipo_usuario as string | null) ?? null, manejaMercaderia, tieneProduccion, aperturaVisao3D };
+      const contexto = { empresaId, perfilCodigo, tipoUsuario: (perfil.tipo_usuario as string | null) ?? null, manejaMercaderia, vendeServicios, tieneProduccion, aperturaVisao3D };
       setDatos({
         empresaId,
         nombre: (emp?.nombre as string) ?? '',

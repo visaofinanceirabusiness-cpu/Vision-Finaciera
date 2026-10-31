@@ -18,7 +18,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CAJA_SABIO } from '@/components/panel/SabioWidget';
-import { empresaManejaMercaderia, empresaTieneModulo } from '@/lib/perfilCapacidades';
+import { empresaManejaMercaderia, empresaTieneModulo, empresaVendeServicios } from '@/lib/perfilCapacidades';
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { useEstadoDemo } from '@/lib/demoEstado';
 import { EVENTO_PANTALLA_BLOQUEADA, rutaPermitidaEnDemo } from '@/lib/modoEspectador';
@@ -85,6 +85,14 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
         console.warn('No se pudo determinar si la empresa maneja mercadería:', errorMercaderia);
       }
 
+      let vendeServicios = false;
+
+      try {
+        vendeServicios = await empresaVendeServicios(perfil.empresa_id);
+      } catch (errorServicios) {
+        console.warn('No se pudo determinar si la empresa vende servicios:', errorServicios);
+      }
+
       setDisponibles(
         TODAS_LAS_HERRAMIENTAS.filter((herramienta) =>
           herramientaDisponible(herramienta.href, {
@@ -92,6 +100,7 @@ export function AccesosHerramientas({ variante = 'oscuro' }: { variante?: 'oscur
             perfilCodigo,
             tipoUsuario: perfil.tipo_usuario,
             manejaMercaderia,
+            vendeServicios,
             tieneProduccion,
             aperturaVisao3D,
           })

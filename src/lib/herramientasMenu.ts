@@ -38,13 +38,15 @@ export type ContextoMenu = {
   tipoUsuario: string | null;
   manejaMercaderia: boolean;
   tieneProduccion: boolean;
+  // Vende servicios (perfil Servicios, o Mixto con ese componente): Mi Local también les sirve, sin stock.
+  vendeServicios?: boolean;
   aperturaVisao3D: FilaApertura[] | null;
 };
 
 export function herramientaDisponible(href: string, c: ContextoMenu): boolean {
   if (href === '/mercaderia') return c.manejaMercaderia;
   if (href === '/produccion') return c.tieneProduccion;
-  if (href === '/mi-local') return c.manejaMercaderia && c.tipoUsuario !== 'ASISTENTE';
+  if (href === '/mi-local') return (c.manejaMercaderia || c.vendeServicios === true) && c.tipoUsuario !== 'ASISTENTE';
   // Igual que en el lobby: el asistente no ve Informes.
   if (href === '/informes') return c.tipoUsuario !== 'ASISTENTE';
   // Piloto: solo las empresas habilitadas, y no para el asistente (como Informes).
