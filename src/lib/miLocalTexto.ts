@@ -43,7 +43,6 @@ export type TextosTienda = {
   tusDatos: string;
   tuNombre: string;
   whatsappConArea: string;
-  whatsappEjemplo: string;
   observaciones: string;
   volver: string;
   revisarPedido: string;
@@ -87,8 +86,7 @@ const PT: TextosTienda = {
   continuar: 'Continuar',
   tusDatos: 'Seus dados',
   tuNombre: 'Seu nome',
-  whatsappConArea: 'WhatsApp (com DDD)',
-  whatsappEjemplo: '(11) 91234-5678',
+  whatsappConArea: 'WhatsApp',
   observaciones: 'Observações (opcional)',
   volver: 'Voltar',
   revisarPedido: 'Revisar pedido',
@@ -99,7 +97,7 @@ const PT: TextosTienda = {
   cerrar: 'Fechar',
   agregar: (t) => `Adicionar · ${t}`,
   errNombre: 'Informe seu nome.',
-  errWhatsapp: 'Informe um WhatsApp válido, com DDD.',
+  errWhatsapp: 'Informe um WhatsApp válido: país, DDD e número.',
   errCarritoVacio: 'Seu carrinho está vazio.',
   errLimite: 'Muitos pedidos em pouco tempo. Tente novamente em alguns minutos.',
   errNoDisponible: 'Algum produto não está mais disponível. Atualize a página e revise o carrinho.',
@@ -132,8 +130,7 @@ const ES: TextosTienda = {
   continuar: 'Continuar',
   tusDatos: 'Tus datos',
   tuNombre: 'Tu nombre',
-  whatsappConArea: 'WhatsApp (con código de área)',
-  whatsappEjemplo: '11 2345-6789',
+  whatsappConArea: 'WhatsApp',
   observaciones: 'Observaciones (opcional)',
   volver: 'Volver',
   revisarPedido: 'Revisar pedido',
@@ -144,7 +141,7 @@ const ES: TextosTienda = {
   cerrar: 'Cerrar',
   agregar: (t) => `Agregar · ${t}`,
   errNombre: 'Ingresá tu nombre.',
-  errWhatsapp: 'Ingresá un WhatsApp válido, con código de área.',
+  errWhatsapp: 'Ingresá un WhatsApp válido: país, característica y número.',
   errCarritoVacio: 'Tu carrito está vacío.',
   errLimite: 'Demasiados pedidos en poco tiempo. Probá de nuevo en unos minutos.',
   errNoDisponible: 'Algún producto ya no está disponible. Actualizá la página y revisá el carrito.',
