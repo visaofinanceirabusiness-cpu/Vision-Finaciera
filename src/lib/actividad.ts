@@ -193,6 +193,102 @@ export function cuentasMasUsadas(filas: Array<{ cuenta_debito: string | null; cu
     .slice(0, tope);
 }
 
+export type Franja = 'madrugada' | 'manana' | 'tarde' | 'noche';
+
+export const FRANJAS: Array<{ clave: Franja; desde: number; hasta: number; es: string; pt: string; emoji: string }> = [
+  { clave: 'madrugada', desde: 0, hasta: 5, es: 'Madrugada', pt: 'Madrugada', emoji: '🌙' },
+  { clave: 'manana', desde: 6, hasta: 11, es: 'Mañana', pt: 'Manhã', emoji: '🌅' },
+  { clave: 'tarde', desde: 12, hasta: 18, es: 'Tarde', pt: 'Tarde', emoji: '☀️' },
+  { clave: 'noche', desde: 19, hasta: 23, es: 'Noche', pt: 'Noite', emoji: '🌃' },
+];
+
+export type ResumenFranja = { dominante: Franja | null; porcentajes: Record<Franja, number> };
+
+// `horas` son 24 conteos de eventos (ingresos, cargas, cambios) por hora local. Con menos de 3 eventos no se opina.
+export function franjaHoraria(horas: number[] | null | undefined): ResumenFranja {
+  const porcentajes: Record<Franja, number> = { madrugada: 0, manana: 0, tarde: 0, noche: 0 };
+  const total = (horas ?? []).reduce((a, n) => a + (n || 0), 0);
+  if (!horas || total < 3) return { dominante: null, porcentajes };
+  const sumas: Record<Franja, number> = { madrugada: 0, manana: 0, tarde: 0, noche: 0 };
+  for (const f of FRANJAS) for (let h = f.desde; h <= f.hasta; h++) sumas[f.clave] += horas[h] || 0;
+  let dominante: Franja = 'manana';
+  for (const f of FRANJAS) {
+    porcentajes[f.clave] = Math.round((sumas[f.clave] / total) * 100);
+    if (sumas[f.clave] > sumas[dominante]) dominante = f.clave;
+  }
+  return { dominante, porcentajes };
+}
+
+export type RolEquipo = 'carga' | 'corrige' | 'configura';
+
+// Qué hace más cada persona: cargar operaciones, corregirlas o configurar cuentas y reglas.
+export function rolDelEquipo(v: { operaciones: number; ediciones: number; configuracion: number }): RolEquipo | null {
+  const mayor = Math.max(v.operaciones, v.ediciones, v.configuracion);
+  if (mayor < 3) return null;
+  if (v.operaciones === mayor) return 'carga';
+  if (v.configuracion === mayor) return 'configura';
+  return 'corrige';
+}
+
+// % de operaciones cargadas que no hizo falta corregir; sin opinión con menos de 5 cargas.
+export function prolijidad(operaciones: number, ediciones: number): number | null {
+  if (operaciones < 5) return null;
+  return Math.round(Math.max(0, 1 - ediciones / operaciones) * 100);
+}
+
+export function haceCuanto(iso: string | null, ahoraMs: number, idioma: string | null | undefined): string {
+  const pt = idioma === 'PT';
+  if (!iso) return '—';
+  const dias = Math.floor((ahoraMs - new Date(iso).getTime()) / 86400000);
+  if (dias <= 0) return pt ? 'hoje' : 'hoy';
+  if (dias === 1) return pt ? 'ontem' : 'ayer';
+  return pt ? `há ${dias} dias` : `hace ${dias} días`;
+}
+
+export type UsoPersona = { segundos: number; sesiones: number; dias: number; rutaFavorita: string | null };
+
+// Tiempo, sesiones, días y pantalla favorita por persona. Entre las pantallas se prefieren las medidas de verdad; el estimado
+// del pasado solo decide si todavía no hay nada medido.
+export function usoPorPersona(filas: FilaActividad[]): Map<string, UsoPersona> {
+  const porUsuario = new Map<string, FilaActividad[]>();
+  for (const f of filas) porUsuario.set(f.usuario_id, [...(porUsuario.get(f.usuario_id) ?? []), f]);
+  const salida = new Map<string, UsoPersona>();
+  for (const [id, fs] of porUsuario) {
+    const medidas = fs.filter((f) => !f.estimado);
+    const top = usoPorHerramienta(medidas.length > 0 ? medidas : fs)[0];
+    salida.set(id, {
+      segundos: fs.reduce((a, f) => a + f.segundos, 0),
+      sesiones: fs.reduce((a, f) => a + f.sesiones, 0),
+      dias: new Set(fs.map((f) => f.fecha)).size,
+      rutaFavorita: top?.ruta ?? null,
+    });
+  }
+  return salida;
+}
+
+export type PuntoAcumulado = { semana: string; total: number };
+
+function lunesDe(fecha: string): string {
+  const d = new Date(`${fecha}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+// Curva de crecimiento: operaciones acumuladas semana a semana desde la primera, incluyendo las semanas sin movimiento.
+export function acumuladoSemanal(fechas: string[], hoy: string): PuntoAcumulado[] {
+  if (fechas.length === 0) return [];
+  const porSemana = new Map<string, number>();
+  for (const f of fechas) porSemana.set(lunesDe(f), (porSemana.get(lunesDe(f)) ?? 0) + 1);
+  const ultima = lunesDe(hoy);
+  const puntos: PuntoAcumulado[] = [];
+  let acumulado = 0;
+  for (let s = lunesDe([...fechas].sort()[0]); s <= ultima; s = sumarDias(s, 7)) {
+    acumulado += porSemana.get(s) ?? 0;
+    puntos.push({ semana: s, total: acumulado });
+  }
+  return puntos;
+}
+
 // ---------------------------------------------------------------- latido (cliente)
 
 export async function enviarLatido(ruta: string, segundos: number, visita: boolean, nuevaSesion: boolean): Promise<void> {

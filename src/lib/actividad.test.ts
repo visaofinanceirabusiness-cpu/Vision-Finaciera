@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cuentasMasUsadas, etiquetaRuta, formatearDuracion, operacionesPorMes, resumirActividad, usoPorHerramienta, type FilaActividad } from './actividad';
+import { acumuladoSemanal, franjaHoraria, haceCuanto, prolijidad, rolDelEquipo, usoPorPersona, cuentasMasUsadas, etiquetaRuta, formatearDuracion, operacionesPorMes, resumirActividad, usoPorHerramienta, type FilaActividad } from './actividad';
 
 const fila = (fecha: string, ruta: string, segundos: number, extra: Partial<FilaActividad> = {}): FilaActividad => ({ usuario_id: 'u', fecha, ruta, segundos, visitas: 0, sesiones: 0, estimado: false, ...extra });
 
@@ -67,5 +67,64 @@ describe('cuentasMasUsadas', () => {
       { cuenta_debito: ' ', cuenta_credito: 'Ventas' },
     ]);
     expect(r).toEqual([{ cuenta: 'Caja', movimientos: 2 }, { cuenta: 'Ventas', movimientos: 2 }]);
+  });
+});
+
+describe('franjaHoraria', () => {
+  it('elige la franja con más eventos y reparte porcentajes', () => {
+    const horas = Array(24).fill(0);
+    horas[9] = 6;
+    horas[10] = 2;
+    horas[21] = 2;
+    const r = franjaHoraria(horas);
+    expect(r.dominante).toBe('manana');
+    expect(r.porcentajes).toEqual({ madrugada: 0, manana: 80, tarde: 0, noche: 20 });
+  });
+  it('sin eventos suficientes no opina', () => {
+    expect(franjaHoraria([]).dominante).toBeNull();
+    const h = Array(24).fill(0);
+    h[3] = 2;
+    expect(franjaHoraria(h).dominante).toBeNull();
+  });
+});
+
+describe('rol y prolijidad', () => {
+  it('detecta qué hace más cada persona', () => {
+    expect(rolDelEquipo({ operaciones: 20, ediciones: 2, configuracion: 4 })).toBe('carga');
+    expect(rolDelEquipo({ operaciones: 1, ediciones: 2, configuracion: 9 })).toBe('configura');
+    expect(rolDelEquipo({ operaciones: 3, ediciones: 8, configuracion: 4 })).toBe('corrige');
+    expect(rolDelEquipo({ operaciones: 1, ediciones: 0, configuracion: 2 })).toBeNull();
+  });
+  it('prolijidad: porcentaje sin corrección, con piso de 5 cargas', () => {
+    expect(prolijidad(4, 0)).toBeNull();
+    expect(prolijidad(10, 1)).toBe(90);
+    expect(prolijidad(10, 15)).toBe(0);
+  });
+  it('hace cuánto', () => {
+    const ahora = Date.parse('2026-11-03T12:00:00Z');
+    expect(haceCuanto('2026-11-03T08:00:00Z', ahora, 'ES')).toBe('hoy');
+    expect(haceCuanto('2026-11-02T08:00:00Z', ahora, 'PT')).toBe('ontem');
+    expect(haceCuanto('2026-10-30T08:00:00Z', ahora, 'ES')).toBe('hace 4 días');
+    expect(haceCuanto(null, ahora, 'ES')).toBe('—');
+  });
+});
+
+describe('usoPorPersona', () => {
+  it('prefiere lo medido para la pantalla favorita', () => {
+    const m = usoPorPersona([fila('2026-10-01', 'estimado:operaciones', 9000, { estimado: true }), fila('2026-11-03', '/mi-local', 60, { sesiones: 1 })]);
+    expect(m.get('u')).toMatchObject({ segundos: 9060, sesiones: 1, dias: 2, rutaFavorita: '/mi-local' });
+  });
+  it('sin nada medido usa el estimado', () => {
+    expect(usoPorPersona([fila('2026-10-01', 'estimado:operaciones', 100, { estimado: true })]).get('u')?.rutaFavorita).toBe('estimado:operaciones');
+  });
+});
+
+describe('acumuladoSemanal', () => {
+  it('acumula por semana y rellena semanas vacías', () => {
+    const r = acumuladoSemanal(['2026-10-05', '2026-10-06', '2026-10-20'], '2026-10-21');
+    expect(r.map((p) => [p.semana, p.total])).toEqual([['2026-10-05', 2], ['2026-10-12', 2], ['2026-10-19', 3]]);
+  });
+  it('sin operaciones devuelve vacío', () => {
+    expect(acumuladoSemanal([], '2026-10-21')).toEqual([]);
   });
 });
