@@ -30,6 +30,7 @@
 import { agruparActivo, type GrupoComposicion } from './gruposActivo';
 import { agruparPasivo } from './gruposPasivo';
 import { agruparPatrimonio } from './gruposPatrimonio';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { idsCuentasPorCobrar } from './cuentasPorCobrar';
 import { cargarNaturalezaPorOperacion } from './naturalezaResultadoDatos';
@@ -170,9 +171,12 @@ function rangoDelPeriodo(periodo: string): { desde: string; hasta: string } | nu
   };
 }
 
+// `cliente` solo lo usa Família Unida: el servidor calcula los mismos indicadores de cada persona vinculada con su cliente de
+// servicio, sin duplicar la lógica. En el resto de la app no se pasa y se usa la conexión de siempre.
 export async function obtenerIndicadores(
   empresaId: string,
-  periodo: string
+  periodo: string,
+  cliente: SupabaseClient = supabase
 ): Promise<IndicadoresPanel> {
   const [
     { data: cuentasData, error: errorCuentas },
@@ -183,22 +187,22 @@ export async function obtenerIndicadores(
     idsPorCobrar,
     mapaNaturaleza,
   ] = await Promise.all([
-    supabase
+    cliente
       .from('plan_cuentas')
       .select('id, codigo, nombre, cuenta_padre_id, tipo_saldo, naturaleza, saldo_inicial')
       .eq('empresa_id', empresaId),
 
-    supabase
+    cliente
       .from('registro_operaciones')
       .select('id_operacion, fecha, operacion, categoria, total, cuenta_debito, cuenta_credito, socio')
       .eq('empresa_id', empresaId),
 
-    supabase
+    cliente
       .from('registros_automaticos')
       .select('id_operacion, fecha, importe, cuenta_debito, cuenta_credito')
       .eq('empresa_id', empresaId),
 
-    supabase
+    cliente
       .from('movimientos_stock')
       .select('fecha, tipo, categoria, producto_id, cantidad')
       .eq('empresa_id', empresaId),
@@ -208,7 +212,7 @@ export async function obtenerIndicadores(
     // agregado a mano puede quedar con un código fuera de "1.1.1.");
     // la única fuente confiable es forma_pago_cuentas, la misma que ya
     // usa motor.ts para resolver el rol MEDIO_FINANCIERO.
-    supabase
+    cliente
       .from('forma_pago_cuentas')
       .select('cuenta_id')
       .eq('empresa_id', empresaId)
@@ -216,11 +220,11 @@ export async function obtenerIndicadores(
 
     // Las cuentas por cobrar también se crean como forma de pago, pero NO
     // son plata disponible (ver lib/cuentasPorCobrar.ts).
-    idsCuentasPorCobrar(empresaId),
+    idsCuentasPorCobrar(empresaId, cliente),
 
     // De dónde viene cada asiento (recurrente fijo / variable / del mes); si
     // falla, el resto del Panel sigue funcionando sin ese bloque.
-    cargarNaturalezaPorOperacion(empresaId).catch((e) => {
+    cargarNaturalezaPorOperacion(empresaId, cliente).catch((e) => {
       console.warn('No se pudo cargar la naturaleza de los asientos:', e);
       return null;
     }),

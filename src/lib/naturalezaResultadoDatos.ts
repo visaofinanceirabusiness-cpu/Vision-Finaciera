@@ -5,6 +5,7 @@
 // vinculados a cada recordatorio. De cada plantilla sale si el monto es fijo
 // o variable.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { mapaNaturaleza, type Naturaleza, type VinculoRecurrente } from './naturalezaResultado';
 
@@ -15,21 +16,21 @@ function montoFijoDe(plantilla: FilaPlantilla): boolean {
   return fila ? Boolean(fila.monto_fijo) : true;
 }
 
-export async function cargarNaturalezaPorOperacion(empresaId: string): Promise<Map<string, Naturaleza>> {
+export async function cargarNaturalezaPorOperacion(empresaId: string, cliente: SupabaseClient = supabase): Promise<Map<string, Naturaleza>> {
   const [gastos, pagos, ingresos, cobros] = await Promise.all([
-    supabase
+    cliente
       .from('gastos_recurrentes_recordatorios')
       .select('id_operacion, id_operacion_devengo, gastos_recurrentes!inner(monto_fijo)')
       .eq('empresa_id', empresaId),
-    supabase
+    cliente
       .from('gastos_recurrentes_recordatorios_pagos')
       .select('id_operacion, gastos_recurrentes_recordatorios!inner(gastos_recurrentes!inner(monto_fijo))')
       .eq('empresa_id', empresaId),
-    supabase
+    cliente
       .from('ingresos_recurrentes_recordatorios')
       .select('id_operacion, id_operacion_devengo, ingresos_recurrentes!inner(monto_fijo)')
       .eq('empresa_id', empresaId),
-    supabase
+    cliente
       .from('ingresos_recurrentes_recordatorios_cobros')
       .select('id_operacion, ingresos_recurrentes_recordatorios!inner(ingresos_recurrentes!inner(monto_fijo))')
       .eq('empresa_id', empresaId),

@@ -12,7 +12,7 @@ export const PERFILES_SIMULADOS: Array<{ id: PerfilSimulado; nombre: string }> =
   { id: 'SERVICIOS', nombre: 'Servicios' },
   { id: 'COMERCIAL', nombre: 'Comercial' },
   { id: 'MIXTO', nombre: 'Mixto (con mercadería)' },
-  { id: 'FAMILIAR', nombre: 'Familia' },
+  { id: 'FAMILIAR', nombre: 'Finanzas personales' },
 ];
 
 export type DatosSimulados = {
