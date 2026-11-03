@@ -34,6 +34,11 @@ export type UsuarioAdn = {
   ultimoAcceso: string | null;
   accesos: number;
   operaciones: number;
+  ediciones: number;
+  eliminaciones: number;
+  configuracion: number;
+  horas: number[];
+  sexo: string | null;
 };
 
 export type CambioAdn = { tipo: string; cantidad: number; primero: string; ultimo: string };
@@ -117,9 +122,11 @@ export function construirHistoria(d: EntradaHistoria, idioma: string | null | un
   return eventos.sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
+type AuditoriaUsuario = { id: string; ultimo_acceso: string | null; accesos: number; operaciones: number; ediciones?: number; eliminaciones?: number; configuracion?: number; horas?: number[] };
+
 function normalizarUsuarios(
-  perfiles: Array<{ id: string; nombre: string | null; tipo_usuario: string | null; activo: boolean | null; creado_en: string }>,
-  auditoria: Array<{ id: string; ultimo_acceso: string | null; accesos: number; operaciones: number }>
+  perfiles: Array<{ id: string; nombre: string | null; tipo_usuario: string | null; activo: boolean | null; creado_en: string; sexo: string | null }>,
+  auditoria: AuditoriaUsuario[]
 ): UsuarioAdn[] {
   const porId = new Map(auditoria.map((a) => [a.id, a]));
   return perfiles.map((p) => {
@@ -133,6 +140,11 @@ function normalizarUsuarios(
       ultimoAcceso: a?.ultimo_acceso ?? null,
       accesos: Number(a?.accesos ?? 0),
       operaciones: Number(a?.operaciones ?? 0),
+      ediciones: Number(a?.ediciones ?? 0),
+      eliminaciones: Number(a?.eliminaciones ?? 0),
+      configuracion: Number(a?.configuracion ?? 0),
+      horas: Array.isArray(a?.horas) ? a.horas.map(Number) : [],
+      sexo: p.sexo ?? null,
     };
   });
 }
@@ -154,7 +166,7 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
     supabase.from('empresas').select('nombre, creado_en, logo_url, idioma, onboarding_completado, matriz_generada').eq('id', empresaId).maybeSingle(),
     obtenerProgresoGamificacion(empresaId),
     obtenerActividad(empresaId).catch(() => [] as FilaActividad[]),
-    supabase.from('perfiles').select('id, nombre, tipo_usuario, activo, creado_en').eq('empresa_id', empresaId),
+    supabase.from('perfiles').select('id, nombre, tipo_usuario, activo, creado_en, sexo').eq('empresa_id', empresaId),
     supabase.rpc('adn_auditoria_empresa'),
     leerTodo<{ creado_en: string; cuenta_debito: string | null; cuenta_credito: string | null }>(empresaId),
     obtenerTrofeosGanados(empresaId).catch(() => [] as TrofeoGanado[]),
@@ -164,7 +176,7 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
   ]);
 
   const e = empresaRes.data;
-  const auditoria = (auditoriaRes.data ?? {}) as { usuarios?: Array<{ id: string; ultimo_acceso: string | null; accesos: number; operaciones: number }>; cambios?: CambioAdn[] };
+  const auditoria = (auditoriaRes.data ?? {}) as { usuarios?: AuditoriaUsuario[]; cambios?: CambioAdn[] };
   const momentos = opsRes.map((f) => f.creado_en);
 
   const escalonados = await obtenerObjetivosEscalonados(empresaId, progreso.nivel, progreso.operacionesMin, tiposEscalonadosDelPerfil(esFamiliar, manejaMercaderia)).catch(() => [] as ObjetivoEscalonado[]);

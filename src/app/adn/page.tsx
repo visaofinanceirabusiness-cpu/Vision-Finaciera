@@ -16,7 +16,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useEnShell } from '@/components/shell/ShellContext';
 import { cargarAdn, construirHistoria, fechaLocal, type DatosAdn, type EventoHistoria } from '@/lib/adn';
-import { etiquetaRuta, formatearDuracion, operacionesPorMes, resumirActividad, usoPorHerramienta } from '@/lib/actividad';
+import { FRANJAS, acumuladoSemanal, etiquetaRuta, formatearDuracion, franjaHoraria, haceCuanto, operacionesPorMes, prolijidad, resumirActividad, rolDelEquipo, usoPorHerramienta, usoPorPersona, type Franja, type PuntoAcumulado } from '@/lib/actividad';
+import { avatarPorDefecto } from '@/lib/avatares';
 import { ESCALONES, escalon, textoDelNivel } from '@/lib/nivelesTextos';
 import { FAMILIAS_TROFEO } from '@/lib/trofeosRangos';
 
@@ -112,7 +113,8 @@ export default function AdnPage() {
       return { fecha, minutos: Math.round(minutosPorDia.get(fecha) ?? 0) };
     });
     const totalOps = datos.fechasOperaciones.length;
-    return { resumen, herramientas, meses, historia, ultimos14, totalOps };
+    const curva = acumuladoSemanal(datos.fechasOperaciones, hoy);
+    return { resumen, herramientas, meses, historia, ultimos14, totalOps, curva };
   }, [datos, hoy, idioma]);
 
   const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString(pt ? 'pt-BR' : 'es-AR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' });
@@ -281,6 +283,7 @@ type Calculos = {
   historia: EventoHistoria[];
   ultimos14: Array<{ fecha: string; minutos: number }>;
   totalOps: number;
+  curva: PuntoAcumulado[];
 };
 
 const bloque: React.CSSProperties = { background: '#f5f7f9', borderRadius: 14, padding: '12px 14px', marginBottom: 12 };
@@ -371,26 +374,128 @@ function DetalleHerramientas({ datos, calculos, t }: { datos: DatosAdn; calculos
   );
 }
 
-function DetallePersonas({ datos, t, fechaCorta }: { datos: DatosAdn; t: Tr; fechaCorta: (iso: string) => string }) {
-  const totalOps = datos.usuarios.reduce((a, u) => a + u.operaciones, 0);
-  const ordenados = [...datos.usuarios].sort((a, b) => b.operaciones - a.operaciones || b.accesos - a.accesos);
+const COLOR_FRANJA: Record<Franja, string> = { madrugada: '#6366f1', manana: '#f59e0b', tarde: '#f97316', noche: '#1e3a8a' };
+
+function BarraFranjas({ porcentajes, idioma }: { porcentajes: Record<Franja, number>; idioma: string }) {
   return (
     <>
-      {ordenados.map((u) => (
-        <div key={u.id} style={bloque}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-            <strong>{u.nombre}</strong>
-            <span style={{ fontSize: 15, color: COLORES.gris }}>{u.tipoUsuario ?? '—'}{u.activo ? '' : ` · ${t('inactivo', 'inativo')}`}</span>
-          </div>
-          <div style={{ fontSize: 16, color: COLORES.gris, margin: '4px 0 8px' }}>
-            {t('Último acceso', 'Último acesso')}: {u.ultimoAcceso ? fechaCorta(u.ultimoAcceso) : '—'} · {u.accesos} {t('accesos', 'acessos')} · {u.operaciones} {t('operaciones cargadas', 'operações lançadas')}
-          </div>
-          <Barra proporcion={totalOps > 0 ? u.operaciones / totalOps : 0} color={COLOR_NODO.personas} />
-          <div style={{ fontSize: 15, color: COLORES.gris, marginTop: 4 }}>{totalOps > 0 ? Math.round((u.operaciones / totalOps) * 100) : 0}% {t('de las operaciones del equipo', 'das operações da equipe')}</div>
-        </div>
-      ))}
-      <p style={{ fontSize: 15, color: COLORES.gris }}>{t('La participación cuenta las operaciones cargadas desde que se guarda quién las hace.', 'A participação conta as operações lançadas desde que se registra quem as faz.')}</p>
+      <div style={{ display: 'flex', height: 14, borderRadius: 999, overflow: 'hidden', background: '#e5eaf0' }}>
+        {FRANJAS.map((f) => (porcentajes[f.clave] > 0 ? <div key={f.clave} title={`${idioma === 'PT' ? f.pt : f.es}: ${porcentajes[f.clave]}%`} style={{ width: `${porcentajes[f.clave]}%`, background: COLOR_FRANJA[f.clave] }} /> : null))}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 15, color: COLORES.gris, marginTop: 6 }}>
+        {FRANJAS.map((f) => (
+          <span key={f.clave}>{f.emoji} {idioma === 'PT' ? f.pt : f.es} {porcentajes[f.clave]}%</span>
+        ))}
+      </div>
     </>
+  );
+}
+
+function DetallePersonas({ datos, t, fechaCorta }: { datos: DatosAdn; t: Tr; fechaCorta: (iso: string) => string }) {
+  const idioma = datos.empresa.idioma;
+  const uso = usoPorPersona(datos.actividad);
+  const totalOps = datos.usuarios.reduce((a, u) => a + u.operaciones, 0);
+  const ordenados = [...datos.usuarios].sort((a, b) => b.operaciones - a.operaciones || (uso.get(b.id)?.segundos ?? 0) - (uso.get(a.id)?.segundos ?? 0));
+  const horasEquipo = Array.from({ length: 24 }, (_, h) => datos.usuarios.reduce((a, u) => a + (u.horas[h] ?? 0), 0));
+  const franjaEquipo = franjaHoraria(horasEquipo);
+  const ahora = Date.now();
+  const rotulo = { carga: t('✍️ Carga operaciones', '✍️ Lança operações'), corrige: t('🩹 Corrige y ordena', '🩹 Corrige e organiza'), configura: t('🧩 Configura cuentas y reglas', '🧩 Configura contas e regras') };
+  return (
+    <>
+      <div style={{ ...bloque, background: '#f5f3ff' }}>
+        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{t('¿Cuándo trabaja el equipo?', 'Quando a equipe trabalha?')}</div>
+        {franjaEquipo.dominante ? (
+          <>
+            <div style={{ fontSize: 16, marginBottom: 8 }}>{t('Franja más activa', 'Faixa mais ativa')}: <strong>{FRANJAS.find((f) => f.clave === franjaEquipo.dominante)?.emoji} {idioma === 'PT' ? FRANJAS.find((f) => f.clave === franjaEquipo.dominante)?.pt : FRANJAS.find((f) => f.clave === franjaEquipo.dominante)?.es}</strong></div>
+            <BarraFranjas porcentajes={franjaEquipo.porcentajes} idioma={idioma} />
+          </>
+        ) : (
+          <div style={{ fontSize: 16, color: COLORES.gris }}>{t('Todavía hay pocos movimientos para saber en qué momento del día se trabaja.', 'Ainda há poucos movimentos para saber em que momento do dia se trabalha.')}</div>
+        )}
+      </div>
+
+      {ordenados.map((u) => {
+        const m = uso.get(u.id);
+        const franja = franjaHoraria(u.horas);
+        const rol = rolDelEquipo(u);
+        const prol = prolijidad(u.operaciones, u.ediciones);
+        const fav = m?.rutaFavorita ? etiquetaRuta(m.rutaFavorita, idioma) : null;
+        const foto = avatarPorDefecto(u.sexo);
+        return (
+          <div key={u.id} style={bloque}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+              <span style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#ede9fe', border: `3px solid ${COLOR_NODO.personas}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: COLOR_NODO.personas }}>
+                {foto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  u.nombre.charAt(0).toUpperCase()
+                )}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 20 }}>{u.nombre}</div>
+                <div style={{ fontSize: 15, color: COLORES.gris }}>
+                  {u.tipoUsuario ?? '—'}{u.activo ? '' : ` · ${t('inactivo', 'inativo')}`} · {t('desde', 'desde')} {fechaCorta(u.creadoEn)}
+                </div>
+                {rol && <div style={{ fontSize: 16, fontWeight: 700, color: COLOR_NODO.personas, marginTop: 2 }}>{rotulo[rol]}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <Dato valor={formatearDuracion(m?.segundos ?? 0, idioma)} etiqueta={t('de uso', 'de uso')} />
+              <Dato valor={String(m?.dias ?? 0)} etiqueta={t('días activos', 'dias ativos')} />
+              <Dato valor={String(u.accesos)} etiqueta={t('accesos', 'acessos')} />
+              <Dato valor={prol === null ? '—' : `${prol}%`} etiqueta={t('carga prolija', 'lançamento sem correção')} />
+            </div>
+
+            <div style={{ fontSize: 16, lineHeight: 1.6 }}>
+              {fav && <div>{fav.emoji} {t('Su lugar favorito', 'Seu lugar favorito')}: <strong>{fav.texto}</strong></div>}
+              <div>🕒 {t('Último acceso', 'Último acesso')}: <strong>{haceCuanto(u.ultimoAcceso, ahora, idioma)}</strong>{u.ultimoAcceso ? ` (${fechaCorta(u.ultimoAcceso)})` : ''}</div>
+              <div>✍️ {u.operaciones} {t('operaciones cargadas', 'operações lançadas')} · 🩹 {u.ediciones} {t('corregidas', 'corrigidas')} · 🧩 {u.configuracion} {t('cambios de configuración', 'mudanças de configuração')}</div>
+            </div>
+
+            <div style={{ margin: '10px 0 4px', fontSize: 15, fontWeight: 700, color: COLORES.gris }}>{t('Franja horaria', 'Faixa horária')}{franja.dominante ? `: ${FRANJAS.find((f) => f.clave === franja.dominante)?.emoji} ${idioma === 'PT' ? FRANJAS.find((f) => f.clave === franja.dominante)?.pt : FRANJAS.find((f) => f.clave === franja.dominante)?.es}` : ''}</div>
+            {franja.dominante ? <BarraFranjas porcentajes={franja.porcentajes} idioma={idioma} /> : <div style={{ fontSize: 15, color: COLORES.gris }}>{t('Todavía hay pocos movimientos para saberlo.', 'Ainda há poucos movimentos para saber.')}</div>}
+
+            <div style={{ margin: '12px 0 4px' }}><Barra proporcion={totalOps > 0 ? u.operaciones / totalOps : 0} color={COLOR_NODO.personas} /></div>
+            <div style={{ fontSize: 15, color: COLORES.gris }}>{totalOps > 0 ? Math.round((u.operaciones / totalOps) * 100) : 0}% {t('de las operaciones del equipo', 'das operações da equipe')}</div>
+          </div>
+        );
+      })}
+      <p style={{ fontSize: 15, color: COLORES.gris }}>{t('La franja horaria sale de los ingresos, cargas y cambios de cada persona (hora de Buenos Aires). El tiempo de uso incluye la estimación anterior a la medición.', 'A faixa horária vem dos acessos, lançamentos e mudanças de cada pessoa (horário de Buenos Aires). O tempo de uso inclui a estimativa anterior à medição.')}</p>
+    </>
+  );
+}
+
+function GraficoCrecimiento({ puntos, niveles, t, idioma }: { puntos: PuntoAcumulado[]; niveles: DatosAdn['niveles']; t: Tr; idioma: string }) {
+  if (puntos.length < 2) return <p style={{ color: COLORES.gris, fontSize: 16 }}>{t('Con un poco más de uso se dibuja la curva de crecimiento.', 'Com um pouco mais de uso a curva de crescimento será desenhada.')}</p>;
+  const W = 640, H = 300, ML = 56, MR = 40, MT = 18, MB = 44;
+  const total = puntos[puntos.length - 1].total;
+  const yMax = Math.min(750, Math.max(75, Math.ceil((total * 1.05) / 75) * 75));
+  const x = (i: number) => ML + (i / (puntos.length - 1)) * (W - ML - MR);
+  const y = (v: number) => H - MB - (v / yMax) * (H - MT - MB);
+  const linea = puntos.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.total).toFixed(1)}`).join(' ');
+  const area = `${linea} L${x(puntos.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const lineasNivel = Array.from({ length: Math.floor(yMax / 75) }, (_, k) => (k + 1) * 75);
+  const marcas = [0, Math.floor((puntos.length - 1) / 2), puntos.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+  const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR', { day: '2-digit', month: 'short', timeZone: 'UTC' });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label={t('Curva de crecimiento: operaciones acumuladas semana a semana', 'Curva de crescimento: operações acumuladas semana a semana')}>
+      {lineasNivel.map((v) => (
+        <g key={v}>
+          <line x1={ML} x2={W - MR} y1={y(v)} y2={y(v)} stroke={v <= total ? '#10b98155' : '#cbd5e1'} strokeDasharray="5 5" />
+          <text x={W - MR + 6} y={y(v) + 6} fontSize="18">{niveles[v / 75 + 1]?.emoji ?? ''}</text>
+          <text x={ML - 8} y={y(v) + 5} fontSize="15" textAnchor="end" fill="#6e7781">{v}</text>
+        </g>
+      ))}
+      <path d={area} fill="#10b98122" />
+      <path d={linea} fill="none" stroke="#10b981" strokeWidth="3.5" strokeLinejoin="round" />
+      <circle cx={x(puntos.length - 1)} cy={y(total)} r="6" fill="#10b981" />
+      <text x={x(puntos.length - 1) - 8} y={y(total) - 12} fontSize="17" fontWeight="700" textAnchor="end" fill="#1f3a5f">{total}</text>
+      {marcas.map((i) => (
+        <text key={i} x={x(i)} y={H - 14} fontSize="16" textAnchor={i === 0 ? 'start' : i === puntos.length - 1 ? 'end' : 'middle'} fill="#6e7781">{fmt(puntos[i].semana)}</text>
+      ))}
+    </svg>
   );
 }
 
@@ -404,6 +509,9 @@ function DetalleEvolucion({ datos, calculos, t }: { datos: DatosAdn; calculos: C
   const variacion = anterior && anterior.operaciones > 0 ? Math.round(((actual.operaciones - anterior.operaciones) / anterior.operaciones) * 100) : null;
   return (
     <>
+      <div style={subtitulo}>{t('Curva de crecimiento: operaciones acumuladas, semana a semana', 'Curva de crescimento: operações acumuladas, semana a semana')}</div>
+      <GraficoCrecimiento puntos={calculos.curva} niveles={datos.niveles} t={t} idioma={idioma} />
+      <p style={{ fontSize: 15, color: COLORES.gris, margin: '4px 0 0' }}>{t('Cada línea punteada es un nivel (cada 75 operaciones): se pinta de verde cuando ya lo alcanzaste.', 'Cada linha pontilhada é um nível (a cada 75 operações): fica verde quando você já o alcançou.')}</p>
       <div style={subtitulo}>{t('Operaciones cargadas mes a mes, desde el inicio', 'Operações lançadas mês a mês, desde o início')}</div>
       {calculos.meses.map((m) => (
         <div key={m.mes} style={{ marginBottom: 12 }}>
