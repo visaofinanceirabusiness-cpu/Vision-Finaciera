@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-type Contexto = { admin: SupabaseClient; userId: string; empresaId: string; tipoUsuario: string | null; moneda: string | null; esFamiliar: boolean; nombre: string };
+type Contexto = { admin: SupabaseClient; token: string; userId: string; empresaId: string; tipoUsuario: string | null; moneda: string | null; esFamiliar: boolean; nombre: string };
 
 function error(mensaje: string, status: number) {
   return NextResponse.json({ error: mensaje }, { status });
@@ -39,6 +39,7 @@ async function contexto(request: NextRequest): Promise<Contexto | NextResponse> 
 
   return {
     admin,
+    token,
     userId: usuario.user.id,
     empresaId: perfil.empresa_id as string,
     tipoUsuario: (perfil.tipo_usuario as string | null) ?? null,
@@ -73,9 +74,14 @@ async function invitacionPendiente(c: Contexto, grupoId: string | null): Promise
   return data ? { codigo: data.codigo as string, expiraEn: data.expira_en as string } : null;
 }
 
+// La auditoría solo se escribe con la función registrar_evento_auditoria, que toma a la persona de la sesión: se llama con su
+// propio token (el rol de servicio no puede insertar directo en auditoria_eventos).
 async function auditar(c: Contexto, tipo: string, detalle: Record<string, unknown>) {
   try {
-    await c.admin.from('auditoria_eventos').insert({ actor_id: c.userId, empresa_id: c.empresaId, tipo_evento: tipo, detalle });
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!SUPABASE_URL || !anon) return;
+    const comoPersona = createClient(SUPABASE_URL, anon, { global: { headers: { Authorization: `Bearer ${c.token}` } } });
+    await comoPersona.rpc('registrar_evento_auditoria', { p_tipo_evento: tipo, p_empresa_id: c.empresaId, p_detalle: detalle });
   } catch {
     /* la auditoría nunca debe frenar la acción */
   }
