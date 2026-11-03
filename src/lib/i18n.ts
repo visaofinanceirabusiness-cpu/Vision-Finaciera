@@ -137,8 +137,8 @@ const PERFILES_EMPRESA_PT: Record<string, { nombre: string; descripcion: string 
     descripcion: 'Empresa dedicada principalmente à compra, gestão de estoque e venda de produtos.',
   },
   FAMILIAR: {
-    nombre: 'Familiar',
-    descripcion: 'Controle de receitas e despesas pessoais ou familiares, sem compra/venda de mercadoria.',
+    nombre: 'Finanças Pessoais',
+    descripcion: 'Controle de receitas e despesas pessoais, sem compra/venda de mercadoria. Pode ser unido a outras pessoas na Família Unida.',
   },
   MIXTO: {
     nombre: 'Misto',

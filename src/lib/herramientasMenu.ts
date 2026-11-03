@@ -26,6 +26,7 @@ export const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/produccion', titulo: 'Producción', corto: { es: 'Produc.', pt: 'Produç.' }, emoji: '🏭', color: '#65a30d' },
   { href: '/recursos-humanos', titulo: 'Recursos Humanos', corto: { es: 'RR. HH.', pt: 'RH' }, emoji: '👥', color: '#db2777' },
   { href: '/plan-accion', titulo: 'Plan de Acción', corto: { es: 'Plan', pt: 'Plano' }, emoji: '🎯', color: '#1f3a5f' },
+  { href: '/familia-unida', titulo: 'Família Unida', corto: { es: 'Familia', pt: 'Família' }, emoji: '👨‍👩‍👧‍👦', color: '#2e8b57' },
   { href: '/nuestro-sueno', titulo: 'Nuestro Sueño', corto: { es: 'Sueño', pt: 'Sonho' }, emoji: '💞', color: '#db2777' },
   { href: '/mensajes', titulo: 'Mensajes', corto: { es: 'Mensajes', pt: 'Mensag.' }, emoji: '✉️', color: '#2563eb' },
   { href: '/configuracoes', titulo: 'Configurações', corto: { es: 'Config.', pt: 'Config.' }, emoji: '⚙️', color: '#475569' },
@@ -44,6 +45,8 @@ export type ContextoMenu = {
 };
 
 export function herramientaDisponible(href: string, c: ContextoMenu): boolean {
+  // Solo para Finanzas Personales (perfil FAMILIAR); el asistente no vincula ni ve las finanzas de la familia.
+  if (href === '/familia-unida') return c.perfilCodigo === 'FAMILIAR' && c.tipoUsuario !== 'ASISTENTE';
   if (href === '/mercaderia') return c.manejaMercaderia;
   if (href === '/produccion') return c.tieneProduccion;
   if (href === '/mi-local') return (c.manejaMercaderia || c.vendeServicios === true) && c.tipoUsuario !== 'ASISTENTE';

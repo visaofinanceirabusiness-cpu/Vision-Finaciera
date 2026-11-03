@@ -10,10 +10,11 @@
 // que usa el Panel para no sumarlas a "caja disponible" ni ofrecerlas como
 // "cuenta de dinero" en Salud de Caja (ya se cuentan como "a cobrar").
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-export async function idsCuentasPorCobrar(empresaId: string): Promise<Set<string>> {
-  const { data, error } = await supabase
+export async function idsCuentasPorCobrar(empresaId: string, cliente: SupabaseClient = supabase): Promise<Set<string>> {
+  const { data, error } = await cliente
     .from('categorias_operacion_cuentas')
     .select('cuenta_id, categorias_operacion(operacion, activo)')
     .eq('empresa_id', empresaId)

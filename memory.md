@@ -7,6 +7,17 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Familia Unida + Finanzas Personales (03/11/2026) — /familia-unida
+
+- **Renombre:** el perfil «Familia» (código interno `FAMILIAR`, sin cambios) se llama ahora **Finanzas Personales / Finanças Pessoais** en lo que se ve (`perfiles_empresa.nombre`, `lib/i18n.ts`, tutorial, Caja de materiales, Panel Maestro).
+- **Herramienta nueva «Familia Unida / Família Unida»** (solo perfiles FAMILIAR, no asistente): une 2 o más personas y muestra las finanzas sumadas — ingresos, gastos, resultado, «lo que tenemos / lo que debemos / patrimonio líquido» (ESP), resultado (DRE), evolución mensual con tendencia, distribución de gastos e ingresos por categoría; cada bloque tiene un desplegable «Ver por persona» (decisión del dueño: se ve el total y el desglose). Diseño tomado de la imagen que pasó el dueño (pareja recortada en `public/familia-unida/pareja.webp`, logo original, Sabios del sistema en cada tarjeta).
+- **Cómo consolida sin duplicar:** NO se copia ni se guarda nada. `/api/familia-unida` (service_role) verifica que quien pide sea miembro activo y calcula `obtenerIndicadores(empresaId, periodo, cliente)` de cada persona (parámetro `cliente` opcional, agregado a `contabilidad.ts`, `cuentasPorCobrar.ts` y `naturalezaResultadoDatos.ts`; sin pasarlo todo funciona igual). Devuelve solo totales y categorías, nunca operaciones. La suma/tendencia son funciones puras en `lib/familiaUnida.ts` (egresos = ingresos − resultado, así el resultado siempre cierra).
+- **Vínculos:** tablas `familia_grupos`, `familia_miembros` (índice único: una empresa activa en una sola familia), `familia_invitaciones` (código de 8 letras, 7 días). RLS solo lectura (`familia_mis_grupos()` SECURITY DEFINER evita recursión) + las 3 políticas de espectador; escribir va por la API. Se vincula con código que la otra persona acepta; cualquiera puede salir (no se puede sacar a otro); misma moneda obligatoria; auditoría `familia_invitacion_creada` / `familia_union_aceptada` / `familia_desvinculacion`.
+- **Nuestro Sueño NO se tocó** (el dueño lo pidió expresamente). El vínculo de Familia Unida es independiente.
+- **Límite conocido:** si dos personas cargan el mismo gasto compartido en sus dos cuentas, se suma dos veces (no hay forma de detectarlo); lo prolijo es que lo cargue una sola.
+- **Cotizaciones (lobby):** el último punto del gráfico de tendencia se marca con un círculo y un cartel flotante «Hoy · valor» (si el cron aún no corrió hoy, muestra la fecha de la última cotización); leyendas del eje más grandes.
+- Pendiente de probar con cuentas reales: el flujo completo invitar → unirse → salir (probado con datos simulados y tests de la suma, no con dos usuarios reales).
+
 ## ADN de la empresa (03/11/2026) — /adn
 
 Pantalla de «personaje» del negocio: se entra tocando el NOMBRE de la empresa en la barra superior del cascarón (el logo sigue yendo al inicio). Logo al centro sobre un podio y 6 nodos (Tiempo de actividad, Herramientas favoritas, Huella de usuarios, Evolución desde el primer día, Logros del negocio, Memoria del sistema) + «Nuestra historia» abajo. Cada nodo abre un detalle. Solo USO del sistema: nada contable (eso es del Panel de Control). Todos los perfiles; Familia ve «ADN de la familia».

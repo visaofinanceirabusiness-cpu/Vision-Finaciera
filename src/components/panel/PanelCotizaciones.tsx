@@ -185,7 +185,7 @@ function ContenidoCotizaciones({
           {esPT ? 'Ainda não hay histórico suficiente para o gráfico.' : 'Todavía no hay suficiente historial para el gráfico.'}
         </p>
       ) : (
-        <GraficoEvolucionCotizacion puntos={historial} color={colores.verde} granularidad={granularidad} />
+        <GraficoEvolucionCotizacion puntos={historial} color={colores.verde} granularidad={granularidad} esPT={esPT} />
       )}
     </div>
   );
@@ -227,17 +227,20 @@ function GraficoEvolucionCotizacion({
   puntos,
   color,
   granularidad,
+  esPT,
 }: {
   puntos: PuntoCotizacion[];
   color: string;
   granularidad: 'dia' | 'mes';
+  esPT: boolean;
 }) {
   const ancho = 900;
-  const alto = 220;
-  const margenIzq = 50;
+  const alto = 260;
+  const margenIzq = 92;
   const margenDer = 16;
-  const margenSup = 16;
-  const margenInf = 30;
+  // Arriba queda lugar para el cartel flotante del valor de hoy.
+  const margenSup = 46;
+  const margenInf = 42;
 
   const valores = puntos.map((p) => p.valor);
   const maxValor = Math.max(...valores);
@@ -265,14 +268,14 @@ function GraficoEvolucionCotizacion({
   const cadaCuanto = Math.max(1, Math.ceil(puntos.length / 6));
 
   return (
-    <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 220, display: 'block' }}>
+    <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 260, display: 'block' }}>
       {[0, 0.5, 1].map((factor) => {
         const y = margenSup + altoUtil - factor * altoUtil;
         const valor = minValor + factor * rango;
         return (
           <g key={factor}>
             <line x1={margenIzq} x2={ancho - margenDer} y1={y} y2={y} stroke="#eef2f6" strokeWidth="1" />
-            <text x={margenIzq - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+            <text x={margenIzq - 8} y={y + 4} textAnchor="end" fontSize="18" fill="#64748b">
               {formatearValor(valor)}
             </text>
           </g>
@@ -289,13 +292,34 @@ function GraficoEvolucionCotizacion({
           <g key={p.fecha}>
             <circle cx={x} cy={y} r="3.5" fill={color} />
             {mostrarEtiqueta && (
-              <text x={x} y={alto - 8} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#6e7781">
+              <text x={x} y={alto - 10} textAnchor="middle" fontSize="17" fontWeight="700" fill="#475569">
                 {granularidad === 'mes' ? p.fecha.slice(0, 7) : p.fecha.slice(5)}
               </text>
             )}
           </g>
         );
       })}
+      {(() => {
+        // El último punto es la cotización más reciente (la de hoy, o la última cargada si el cron todavía no corrió).
+        const ultimo = puntos[puntos.length - 1];
+        const { x, y } = coordenadas(puntos.length - 1, ultimo.valor);
+        const esHoy = ultimo.fecha === new Date().toLocaleDateString('en-CA');
+        const texto = `${esHoy ? (esPT ? 'Hoje' : 'Hoy') : ultimo.fecha.slice(5)} · ${formatearValor(ultimo.valor)}`;
+        const anchoCartel = texto.length * 10.5 + 26;
+        const xCartel = Math.min(Math.max(x - anchoCartel / 2, margenIzq), ancho - margenDer - anchoCartel);
+        const yCartel = Math.max(2, y - 46);
+        return (
+          <g>
+            <circle cx={x} cy={y} r="11" fill={color} opacity="0.22" />
+            <circle cx={x} cy={y} r="6.5" fill="#fff" stroke={color} strokeWidth="3.5" />
+            <line x1={x} x2={x} y1={yCartel + 32} y2={y - 11} stroke={color} strokeWidth="1.5" />
+            <rect x={xCartel} y={yCartel} width={anchoCartel} height="32" rx="16" fill={color} />
+            <text x={xCartel + anchoCartel / 2} y={yCartel + 23} textAnchor="middle" fontSize="18" fontWeight="800" fill="#fff">
+              {texto}
+            </text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }

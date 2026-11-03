@@ -15,7 +15,7 @@ import type { FilaApertura } from '@/lib/visao3dEmpresas';
 const COLORES = { azul: '#1f3a5f', verde: '#2e8b57', gris: '#6e7781', rojo: '#b91c1c' };
 
 const PERFILES = [
-  { codigo: 'FAMILIAR', nombre: 'Familiar', detalle: 'La casa de siempre, con jardín y pileta.' },
+  { codigo: 'FAMILIAR', nombre: 'Finanzas personales', detalle: 'La casa de siempre, con jardín y pileta.' },
   { codigo: 'COMERCIAL', nombre: 'Comercial', detalle: 'Local con toldo, mostrador y depósito.' },
   { codigo: 'SERVICIOS', nombre: 'Servicios', detalle: 'Oficina de vidrio con recepción y reuniones.' },
   { codigo: 'MIXTO', nombre: 'Mixto', detalle: 'Local con toldo verde y jardín.' },

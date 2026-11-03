@@ -128,6 +128,7 @@ const ETIQUETAS_RUTA: Record<string, { es: string; pt: string; emoji: string }> 
   '/mensajes': { es: 'Mensajes', pt: 'Mensagens', emoji: '✉️' },
   '/configuracoes': { es: 'Configuraciones', pt: 'Configurações', emoji: '⚙️' },
   '/sabio-bot': { es: 'Chat con Sabio', pt: 'Conversa com o Sábio', emoji: '💬' },
+  '/familia-unida': { es: 'Familia Unida', pt: 'Família Unida', emoji: '👨‍👩‍👧‍👦' },
   '/adn': { es: 'ADN de la empresa', pt: 'DNA da empresa', emoji: '🧬' },
   // El estimado del pasado no sabe en qué pantalla estuvo la persona: solo en qué tipo de tarea.
   'estimado:operaciones': { es: 'Registrar operaciones', pt: 'Registrar operações', emoji: '✍️' },

@@ -28,6 +28,7 @@ export const RUTAS_EN_SHELL = [
   '/configuracoes',
   '/sabio-bot',
   '/adn',
+  '/familia-unida',
 ];
 
 export function empresaUsaShell(empresaId: string | null | undefined): boolean {
