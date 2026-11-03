@@ -29,6 +29,7 @@ import { MiniJuego } from '@/components/panel/MiniJuego';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { useCaja } from '@/components/caja/useCaja';
 import { ShellProveedor } from './ShellContext';
+import { useLatidoActividad } from './useLatidoActividad';
 
 const COLORES = {
   azul: 'var(--color-primario, #1f3a5f)',
@@ -187,6 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Mientras se carga la empresa se usa el recuerdo de la última vez para no mostrar un destello del diseño anterior.
   const encendido = rutaEnShell(pathname) && (datos !== null || previoActivo);
+  useLatidoActividad(pathname, datos !== null);
 
   async function actualizar() {
     if (actualizando) return;
@@ -308,22 +310,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button type="button" className="shell-burger" aria-label={t('Abrir menú', 'Abrir menu')} onClick={() => setMenuAbierto((a) => !a)} style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: 26, cursor: 'pointer', alignItems: 'center' }}>☰</button>
 
             {/* MI NEGOCIO — el banner del lobby, fusionado con la barra: logo, nombre, saludo y fecha. */}
-            <Link href="/" className="shell-marca" style={{ display: 'flex', alignItems: 'center', gap: 18, textDecoration: 'none', color: 'inherit', minWidth: 0, flex: '0 1 auto' }}>
-              <span className="shell-logo" style={{ borderRadius: 24, border: '2px solid rgba(255,255,255,0.55)', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 18px rgba(0,0,0,0.22)' }}>
-                {datos?.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={datos.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                ) : (
-                  <span style={{ fontWeight: 800, fontSize: 44, color: COLORES.azul }}>{(datos?.nombre || 'M').charAt(0).toUpperCase()}</span>
-                )}
-              </span>
-              <span style={{ minWidth: 0 }}>
+            <div className="shell-marca" style={{ display: 'flex', alignItems: 'center', gap: 18, color: 'inherit', minWidth: 0, flex: '0 1 auto' }}>
+              <Link href="/" aria-label={t('Ir al inicio', 'Ir para o início')} style={{ display: 'flex', flexShrink: 0, textDecoration: 'none' }}><span className="shell-logo" style={{ borderRadius: 24, border: '2px solid rgba(255,255,255,0.55)', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 18px rgba(0,0,0,0.22)' }}>
+                  {datos?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={datos.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontWeight: 800, fontSize: 44, color: COLORES.azul }}>{(datos?.nombre || 'M').charAt(0).toUpperCase()}</span>
+                  )}
+                </span></Link>
+              <Link href="/adn" title={t('Ver el ADN de la empresa', 'Ver o DNA da empresa')} style={{ display: 'block', minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
                 <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', opacity: 0.75, marginBottom: 4 }}>{t('Mi negocio', 'Meu negócio')}</span>
                 <span className="shell-nombre" style={{ display: 'block', fontWeight: 800, fontSize: 30, lineHeight: 1.1 }}>{datos?.nombre || t('Mi negocio', 'Meu negócio')}</span>
                 {datos && <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 17, fontWeight: 600, marginTop: 6 }}>{datos.saludo}</span>}
                 <span className="shell-texto-ancho" style={{ display: 'block', fontSize: 12, opacity: 0.7, marginTop: 4 }}>{hoyTexto}</span>
-              </span>
-            </Link>
+              </Link>
+            </div>
 
             {/* Centro: el nivel del negocio y, debajo, los accesos grandes. */}
             <div className="shell-centro-barra" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: '1 1 auto', alignItems: 'flex-start' }}>

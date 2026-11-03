@@ -7,6 +7,16 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## ADN de la empresa (03/11/2026) — /adn
+
+Pantalla de «personaje» del negocio: se entra tocando el NOMBRE de la empresa en la barra superior del cascarón (el logo sigue yendo al inicio). Logo al centro sobre un podio y 6 nodos (Tiempo de actividad, Herramientas favoritas, Huella de usuarios, Evolución 90 días, Logros del negocio, Memoria del sistema) + «Nuestra historia» abajo. Cada nodo abre un detalle. Solo USO del sistema: nada contable (eso es del Panel de Control). Todos los perfiles; Familia ve «ADN de la familia».
+- **Medición real desde hoy:** tabla `actividad_uso` (empresa, usuario, fecha, ruta, segundos, visitas, sesiones, `estimado`; RLS propia + 3 políticas de espectador) y función `registrar_actividad(ruta, segundos, visita, nueva_sesion)`. `AppShell` manda un latido cada 30 s con la pestaña visible (`useLatidoActividad`); sesión nueva = pestaña nueva o 30 min sin latidos. Día = zona Buenos Aires.
+- **Estimado ÚNICO del pasado** (ya cargado, NO se vuelve a correr; filas `estimado = true`, rutas `estimado:operaciones|configuracion|ingreso`): minutos del día = (3 + 1·operaciones + 0,35·otros movimientos [cuentas/reglas/ediciones] + 5·ingresos) × (1 + 0,04·(nivel−1)), tope 180 min/día. Buenaventura quedó como el máximo (~17 h, 50 días). La pantalla aclara qué es medido y qué estimado.
+- `adn_auditoria_empresa()` (SECURITY DEFINER): `auditoria_eventos` solo la lee el admin; esto da a cada empresa solo agregados (último acceso, accesos y operaciones por persona; cambios de configuración).
+- **Logros/escalones/niveles:** `lib/nivelesTextos.ts` amplía el texto de los 10 niveles (etapa / qué significa / consejo, ES+PT) y nombra los 3 escalones (arranque, ritmo, cima). Los textos cortos siguen en `niveles_gamificacion`.
+- Código: `src/app/adn/page.tsx`, `lib/adn.ts` (carga + historia), `lib/actividad.ts` (cuentas puras + latido), `components/shell/useLatidoActividad.ts`. Entrada en la Caja de materiales (`adn-empresa`). Ruta en `RUTAS_EN_SHELL`.
+- Pendiente/ideas: la participación por persona solo cuenta operaciones con actor guardado en auditoría; el ranking de herramientas de lo estimado es por tipo de tarea, no por pantalla; podría sumarse una vista de ADN para el Panel Maestro.
+
 ## Mi Local — tienda pública (26/10/2026) — V1
 - Tablas (migración `mi_local_tablas_rls_y_funciones`, vía MCP): `mi_local_tiendas` (1 por empresa, slug único), `mi_local_publicaciones` (sobre `productos`, sin segunda base), `mi_local_pedidos` + `mi_local_pedido_items` (copia histórica de nombre/precio/categoría). Bucket público `mi-local` (`<empresa_id>/...`). RLS por empresa; el público solo entra por RPCs SECURITY DEFINER concedidas a `anon`: `mi_local_tienda_publica`, `mi_local_crear_pedido` (re-consulta precios, valida stock, lock de fila, idempotencia por `clave_idempotencia`, tope anti-spam). Admin: `mi_local_cambiar_estado`, `mi_local_reclamar_venta`/`anotar_operacion`/`cerrar_venta`/`liberar_venta`.
 - Código: `lib/miLocal.ts` (puro, con tests), `lib/miLocalDatos.ts`, `app/mi-local/page.tsx` (admin: Tienda/Catálogo/Pedidos), `app/loja/[slug]/page.tsx` (pública, solo PT-BR). `/loja` está en `RUTAS_PUBLICAS` (GuardiaSesion) y `RUTAS_SIN_TEMA_EMPRESA`.
