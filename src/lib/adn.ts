@@ -137,17 +137,26 @@ function normalizarUsuarios(
   });
 }
 
-export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise<DatosAdn> {
-  const hace90 = new Date(Date.now() - 90 * 86400000).toISOString();
+// PostgREST corta cada respuesta (1000 filas por defecto): se pide por tandas para tener TODA la historia desde el primer día.
+async function leerTodo<T>(empresaId: string): Promise<T[]> {
+  const salida: T[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await supabase.from('registro_operaciones').select('creado_en, cuenta_debito, cuenta_credito').eq('empresa_id', empresaId).order('creado_en', { ascending: true }).range(desde, desde + 999);
+    if (error) throw error;
+    salida.push(...((data ?? []) as T[]));
+    if (!data || data.length < 1000) break;
+  }
+  return salida;
+}
 
-  const [empresaRes, progreso, actividad, perfilesRes, auditoriaRes, momentosRes, recientesRes, trofeos, hitosRes, nivelesRes, manejaMercaderia] = await Promise.all([
+export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise<DatosAdn> {
+  const [empresaRes, progreso, actividad, perfilesRes, auditoriaRes, opsRes, trofeos, hitosRes, nivelesRes, manejaMercaderia] = await Promise.all([
     supabase.from('empresas').select('nombre, creado_en, logo_url, idioma, onboarding_completado, matriz_generada').eq('id', empresaId).maybeSingle(),
     obtenerProgresoGamificacion(empresaId),
     obtenerActividad(empresaId).catch(() => [] as FilaActividad[]),
     supabase.from('perfiles').select('id, nombre, tipo_usuario, activo, creado_en').eq('empresa_id', empresaId),
     supabase.rpc('adn_auditoria_empresa'),
-    supabase.from('registro_operaciones').select('creado_en').eq('empresa_id', empresaId).order('creado_en', { ascending: true }).limit(5000),
-    supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito').eq('empresa_id', empresaId).gte('creado_en', hace90).limit(3000),
+    leerTodo<{ creado_en: string; cuenta_debito: string | null; cuenta_credito: string | null }>(empresaId),
     obtenerTrofeosGanados(empresaId).catch(() => [] as TrofeoGanado[]),
     supabase.from('gamificacion_hitos_vistos').select('nivel, tipo_hito, visto_en').eq('empresa_id', empresaId),
     supabase.from('niveles_gamificacion').select('nivel, nombre, emoji, mision, mensaje'),
@@ -156,7 +165,7 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
 
   const e = empresaRes.data;
   const auditoria = (auditoriaRes.data ?? {}) as { usuarios?: Array<{ id: string; ultimo_acceso: string | null; accesos: number; operaciones: number }>; cambios?: CambioAdn[] };
-  const momentos = (momentosRes.data ?? []).map((f) => f.creado_en as string);
+  const momentos = opsRes.map((f) => f.creado_en);
 
   const escalonados = await obtenerObjetivosEscalonados(empresaId, progreso.nivel, progreso.operacionesMin, tiposEscalonadosDelPerfil(esFamiliar, manejaMercaderia)).catch(() => [] as ObjetivoEscalonado[]);
 
@@ -176,7 +185,7 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
     cambios: (auditoria.cambios ?? []).map((c) => ({ ...c, cantidad: Number(c.cantidad) })),
     fechasOperaciones: momentos.map(fechaLocal),
     momentosOperaciones: momentos,
-    cuentas: cuentasMasUsadas((recientesRes.data ?? []) as Array<{ cuenta_debito: string | null; cuenta_credito: string | null }>),
+    cuentas: cuentasMasUsadas(opsRes),
     escalonados,
     trofeos,
     niveles: Object.fromEntries((nivelesRes.data ?? []).map((n) => [Number(n.nivel), { nombre: n.nombre as string, emoji: (n.emoji as string | null) ?? '⭐', mision: n.mision as string, mensaje: n.mensaje as string }])),
