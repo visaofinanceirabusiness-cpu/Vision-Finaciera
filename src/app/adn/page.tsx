@@ -101,7 +101,9 @@ export default function AdnPage() {
     if (!datos) return null;
     const resumen = resumirActividad(datos.actividad, hoy);
     const herramientas = usoPorHerramienta(datos.actividad);
-    const meses = operacionesPorMes(datos.fechasOperaciones, hoy, 3);
+    const desde = (datos.fechasOperaciones[0] ?? datos.empresa.creadoEn.slice(0, 10)).slice(0, 7);
+    const cantidadMeses = Math.max(1, (Number(hoy.slice(0, 4)) - Number(desde.slice(0, 4))) * 12 + Number(hoy.slice(5, 7)) - Number(desde.slice(5, 7)) + 1);
+    const meses = operacionesPorMes(datos.fechasOperaciones, hoy, cantidadMeses);
     const historia = construirHistoria({ empresa: datos.empresa, momentosOperaciones: datos.momentosOperaciones, trofeos: datos.trofeos, hitos: datos.hitos, usuarios: datos.usuarios, actividad: datos.actividad, nombresNivel: datos.niveles }, idioma);
     const minutosPorDia = new Map<string, number>();
     for (const f of datos.actividad) minutosPorDia.set(f.fecha, (minutosPorDia.get(f.fecha) ?? 0) + f.segundos / 60);
@@ -136,7 +138,7 @@ export default function AdnPage() {
   const textoNivel = textoDelNivel(p.nivel, idioma);
   const trofeosGanados = datos.trofeos.length;
   const topHerramienta = herramientas[0] ? etiquetaRuta(herramientas[0].ruta, idioma) : null;
-  const ops90 = meses.reduce((a, m) => a + m.operaciones, 0);
+  const opsTotales = totalOps;
   const cambiosTotal = datos.cambios.reduce((a, c) => a + c.cantidad, 0);
   const titulo = datos.esFamiliar ? t('ADN de la familia', 'DNA da família') : t('ADN de la empresa', 'DNA da empresa');
 
@@ -144,7 +146,7 @@ export default function AdnPage() {
     { clave: 'tiempo', titulo: t('Tiempo de actividad', 'Tempo de atividade'), sub: t('Horas, sesiones, frecuencia', 'Horas, sessões, frequência'), resumen: `${formatearDuracion(resumen.totalSegundos, idioma)} · ${resumen.sesiones} ${t('sesiones', 'sessões')}` },
     { clave: 'herramientas', titulo: t('Herramientas favoritas', 'Ferramentas favoritas'), sub: t('Lo que más usamos', 'O que mais usamos'), resumen: topHerramienta ? `${topHerramienta.emoji} ${topHerramienta.texto}` : t('Se está midiendo', 'Em medição') },
     { clave: 'personas', titulo: t('Huella de usuarios', 'Pegada de usuários'), sub: t('Perfiles, accesos, participación', 'Perfis, acessos, participação'), resumen: `${datos.usuarios.length} ${datos.usuarios.length === 1 ? t('persona', 'pessoa') : t('personas', 'pessoas')}` },
-    { clave: 'evolucion', titulo: t('Evolución', 'Evolução'), sub: t('Últimos 90 días', 'Últimos 90 dias'), resumen: `${ops90} ${t('operaciones', 'operações')}` },
+    { clave: 'evolucion', titulo: t('Evolución', 'Evolução'), sub: t('Desde el primer día de uso', 'Desde o primeiro dia de uso'), resumen: `${opsTotales} ${t('operaciones', 'operações')}` },
     { clave: 'logros', titulo: t('Logros del negocio', 'Conquistas do negócio'), sub: t('Niveles, escalones y trofeos', 'Níveis, degraus e troféus'), resumen: `${t('Nivel', 'Nível')} ${p.nivel} · ${trofeosGanados} ${t('trofeos', 'troféus')}` },
     { clave: 'memoria', titulo: t('Memoria del sistema', 'Memória do sistema'), sub: t('Configuraciones y cambios', 'Configurações e mudanças'), resumen: `${cambiosTotal} ${t('cambios', 'mudanças')}` },
   ];
@@ -169,9 +171,9 @@ export default function AdnPage() {
       `}</style>
 
       <header style={{ textAlign: 'center', marginBottom: 22 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: COLORES.gris }}>🧬 {titulo}</div>
+        <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: COLORES.gris }}>🧬 {titulo}</div>
         <h1 style={{ margin: '6px 0 4px', fontSize: 'clamp(24px, 4vw, 36px)', lineHeight: 1.1 }}>{datos.empresa.nombre}</h1>
-        <p style={{ margin: 0, color: COLORES.gris, fontSize: 15 }}>{t('Tu historia, tu uso, tu evolución en el sistema', 'Sua história, seu uso, sua evolução no sistema')}</p>
+        <p style={{ margin: 0, color: COLORES.gris, fontSize: 18 }}>{t('Tu historia, tu uso, tu evolución en el sistema', 'Sua história, seu uso, sua evolução no sistema')}</p>
       </header>
 
       <div className="adn-grid">
@@ -198,9 +200,9 @@ export default function AdnPage() {
           <div aria-hidden style={{ width: 250, height: 22, marginTop: -4, borderRadius: '50%', background: 'linear-gradient(180deg, #cfd8e3, #aebccd)', boxShadow: '0 6px 0 #94a6bb' }} />
           <div aria-hidden style={{ width: 310, height: 26, marginTop: 6, borderRadius: '50%', background: 'linear-gradient(180deg, #dbe3ec, #b7c5d6)', boxShadow: '0 7px 0 #9fb0c5' }} />
           <div style={{ marginTop: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 30 }}>{p.emoji}</div>
-            <div style={{ fontWeight: 800, fontSize: 18 }}>{t('Nivel', 'Nível')} {p.nivel} · {p.nombre}</div>
-            <div style={{ fontSize: 13, color: COLORES.gris, marginTop: 2 }}>{p.operaciones} {t('operaciones registradas', 'operações registradas')}</div>
+            <div style={{ fontSize: 34 }}>{p.emoji}</div>
+            <div style={{ fontWeight: 800, fontSize: 21 }}>{t('Nivel', 'Nível')} {p.nivel} · {p.nombre}</div>
+            <div style={{ fontSize: 16, color: COLORES.gris, marginTop: 2 }}>{p.operaciones} {t('operaciones registradas', 'operações registradas')}</div>
           </div>
         </div>
 
@@ -210,35 +212,35 @@ export default function AdnPage() {
       <section style={{ marginTop: 28 }}>
         <button type="button" className="adn-nodo" onClick={() => setAbierto('historia')} style={{ ...estiloTarjeta(COLOR_NODO.historia), width: '100%', textAlign: 'left', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <span style={{ fontSize: 26 }}>{EMOJI_NODO.historia}</span>
+            <span style={{ fontSize: 30 }}>{EMOJI_NODO.historia}</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 17, textTransform: 'uppercase', letterSpacing: 1 }}>{t('Nuestra historia', 'Nossa história')}</div>
-              <div style={{ fontSize: 13, color: COLORES.gris }}>{t('Línea de tiempo de cómo construimos nuestro sistema', 'Linha do tempo de como construímos nosso sistema')}</div>
+              <div style={{ fontWeight: 800, fontSize: 20, textTransform: 'uppercase', letterSpacing: 1 }}>{t('Nuestra historia', 'Nossa história')}</div>
+              <div style={{ fontSize: 16, color: COLORES.gris }}>{t('Línea de tiempo de cómo construimos nuestro sistema', 'Linha do tempo de como construímos nosso sistema')}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6 }}>
             {historia.slice(-6).map((e) => (
               <div key={e.clave} style={{ minWidth: 150, flex: '0 0 auto', borderTop: `3px solid ${COLOR_NODO.historia}`, paddingTop: 8 }}>
-                <div style={{ fontSize: 22 }}>{e.emoji}</div>
-                <div style={{ fontSize: 12, color: COLORES.gris }}>{fechaCorta(e.fecha)}</div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{e.titulo}</div>
+                <div style={{ fontSize: 26 }}>{e.emoji}</div>
+                <div style={{ fontSize: 15, color: COLORES.gris }}>{fechaCorta(e.fecha)}</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{e.titulo}</div>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: COLORES.gris, marginTop: 8 }}>{t('Tocá para ver toda la historia', 'Toque para ver toda a história')} · {historia.length} {t('hitos', 'marcos')}</div>
+          <div style={{ fontSize: 15, color: COLORES.gris, marginTop: 8 }}>{t('Tocá para ver toda la historia', 'Toque para ver toda a história')} · {historia.length} {t('hitos', 'marcos')}</div>
         </button>
       </section>
 
-      <p style={{ textAlign: 'center', color: COLORES.gris, fontSize: 12, marginTop: 22 }}>
+      <p style={{ textAlign: 'center', color: COLORES.gris, fontSize: 15, marginTop: 22 }}>
         {t('Acá solo se ve el uso del sistema. Los números del negocio están en el Panel de Control.', 'Aqui só aparece o uso do sistema. Os números do negócio estão no Painel de Controle.')} {totalOps === 0 ? t('Cargá tu primera operación para empezar a escribir tu historia.', 'Lance sua primeira operação para começar a escrever sua história.') : ''}
       </p>
 
       {abierto && (
         <div role="dialog" aria-modal="true" onClick={() => setAbierto(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 22, maxWidth: 720, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: '22px 22px 26px', borderTop: `8px solid ${COLOR_NODO[abierto]}`, boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 22, maxWidth: 860, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: '22px 22px 26px', borderTop: `8px solid ${COLOR_NODO[abierto]}`, boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h2 style={{ margin: 0, fontSize: 21 }}>{EMOJI_NODO[abierto]} {abierto === 'historia' ? t('Nuestra historia', 'Nossa história') : nodos.find((n) => n.clave === abierto)?.titulo}</h2>
-              <button type="button" onClick={() => setAbierto(null)} aria-label={t('Cerrar', 'Fechar')} style={{ border: 'none', background: '#eef2f7', borderRadius: 999, width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: COLORES.azul }}>✕</button>
+              <h2 style={{ margin: 0, fontSize: 24 }}>{EMOJI_NODO[abierto]} {abierto === 'historia' ? t('Nuestra historia', 'Nossa história') : nodos.find((n) => n.clave === abierto)?.titulo}</h2>
+              <button type="button" onClick={() => setAbierto(null)} aria-label={t('Cerrar', 'Fechar')} style={{ border: 'none', background: '#eef2f7', borderRadius: 999, width: 36, height: 36, fontSize: 21, cursor: 'pointer', color: COLORES.azul }}>✕</button>
             </div>
             {abierto === 'tiempo' && <DetalleTiempo datos={datos} calculos={calculos} t={t} fechaCorta={fechaCorta} />}
             {abierto === 'herramientas' && <DetalleHerramientas datos={datos} calculos={calculos} t={t} />}
@@ -261,11 +263,11 @@ function estiloTarjeta(color: string): React.CSSProperties {
 function Nodo({ clave, titulo, sub, resumen, onClick }: { clave: NodoClave; titulo: string; sub: string; resumen: string; onClick: () => void }) {
   return (
     <button type="button" className="adn-nodo" onClick={onClick} style={{ ...estiloTarjeta(COLOR_NODO[clave]), textAlign: 'left', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s', display: 'flex', alignItems: 'center', gap: 14 }}>
-      <span style={{ width: 54, height: 54, flexShrink: 0, borderRadius: 16, background: `${COLOR_NODO[clave]}1f`, border: `2px solid ${COLOR_NODO[clave]}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>{EMOJI_NODO[clave]}</span>
+      <span style={{ width: 54, height: 54, flexShrink: 0, borderRadius: 16, background: `${COLOR_NODO[clave]}1f`, border: `2px solid ${COLOR_NODO[clave]}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>{EMOJI_NODO[clave]}</span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontWeight: 800, fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.6 }}>{titulo}</span>
-        <span style={{ display: 'block', fontSize: 12, color: COLORES.gris, margin: '2px 0 6px' }}>{sub}</span>
-        <span style={{ display: 'block', fontWeight: 700, fontSize: 14, color: COLOR_NODO[clave] }}>{resumen}</span>
+        <span style={{ display: 'block', fontWeight: 800, fontSize: 18, textTransform: 'uppercase', letterSpacing: 0.6 }}>{titulo}</span>
+        <span style={{ display: 'block', fontSize: 15, color: COLORES.gris, margin: '2px 0 6px' }}>{sub}</span>
+        <span style={{ display: 'block', fontWeight: 700, fontSize: 17, color: COLOR_NODO[clave] }}>{resumen}</span>
       </span>
     </button>
   );
@@ -282,13 +284,13 @@ type Calculos = {
 };
 
 const bloque: React.CSSProperties = { background: '#f5f7f9', borderRadius: 14, padding: '12px 14px', marginBottom: 12 };
-const subtitulo: React.CSSProperties = { fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: COLORES.gris, margin: '16px 0 8px' };
+const subtitulo: React.CSSProperties = { fontSize: 15, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: COLORES.gris, margin: '16px 0 8px' };
 
 function Dato({ valor, etiqueta }: { valor: string; etiqueta: string }) {
   return (
     <div style={{ ...bloque, flex: '1 1 130px', marginBottom: 0, textAlign: 'center' }}>
-      <div style={{ fontWeight: 800, fontSize: 22 }}>{valor}</div>
-      <div style={{ fontSize: 12, color: COLORES.gris }}>{etiqueta}</div>
+      <div style={{ fontWeight: 800, fontSize: 26 }}>{valor}</div>
+      <div style={{ fontSize: 15, color: COLORES.gris }}>{etiqueta}</div>
     </div>
   );
 }
@@ -319,7 +321,7 @@ function DetalleTiempo({ datos, calculos, t, fechaCorta }: { datos: DatosAdn; ca
           <div key={d.fecha} title={`${d.fecha}: ${d.minutos} min`} style={{ flex: 1, height: `${Math.max(3, (d.minutos / maximo) * 100)}%`, background: d.minutos > 0 ? COLOR_NODO.tiempo : '#e5eaf0', borderRadius: 6 }} />
         ))}
       </div>
-      <div style={{ ...bloque, marginTop: 14, fontSize: 13, lineHeight: 1.5 }}>
+      <div style={{ ...bloque, marginTop: 14, fontSize: 16, lineHeight: 1.5 }}>
         {r.medidoDesde ? (
           <>
             ⏱️ {t(`El tiempo se mide con exactitud desde el ${fechaCorta(`${r.medidoDesde}T12:00:00Z`)}: ${formatearDuracion(r.medidoSegundos, idioma)}.`, `O tempo é medido com exatidão desde ${fechaCorta(`${r.medidoDesde}T12:00:00Z`)}: ${formatearDuracion(r.medidoSegundos, idioma)}.`)}{' '}
@@ -345,7 +347,7 @@ function DetalleHerramientas({ datos, calculos, t }: { datos: DatosAdn; calculos
         const e = etiquetaRuta(h.ruta, idioma);
         return (
           <div key={h.ruta} style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, marginBottom: 4 }}>
               <span>{e.emoji} {e.texto}</span>
               <span style={{ color: COLORES.gris }}>{formatearDuracion(h.segundos, idioma)}</span>
             </div>
@@ -353,18 +355,18 @@ function DetalleHerramientas({ datos, calculos, t }: { datos: DatosAdn; calculos
           </div>
         );
       })}
-      <div style={subtitulo}>{t('Cuentas que más se mueven (90 días)', 'Contas que mais se movimentam (90 dias)')}</div>
-      {datos.cuentas.length === 0 && <p style={{ color: COLORES.gris }}>{t('Todavía no hay movimientos en los últimos 90 días.', 'Ainda não há movimentos nos últimos 90 dias.')}</p>}
+      <div style={subtitulo}>{t('Cuentas que más se mueven (desde el inicio)', 'Contas que mais se movimentam (desde o início)')}</div>
+      {datos.cuentas.length === 0 && <p style={{ color: COLORES.gris }}>{t('Todavía no hay movimientos.', 'Ainda não há movimentos.')}</p>}
       {datos.cuentas.map((c) => (
         <div key={c.cuenta} style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, marginBottom: 4 }}>
             <span>{c.cuenta}</span>
             <span style={{ color: COLORES.gris }}>{c.movimientos} {t('movimientos', 'movimentos')}</span>
           </div>
           <Barra proporcion={c.movimientos / maxMov} color={COLOR_NODO.evolucion} />
         </div>
       ))}
-      <p style={{ fontSize: 12, color: COLORES.gris }}>{t('Se cuentan movimientos, no importes: los saldos están en el Panel de Control.', 'São contados movimentos, não valores: os saldos estão no Painel de Controle.')}</p>
+      <p style={{ fontSize: 15, color: COLORES.gris }}>{t('Se cuentan movimientos, no importes: los saldos están en el Panel de Control.', 'São contados movimentos, não valores: os saldos estão no Painel de Controle.')}</p>
     </>
   );
 }
@@ -378,16 +380,16 @@ function DetallePersonas({ datos, t, fechaCorta }: { datos: DatosAdn; t: Tr; fec
         <div key={u.id} style={bloque}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <strong>{u.nombre}</strong>
-            <span style={{ fontSize: 12, color: COLORES.gris }}>{u.tipoUsuario ?? '—'}{u.activo ? '' : ` · ${t('inactivo', 'inativo')}`}</span>
+            <span style={{ fontSize: 15, color: COLORES.gris }}>{u.tipoUsuario ?? '—'}{u.activo ? '' : ` · ${t('inactivo', 'inativo')}`}</span>
           </div>
-          <div style={{ fontSize: 13, color: COLORES.gris, margin: '4px 0 8px' }}>
+          <div style={{ fontSize: 16, color: COLORES.gris, margin: '4px 0 8px' }}>
             {t('Último acceso', 'Último acesso')}: {u.ultimoAcceso ? fechaCorta(u.ultimoAcceso) : '—'} · {u.accesos} {t('accesos', 'acessos')} · {u.operaciones} {t('operaciones cargadas', 'operações lançadas')}
           </div>
           <Barra proporcion={totalOps > 0 ? u.operaciones / totalOps : 0} color={COLOR_NODO.personas} />
-          <div style={{ fontSize: 12, color: COLORES.gris, marginTop: 4 }}>{totalOps > 0 ? Math.round((u.operaciones / totalOps) * 100) : 0}% {t('de las operaciones del equipo', 'das operações da equipe')}</div>
+          <div style={{ fontSize: 15, color: COLORES.gris, marginTop: 4 }}>{totalOps > 0 ? Math.round((u.operaciones / totalOps) * 100) : 0}% {t('de las operaciones del equipo', 'das operações da equipe')}</div>
         </div>
       ))}
-      <p style={{ fontSize: 12, color: COLORES.gris }}>{t('La participación cuenta las operaciones cargadas desde que se guarda quién las hace.', 'A participação conta as operações lançadas desde que se registra quem as faz.')}</p>
+      <p style={{ fontSize: 15, color: COLORES.gris }}>{t('La participación cuenta las operaciones cargadas desde que se guarda quién las hace.', 'A participação conta as operações lançadas desde que se registra quem as faz.')}</p>
     </>
   );
 }
@@ -402,20 +404,20 @@ function DetalleEvolucion({ datos, calculos, t }: { datos: DatosAdn; calculos: C
   const variacion = anterior && anterior.operaciones > 0 ? Math.round(((actual.operaciones - anterior.operaciones) / anterior.operaciones) * 100) : null;
   return (
     <>
-      <div style={subtitulo}>{t('Operaciones cargadas por mes', 'Operações lançadas por mês')}</div>
+      <div style={subtitulo}>{t('Operaciones cargadas mes a mes, desde el inicio', 'Operações lançadas mês a mês, desde o início')}</div>
       {calculos.meses.map((m) => (
         <div key={m.mes} style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, marginBottom: 4, textTransform: 'capitalize' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, marginBottom: 4, textTransform: 'capitalize' }}>
             <span>{nombreMes(m.mes)}</span>
             <span style={{ color: COLORES.gris, textTransform: 'none' }}>{m.operaciones} {t('operaciones', 'operações')} · {m.diasConOperaciones} {t('días con registros', 'dias com registros')} · {formatearDuracion(horasMes(m.mes), idioma)}</span>
           </div>
           <Barra proporcion={m.operaciones / maximo} color={COLOR_NODO.evolucion} alto={14} />
         </div>
       ))}
-      <div style={{ ...bloque, fontSize: 14 }}>
+      <div style={{ ...bloque, fontSize: 17 }}>
         {variacion === null ? t('Todavía no hay un mes anterior para comparar.', 'Ainda não há um mês anterior para comparar.') : variacion >= 0 ? `📈 ${t(`Este mes llevás un ${variacion}% más de operaciones que el anterior.`, `Este mês você tem ${variacion}% mais operações que o anterior.`)}` : `📉 ${t(`Este mes llevás un ${Math.abs(variacion)}% menos de operaciones que el anterior (el mes todavía no terminó).`, `Este mês você tem ${Math.abs(variacion)}% menos operações que o anterior (o mês ainda não terminou).`)}`}
       </div>
-      <p style={{ fontSize: 12, color: COLORES.gris }}>{t('Es ritmo de uso (cantidad de registros). Los ingresos y egresos en plata están en el Panel de Control.', 'É o ritmo de uso (quantidade de registros). As receitas e despesas em dinheiro estão no Painel de Controle.')}</p>
+      <p style={{ fontSize: 15, color: COLORES.gris }}>{t('Es ritmo de uso (cantidad de registros). Los ingresos y egresos en plata están en el Panel de Control.', 'É o ritmo de uso (quantidade de registros). As receitas e despesas em dinheiro estão no Painel de Controle.')}</p>
     </>
   );
 }
@@ -431,24 +433,24 @@ function DetalleLogros({ datos, textoNivel, t, fechaCorta }: { datos: DatosAdn; 
   return (
     <>
       <div style={{ ...bloque, background: '#fff1f2' }}>
-        <div style={{ fontWeight: 800, fontSize: 18 }}>{p.emoji} {t('Nivel', 'Nível')} {p.nivel} · {p.nombre}</div>
+        <div style={{ fontWeight: 800, fontSize: 21 }}>{p.emoji} {t('Nivel', 'Nível')} {p.nivel} · {p.nombre}</div>
         <div style={{ margin: '8px 0' }}><Barra proporcion={pct / 100} color={COLOR_NODO.logros} alto={12} /></div>
-        <div style={{ fontSize: 13, color: COLORES.gris }}>{p.operacionesMax ? `${p.faltan} ${t('operaciones para el próximo nivel', 'operações para o próximo nível')}` : t('Llegaste al último nivel', 'Você chegou ao último nível')}</div>
-        <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.5 }}>{textoNivel.etapa}</p>
+        <div style={{ fontSize: 16, color: COLORES.gris }}>{p.operacionesMax ? `${p.faltan} ${t('operaciones para el próximo nivel', 'operações para o próximo nível')}` : t('Llegaste al último nivel', 'Você chegou ao último nível')}</div>
+        <p style={{ margin: '10px 0 0', fontSize: 17, lineHeight: 1.5 }}>{textoNivel.etapa}</p>
       </div>
 
       <div style={subtitulo}>{t('El camino de los 10 niveles (tocá uno para leerlo)', 'O caminho dos 10 níveis (toque em um para ler)')}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" onClick={() => setNivelVisto(n)} title={datos.niveles[n]?.nombre} style={{ width: 46, height: 46, borderRadius: 14, border: n === nivelVisto ? `3px solid ${COLOR_NODO.logros}` : '2px solid #d6dde6', background: n <= p.nivel ? '#fff1f2' : '#f5f7f9', opacity: n <= p.nivel ? 1 : 0.6, cursor: 'pointer', fontSize: 20 }}>{datos.niveles[n]?.emoji ?? n}</button>
+          <button key={n} type="button" onClick={() => setNivelVisto(n)} title={datos.niveles[n]?.nombre} style={{ width: 46, height: 46, borderRadius: 14, border: n === nivelVisto ? `3px solid ${COLOR_NODO.logros}` : '2px solid #d6dde6', background: n <= p.nivel ? '#fff1f2' : '#f5f7f9', opacity: n <= p.nivel ? 1 : 0.6, cursor: 'pointer', fontSize: 22 }}>{datos.niveles[n]?.emoji ?? n}</button>
         ))}
       </div>
       <div style={bloque}>
         <div style={{ fontWeight: 800, marginBottom: 6 }}>{infoVisto?.emoji} {t('Nivel', 'Nível')} {nivelVisto} · {infoVisto?.nombre}{nivelVisto > p.nivel ? ` 🔒` : ''}</div>
-        <div style={{ fontSize: 13, color: COLORES.gris, marginBottom: 8 }}>{infoVisto?.mision} — {infoVisto?.mensaje}</div>
-        <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: 1.5 }}><strong>{t('La etapa', 'A etapa')}:</strong> {textoVisto.etapa}</p>
-        <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: 1.5 }}><strong>{t('Qué significa', 'O que significa')}:</strong> {textoVisto.significa}</p>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}><strong>{t('Para seguir', 'Para continuar')}:</strong> {textoVisto.consejo}</p>
+        <div style={{ fontSize: 16, color: COLORES.gris, marginBottom: 8 }}>{infoVisto?.mision} — {infoVisto?.mensaje}</div>
+        <p style={{ margin: '0 0 8px', fontSize: 17, lineHeight: 1.5 }}><strong>{t('La etapa', 'A etapa')}:</strong> {textoVisto.etapa}</p>
+        <p style={{ margin: '0 0 8px', fontSize: 17, lineHeight: 1.5 }}><strong>{t('Qué significa', 'O que significa')}:</strong> {textoVisto.significa}</p>
+        <p style={{ margin: 0, fontSize: 17, lineHeight: 1.5 }}><strong>{t('Para seguir', 'Para continuar')}:</strong> {textoVisto.consejo}</p>
       </div>
 
       <div style={subtitulo}>{t('Escalones de este nivel', 'Degraus deste nível')}</div>
@@ -462,15 +464,15 @@ function DetalleLogros({ datos, textoNivel, t, fechaCorta }: { datos: DatosAdn; 
               const e = escalon(i);
               return (
                 <div key={c} title={idioma === 'PT' ? e.ptDetalle : e.esDetalle} style={{ flex: '1 1 160px', background: hecho ? '#dcfce7' : '#fff', border: `2px solid ${hecho ? '#16a34a' : '#d6dde6'}`, borderRadius: 12, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{e.emoji} {idioma === 'PT' ? e.pt : e.es}</div>
-                  <div style={{ fontSize: 13, color: COLORES.gris }}>{hecho ? '✅' : `${Math.min(o.conteo, c)}/${c}`} {hecho ? `(${c})` : ''}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{e.emoji} {idioma === 'PT' ? e.pt : e.es}</div>
+                  <div style={{ fontSize: 16, color: COLORES.gris }}>{hecho ? '✅' : `${Math.min(o.conteo, c)}/${c}`} {hecho ? `(${c})` : ''}</div>
                 </div>
               );
             })}
           </div>
         </div>
       ))}
-      <p style={{ fontSize: 12, color: COLORES.gris, marginTop: 4 }}>{ESCALONES.map((e) => `${e.emoji} ${idioma === 'PT' ? e.ptDetalle : e.esDetalle}`).join(' ')}</p>
+      <p style={{ fontSize: 15, color: COLORES.gris, marginTop: 4 }}>{ESCALONES.map((e) => `${e.emoji} ${idioma === 'PT' ? e.ptDetalle : e.esDetalle}`).join(' ')}</p>
 
       <div style={subtitulo}>{t('Medallas de este nivel', 'Medalhas deste nível')}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -478,8 +480,8 @@ function DetalleLogros({ datos, textoNivel, t, fechaCorta }: { datos: DatosAdn; 
           const m = medallas.find((x) => x.tipo === tier);
           return (
             <div key={tier} style={{ ...bloque, marginBottom: 0, flex: '1 1 130px', textAlign: 'center', opacity: m ? 1 : 0.5 }}>
-              <div style={{ fontSize: 26 }}>{tier === 'ORO' ? '🥇' : tier === 'PLATA' ? '🥈' : '🥉'}</div>
-              <div style={{ fontSize: 12, color: COLORES.gris }}>{m ? fechaCorta(m.vistoEn) : t('Pendiente', 'Pendente')}</div>
+              <div style={{ fontSize: 30 }}>{tier === 'ORO' ? '🥇' : tier === 'PLATA' ? '🥈' : '🥉'}</div>
+              <div style={{ fontSize: 15, color: COLORES.gris }}>{m ? fechaCorta(m.vistoEn) : t('Pendiente', 'Pendente')}</div>
             </div>
           );
         })}
@@ -491,9 +493,9 @@ function DetalleLogros({ datos, textoNivel, t, fechaCorta }: { datos: DatosAdn; 
         {[...datos.trofeos].sort((a, b) => b.obtenidoEn.localeCompare(a.obtenidoEn)).slice(0, 12).map((tr) => {
           const rango = FAMILIAS_TROFEO[tr.tipo]?.rangos[tr.rango];
           return (
-            <div key={`${tr.tipo}-${tr.rango}-${tr.tier}`} style={{ background: rango?.estilo.fondo ?? '#fff', border: `2px solid ${rango?.estilo.borde ?? '#d6dde6'}`, borderRadius: 12, padding: '8px 12px', fontSize: 13 }}>
+            <div key={`${tr.tipo}-${tr.rango}-${tr.tier}`} style={{ background: rango?.estilo.fondo ?? '#fff', border: `2px solid ${rango?.estilo.borde ?? '#d6dde6'}`, borderRadius: 12, padding: '8px 12px', fontSize: 16 }}>
               {rango?.emblema} <strong>{idioma === 'PT' ? rango?.nombrePT : rango?.nombre}</strong> · {tr.tier === 'ORO' ? '🥇' : tr.tier === 'PLATA' ? '🥈' : '🥉'}
-              <div style={{ fontSize: 11, color: COLORES.gris }}>{fechaCorta(tr.obtenidoEn)}</div>
+              <div style={{ fontSize: 14, color: COLORES.gris }}>{fechaCorta(tr.obtenidoEn)}</div>
             </div>
           );
         })}
@@ -535,7 +537,7 @@ function DetalleMemoria({ datos, t, fechaCorta }: { datos: DatosAdn; t: Tr; fech
               <span>{n.emoji} {idioma === 'PT' ? n.pt : n.es}</span>
               <span>{c.cantidad}</span>
             </div>
-            <div style={{ fontSize: 12, color: COLORES.gris }}>{t('Primera vez', 'Primeira vez')}: {fechaCorta(c.primero)} · {t('última', 'última')}: {fechaCorta(c.ultimo)}</div>
+            <div style={{ fontSize: 15, color: COLORES.gris }}>{t('Primera vez', 'Primeira vez')}: {fechaCorta(c.primero)} · {t('última', 'última')}: {fechaCorta(c.ultimo)}</div>
           </div>
         );
       })}
@@ -548,10 +550,10 @@ function DetalleHistoria({ historia, fechaCorta }: { historia: EventoHistoria[];
     <div style={{ position: 'relative', paddingLeft: 22, borderLeft: `3px solid ${COLOR_NODO.historia}33` }}>
       {[...historia].reverse().map((e) => (
         <div key={e.clave} style={{ position: 'relative', marginBottom: 16 }}>
-          <span style={{ position: 'absolute', left: -38, top: 0, width: 30, height: 30, borderRadius: '50%', background: '#fff', border: `2px solid ${COLOR_NODO.historia}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{e.emoji}</span>
-          <div style={{ fontSize: 12, color: COLORES.gris }}>{fechaCorta(e.fecha)}</div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{e.titulo}</div>
-          {e.detalle && <div style={{ fontSize: 13, color: COLORES.gris }}>{e.detalle}</div>}
+          <span style={{ position: 'absolute', left: -38, top: 0, width: 30, height: 30, borderRadius: '50%', background: '#fff', border: `2px solid ${COLOR_NODO.historia}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{e.emoji}</span>
+          <div style={{ fontSize: 15, color: COLORES.gris }}>{fechaCorta(e.fecha)}</div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>{e.titulo}</div>
+          {e.detalle && <div style={{ fontSize: 16, color: COLORES.gris }}>{e.detalle}</div>}
         </div>
       ))}
     </div>
