@@ -7,6 +7,7 @@ import { TemaGlobal } from '@/components/TemaGlobal';
 import { ProveedorEspectador } from '@/components/demo/ProveedorEspectador';
 import { AppShell } from '@/components/shell/AppShell';
 import { AvisoTiempoAgotado } from '@/components/AvisoTiempoAgotado';
+import { AvisoPorVencer } from '@/components/AvisoPorVencer';
 
 export const metadata: Metadata = {
   // Las imágenes de la vista previa al compartir un link deben ser URLs absolutas.
@@ -63,6 +64,7 @@ export default function RootLayout({
         <ProveedorEspectador />
         <AppShell>{children}</AppShell>
         <AvisoTiempoAgotado />
+        <AvisoPorVencer />
       </body>
     </html>
   );
