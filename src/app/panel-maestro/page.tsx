@@ -132,7 +132,7 @@ export default function PanelMaestroPage() {
     const { data: empresasData, error: errorEmpresas } = await supabase
       .from('empresas')
       .select(
-        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, creado_en, telefono, idioma, descripcion_perfil, validacion_automatica, perfiles_empresa(nombre)'
+        'id, nombre, rubro, logo_url, numero_cliente, moneda, fecha_vencimiento_suscripcion, control_tiempo_activo, creado_en, telefono, idioma, descripcion_perfil, validacion_automatica, perfiles_empresa(nombre)'
       )
       .eq('activo', true)
       .order('numero_cliente', { ascending: true });
@@ -983,6 +983,7 @@ export default function PanelMaestroPage() {
                       <BloqueSuscripcionEmpresa
                         empresaId={empresa.id}
                         fechaVencimiento={empresa.fecha_vencimiento_suscripcion}
+                        controlTiempo={Boolean(empresa.control_tiempo_activo)}
                         fechaAlta={empresa.creado_en}
                         onActualizado={cargarEmpresas}
                       />
@@ -1218,11 +1219,13 @@ function mensajeWhatsAppPorSemaforo(
 function BloqueSuscripcionEmpresa({
   empresaId,
   fechaVencimiento,
+  controlTiempo,
   fechaAlta,
   onActualizado,
 }: {
   empresaId: string;
   fechaVencimiento: string;
+  controlTiempo: boolean;
   fechaAlta: string;
   onActualizado: () => void;
 }) {
@@ -1249,6 +1252,25 @@ function BloqueSuscripcionEmpresa({
       onActualizado();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo registrar el pago.');
+    } finally {
+      setProcesando(false);
+    }
+  }
+
+  // Interruptor del «control de tiempo» (lib/tiempoAgotado.ts): con él activo y la suscripción vencida, la empresa no puede cargar
+  // operaciones y ve el cartel de pago. Apagado por defecto.
+  async function alternarControlTiempo() {
+    const nuevo = !controlTiempo;
+    const vencida = resumen.diasRestantes < 0;
+    if (nuevo && vencida && !window.confirm('Esta empresa tiene la suscripción VENCIDA: al activar el control, queda sin poder cargar operaciones y verá el cartel de pago. ¿Activarlo igual?')) return;
+    setProcesando(true);
+    setError('');
+    try {
+      const { error: errorControl } = await supabase.from('empresas').update({ control_tiempo_activo: nuevo }).eq('id', empresaId);
+      if (errorControl) throw errorControl;
+      onActualizado();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cambiar el control de tiempo.');
     } finally {
       setProcesando(false);
     }
@@ -1303,6 +1325,15 @@ function BloqueSuscripcionEmpresa({
           }}
         >
           {abierto ? 'Cerrar' : 'Marcar pago recibido'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 11.5 }}>
+        <span style={{ fontWeight: 700, color: controlTiempo ? (resumen.diasRestantes < 0 ? '#b91c1c' : '#166534') : COLORES_BASE.gris }}>
+          ⏳ {controlTiempo ? (resumen.diasRestantes < 0 ? 'Control activo · SIN TIEMPO (no puede cargar)' : 'Control activo · con tiempo') : 'Control de tiempo apagado'}
+        </span>
+        <button type="button" onClick={() => void alternarControlTiempo()} disabled={procesando} style={{ fontSize: 11.5, fontWeight: 700, color: controlTiempo ? '#b91c1c' : COLORES_BASE.verde, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          {controlTiempo ? 'Apagar control' : 'Activar control'}
         </button>
       </div>
 

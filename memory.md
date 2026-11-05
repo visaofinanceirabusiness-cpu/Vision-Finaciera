@@ -7,6 +7,16 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Tiempo agotado: control de suscripción + cartel con QR Pix (05/11/2026)
+
+- **Qué es:** si el Panel Maestro activa el «control de tiempo» de una empresa (`empresas.control_tiempo_activo`, **apagado por defecto en todas; hoy ninguna lo tiene prendido**) y su `fecha_vencimiento_suscripcion` ya pasó, esa empresa (1) NO puede cargar operaciones nuevas y (2) ve el cartel «¡Se agotó tu tiempo!». El último día de la suscripción todavía vale (se corta al día siguiente, día de Buenos Aires).
+- **Bloqueo:** `lib/tiempoAgotado.ts` → `verificarTiempoParaCargar()` se llama al principio de `registrarOperacion` y de `editarOperacion` (en esta ANTES de borrar la versión anterior: editar borra y re-registra, y frenar recién ahí perdería la operación). Eliminar operaciones y mirar todo sigue permitido. Si no se puede leer el estado, no se frena a nadie. Quedan fuera: demo (espectadores), admin de plataforma, sin sesión (llamadas de servidor). Cache de 60 s.
+- **Cartel:** `components/AvisoTiempoAgotado.tsx`, montado en `layout.tsx`. Se puede cerrar (la X se habilita a los 3 s) pero **reaparece en cada cambio de pantalla** y al intentar cargar; animación y pulso rojo a propósito. Lleva el QR Pix (`public/pago/pix-qr.webp`, recortado de la captura de InfinitePay del dueño), la instrucción «enviá el comprobante a +55 48 99609-4127» y un botón de WhatsApp a ese número (se asumió que es WhatsApp). ES/PT según la empresa. Sin cartel en login, alta, tienda pública, demo ni Panel Maestro.
+- **Interruptor y renovación:** Panel Maestro → ficha de cada empresa → bloque de suscripción: «Activar/Apagar control» (pide confirmación si la suscripción ya está vencida). Renovar = «Marcar pago recibido» (suma 30 días), como antes; el control se levanta solo.
+- **Seguridad:** trigger `proteger_tiempo_empresa` (migración `empresas_control_tiempo`): solo el admin de plataforma puede cambiar el interruptor o la fecha de vencimiento; una empresa no puede darse tiempo a sí misma (verificado).
+- **Al activarlo con clientes reales (a 05/11):** vencidas — Ocaña (03/11), Origen Natural, «12», Romina Mascanfroni, Prata SC; Buenaventura vence hoy y Encanto mañana. Renovar fechas (o no activar) antes de prender cada una.
+- **Pendiente / ideas:** aviso suave 7 días antes de vencer (no hecho); un QR por país si hay clientes de Argentina; el pago se verifica a mano.
+
 ## Familia Unida + Finanzas Personales (03/11/2026) — /familia-unida
 
 - **Renombre:** el perfil «Familia» (código interno `FAMILIAR`, sin cambios) se llama ahora **Finanzas Personales / Finanças Pessoais** en lo que se ve (`perfiles_empresa.nombre`, `lib/i18n.ts`, tutorial, Caja de materiales, Panel Maestro).

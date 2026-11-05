@@ -5,6 +5,7 @@
 // Genera la matriz y registra las operaciones.
 // Mantiene un mismo id_operacion como hilo conductor.
 
+import { verificarTiempoParaCargar } from './tiempoAgotado';
 import { aCentavos } from './centavos';
 import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
 import { cambioDejaSaldoNegativo, primerDiaSinSaldo, saldoAFecha, saldoUtilizableAFecha, type MovimientoCuenta } from './saldoFecha';
@@ -813,6 +814,9 @@ export async function registrarOperacion(
   formulario: FormularioOperacion,
   idOperacionForzado?: string
 ) {
+  // Sin tiempo (suscripción vencida con el control activo): no se cargan operaciones nuevas. Ver lib/tiempoAgotado.ts.
+  await verificarTiempoParaCargar(empresaId);
+
   const total = formulario.lineas.reduce(
     (suma, linea) =>
       suma +
@@ -1571,6 +1575,10 @@ export async function editarOperacion(
   idOperacion: string,
   formulario: FormularioOperacion
 ) {
+  // Primero y antes de borrar nada: editar borra la versión anterior y la vuelve a registrar, y si el control de
+  // tiempo frenara recién en ese segundo paso la operación se perdería.
+  await verificarTiempoParaCargar(empresaId);
+
   const regla = await buscarRegla(
     empresaId,
     formulario.operacion.trim(),

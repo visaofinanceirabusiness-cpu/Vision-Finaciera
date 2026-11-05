@@ -13,6 +13,7 @@ export type Empresa = {
   numero_cliente: number;
   moneda: string | null;
   fecha_vencimiento_suscripcion: string;
+  control_tiempo_activo?: boolean;
   creado_en: string;
   telefono: string | null;
   idioma: string | null;
