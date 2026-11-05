@@ -15,7 +15,8 @@ tomada.
 - **Interruptor y renovación:** Panel Maestro → ficha de cada empresa → bloque de suscripción: «Activar/Apagar control» (pide confirmación si la suscripción ya está vencida). Renovar = «Marcar pago recibido» (suma 30 días), como antes; el control se levanta solo.
 - **Seguridad:** trigger `proteger_tiempo_empresa` (migración `empresas_control_tiempo`): solo el admin de plataforma puede cambiar el interruptor o la fecha de vencimiento; una empresa no puede darse tiempo a sí misma (verificado).
 - **Al activarlo con clientes reales (a 05/11):** vencidas — Ocaña (03/11), Origen Natural, «12», Romina Mascanfroni, Prata SC; Buenaventura vence hoy y Encanto mañana. Renovar fechas (o no activar) antes de prender cada una.
-- **Pendiente / ideas:** aviso suave 7 días antes de vencer (no hecho); un QR para Argentina cuando haya (hoy sin QR fuera de Brasil); el pago se verifica a mano.
+- **Avisos antes de vencer (hecho, 05/11):** `components/AvisoPorVencer.tsx`, solo con el control de tiempo activo. Sale UNA vez cuando faltan 7 días o menos (tono plateado) y UNA vez cuando faltan 2 o menos, incluido el último día (tono naranja), con el look de los festejos (confeti, estrellas, fuegos, sonido corto) y el QR de Pix (BRL) o el WhatsApp. Lo ya visto se recuerda en el navegador por empresa + fecha de vencimiento (`vf_aviso_tiempo:…`), así que al renovar (nueva fecha) vuelve a empezar; si no entró en el medio, solo ve el más urgente. Los días se cuentan con el día de Buenos Aires (`diasHastaVencer`, `nivelDeAviso` en `lib/tiempoAgotado.ts`).
+- **Pendiente / ideas:** un QR para Argentina cuando haya (hoy sin QR fuera de Brasil); el pago se verifica a mano.
 
 ## Familia Unida + Finanzas Personales (03/11/2026) — /familia-unida
 

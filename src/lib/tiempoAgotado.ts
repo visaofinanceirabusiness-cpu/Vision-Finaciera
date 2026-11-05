@@ -45,9 +45,26 @@ export class ErrorTiempoAgotado extends Error {
   }
 }
 
-export type EstadoTiempo = { sinTiempo: boolean; vencimiento: string | null; idioma: 'ES' | 'PT'; moneda: string | null };
+export type EstadoTiempo = { sinTiempo: boolean; vencimiento: string | null; idioma: 'ES' | 'PT'; moneda: string | null; empresaId: string | null; controlActivo: boolean; diasRestantes: number | null };
 
-const SIN_PROBLEMA: EstadoTiempo = { sinTiempo: false, vencimiento: null, idioma: 'ES', moneda: null };
+const SIN_PROBLEMA: EstadoTiempo = { sinTiempo: false, vencimiento: null, idioma: 'ES', moneda: null, empresaId: null, controlActivo: false, diasRestantes: null };
+
+// Días que faltan para el último día de la suscripción (0 = vence hoy, negativo = ya venció).
+export function diasHastaVencer(fechaVencimiento: string, hoy: string = hoyLocal()): number {
+  const ms = (f: string) => new Date(`${f}T12:00:00Z`).getTime();
+  return Math.round((ms(fechaVencimiento) - ms(hoy)) / 86_400_000);
+}
+
+export type NivelAviso = 7 | 2;
+
+// Avisos suaves antes de vencer: uno cuando faltan 7 días o menos y otro cuando faltan 2 o menos (incluido el último día).
+// Si la persona no entró en el medio, se muestra solo el más urgente que corresponda.
+export function nivelDeAviso(diasRestantes: number | null): NivelAviso | null {
+  if (diasRestantes === null || diasRestantes < 0) return null;
+  if (diasRestantes <= 2) return 2;
+  if (diasRestantes <= 7) return 7;
+  return null;
+}
 
 // Por ahora el único QR de cobro es un Pix, así que solo se muestra a empresas de Brasil (moneda BRL).
 export function mostrarQrPix(moneda: string | null | undefined): boolean {
@@ -81,6 +98,9 @@ export async function leerEstadoTiempo(empresaId?: string): Promise<EstadoTiempo
       vencimiento: (empresa.fecha_vencimiento_suscripcion as string | null) ?? null,
       idioma: empresa.idioma === 'PT' ? 'PT' : 'ES',
       moneda: (empresa.moneda as string | null) ?? null,
+      empresaId: objetivo,
+      controlActivo: Boolean(empresa.control_tiempo_activo),
+      diasRestantes: empresa.fecha_vencimiento_suscripcion ? diasHastaVencer(empresa.fecha_vencimiento_suscripcion as string) : null,
     };
     cache = { empresaId: objetivo, leidoEn: Date.now(), estado };
     return estado;

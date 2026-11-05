@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorTiempoAgotado, estaSinTiempo, hoyLocal, mensajeWhatsappComprobante, mostrarQrPix } from './tiempoAgotado';
+import { ErrorTiempoAgotado, estaSinTiempo, hoyLocal, mensajeWhatsappComprobante, mostrarQrPix, diasHastaVencer, nivelDeAviso } from './tiempoAgotado';
 
 describe('estaSinTiempo', () => {
   it('con el control apagado nunca bloquea, aunque la fecha esté vencida', () => {
@@ -31,5 +31,22 @@ describe('QR de Pix', () => {
     expect(mostrarQrPix('BRL')).toBe(true);
     expect(mostrarQrPix('ARS')).toBe(false);
     expect(mostrarQrPix(null)).toBe(false);
+  });
+});
+
+describe('avisos antes de vencer', () => {
+  it('cuenta los días que faltan, incluido el último día', () => {
+    expect(diasHastaVencer('2026-11-12', '2026-11-05')).toBe(7);
+    expect(diasHastaVencer('2026-11-05', '2026-11-05')).toBe(0);
+    expect(diasHastaVencer('2026-11-04', '2026-11-05')).toBe(-1);
+  });
+  it('avisa a los 7 días y a los 2, y no antes ni después de vencer', () => {
+    expect(nivelDeAviso(8)).toBeNull();
+    expect(nivelDeAviso(7)).toBe(7);
+    expect(nivelDeAviso(3)).toBe(7);
+    expect(nivelDeAviso(2)).toBe(2);
+    expect(nivelDeAviso(0)).toBe(2);
+    expect(nivelDeAviso(-1)).toBeNull();
+    expect(nivelDeAviso(null)).toBeNull();
   });
 });
