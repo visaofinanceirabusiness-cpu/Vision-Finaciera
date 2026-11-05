@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { EVENTO_TIEMPO_AGOTADO, TELEFONO_PAGO, WHATSAPP_PAGO, leerEstadoTiempo, mensajeWhatsappComprobante, type EstadoTiempo } from '@/lib/tiempoAgotado';
+import { EVENTO_TIEMPO_AGOTADO, TELEFONO_PAGO, WHATSAPP_PAGO, leerEstadoTiempo, mensajeWhatsappComprobante, mostrarQrPix, type EstadoTiempo } from '@/lib/tiempoAgotado';
 
 // Pantallas públicas o de acceso: ahí no hay nadie «usando» el sistema.
 const RUTAS_SIN_CARTEL = ['/login', '/crear-cuenta', '/loja', '/recuperar-senha', '/restablecer-senha', '/aceptar-convite', '/demo', '/panel-maestro'];
@@ -55,6 +55,7 @@ export function AvisoTiempoAgotado() {
   const vence = estado.vencimiento ? new Date(`${estado.vencimiento}T12:00:00Z`).toLocaleDateString(pt ? 'pt-BR' : 'es-AR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
   const enlace = `https://wa.me/${WHATSAPP_PAGO}?text=${encodeURIComponent(mensajeWhatsappComprobante(estado.idioma))}`;
   const puedeCerrar = espera <= 0;
+  const conQr = mostrarQrPix(estado.moneda);
 
   return (
     <div role="alertdialog" aria-modal="true" aria-label={t('Se agotó tu tiempo', 'Seu tempo acabou')} style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(15,23,42,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14, overflowY: 'auto' }}>
@@ -84,12 +85,20 @@ export function AvisoTiempoAgotado() {
         </p>
 
         <div style={{ background: '#fef2f2', border: '2px solid #fecaca', borderRadius: 16, padding: '12px 14px', margin: '0 0 12px', fontSize: 17, lineHeight: 1.5, textAlign: 'left' }}>
-          <div><strong>1️⃣</strong> {t('Pagá con Pix escaneando el QR.', 'Pague com Pix escaneando o QR.')}</div>
-          <div><strong>2️⃣</strong> {t('Enviá el comprobante de pago a este número:', 'Envie o comprovante de pagamento para este número:')} <strong style={{ whiteSpace: 'nowrap' }}>{TELEFONO_PAGO}</strong></div>
+          {conQr ? (
+            <>
+              <div><strong>1️⃣</strong> {t('Pagá con Pix escaneando el QR.', 'Pague com Pix escaneando o QR.')}</div>
+              <div><strong>2️⃣</strong> {t('Enviá el comprobante de pago a este número:', 'Envie o comprovante de pagamento para este número:')} <strong style={{ whiteSpace: 'nowrap' }}>{TELEFONO_PAGO}</strong></div>
+            </>
+          ) : (
+            <div>{t('Escribinos por WhatsApp para coordinar el pago y renovar. Después enviá el comprobante al mismo número:', 'Escreva-nos pelo WhatsApp para combinar o pagamento e renovar. Depois envie o comprovante para o mesmo número:')} <strong style={{ whiteSpace: 'nowrap' }}>{TELEFONO_PAGO}</strong></div>
+          )}
         </div>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/pago/pix-qr.webp" alt={t('QR de Pix para pagar', 'QR do Pix para pagar')} style={{ width: 'auto', maxWidth: '100%', maxHeight: '46vh', borderRadius: 14, border: '2px solid #e5e7eb' }} />
+        {conQr && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/pago/pix-qr.webp" alt={t('QR de Pix para pagar', 'QR do Pix para pagar')} style={{ width: 'auto', maxWidth: '100%', maxHeight: '46vh', borderRadius: 14, border: '2px solid #e5e7eb' }} />
+        )}
 
         <a href={enlace} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14, background: '#25d366', color: '#fff', textDecoration: 'none', borderRadius: 16, padding: '14px 16px', fontWeight: 800, fontSize: 18 }}>
           📲 {t('Enviar comprobante por WhatsApp', 'Enviar comprovante por WhatsApp')}

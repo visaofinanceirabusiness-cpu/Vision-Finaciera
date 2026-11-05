@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorTiempoAgotado, estaSinTiempo, hoyLocal, mensajeWhatsappComprobante } from './tiempoAgotado';
+import { ErrorTiempoAgotado, estaSinTiempo, hoyLocal, mensajeWhatsappComprobante, mostrarQrPix } from './tiempoAgotado';
 
 describe('estaSinTiempo', () => {
   it('con el control apagado nunca bloquea, aunque la fecha esté vencida', () => {
@@ -23,5 +23,13 @@ describe('textos y fecha', () => {
   });
   it('usa el día de Buenos Aires y no el de UTC', () => {
     expect(hoyLocal(new Date('2026-11-06T01:30:00Z'))).toBe('2026-11-05');
+  });
+});
+
+describe('QR de Pix', () => {
+  it('solo se muestra a empresas de Brasil', () => {
+    expect(mostrarQrPix('BRL')).toBe(true);
+    expect(mostrarQrPix('ARS')).toBe(false);
+    expect(mostrarQrPix(null)).toBe(false);
   });
 });

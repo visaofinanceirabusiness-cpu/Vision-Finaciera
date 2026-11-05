@@ -45,9 +45,14 @@ export class ErrorTiempoAgotado extends Error {
   }
 }
 
-export type EstadoTiempo = { sinTiempo: boolean; vencimiento: string | null; idioma: 'ES' | 'PT' };
+export type EstadoTiempo = { sinTiempo: boolean; vencimiento: string | null; idioma: 'ES' | 'PT'; moneda: string | null };
 
-const SIN_PROBLEMA: EstadoTiempo = { sinTiempo: false, vencimiento: null, idioma: 'ES' };
+const SIN_PROBLEMA: EstadoTiempo = { sinTiempo: false, vencimiento: null, idioma: 'ES', moneda: null };
+
+// Por ahora el único QR de cobro es un Pix, así que solo se muestra a empresas de Brasil (moneda BRL).
+export function mostrarQrPix(moneda: string | null | undefined): boolean {
+  return moneda === 'BRL';
+}
 const VIGENCIA_MS = 60_000;
 let cache: { empresaId: string; leidoEn: number; estado: EstadoTiempo } | null = null;
 
@@ -68,13 +73,14 @@ export async function leerEstadoTiempo(empresaId?: string): Promise<EstadoTiempo
     if (!objetivo) return SIN_PROBLEMA;
     if (cache && cache.empresaId === objetivo && Date.now() - cache.leidoEn < VIGENCIA_MS) return cache.estado;
 
-    const { data: empresa } = await supabase.from('empresas').select('control_tiempo_activo, fecha_vencimiento_suscripcion, idioma').eq('id', objetivo).maybeSingle();
+    const { data: empresa } = await supabase.from('empresas').select('control_tiempo_activo, fecha_vencimiento_suscripcion, idioma, moneda').eq('id', objetivo).maybeSingle();
     if (!empresa) return SIN_PROBLEMA;
 
     const estado: EstadoTiempo = {
       sinTiempo: estaSinTiempo({ controlActivo: Boolean(empresa.control_tiempo_activo), fechaVencimiento: (empresa.fecha_vencimiento_suscripcion as string | null) ?? null }),
       vencimiento: (empresa.fecha_vencimiento_suscripcion as string | null) ?? null,
       idioma: empresa.idioma === 'PT' ? 'PT' : 'ES',
+      moneda: (empresa.moneda as string | null) ?? null,
     };
     cache = { empresaId: objetivo, leidoEn: Date.now(), estado };
     return estado;
