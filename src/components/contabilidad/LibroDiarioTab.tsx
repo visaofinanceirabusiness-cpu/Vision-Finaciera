@@ -377,7 +377,12 @@ export function LibroDiarioTab() {
               <input
                 type="search"
                 value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  // Un filtro de las tarjetas (p. ej. «Ver detalle» de un día) que quedó activo y fuera de pantalla hacía que
+                  // la búsqueda no encontrara nada: al buscar se quita, y la búsqueda mira todo el historial.
+                  if (e.target.value.trim() && filtroIndicador) setFiltroIndicador(null);
+                }}
                 placeholder={esPT ? 'Buscar em todos os campos (ID, data, conta, valor…)' : 'Buscar en todos los campos (ID, fecha, cuenta, importe…)'}
                 title={esPT ? 'Busca por ID, data, operação, histórico, contas, valor, categoria, forma de pagamento e status' : 'Busca por ID, fecha, operación, histórico, cuentas, importe, categoría, forma de pago y estado'}
                 aria-label={t('buscarLibroDiario')}
@@ -397,6 +402,11 @@ export function LibroDiarioTab() {
             <Resumen titulo={t('resumenOperaciones')} valor={String(totalOperaciones)} />
             <Resumen titulo={t('resumenAsientos')} valor={String(totalAsientos)} />
             <Resumen titulo={t('resumenImportes')} valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
+            {filtroIndicador && !hayBusqueda && (
+              <button type="button" onClick={() => setFiltroIndicador(null)} title={esPT ? 'Remover filtro' : 'Quitar filtro'} style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '7px 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                🔎 {esPT ? 'Filtro' : 'Filtro'}: {etiquetaFiltro(filtroIndicador, idioma, esFamiliar)} ✕
+              </button>
+            )}
             {hayBusqueda && <span style={{ fontSize: 14, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>🔎 {esPT ? 'Buscando em todo o histórico' : 'Buscando en todo el historial'}</span>}
           </div>
         </div>
@@ -422,6 +432,18 @@ export function LibroDiarioTab() {
       </div>
     </div>
   );
+}
+
+// Texto corto del filtro activo (el mismo que muestra la cabecera de indicadores).
+function etiquetaFiltro(filtro: FiltroIndicador, idioma: string | null, esFamiliar: boolean): string {
+  const pt = idioma === 'PT';
+  if (filtro.tipo === 'operacion') return nombreOperacionDisplay(idioma, filtro.valor, esFamiliar);
+  if (filtro.tipo === 'dia') return new Date(`${filtro.valor}T12:00:00`).toLocaleDateString(pt ? 'pt-BR' : 'es-AR');
+  if (filtro.valor === 'PENDIENTE') return pt ? 'Pendentes' : 'Pendientes';
+  if (filtro.valor === 'VALIDADO') return 'Validados';
+  if (filtro.valor === 'AUTOMATICO') return 'Automáticos';
+  if (filtro.valor === 'OPERACION') return pt ? 'Manuais' : 'Manuales';
+  return filtro.valor;
 }
 
 // Tres tarjetas con lo último que se cargó: hoy, ayer y hace dos días. Tocar «Ver detalle» filtra la tabla por ese día.
