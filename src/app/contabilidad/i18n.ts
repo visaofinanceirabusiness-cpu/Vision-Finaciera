@@ -133,7 +133,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelSocio: 'Socio/a',
     seleccionar: 'Seleccionar...',
     avisoTransferencia:
-      '💡 Esto mueve plata entre tus propias cuentas — no es un gasto ni un ingreso. Usalo cada vez que guardes o inviertas dinero para una meta (ej. un viaje): elegí a qué cuenta de ahorro va, de dónde sale la plata, y el monto. Así el progreso de tu meta en "Objetivos familiares" se actualiza solo.',
+      '💡 Esto mueve plata entre tus propias cuentas — no es un gasto ni un ingreso. Usalo cada vez que guardes o inviertas dinero para una meta (ej. un viaje): elegí a qué cuenta de ahorro va, de dónde sale la plata, y el monto. Así el progreso de tu meta en "Objetivos personales" se actualiza solo.',
     detalleValores: 'Detalle de valores',
     productoPlaceholder: 'Producto...',
     descripcionPlaceholder: 'Descripción',
@@ -232,7 +232,7 @@ export const diccionarioContabilidad: Diccionario<Clave> = {
     labelSocio: 'Sócio/a',
     seleccionar: 'Selecionar...',
     avisoTransferencia:
-      '💡 Isso movimenta dinheiro entre suas próprias contas — não é um gasto nem uma receita. Use sempre que guardar ou investir dinheiro para uma meta (ex. uma viagem): escolha para qual conta de poupança vai, de onde sai o dinheiro, e o valor. Assim o progresso da sua meta em "Objetivos familiares" se atualiza sozinho.',
+      '💡 Isso movimenta dinheiro entre suas próprias contas — não é um gasto nem uma receita. Use sempre que guardar ou investir dinheiro para uma meta (ex. uma viagem): escolha para qual conta de poupança vai, de onde sai o dinheiro, e o valor. Assim o progresso da sua meta em "Objetivos pessoais" se atualiza sozinho.',
     detalleValores: 'Detalhe de valores',
     productoPlaceholder: 'Produto...',
     descripcionPlaceholder: 'Descrição',

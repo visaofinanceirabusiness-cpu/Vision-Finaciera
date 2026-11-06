@@ -479,8 +479,8 @@ export function AnalisisContrapartes({
           <p style={subtituloStyle}>
             {esFamiliar
               ? esPT
-                ? 'Em Família cada fonte tem a sua própria conta: este é o saldo de cada uma, hoje. Toque para ver os movimentos.'
-                : 'En Familia cada fuente tiene su propia cuenta: este es el saldo de cada una, hoy. Tocá una para ver sus movimientos.'
+                ? 'Em Finanças Pessoais cada fonte tem a sua própria conta: este é o saldo de cada uma, hoje. Toque para ver os movimentos.'
+                : 'En Finanzas Personales cada fuente tiene su propia cuenta: este es el saldo de cada una, hoy. Tocá una para ver sus movimientos.'
               : esPT
                 ? `Saldo de cada ${tipo === 'clientes' ? 'cliente' : 'fornecedor'}, a partir do que movimentou nas contas ${tipo === 'clientes' ? 'a receber' : 'a pagar'}.`
                 : `Saldo de cada ${tipo === 'clientes' ? 'cliente' : 'proveedor'}, a partir de lo que movió en las cuentas ${tipo === 'clientes' ? 'por cobrar' : 'por pagar'}.`}

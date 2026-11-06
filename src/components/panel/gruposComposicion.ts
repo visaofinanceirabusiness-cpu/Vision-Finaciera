@@ -32,5 +32,5 @@ export const GRUPOS_PASIVO: Record<string, PresentacionGrupo> = {
 export const GRUPOS_PATRIMONIO: Record<string, PresentacionGrupo> = {
   APORTES: { es: 'Capital y aportes', pt: 'Capital e aportes', imagen: '/grupos/patrimonio-aportes.webp', emoji: '🌱', acento: '#15803d', fondo: '#f0fdf4', borde: '#bbf7d0' },
   RESULTADOS: { es: 'Resultados acumulados', pt: 'Resultados acumulados', imagen: '/grupos/patrimonio-resultados.webp', emoji: '🏆', acento: '#b45309', fondo: '#fffbeb', borde: '#fde68a' },
-  FAMILIAR: { es: 'Patrimonio familiar', pt: 'Patrimônio familiar', imagen: '/grupos/patrimonio-familiar.webp', emoji: '🏠', acento: '#1d4ed8', fondo: '#eff6ff', borde: '#bfdbfe' },
+  FAMILIAR: { es: 'Patrimonio personal', pt: 'Patrimônio pessoal', imagen: '/grupos/patrimonio-familiar.webp', emoji: '🏠', acento: '#1d4ed8', fondo: '#eff6ff', borde: '#bfdbfe' },
 };
