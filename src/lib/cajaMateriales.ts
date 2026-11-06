@@ -55,14 +55,18 @@ export const INVENTARIO: Pieza[] = [
 
   // ---------------- Herramientas ----------------
   { clave: 'panel-de-control', tipo: 'HERRAMIENTA', nombre: 'Panel de Control', emoji: '📊', descripcion: 'Indicadores y gráficos de la empresa.', ruta: '/panel-de-control', archivos: ['src/app/panel-de-control/page.tsx'], interruptor: 'pendiente' },
+  { clave: 'contab-lanzamientos', tipo: 'PANTALLA', nombre: 'Contabilidad → pestaña Lanzamientos (Central de Lanzamientos)', emoji: '🧾', descripcion: 'El formulario completo para cargar operaciones dentro de Contabilidad.', ruta: '/contabilidad', archivos: ['src/components/contabilidad/CentralDeLanzamientosTab.tsx', 'src/app/contabilidad/page.tsx'], necesita: ['motor-contable'], interruptor: 'conectado', seOculta: ['La pestaña «Lanzamientos» de Contabilidad'], seConserva: ['Todas las operaciones ya cargadas', 'El Mini-Juego, que carga con el mismo motor', 'El código y las tablas'], consecuencias: ['Las pantallas que abrían ese formulario (compromisos, cuotas) quedan sin él para quien lo tenga guardado'] },
+  { clave: 'contab-registros', tipo: 'PANTALLA', nombre: 'Contabilidad → pestaña Registros', emoji: '🗂️', descripcion: 'Registro de operaciones (vista de administrador).', ruta: '/contabilidad', archivos: ['src/components/contabilidad/RegistroOperacionesTab.tsx'], interruptor: 'conectado', seOculta: ['La pestaña «Registros» de Contabilidad'], seConserva: ['Los datos y el Libro Diario'] },
+  { clave: 'contab-editar', tipo: 'PANTALLA', nombre: 'Contabilidad → pestaña Editar registros', emoji: '✏️', descripcion: 'Edición y corrección de operaciones ya cargadas.', ruta: '/contabilidad', archivos: ['src/components/contabilidad/EditarRegistrosTab.tsx'], necesita: ['motor-contable'], interruptor: 'conectado', seOculta: ['La pestaña «Editar registros» de Contabilidad'], seConserva: ['Las operaciones ya cargadas', 'El código y las tablas'], consecuencias: ['Quien la tenga guardada no puede corregir ni borrar operaciones hasta que se le dé otro acceso'] },
+  { clave: 'sabio-registra', tipo: 'PANTALLA', nombre: 'Chat con Sabio: registrar operaciones', emoji: '💬', descripcion: 'La parte del chat de Sabio que carga operaciones conversando.', ruta: '/sabio-bot', archivos: ['src/lib/sabioBot.ts', 'src/components/panel/SabioBotChat.tsx'], necesita: ['motor-contable'], interruptor: 'conectado', seOculta: ['La carga de operaciones desde el chat de Sabio (el chat responde que no está disponible)'], seConserva: ['El chat para consultas', 'Las operaciones ya cargadas', 'El código y las tablas'] },
   { clave: 'contabilidad', tipo: 'HERRAMIENTA', nombre: 'Contabilidad', emoji: '🧾', descripcion: 'Central de Lanzamientos, libro diario y registros.', ruta: '/contabilidad', archivos: ['src/app/contabilidad/page.tsx', 'src/components/contabilidad/CentralDeLanzamientosTab.tsx'], necesita: ['motor-contable'], interruptor: 'pendiente' },
-  { clave: 'finanzas', tipo: 'HERRAMIENTA', nombre: 'Finanzas', emoji: '💼', descripcion: 'Flujo, compromisos, deudas y cuentas a cobrar/pagar.', ruta: '/finanzas', archivos: ['src/app/finanzas/page.tsx'], necesita: ['motor-contable'], interruptor: 'pendiente' },
+  { clave: 'finanzas', tipo: 'HERRAMIENTA', nombre: 'Finanzas', emoji: '💼', descripcion: 'Flujo, compromisos, deudas y cuentas a cobrar/pagar.', ruta: '/finanzas', archivos: ['src/app/finanzas/page.tsx'], necesita: ['motor-contable'], interruptor: 'conectado', seOculta: ['El acceso del menú y la pantalla /finanzas (compromisos, flujo, deudas y presupuesto)'], seConserva: ['Los compromisos, deudas y presupuestos ya cargados', 'Los pagos ya registrados', 'El código y las tablas'], consecuencias: ['Quien no la ve no puede pagar ni cobrar compromisos desde ahí: hay que darle otro acceso si lo necesita'] },
   { clave: 'mercaderia', tipo: 'HERRAMIENTA', nombre: 'Mercadería', emoji: '📦', descripcion: 'Productos, saldo, costo promedio y movimientos de stock. Solo para empresas que manejan mercadería.', ruta: '/mercaderia', archivos: ['src/app/mercaderia/page.tsx', 'src/app/stock/page.tsx', 'src/app/movimientos-stock/page.tsx'], tablas: ['productos', 'saldo_stock', 'movimientos_stock'], necesita: ['motor-contable'], interruptor: 'pendiente' },
   { clave: 'mi-local', tipo: 'HERRAMIENTA', nombre: 'Mi Local', emoji: '🛍️', descripcion: 'Tienda pública de la empresa: catálogo, banners, pedidos y venta manual contra el motor.', ruta: '/mi-local', archivos: ['src/app/mi-local/page.tsx', 'src/app/loja/[slug]/page.tsx', 'src/lib/miLocal.ts', 'src/lib/miLocalDatos.ts'], tablas: ['mi_local_tiendas', 'mi_local_publicaciones', 'mi_local_pedidos', 'mi_local_pedido_items', 'mi_local_banners'], configuracion: ['La tienda pública vive en /loja/<slug> (sin login)', 'Alta automática de compradores en Clientes (RH)'], necesita: ['mercaderia', 'motor-contable'], interruptor: 'pendiente' },
-  { clave: 'informes', tipo: 'HERRAMIENTA', nombre: 'Informes', emoji: '📈', descripcion: 'Balance, DRE, flujo de caja, mayor y sumas y saldos.', ruta: '/informes', archivos: ['src/app/informes/page.tsx'], necesita: ['motor-contable'], interruptor: 'pendiente' },
-  { clave: 'visao-3d', tipo: 'HERRAMIENTA', nombre: 'Visão 3D', emoji: '🏢', descripcion: 'La empresa como edificio en 3D, con temas por perfil.', ruta: '/visao-3d', archivos: ['src/app/visao-3d/page.tsx', 'src/components/visao3d/'], configuracion: ['Apertura por perfil o empresa en Panel Maestro → Apertura de Visão 3D (tabla visao3d_apertura)'], interruptor: 'pendiente' },
+  { clave: 'informes', tipo: 'HERRAMIENTA', nombre: 'Informes', emoji: '📈', descripcion: 'Balance, DRE, flujo de caja, mayor y sumas y saldos.', ruta: '/informes', archivos: ['src/app/informes/page.tsx'], necesita: ['motor-contable'], interruptor: 'conectado', seOculta: ['El acceso del menú y la pantalla /informes (balance, resultado, flujo, mayor y sumas)'], seConserva: ['Los datos contables: el Panel de Control sigue mostrando los mismos números', 'El código y las tablas'], consecuencias: ['Los atajos del Panel de Control que abren un informe llevan a un aviso de «no disponible»'] },
+  { clave: 'visao-3d', tipo: 'HERRAMIENTA', nombre: 'Visão 3D', emoji: '🏢', descripcion: 'La empresa como edificio en 3D, con temas por perfil.', ruta: '/visao-3d', archivos: ['src/app/visao-3d/page.tsx', 'src/components/visao3d/'], configuracion: ['Apertura por perfil o empresa en Panel Maestro → Apertura de Visão 3D (tabla visao3d_apertura)'], interruptor: 'conectado', seOculta: ['El acceso del menú y la pantalla /visao-3d'], seConserva: ['La configuración de apertura por perfil o empresa', 'El código y las tablas'], consecuencias: [] },
   { clave: 'produccion', tipo: 'HERRAMIENTA', nombre: 'Producción', emoji: '🏭', descripcion: 'Recetas, órdenes de producción e insumos. Depende del módulo Producción de la empresa.', ruta: '/produccion', archivos: ['src/app/produccion/page.tsx'], necesita: ['mercaderia', 'motor-contable'], interruptor: 'pendiente' },
-  { clave: 'recursos-humanos', tipo: 'HERRAMIENTA', nombre: 'Recursos Humanos', emoji: '👥', descripcion: 'Clientes, proveedores y personas.', ruta: '/recursos-humanos', archivos: ['src/app/recursos-humanos/page.tsx'], tablas: ['clientes', 'proveedores'], interruptor: 'pendiente' },
+  { clave: 'recursos-humanos', tipo: 'HERRAMIENTA', nombre: 'Recursos Humanos', emoji: '👥', descripcion: 'Clientes, proveedores y personas.', ruta: '/recursos-humanos', archivos: ['src/app/recursos-humanos/page.tsx'], tablas: ['clientes', 'proveedores'], interruptor: 'conectado', seOculta: ['El acceso del menú y la pantalla /recursos-humanos (clientes, proveedores y personas)'], seConserva: ['Los clientes, proveedores y personas ya cargados', 'El código y las tablas'], consecuencias: ['Las listas de contactos se siguen usando al cargar operaciones; solo se esconde la pantalla para administrarlas'] },
   { clave: 'plan-accion', tipo: 'HERRAMIENTA', nombre: 'Plan de Acción', emoji: '🎯', descripcion: 'Objetivos y acciones; hoy solo existe para Buenaventura y Ocaña.', ruta: '/plan-accion', archivos: ['src/app/plan-accion/page.tsx'], interruptor: 'pendiente' },
   { clave: 'nuestro-sueno', tipo: 'HERRAMIENTA', nombre: 'Nuestro Sueño', emoji: '💞', descripcion: 'El sueño compartido de la familia; hoy solo existe para Buenaventura y Ocaña.', ruta: '/nuestro-sueno', archivos: ['src/app/nuestro-sueno/page.tsx'], interruptor: 'pendiente' },
   { clave: 'mensajes', tipo: 'HERRAMIENTA', nombre: 'Mensajes', emoji: '✉️', descripcion: 'Mensajes financieros del Sabio.', ruta: '/mensajes', archivos: ['src/app/mensajes/page.tsx'], tablas: ['mensajes_financieros'], interruptor: 'pendiente' },
@@ -164,4 +168,52 @@ export function evaluarSalidaDeLaCaja(clave: string, enCaja: ReadonlySet<string>
     permitido: true,
     avisos: faltantes.map((f) => `«${f.nombre}» sigue en la caja y esta pieza la necesita: sacala también o no va a funcionar bien.`),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// ALCANCE POR PERFIL
+// Una pieza guardada vale para todas las empresas (perfiles = null) o solo para algunos perfiles de empresa (por código).
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const PERFILES_CAJA: Array<{ codigo: string; nombre: string }> = [
+  { codigo: 'FAMILIAR', nombre: 'Finanzas Personales' },
+  { codigo: 'COMERCIAL', nombre: 'Comercial' },
+  { codigo: 'SERVICIOS', nombre: 'Servicios' },
+  { codigo: 'MIXTO', nombre: 'Mixto' },
+  { codigo: 'PRODUCCION', nombre: 'Producción' },
+];
+
+export function nombreAlcanceCaja(perfiles: string[] | null | undefined): string {
+  if (!perfiles || perfiles.length === 0) return 'todas las empresas';
+  return perfiles.map((c) => PERFILES_CAJA.find((p) => p.codigo === c)?.nombre ?? c).join(', ');
+}
+
+// ¿Esta pieza guardada se esconde para quien tiene ese perfil? Sin perfil conocido solo cuenta lo guardado para todos.
+export function estaEnCajaParaPerfil(fila: { perfiles?: string[] | null } | undefined, perfilCodigo: string | null): boolean {
+  if (!fila) return false;
+  if (!fila.perfiles || fila.perfiles.length === 0) return true;
+  return perfilCodigo !== null && fila.perfiles.includes(perfilCodigo);
+}
+
+// Qué pieza esconde cada pantalla (por ruta): así una pieza guardada también cierra el acceso directo por la barra del navegador.
+const CLAVE_CAJA_DE_RUTA: Array<[string, string]> = [
+  ['/panel-de-control', 'panel-de-control'],
+  ['/finanzas', 'finanzas'],
+  ['/mercaderia', 'mercaderia'],
+  ['/stock', 'mercaderia'],
+  ['/movimientos-stock', 'mercaderia'],
+  ['/mi-local', 'mi-local'],
+  ['/informes', 'informes'],
+  ['/visao-3d', 'visao-3d'],
+  ['/produccion', 'produccion'],
+  ['/recursos-humanos', 'recursos-humanos'],
+  ['/plan-accion', 'plan-accion'],
+  ['/nuestro-sueno', 'nuestro-sueno'],
+  ['/mensajes', 'mensajes'],
+];
+
+export function claveCajaDeRuta(pathname: string | null | undefined): string | null {
+  if (!pathname) return null;
+  const hallada = CLAVE_CAJA_DE_RUTA.find(([ruta]) => pathname === ruta || pathname.startsWith(`${ruta}/`));
+  return hallada ? hallada[1] : null;
 }

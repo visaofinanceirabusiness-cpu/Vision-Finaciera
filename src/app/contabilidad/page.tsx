@@ -32,6 +32,7 @@ import { useEnShell } from '@/components/shell/ShellContext';
 import { diccionarioContabilidad, frasesSabioContabilidad } from './i18n';
 import { SimboloContext, EsFamiliarContext, IdiomaContext, COLORES, type ValoresIniciales } from '@/components/contabilidad/compartido';
 import { fondo, encabezado, volver, eyebrow, panel } from '@/components/contabilidad/estilosCompartidos';
+import { useCaja } from '@/components/caja/useCaja';
 import { CentralDeLanzamientosTab } from '@/components/contabilidad/CentralDeLanzamientosTab';
 import { RegistroOperacionesTab } from '@/components/contabilidad/RegistroOperacionesTab';
 import { LibroDiarioTab } from '@/components/contabilidad/LibroDiarioTab';
@@ -56,6 +57,15 @@ function ContabilidadPageInterno() {
   const vieneAregistrar = ['gastoRecurrenteRecordatorioId', 'ingresoRecurrenteRecordatorioId', 'cuotaId', 'tutorial'].some((clave) => searchParams.get(clave));
   const [pestana, setPestana] = useState<Pestana>(vieneAregistrar ? 'lanzamientos' : 'libro');
   const [esAdmin, setEsAdmin] = useState(false);
+  // Pestañas guardadas en la caja de materiales para mi perfil (el admin de plataforma las ve todas).
+  const { estaEnCaja } = useCaja();
+  const oculta: Record<Pestana, boolean> = {
+    lanzamientos: !esAdmin && estaEnCaja('contab-lanzamientos'),
+    registros: !esAdmin && estaEnCaja('contab-registros'),
+    libro: false,
+    editar: !esAdmin && estaEnCaja('contab-editar'),
+  };
+  const pestanaActiva: Pestana = oculta[pestana] ? 'libro' : pestana;
   const [moneda, setMoneda] = useState<string | null>(null);
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [idioma, setIdioma] = useState<string | null>(null);
@@ -287,19 +297,21 @@ function ContabilidadPageInterno() {
               flexWrap: 'wrap',
             }}
           >
-            <button
-              type="button"
-              onClick={() => setPestana('lanzamientos')}
-              style={tabStyle(pestana === 'lanzamientos')}
-            >
-              {t('tabLanzamientos')}
-            </button>
+            {!oculta.lanzamientos && (
+              <button
+                type="button"
+                onClick={() => setPestana('lanzamientos')}
+                style={tabStyle(pestanaActiva === 'lanzamientos')}
+              >
+                {t('tabLanzamientos')}
+              </button>
+            )}
 
-            {esAdmin && (
+            {esAdmin && !oculta.registros && (
               <button
                 type="button"
                 onClick={() => setPestana('registros')}
-                style={tabStyle(pestana === 'registros')}
+                style={tabStyle(pestanaActiva === 'registros')}
               >
                 {t('tabRegistros')}
               </button>
@@ -308,21 +320,23 @@ function ContabilidadPageInterno() {
             <button
               type="button"
               onClick={() => setPestana('libro')}
-              style={tabStyle(pestana === 'libro')}
+              style={tabStyle(pestanaActiva === 'libro')}
             >
               {t('tabLibro')}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setPestana('editar')}
-              style={tabStyle(pestana === 'editar')}
-            >
-              {t('tabEditar')}
-            </button>
+            {!oculta.editar && (
+              <button
+                type="button"
+                onClick={() => setPestana('editar')}
+                style={tabStyle(pestanaActiva === 'editar')}
+              >
+                {t('tabEditar')}
+              </button>
+            )}
           </div>
 
-          {pestana === 'lanzamientos' && prefillListo && (
+          {pestanaActiva === 'lanzamientos' && prefillListo && (
             <CentralDeLanzamientosTab
               valoresIniciales={valoresInicialesGasto}
               recordatorioGastoRecurrente={recordatorioGastoRecurrente}
@@ -330,9 +344,9 @@ function ContabilidadPageInterno() {
               pendienteInicial={pendienteInicial}
             />
           )}
-          {pestana === 'registros' && <RegistroOperacionesTab />}
-          {pestana === 'libro' && <LibroDiarioTab />}
-          {pestana === 'editar' && <EditarRegistrosTab />}
+          {pestanaActiva === 'registros' && <RegistroOperacionesTab />}
+          {pestanaActiva === 'libro' && <LibroDiarioTab />}
+          {pestanaActiva === 'editar' && <EditarRegistrosTab />}
         </main>
       </div>
     </div>

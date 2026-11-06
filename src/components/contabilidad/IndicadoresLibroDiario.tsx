@@ -18,6 +18,8 @@ type Props = {
   idioma: string;
   esFamiliar: boolean;
   simbolo: string;
+  // Se dibuja entre la fila de indicadores principales y la de detalle (el Libro Diario pone ahí los últimos 3 días).
+  intermedio?: React.ReactNode;
 };
 
 const mismoFiltro = (a: FiltroIndicador | null, b: FiltroIndicador) => a?.tipo === b.tipo && a.valor === b.valor;
@@ -26,10 +28,13 @@ function fechaCorta(fecha: string, esPT: boolean): string {
   return new Date(`${fecha}T12:00:00`).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { day: '2-digit', month: '2-digit' });
 }
 
-function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Tarjeta({ titulo, icono, acento, children }: { titulo: string; icono: string; acento: string; children: React.ReactNode }) {
   return (
-    <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '14px 16px', minWidth: 0 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: COLORES.gris, marginBottom: 8 }}>{titulo}</div>
+    <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderTop: `5px solid ${acento}`, borderRadius: 20, padding: '14px 16px', minWidth: 0, boxShadow: '0 4px 14px rgba(31,58,95,0.06)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <span aria-hidden style={{ width: 36, height: 36, borderRadius: 12, background: `${acento}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, flexShrink: 0 }}>{icono}</span>
+        <div style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: 0.6, color: COLORES.gris }}>{titulo}</div>
+      </div>
       {children}
     </section>
   );
@@ -61,9 +66,9 @@ function FilaTocable({ activa, onClick, children }: { activa: boolean; onClick: 
   );
 }
 
-const textoChico: React.CSSProperties = { fontSize: 12.5, color: '#374151' };
+const textoChico: React.CSSProperties = { fontSize: 15, color: '#374151' };
 
-export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, filtro, onFiltro, idioma, esFamiliar, simbolo }: Props) {
+export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, filtro, onFiltro, idioma, esFamiliar, simbolo, intermedio }: Props) {
   const esPT = idioma === 'PT';
   const dinero = (n: number) => `${simbolo} ${formatearNumeroEntero(n)}`;
   const alternar = (nuevo: FiltroIndicador) => onFiltro(mismoFiltro(filtro, nuevo) ? null : nuevo);
@@ -92,8 +97,8 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
               background: periodo === o.id ? COLORES.azul : '#fff',
               color: periodo === o.id ? '#fff' : COLORES.azul,
               borderRadius: 999,
-              padding: '6px 14px',
-              fontSize: 12.5,
+              padding: '8px 16px',
+              fontSize: 15,
               fontWeight: 700,
               cursor: 'pointer',
             }}
@@ -105,17 +110,17 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
           <button
             type="button"
             onClick={() => onFiltro(null)}
-            style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+            style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '8px 14px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
           >
             🔎 {esPT ? 'Filtro' : 'Filtro'}: {filtro.tipo === 'operacion' ? nombreOperacionDisplay(idioma, filtro.valor, esFamiliar) : filtro.tipo === 'dia' ? fechaCorta(filtro.valor, esPT) : filtro.valor === 'PENDIENTE' ? (esPT ? 'Pendentes' : 'Pendientes') : filtro.valor === 'VALIDADO' ? (esPT ? 'Validados' : 'Validados') : filtro.valor === 'AUTOMATICO' ? (esPT ? 'Automáticos' : 'Automáticos') : filtro.valor === 'OPERACION' ? (esPT ? 'Manuais' : 'Manuales') : filtro.valor} ✕
           </button>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
         {/* 1 · Movimiento y cuadre */}
-        <Tarjeta titulo={esPT ? '1 · MOVIMENTO' : '1 · MOVIMIENTO'}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: COLORES.azul }}>{dinero(movimiento.volumen)}</div>
+        <Tarjeta titulo={esPT ? 'MOVIMENTO' : 'MOVIMIENTO'} icono="💱" acento="#1f3a5f">
+          <div style={{ fontSize: 28, fontWeight: 900, color: COLORES.azul }}>{dinero(movimiento.volumen)}</div>
           <div style={textoChico}>
             {movimiento.asientos} {esPT ? 'lançamentos' : 'asientos'} · {movimiento.operaciones} {esPT ? 'operações' : 'operaciones'}
           </div>
@@ -132,10 +137,10 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
         </Tarjeta>
 
         {/* 2 · Ritmo de actividad */}
-        <Tarjeta titulo={esPT ? '2 · RITMO DE ATIVIDADE' : '2 · RITMO DE ACTIVIDAD'}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: COLORES.azul }}>
+        <Tarjeta titulo={esPT ? 'RITMO DE ATIVIDADE' : 'RITMO DE ACTIVIDAD'} icono="📆" acento="#0ea5e9">
+          <div style={{ fontSize: 28, fontWeight: 900, color: COLORES.azul }}>
             {ritmo.diasConMovimiento}
-            <span style={{ fontSize: 14, fontWeight: 700, color: COLORES.gris }}> / {ritmo.diasDelPeriodo} {esPT ? 'dias com movimento' : 'días con movimiento'}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: COLORES.gris }}> / {ritmo.diasDelPeriodo} {esPT ? 'dias com movimento' : 'días con movimiento'}</span>
           </div>
           <div style={textoChico}>
             {ritmo.promedioOperacionesPorDiaActivo.toLocaleString(esPT ? 'pt-BR' : 'es-AR')} {esPT ? 'operações por dia ativo' : 'operaciones por día activo'}
@@ -154,8 +159,35 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
           )}
         </Tarjeta>
 
+        {/* 6 · Calidad del registro */}
+        <Tarjeta titulo={esPT ? 'QUALIDADE DO REGISTRO' : 'CALIDAD DEL REGISTRO'} icono="✅" acento="#16a34a">
+          <div style={{ fontSize: 28, fontWeight: 900, color: COLORES.azul }}>
+            {calidad.porcentajeValidado}%
+            <span style={{ fontSize: 16, fontWeight: 700, color: COLORES.gris }}> {esPT ? 'validados' : 'validados'}</span>
+          </div>
+          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'estado', valor: 'PENDIENTE' })} onClick={() => alternar({ tipo: 'estado', valor: 'PENDIENTE' })}>
+            <span style={textoChico}>
+              ⏳ {calidad.pendientes} {esPT ? 'pendentes' : 'pendientes'}
+            </span>
+          </FilaTocable>
+          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'origen', valor: 'OPERACION' })} onClick={() => alternar({ tipo: 'origen', valor: 'OPERACION' })}>
+            <span style={textoChico}>
+              ✍️ {calidad.manuales} {esPT ? 'lançados por você' : 'cargados por vos'}
+            </span>
+          </FilaTocable>
+          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'origen', valor: 'AUTOMATICO' })} onClick={() => alternar({ tipo: 'origen', valor: 'AUTOMATICO' })}>
+            <span style={textoChico}>
+              ⚙️ {calidad.automaticos} {esPT ? 'gerados pelo sistema' : 'generados por el sistema'}
+            </span>
+          </FilaTocable>
+        </Tarjeta>
+      </div>
+
+      {intermedio && <div style={{ margin: '18px 0 4px' }}>{intermedio}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginTop: 14 }}>
         {/* 3 · Mix de operaciones */}
-        <Tarjeta titulo={esPT ? '3 · MIX DE OPERAÇÕES' : '3 · MIX DE OPERACIONES'}>
+        <Tarjeta titulo={esPT ? 'MIX DE OPERAÇÕES' : 'MIX DE OPERACIONES'} icono="🧩" acento="#f59e0b">
           {mix.length === 0 ? (
             <div style={textoChico}>—</div>
           ) : (
@@ -174,7 +206,7 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
         </Tarjeta>
 
         {/* 4 · Cuentas más movidas */}
-        <Tarjeta titulo={esPT ? '4 · CONTAS MAIS MOVIMENTADAS' : '4 · CUENTAS MÁS MOVIDAS'}>
+        <Tarjeta titulo={esPT ? 'CONTAS MAIS MOVIMENTADAS' : 'CUENTAS MÁS MOVIDAS'} icono="🏦" acento="#2e8b57">
           {cuentas.length === 0 ? (
             <div style={textoChico}>—</div>
           ) : (
@@ -193,7 +225,7 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
         </Tarjeta>
 
         {/* 5 · Principales contrapartes */}
-        <Tarjeta titulo={esPT ? (esFamiliar ? '5 · ONDE MAIS GASTAMOS' : '5 · PRINCIPAIS CONTRAPARTES') : esFamiliar ? '5 · EN QUÉ GASTAMOS MÁS' : '5 · PRINCIPALES CONTRAPARTES'}>
+        <Tarjeta titulo={esPT ? (esFamiliar ? 'ONDE MAIS GASTAMOS' : 'PRINCIPAIS CONTRAPARTES') : esFamiliar ? 'EN QUÉ GASTAMOS MÁS' : 'PRINCIPALES CONTRAPARTES'} icono="🤝" acento="#8b5cf6">
           {contrapartes.clientes.length === 0 && contrapartes.proveedores.length === 0 && <div style={textoChico}>—</div>}
           {[
             { lista: contrapartes.clientes, titulo: esFamiliar ? (esPT ? 'Quem mais pagou' : 'Quién más aportó') : esPT ? 'Cliente principal' : 'Cliente principal', emoji: '🤝' },
@@ -201,7 +233,7 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
           ].map(({ lista, titulo, emoji }) =>
             lista.map((c) => (
               <FilaTocable key={`${titulo}-${c.nombre}`} activa={mismoFiltro(filtro, { tipo: 'contraparte', valor: c.nombre })} onClick={() => alternar({ tipo: 'contraparte', valor: c.nombre })}>
-                <div style={{ fontSize: 11, color: COLORES.gris }}>{emoji} {titulo}</div>
+                <div style={{ fontSize: 13.5, color: COLORES.gris }}>{emoji} {titulo}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, ...textoChico }}>
                   <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</b>
                   <span style={{ whiteSpace: 'nowrap' }}>{dinero(c.importe)}</span>
@@ -211,28 +243,6 @@ export function IndicadoresLibroDiario({ indicadores: ind, periodo, onPeriodo, f
           )}
         </Tarjeta>
 
-        {/* 6 · Calidad del registro */}
-        <Tarjeta titulo={esPT ? '6 · QUALIDADE DO REGISTRO' : '6 · CALIDAD DEL REGISTRO'}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: COLORES.azul }}>
-            {calidad.porcentajeValidado}%
-            <span style={{ fontSize: 14, fontWeight: 700, color: COLORES.gris }}> {esPT ? 'validados' : 'validados'}</span>
-          </div>
-          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'estado', valor: 'PENDIENTE' })} onClick={() => alternar({ tipo: 'estado', valor: 'PENDIENTE' })}>
-            <span style={textoChico}>
-              ⏳ {calidad.pendientes} {esPT ? 'pendentes' : 'pendientes'}
-            </span>
-          </FilaTocable>
-          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'origen', valor: 'OPERACION' })} onClick={() => alternar({ tipo: 'origen', valor: 'OPERACION' })}>
-            <span style={textoChico}>
-              ✍️ {calidad.manuales} {esPT ? 'lançados por você' : 'cargados por vos'}
-            </span>
-          </FilaTocable>
-          <FilaTocable activa={mismoFiltro(filtro, { tipo: 'origen', valor: 'AUTOMATICO' })} onClick={() => alternar({ tipo: 'origen', valor: 'AUTOMATICO' })}>
-            <span style={textoChico}>
-              ⚙️ {calidad.automaticos} {esPT ? 'gerados pelo sistema' : 'generados por el sistema'}
-            </span>
-          </FilaTocable>
-        </Tarjeta>
       </div>
     </div>
   );
