@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { cargarCaja, empresasConTarjetasFijadas, mandarALaCaja, sacarDeLaCaja, type EstadoCaja } from '@/lib/cajaMaterialesDatos';
-import { INVENTARIO, NOMBRE_TIPO, evaluarEnvioALaCaja, evaluarSalidaDeLaCaja, piezaPorClave, type Pieza, type TipoPieza } from '@/lib/cajaMateriales';
+import { INVENTARIO, NOMBRE_TIPO, PERFILES_CAJA, nombreAlcanceCaja, evaluarEnvioALaCaja, evaluarSalidaDeLaCaja, piezaPorClave, type Pieza, type TipoPieza } from '@/lib/cajaMateriales';
 
 const COLORES = { azul: '#1f3a5f', verde: '#2e8b57', gris: '#6e7781', rojo: '#b91c1c', ambar: '#92400e' };
 const TIPOS = Object.keys(NOMBRE_TIPO) as TipoPieza[];
@@ -50,6 +50,8 @@ export default function CajaDeMaterialesPage() {
   const [trabajando, setTrabajando] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
 
+  // Perfiles a los que se les guarda la pieza; vacío = todas las empresas.
+  const [alcance, setAlcance] = useState<string[]>([]);
   const recargar = useCallback(async () => setCaja(await cargarCaja()), []);
 
   useEffect(() => {
@@ -78,6 +80,7 @@ export default function CajaDeMaterialesPage() {
   }, [filtro, busqueda, enCaja]);
 
   async function abrirEnvio(p: Pieza) {
+    setAlcance([]);
     setMotivo('');
     setEntendi(false);
     setDatoReal(null);
@@ -92,8 +95,8 @@ export default function CajaDeMaterialesPage() {
     if (!enviando) return;
     setTrabajando(true);
     try {
-      await mandarALaCaja(enviando.clave, motivo);
-      setMensaje({ ok: true, texto: `«${enviando.nombre}» está ahora en la caja de materiales.` });
+      await mandarALaCaja(enviando.clave, motivo, alcance.length > 0 ? alcance : null);
+      setMensaje({ ok: true, texto: `«${enviando.nombre}» está ahora en la caja de materiales (${nombreAlcanceCaja(alcance)}).` });
       setEnviando(null);
       await recargar();
     } catch {
@@ -203,7 +206,7 @@ export default function CajaDeMaterialesPage() {
 
                       {guardada && estado && (
                         <div style={{ fontSize: 12.5, color: COLORES.ambar, marginTop: 8 }}>
-                          Guardada el {new Date(estado.movido_en).toLocaleDateString('es-AR')}
+                          Guardada el {new Date(estado.movido_en).toLocaleDateString('es-AR')} · Para: {nombreAlcanceCaja(estado.perfiles)}
                           {estado.motivo ? ` · Motivo: ${estado.motivo}` : ''}
                         </div>
                       )}
@@ -236,6 +239,24 @@ export default function CajaDeMaterialesPage() {
           <div style={{ background: '#fff', borderRadius: 18, padding: 22, maxWidth: 560, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
             <h3 style={{ margin: 0, color: COLORES.azul }}>Mandar a la caja: {enviando.emoji} {enviando.nombre}</h3>
             {evaluacion.bloqueos.length > 0 && <Lista titulo="NO SE PUEDE POR AHORA" items={evaluacion.bloqueos} color={COLORES.rojo} />}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: COLORES.azul, letterSpacing: 0.4 }}>¿PARA QUIÉN SE GUARDA?</div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, marginTop: 4 }}>
+                <input type="radio" name="alcance" checked={alcance.length === 0} onChange={() => setAlcance([])} /> Todas las empresas
+              </label>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, marginTop: 4 }}>
+                <input type="radio" name="alcance" checked={alcance.length > 0} onChange={() => setAlcance(['FAMILIAR'])} /> Solo algunos perfiles:
+              </label>
+              {alcance.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '6px 0 0 24px' }}>
+                  {PERFILES_CAJA.map((p) => (
+                    <label key={p.codigo} style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 14 }}>
+                      <input type="checkbox" checked={alcance.includes(p.codigo)} onChange={(e) => setAlcance((a) => (e.target.checked ? [...a, p.codigo] : a.filter((c) => c !== p.codigo).length ? a.filter((c) => c !== p.codigo) : a))} /> {p.nombre}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <Lista titulo="SE ESCONDE" items={evaluacion.seOculta} color={COLORES.ambar} />
             <Lista titulo="CONSECUENCIAS PARA LOS CLIENTES" items={[...evaluacion.consecuencias, ...(datoReal ? [datoReal] : [])]} color={COLORES.ambar} />
             <Lista titulo="NO SE TOCA" items={evaluacion.seConserva} color={COLORES.verde} />

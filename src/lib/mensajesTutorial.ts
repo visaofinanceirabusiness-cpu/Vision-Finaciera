@@ -84,10 +84,10 @@ Un abrazo,
 Sabio 🦉`,
     },
     CONTAB_FAM: {
-      titulo: 'Cómo registrar los movimientos de tu familia',
+      titulo: 'Cómo registrar tus movimientos',
       texto: `¡Hola! 👋
 
-Contabilidad es donde vas a cargar cada movimiento de plata de tu familia: un ingreso, un gasto, un aporte, un retiro, o una transferencia hacia un ahorro.
+Contabilidad es donde vas a cargar cada movimiento de tu plata: un ingreso, un gasto, un aporte, un retiro, o una transferencia hacia un ahorro.
 
 Para registrar un movimiento elegís, en este orden:
 
@@ -96,9 +96,9 @@ Para registrar un movimiento elegís, en este orden:
 3️⃣ Forma de pago: con qué medio se movió la plata.
 4️⃣ Según la operación: la Fuente de ingreso, el Destino de pago, o el Socio/a que corresponda.
 
-💡 Un detalle importante: si estás ahorrando o invirtiendo para una meta (como un viaje), usá siempre "Transferencia" — así el progreso de tu meta en "Objetivos familiares" se actualiza solo.
+💡 Un detalle importante: si estás ahorrando o invirtiendo para una meta (como un viaje), usá siempre "Transferencia" — así el progreso de tu meta en "Objetivos personales" se actualiza solo.
 
-Cargá los movimientos apenas pasen — así tu Panel de Control siempre va a mostrar la foto real de tu economía familiar.
+Cargá los movimientos apenas pasen — así tu Panel de Control siempre va a mostrar la foto real de tu economía personal.
 
 Un abrazo,
 Sabio 🦉`,
@@ -175,7 +175,7 @@ Sabio 🦉`,
       titulo: 'Así organizás tus fuentes de ingreso y destinos de pago',
       texto: `¡Hola! 👋
 
-Esta herramienta es donde cargás con quién se relaciona la plata que entra y sale de tu familia.
+Esta herramienta es donde cargás con quién se relaciona la plata que entra y sale de tus finanzas.
 
 Tiene dos pestañas:
 
@@ -198,7 +198,7 @@ Ahí podés:
 🏷️ Cargar tus categorías (de gasto, de producto, de servicio) y decidir a qué cuenta contable corresponde cada una.
 💳 Definir tus formas de pago (Efectivo, Tarjeta, Transferencia...) y a qué cuenta se asocia cada una.
 🎯 Editar tus Objetivos: cambiar metas, crear nuevas, o desactivar las que no te sirvan.
-👪 (Si tu perfil es Familia) Administrar tus Socios/as.
+👪 (Si tu perfil es Finanzas Personales) Administrar tus Socios/as.
 
 💡 Mi recomendación: si alguna vez Contabilidad te dice "falta asignar la cuenta para esta categoría", es en Configuraciones donde se resuelve.
 
@@ -250,10 +250,10 @@ Um abraço,
 Sabio 🦉`,
     },
     CONTAB_FAM: {
-      titulo: 'Como registrar as movimentações da sua família',
+      titulo: 'Como registrar as suas movimentações',
       texto: `Olá! 👋
 
-Contabilidade é onde você registra cada movimentação de dinheiro da sua família: uma receita, uma despesa, um aporte, uma retirada, ou uma transferência para uma poupança.
+Contabilidade é onde você registra cada movimentação do seu dinheiro: uma receita, uma despesa, um aporte, uma retirada, ou uma transferência para uma poupança.
 
 Para registrar uma movimentação, escolha nesta ordem:
 
@@ -262,9 +262,9 @@ Para registrar uma movimentação, escolha nesta ordem:
 3️⃣ Forma de pagamento: por qual meio o dinheiro se movimentou.
 4️⃣ Conforme a operação: a Fonte de renda, o Destino do pagamento, ou o Sócio/a correspondente.
 
-💡 Um detalhe importante: se você está guardando ou investindo para uma meta (como uma viagem), use sempre "Transferência" — assim o progresso da sua meta em "Objetivos familiares" se atualiza sozinho.
+💡 Um detalhe importante: se você está guardando ou investindo para uma meta (como uma viagem), use sempre "Transferência" — assim o progresso da sua meta em "Objetivos pessoais" se atualiza sozinho.
 
-Registre as movimentações assim que acontecerem — assim o seu Painel de Controle sempre mostra a foto real da economia da sua família.
+Registre as movimentações assim que acontecerem — assim o seu Painel de Controle sempre mostra a foto real da sua economia pessoal.
 
 Um abraço,
 Sabio 🦉`,
@@ -341,7 +341,7 @@ Sabio 🦉`,
       titulo: 'Assim você organiza suas fontes de renda e destinos de pagamento',
       texto: `Olá! 👋
 
-Esta ferramenta é onde você cadastra com quem se relaciona o dinheiro que entra e sai da sua família.
+Esta ferramenta é onde você cadastra com quem se relaciona o dinheiro que entra e sai das suas finanças.
 
 Tem duas abas:
 

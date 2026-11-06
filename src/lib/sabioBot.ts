@@ -32,6 +32,7 @@
 // nombre de la operación (VENTA/COBRO/etc.), vía
 // nombreOperacionDisplay, igual que en Contabilidad.
 
+import { piezaEnCajaParaMi } from './cajaMaterialesDatos';
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, estaVencido, etiquetaPeriodo, operacionDeCompromiso, pendientesParaCargar, type CompromisoAbierto } from './compromisosAbiertos';
 import { supabase } from './supabase';
@@ -214,7 +215,20 @@ async function borrarConversacion(empresaId: string) {
   await supabase.from('sabiobot_conversaciones').delete().eq('empresa_id', empresaId);
 }
 
+// Caja de materiales: para algunos perfiles el chat no carga operaciones (queda solo para consultas; se carga con el Mini-Juego).
+async function mensajeSiNoRegistra(empresaId: string): Promise<string | null> {
+  if (!(await piezaEnCajaParaMi('sabio-registra'))) return null;
+  const { data: empresaIdioma } = await supabase.from('empresas').select('idioma').eq('id', empresaId).maybeSingle();
+  return t(
+    empresaIdioma?.idioma ?? 'ES',
+    '🦉 Por ahora no puedo cargar operaciones desde este chat. Para registrar un movimiento usá el Mini-Juego 🎮, que te guía paso a paso.',
+    '🦉 Por enquanto não consigo registrar operações neste chat. Para lançar um movimento use o Mini-Jogo 🎮, que guia você passo a passo.'
+  );
+}
+
 export async function iniciarConversacionSabioBot(empresaId: string): Promise<string> {
+  const bloqueado = await mensajeSiNoRegistra(empresaId);
+  if (bloqueado) return bloqueado;
   return iniciar(empresaId);
 }
 
@@ -492,6 +506,9 @@ async function seguirTrasFormaPago(empresaId: string, datos: Datos, formaPago: s
 }
 
 export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: string): Promise<string> {
+  const bloqueado = await mensajeSiNoRegistra(empresaId);
+  if (bloqueado) return bloqueado;
+
   const texto = textoOriginal.trim();
   const textoNormalizado = texto.toLowerCase();
 

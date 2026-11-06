@@ -142,7 +142,7 @@ export default function AdnPage() {
   const topHerramienta = herramientas[0] ? etiquetaRuta(herramientas[0].ruta, idioma) : null;
   const opsTotales = totalOps;
   const cambiosTotal = datos.cambios.reduce((a, c) => a + c.cantidad, 0);
-  const titulo = datos.esFamiliar ? t('ADN de la familia', 'DNA da família') : t('ADN de la empresa', 'DNA da empresa');
+  const titulo = datos.esFamiliar ? t('ADN personal', 'DNA pessoal') : t('ADN de la empresa', 'DNA da empresa');
 
   const nodos: Array<{ clave: NodoClave; titulo: string; sub: string; resumen: string }> = [
     { clave: 'tiempo', titulo: t('Tiempo de actividad', 'Tempo de atividade'), sub: t('Horas, sesiones, frecuencia', 'Horas, sessões, frequência'), resumen: `${formatearDuracion(resumen.totalSegundos, idioma)} · ${resumen.sesiones} ${t('sesiones', 'sessões')}` },

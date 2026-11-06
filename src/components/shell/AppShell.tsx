@@ -28,8 +28,11 @@ import { frasesSabioDeRuta } from '@/lib/sabioPorRuta';
 import { MiniJuego } from '@/components/panel/MiniJuego';
 import { NotificacionesPush } from '@/components/panel/NotificacionesPush';
 import { useCaja } from '@/components/caja/useCaja';
+import { CajaNoDisponible } from '@/components/caja/CajaNoDisponible';
+import { claveCajaDeRuta, piezaPorClave } from '@/lib/cajaMateriales';
 import { ShellProveedor } from './ShellContext';
 import { useLatidoActividad } from './useLatidoActividad';
+import { EVENTO_ABRIR_MINIJUEGO, EVENTO_MINIJUEGO_CERRADO } from '@/lib/miniJuegoEvento';
 
 const COLORES = {
   azul: 'var(--color-primario, #1f3a5f)',
@@ -189,6 +192,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Mientras se carga la empresa se usa el recuerdo de la última vez para no mostrar un destello del diseño anterior.
   const encendido = rutaEnShell(pathname) && (datos !== null || previoActivo);
   useLatidoActividad(pathname, datos !== null);
+
+  // Otras pantallas (p. ej. el Libro Diario) piden abrir el Mini-Juego de siempre con este evento.
+  useEffect(() => {
+    const abrir = () => setJuegoAbierto(true);
+    window.addEventListener(EVENTO_ABRIR_MINIJUEGO, abrir);
+    return () => window.removeEventListener(EVENTO_ABRIR_MINIJUEGO, abrir);
+  }, []);
+
+  // Pieza guardada en la caja para mi perfil: también se cierra el acceso directo por la dirección. El admin de plataforma abre todo.
+  const claveCaja = claveCajaDeRuta(pathname);
+  const cajaBloquea = Boolean(datos) && !datos?.esAdminPlataforma && claveCaja !== null && estaEnCaja(claveCaja);
 
   async function actualizar() {
     if (actualizando) return;
@@ -407,7 +421,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="shell-centro" style={encendido ? undefined : { display: 'contents' }}>
           <div key={version} style={{ display: 'contents' }}>
-            {children}
+            {cajaBloquea ? <CajaNoDisponible nombre={piezaPorClave(claveCaja ?? '')?.nombre ?? 'Esta herramienta'} idioma={datos?.idioma === 'PT' ? 'PT' : 'ES'} /> : children}
           </div>
         </div>
 
@@ -449,7 +463,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             simbolo={simboloMoneda(datos.moneda)}
             colores={{ azul: COLORES.azul, verde: COLORES.verde, acento: COLORES.acento, blanco: COLORES.blanco }}
             simulacion={undefined}
-            onCerrar={() => setJuegoAbierto(false)}
+            onCerrar={() => {
+              setJuegoAbierto(false);
+              window.dispatchEvent(new Event(EVENTO_MINIJUEGO_CERRADO));
+            }}
           />
         )}
       </div>

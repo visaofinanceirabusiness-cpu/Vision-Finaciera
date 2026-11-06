@@ -1,23 +1,25 @@
 'use client';
 
 // Hook para consultar la caja de materiales desde cualquier pantalla: `estaEnCaja('clave')`.
-// Mientras carga (o si falla la lectura) devuelve false: lo guardado se esconde recién cuando se sabe seguro.
+// Una pieza puede estar guardada para todas las empresas o solo para algunos perfiles: acá se resuelve según el perfil de quien
+// está conectado. Mientras carga (o si falla la lectura) devuelve false: lo guardado se esconde recién cuando se sabe seguro.
 
 import { useEffect, useState } from 'react';
-import { cargarCaja } from '@/lib/cajaMaterialesDatos';
+import { cargarCaja, miPerfilCodigo, type EstadoCaja } from '@/lib/cajaMaterialesDatos';
+import { estaEnCajaParaPerfil } from '@/lib/cajaMateriales';
 
 export function useCaja(): { cargada: boolean; estaEnCaja: (clave: string) => boolean } {
-  const [claves, setClaves] = useState<Set<string> | null>(null);
+  const [estado, setEstado] = useState<{ filas: Map<string, EstadoCaja>; perfil: string | null } | null>(null);
 
   useEffect(() => {
     let vivo = true;
-    cargarCaja().then((filas) => {
-      if (vivo) setClaves(new Set(filas.map((f) => f.clave)));
+    Promise.all([cargarCaja(), miPerfilCodigo()]).then(([filas, perfil]) => {
+      if (vivo) setEstado({ filas: new Map(filas.map((f) => [f.clave, f])), perfil });
     });
     return () => {
       vivo = false;
     };
   }, []);
 
-  return { cargada: claves !== null, estaEnCaja: (clave) => claves?.has(clave) ?? false };
+  return { cargada: estado !== null, estaEnCaja: (clave) => (estado ? estaEnCajaParaPerfil(estado.filas.get(clave), estado.perfil) : false) };
 }

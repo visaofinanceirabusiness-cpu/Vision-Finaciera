@@ -2,10 +2,11 @@
 
 // PESTAÑA 3 · LIBRO DIARIO
 //
-// Extraído de app/contabilidad/page.tsx — mismo comportamiento, solo
-// en su propio archivo (Fase 2 de mantenimiento).
+// Centro de seguimiento contable: consultar movimientos, recordar lo de los últimos días y seguir cargando sin perder el hilo.
+// Modelo visual: cabecera con «Nuevo lanzamiento» (abre el Mini-Juego de siempre), indicadores, tres tarjetas de los últimos días,
+// buscador global y tabla. Solo cambia la presentación: los datos, los filtros, los estados y el motor contable son los de antes.
 
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { formatearNumeroEntero } from '@/lib/moneda';
@@ -19,8 +20,8 @@ import {
   contadorAsientos,
 } from '@/app/contabilidad/i18n';
 import { SimboloContext, EsFamiliarContext, IdiomaContext, COLORES } from './compartido';
-import { campoInput, tablaContenedorInterna, vacioOperacion, cuentaDebe, cuentaHaber } from './estilosCompartidos';
-import { Th, Td, Estado } from './celdas';
+import { cuentaDebe, cuentaHaber } from './estilosCompartidos';
+import { Estado } from './celdas';
 import { IndicadoresLibroDiario } from './IndicadoresLibroDiario';
 import {
   aplicarFiltroIndicador,
@@ -31,11 +32,9 @@ import {
   type FiltroIndicador,
   type PeriodoLibro,
 } from '@/lib/indicadoresLibroDiario';
+import { coincideBusqueda, coincideGrupoTipo, estiloDeOperacion, ultimosTresDias, type GrupoTipo, type ResumenDia } from '@/lib/libroDiario';
+import { EVENTO_MINIJUEGO_CERRADO, abrirMiniJuego } from '@/lib/miniJuegoEvento';
 import { fechaLocalHoy } from '@/lib/fecha';
-
-/* ==========================================================
-   PESTAÑA 3 · LIBRO DIARIO
-========================================================== */
 
 type MovimientoDiario = {
   empresa_id: string;
@@ -48,12 +47,11 @@ type MovimientoDiario = {
   importe: number;
   estado: string | null;
   tipo_registro: 'OPERACION' | 'AUTOMATICO';
-  // Solo presentes en filas tipo_registro==='OPERACION' — se usan
-  // para poder reenviar el comprobante de una Venta ya validada
-  // (ver BotonReenviarComprobante). Los registros_automaticos
-  // (CMV, etc.) no tienen cliente ni forma de pago propia.
+  // Solo presentes en filas tipo_registro==='OPERACION' — se usan para reenviar el comprobante de una Venta ya validada
+  // (ver BotonReenviarComprobante) y para el buscador. Los registros_automaticos (CMV, etc.) no los tienen.
   cliente_proveedor?: string | null;
   forma_pago?: string | null;
+  categoria?: string | null;
 };
 
 type GrupoOperacion = {
@@ -62,12 +60,17 @@ type GrupoOperacion = {
   filas: MovimientoDiario[];
 };
 
+// Cada cuánto se vuelve a leer Supabase mientras la pantalla está a la vista, y cuántas operaciones se dibujan de una vez.
+const REFRESCO_MS = 45_000;
+const GRUPOS_POR_TANDA = 30;
+
 export function LibroDiarioTab() {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const esFamiliar = useContext(EsFamiliarContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
   const router = useRouter();
+  const esPT = idioma === 'PT';
 
   const [filas, setFilas] = useState<MovimientoDiario[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -77,6 +80,10 @@ export function LibroDiarioTab() {
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [periodo, setPeriodo] = useState<PeriodoLibro>('MES');
   const [filtroIndicador, setFiltroIndicador] = useState<FiltroIndicador | null>(null);
+  const [grupoTipo, setGrupoTipo] = useState<GrupoTipo>('TODOS');
+  const [limite, setLimite] = useState(GRUPOS_POR_TANDA);
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null);
+  const tablaRef = useRef<HTMLDivElement | null>(null);
 
   async function cargar(empresaId: string) {
     setError('');
@@ -99,7 +106,8 @@ export function LibroDiarioTab() {
           total,
           estado,
           cliente_proveedor,
-          forma_pago
+          forma_pago,
+          categoria
           `
         )
         .eq('empresa_id', empresaId),
@@ -147,6 +155,7 @@ export function LibroDiarioTab() {
       tipo_registro: 'OPERACION',
       cliente_proveedor: fila.cliente_proveedor,
       forma_pago: fila.forma_pago,
+      categoria: fila.categoria,
     }));
 
     const filasAutomaticas: MovimientoDiario[] = (automaticos ?? []).map((fila) => ({
@@ -228,23 +237,15 @@ export function LibroDiarioTab() {
     () => calcularIndicadores(filasDelPeriodo, rango ? filtrarPorRango(filas, rangoAnterior(rango)) : null, rango, hoy),
     [filasDelPeriodo, filas, rango, hoy]
   );
+  const tresDias = useMemo(() => ultimosTresDias(filas, hoy), [filas, hoy]);
+
+  // Con algo escrito en el buscador se mira TODO el historial (no solo el período elegido) y todos los campos de cada asiento.
+  const hayBusqueda = busqueda.trim().length > 0;
 
   const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    const base = aplicarFiltroIndicador(filasDelPeriodo, filtroIndicador);
-
-    if (!texto) {
-      return base;
-    }
-
-    return base.filter((fila) =>
-      [fila.id_operacion, fila.operacion, fila.historico, fila.cuenta_debito, fila.cuenta_credito, fila.estado, fila.tipo_registro]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(texto)
-    );
-  }, [filasDelPeriodo, filtroIndicador, busqueda]);
+    const base = aplicarFiltroIndicador(hayBusqueda ? filas : filasDelPeriodo, filtroIndicador);
+    return base.filter((fila) => coincideGrupoTipo(fila.operacion, grupoTipo) && (!hayBusqueda || coincideBusqueda(fila, busqueda, idioma, esFamiliar)));
+  }, [filas, filasDelPeriodo, filtroIndicador, grupoTipo, hayBusqueda, busqueda, idioma, esFamiliar]);
 
   const grupos = useMemo(() => {
     const mapa = new Map<string, GrupoOperacion>();
@@ -270,32 +271,85 @@ export function LibroDiarioTab() {
   const totalImportes = visibles.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
   const totalOperaciones = grupos.length;
 
+  // Lectura silenciosa (sin pantalla de carga): al volver a la pestaña, cada ciertos segundos y al cerrar el Mini-Juego.
+  const refrescar = useCallback(async () => {
+    if (!empresaId) return;
+    await cargar(empresaId);
+    setActualizadoEn(new Date());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') void refrescar();
+    };
+    const id = window.setInterval(alVolver, REFRESCO_MS);
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener(EVENTO_MINIJUEGO_CERRADO, refrescar);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener(EVENTO_MINIJUEGO_CERRADO, refrescar);
+    };
+  }, [empresaId, refrescar]);
+
+  // Cualquier cambio de filtro vuelve a la primera tanda.
+  useEffect(() => setLimite(GRUPOS_POR_TANDA), [periodo, filtroIndicador, grupoTipo, busqueda]);
+
+  function verDetalleDelDia(fecha: string) {
+    setBusqueda('');
+    setGrupoTipo('TODOS');
+    setPeriodo('TODO');
+    setFiltroIndicador({ tipo: 'dia', valor: fecha });
+    window.setTimeout(() => tablaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }
+
+  const chipsTipo: Array<{ id: GrupoTipo; texto: string }> = [
+    { id: 'TODOS', texto: esPT ? 'Todos' : 'Todos' },
+    { id: 'INGRESOS', texto: esPT ? '↑ Receitas' : '↑ Ingresos' },
+    { id: 'EGRESOS', texto: esPT ? '↓ Despesas' : '↓ Egresos' },
+    { id: 'TRANSFERENCIAS', texto: esPT ? '⇄ Transferências' : '⇄ Transferencias' },
+  ];
+
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginBottom: 18,
-        }}
-      >
-        <input
-          type="text"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder={t('buscarLibroDiario')}
-          style={{ ...campoInput, maxWidth: 460 }}
-        />
+      <style>{`
+        .ld-ultimos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .ld-dia:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(31,58,95,0.14); }
+        .ld-fila:hover { background: #f4faf6; }
+        @media (max-width: 900px) { .ld-ultimos { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .ld-dia { transition: none !important; } }
+      `}</style>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Resumen titulo={t('resumenOperaciones')} valor={String(totalOperaciones)} />
-          <Resumen titulo={t('resumenAsientos')} valor={String(totalAsientos)} />
-          <Resumen titulo={t('resumenImportes')} valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
+      {/* Cabecera: título, «Nuevo lanzamiento» (abre el Mini-Juego existente) y estado de la actualización. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <span aria-hidden style={{ width: 56, height: 56, borderRadius: 18, background: `linear-gradient(135deg, ${COLORES.azul}, ${COLORES.verde})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, boxShadow: '0 8px 18px rgba(31,58,95,0.22)' }}>📖</span>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 26, color: COLORES.azul, lineHeight: 1.1 }}>{esPT ? 'Livro Diário' : 'Libro Diario'}</h2>
+            <div style={{ fontSize: 15, color: COLORES.gris, marginTop: 2 }}>{esPT ? 'Registro cronológico de todas as operações' : 'Registro cronológico de todas las operaciones'}</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => void refrescar()} title={esPT ? 'Atualizar agora' : 'Actualizar ahora'} style={{ border: '1px solid #d6dee5', background: '#fff', color: COLORES.gris, borderRadius: 12, padding: '10px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+            🔄 {actualizadoEn ? actualizadoEn.toLocaleTimeString(esPT ? 'pt-BR' : 'es-AR', { hour: '2-digit', minute: '2-digit' }) : esPT ? 'Atualizar' : 'Actualizar'}
+          </button>
+          <button
+            type="button"
+            onClick={abrirMiniJuego}
+            title={esPT ? 'Abrir o Mini-Jogo para lançar uma operação' : 'Abrir el Mini-Juego para cargar una operación'}
+            style={{ border: 'none', background: `linear-gradient(135deg, ${COLORES.verde}, ${COLORES.azul})`, color: '#fff', borderRadius: 14, padding: '12px 20px', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 18px rgba(46,139,87,0.3)' }}
+          >
+            <span aria-hidden style={{ fontSize: 20 }}>＋</span> 🎮 {esPT ? 'Novo lançamento' : 'Nuevo lanzamiento'}
+          </button>
         </div>
       </div>
+
+      {error && (
+        <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 15 }}>{error}</div>
+      )}
 
       {!cargando && !error && (
         <IndicadoresLibroDiario
@@ -310,44 +364,118 @@ export function LibroDiarioTab() {
           idioma={idioma ?? 'ES'}
           esFamiliar={esFamiliar}
           simbolo={simbolo}
+          intermedio={<UltimosTresDias dias={tresDias} idioma={idioma} esFamiliar={esFamiliar} simbolo={simbolo} activo={filtroIndicador?.tipo === 'dia' ? filtroIndicador.valor : null} onDetalle={verDetalleDelDia} />}
         />
       )}
 
-      {error && (
-        <div
-          style={{
-            background: '#fef2f2',
-            color: '#b91c1c',
-            border: '1px solid #fecaca',
-            borderRadius: 10,
-            padding: 12,
-            marginBottom: 16,
-            fontSize: 13,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {cargando ? (
-        <p>{t('cargandoLibroDiario')}</p>
-      ) : (
-        <div>
-          {!grupos.length ? (
-            <div style={vacioOperacion}>{t('sinMovimientosContables')}</div>
-          ) : (
-            grupos.map((grupo) => (
-              <GrupoOperacionCard
-                key={grupo.id_operacion}
-                grupo={grupo}
-                empresaId={empresaId}
-                nombreEmpresa={nombreEmpresa}
+      {/* Tabla: buscador global + tipos + resumen. */}
+      <div ref={tablaRef} style={{ scrollMarginTop: 90 }}>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, padding: '14px 16px', marginBottom: 14, boxShadow: '0 4px 14px rgba(31,58,95,0.06)' }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: '1 1 320px', minWidth: 0 }}>
+              <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder={esPT ? 'Buscar em todos os campos (ID, data, conta, valor…)' : 'Buscar en todos los campos (ID, fecha, cuenta, importe…)'}
+                title={esPT ? 'Busca por ID, data, operação, histórico, contas, valor, categoria, forma de pagamento e status' : 'Busca por ID, fecha, operación, histórico, cuentas, importe, categoría, forma de pago y estado'}
+                aria-label={t('buscarLibroDiario')}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px 12px 40px', borderRadius: 14, border: '2px solid #d6dee5', fontSize: 15, color: COLORES.azul, background: '#f8fafc' }}
               />
-            ))
-          )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {chipsTipo.map((c) => (
+                <button key={c.id} type="button" onClick={() => setGrupoTipo(c.id)} aria-pressed={grupoTipo === c.id} style={{ border: `2px solid ${grupoTipo === c.id ? COLORES.azul : '#d6dee5'}`, background: grupoTipo === c.id ? COLORES.azul : '#fff', color: grupoTipo === c.id ? '#fff' : COLORES.azul, borderRadius: 999, padding: '8px 14px', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                  {c.texto}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+            <Resumen titulo={t('resumenOperaciones')} valor={String(totalOperaciones)} />
+            <Resumen titulo={t('resumenAsientos')} valor={String(totalAsientos)} />
+            <Resumen titulo={t('resumenImportes')} valor={`${simbolo} ${formatearNumeroEntero(totalImportes)}`} />
+            {hayBusqueda && <span style={{ fontSize: 14, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>🔎 {esPT ? 'Buscando em todo o histórico' : 'Buscando en todo el historial'}</span>}
+          </div>
         </div>
-      )}
+
+        {cargando ? (
+          <p style={{ fontSize: 16 }}>{t('cargandoLibroDiario')}</p>
+        ) : !grupos.length ? (
+          <div style={{ background: '#f8fafc', border: '2px dashed #d6dee5', borderRadius: 16, padding: 28, textAlign: 'center', color: COLORES.gris, fontSize: 16 }}>{t('sinMovimientosContables')}</div>
+        ) : (
+          <div>
+            {grupos.slice(0, limite).map((grupo) => (
+              <GrupoOperacionCard key={grupo.id_operacion} grupo={grupo} empresaId={empresaId} nombreEmpresa={nombreEmpresa} />
+            ))}
+            {grupos.length > limite && (
+              <div style={{ textAlign: 'center', margin: '8px 0 20px' }}>
+                <button type="button" onClick={() => setLimite((l) => l + GRUPOS_POR_TANDA)} style={{ border: `2px solid ${COLORES.verde}`, background: '#fff', color: COLORES.verde, borderRadius: 14, padding: '11px 24px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>
+                  {esPT ? `Mostrar mais (${grupos.length - limite} restantes)` : `Mostrar más (${grupos.length - limite} restantes)`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// Tres tarjetas con lo último que se cargó: hoy, ayer y hace dos días. Tocar «Ver detalle» filtra la tabla por ese día.
+function UltimosTresDias({ dias, idioma, esFamiliar, simbolo, activo, onDetalle }: { dias: ResumenDia[]; idioma: string | null; esFamiliar: boolean; simbolo: string; activo: string | null; onDetalle: (fecha: string) => void }) {
+  const esPT = idioma === 'PT';
+  const nombres = { HOY: esPT ? 'Hoje' : 'Hoy', AYER: esPT ? 'Ontem' : 'Ayer', HACE_2: esPT ? 'Há 2 dias' : 'Hace 2 días' };
+  const fondos = ['linear-gradient(160deg, #eef6ff, #ffffff)', 'linear-gradient(160deg, #f1f7ff, #ffffff)', 'linear-gradient(160deg, #edf8f1, #ffffff)'];
+  return (
+    <section>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 20, color: COLORES.azul }}>📅 {esPT ? 'Últimos 3 dias' : 'Últimos 3 días'}</h3>
+        <span style={{ fontSize: 14, color: COLORES.gris }}>{esPT ? 'Resumo das operações recentes' : 'Resumen de las operaciones recientes'}</span>
+      </div>
+      <div className="ld-ultimos">
+        {dias.map((d, i) => {
+          const fecha = new Date(`${d.fecha}T12:00:00`).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR', { day: '2-digit', month: 'short' });
+          return (
+            <article key={d.etiqueta} className="ld-dia" style={{ background: fondos[i], border: `2px solid ${activo === d.fecha ? COLORES.verde : '#dbe7f1'}`, borderRadius: 20, padding: '14px 16px', transition: 'transform .15s, box-shadow .15s', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ fontWeight: 800, fontSize: 18, color: COLORES.azul }}>{nombres[d.etiqueta]} <span style={{ fontWeight: 600, color: COLORES.gris, fontSize: 15 }}>· {fecha}</span></div>
+                <span style={{ background: d.operaciones > 0 ? '#dcfce7' : '#f1f5f9', color: d.operaciones > 0 ? '#166534' : COLORES.gris, borderRadius: 999, padding: '4px 11px', fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  {d.operaciones} {d.operaciones === 1 ? (esPT ? 'operação' : 'operación') : esPT ? 'operações' : 'operaciones'}
+                </span>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                {d.movimientos.length === 0 ? (
+                  <div style={{ fontSize: 15, color: COLORES.gris, padding: '10px 0' }}>{esPT ? 'Sem operações neste dia.' : 'Sin operaciones este día.'}</div>
+                ) : (
+                  d.movimientos.map((m) => {
+                    const estilo = estiloDeOperacion(m.operacion);
+                    return (
+                      <div key={m.id_operacion + m.operacion} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #e8eef4', fontSize: 15 }}>
+                        <span aria-hidden style={{ width: 26, height: 26, borderRadius: 8, background: estilo.fondo, color: estilo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, flexShrink: 0 }}>{estilo.flecha}</span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 800, color: COLORES.azul, lineHeight: 1.2 }}>{nombreOperacionDisplay(idioma, m.operacion, esFamiliar)}</div>
+                          <div style={{ fontSize: 13.5, color: COLORES.gris, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.historico || '—'}</div>
+                        </div>
+                        <strong style={{ whiteSpace: 'nowrap', color: estilo.color }}>{simbolo} {formatearNumeroEntero(m.importe)}</strong>
+                      </div>
+                    );
+                  })
+                )}
+                {d.restantes > 0 && <div style={{ fontSize: 13.5, color: COLORES.gris, paddingTop: 4 }}>+ {d.restantes} {esPT ? 'mais' : 'más'}</div>}
+              </div>
+
+              <button type="button" onClick={() => onDetalle(d.fecha)} disabled={d.operaciones === 0 && d.restantes === 0} style={{ marginTop: 10, border: 'none', background: 'none', color: d.operaciones === 0 ? '#9ca3af' : COLORES.verde, fontWeight: 800, fontSize: 15, cursor: d.operaciones === 0 ? 'default' : 'pointer', textAlign: 'left', padding: 0 }}>
+                {esPT ? 'Ver detalhe' : 'Ver detalle'} →
+              </button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -364,119 +492,94 @@ function GrupoOperacionCard({
   const idioma = useContext(IdiomaContext);
   const esFamiliar = useContext(EsFamiliarContext);
   const t = crearTraductor(diccionarioContabilidad, idioma);
+  const esPT = idioma === 'PT';
   const importeGrupo = grupo.filas.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
+  const cabecera: React.CSSProperties = { padding: '12px 10px', color: '#475569', fontSize: 13, textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 800, letterSpacing: 0.3 };
+  const celda: React.CSSProperties = { padding: '11px 10px', fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
   return (
-    <section
-      style={{
-        marginBottom: 16,
-        border: '1px solid #e2e8f0',
-        borderRadius: 16,
-        overflow: 'hidden',
-        background: '#ffffff',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          padding: '14px 18px',
-          background: 'linear-gradient(90deg, #eff5f9, #f8fafc)',
-          borderBottom: '1px solid #e5e7eb',
-        }}
-      >
+    <section style={{ marginBottom: 14, border: '1px solid #dfe7ee', borderRadius: 20, overflow: 'hidden', background: '#ffffff', boxShadow: '0 4px 14px rgba(31,58,95,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '12px 18px', background: 'linear-gradient(90deg, #eef5fa, #f7fbf8)', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: COLORES.azul }}>{grupo.id_operacion}</span>
-
-          <span style={{ fontSize: 12, color: COLORES.gris }}>
-            {new Date(`${grupo.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}
-          </span>
-
-          <span
-            style={{
-              padding: '5px 9px',
-              borderRadius: 999,
-              background: '#eaf7ee',
-              color: '#247347',
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            {contadorAsientos(idioma, grupo.filas.length)}
-          </span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: COLORES.azul }}>{grupo.id_operacion}</span>
+          <span style={{ fontSize: 14, color: COLORES.gris }}>📅 {new Date(`${grupo.fecha}T12:00:00`).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR')}</span>
+          <span style={{ padding: '5px 11px', borderRadius: 999, background: '#eaf7ee', color: '#247347', fontSize: 13, fontWeight: 700 }}>{contadorAsientos(idioma, grupo.filas.length)}</span>
         </div>
-
-        <div style={{ fontSize: 13, color: COLORES.gris }}>
-          {t('importeRegistrado')} <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
+        <div style={{ fontSize: 15, color: COLORES.gris }}>
+          {t('importeRegistrado')} <strong style={{ color: COLORES.azul, fontSize: 17 }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
         </div>
       </div>
 
-      <div style={tablaContenedorInterna}>
-        <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 1150, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          {/* Mismo ancho de columnas en todas las operaciones, para que se lea como una sola tabla. */}
+          <colgroup>
+            {[126, 128, 170, 100, 110, 110, 110, 110, 186].map((ancho, i) => (
+              <col key={i} style={{ width: ancho }} />
+            ))}
+          </colgroup>
           <thead>
             <tr style={{ background: '#fafbfc' }}>
-              <Th>{t('tipoHeader')}</Th>
-              <Th>{t('operacion')}</Th>
-              <Th>{t('historico')}</Th>
-              <Th>{t('debeHeader')}</Th>
-              <Th>{t('haberHeader')}</Th>
-              <Th align="right">{t('importeHeader')}</Th>
-              <Th>{t('estadoHeader')}</Th>
+              <th style={cabecera}>{t('tipoHeader')}</th>
+              <th style={cabecera}>{t('operacion')}</th>
+              <th style={cabecera}>{t('historico')}</th>
+              <th style={cabecera}>{esPT ? 'Categoria' : 'Categoría'}</th>
+              <th style={cabecera}>{esPT ? 'Forma de pagamento' : 'Forma de pago'}</th>
+              <th style={cabecera}>{t('debeHeader')}</th>
+              <th style={cabecera}>{t('haberHeader')}</th>
+              <th style={{ ...cabecera, textAlign: 'right' }}>{t('importeHeader')}</th>
+              <th style={cabecera}>{t('estadoHeader')}</th>
             </tr>
           </thead>
 
           <tbody>
-            {grupo.filas.map((fila, indice) => (
-              <tr
-                key={`${fila.id_operacion}-${fila.tipo_registro}-${indice}`}
-                style={{ borderTop: '1px solid #edf1f4' }}
-              >
-                <Td>
-                  <TipoRegistro tipo={fila.tipo_registro} idioma={idioma} />
-                </Td>
+            {grupo.filas.map((fila, indice) => {
+              const estilo = estiloDeOperacion(fila.operacion);
+              return (
+                <tr key={`${fila.id_operacion}-${fila.tipo_registro}-${indice}`} className="ld-fila" style={{ borderTop: '1px solid #edf1f4' }}>
+                  <td style={celda}>
+                    <TipoRegistro tipo={fila.tipo_registro} idioma={idioma} />
+                  </td>
 
-                <Td>
-                  <strong style={{ color: COLORES.azul }}>{nombreOperacionDisplay(idioma, fila.operacion, esFamiliar)}</strong>
-                </Td>
+                  <td style={celda}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span aria-hidden style={{ width: 24, height: 24, borderRadius: 8, background: estilo.fondo, color: estilo.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>{estilo.flecha}</span>
+                      <strong style={{ color: COLORES.azul }}>{nombreOperacionDisplay(idioma, fila.operacion, esFamiliar)}</strong>
+                    </span>
+                  </td>
 
-                <Td>{fila.historico || '—'}</Td>
+                  <td style={{ ...celda, whiteSpace: 'normal' }}>{fila.historico || '—'}</td>
+                  <td style={celda}>{fila.categoria || '—'}</td>
+                  <td style={celda}>{fila.forma_pago || '—'}</td>
 
-                <Td>
-                  <span style={cuentaDebe}>{fila.cuenta_debito || '—'}</span>
-                </Td>
+                  <td style={celda}>
+                    <span style={cuentaDebe}>{fila.cuenta_debito || '—'}</span>
+                  </td>
 
-                <Td>
-                  <span style={cuentaHaber}>{fila.cuenta_credito || '—'}</span>
-                </Td>
+                  <td style={celda}>
+                    <span style={cuentaHaber}>{fila.cuenta_credito || '—'}</span>
+                  </td>
 
-                <Td align="right">
-                  <strong>{simbolo} {formatearNumeroEntero(Number(fila.importe ?? 0))}</strong>
-                </Td>
+                  <td style={{ ...celda, textAlign: 'right' }}>
+                    <strong style={{ color: estilo.color, fontSize: 16 }}>{simbolo} {formatearNumeroEntero(Number(fila.importe ?? 0))}</strong>
+                  </td>
 
-                <Td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <Estado estado={fila.estado} idioma={idioma} />
+                  <td style={celda}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Estado estado={fila.estado} idioma={idioma} />
 
-                    {empresaId &&
-                      fila.tipo_registro === 'OPERACION' &&
-                      fila.operacion === 'VENTA' &&
-                      (fila.estado || '').toUpperCase() === 'VALIDADO' &&
-                      fila.cliente_proveedor && (
-                        <BotonReenviarComprobante
-                          empresaId={empresaId}
-                          nombreEmpresa={nombreEmpresa}
-                          idioma={idioma}
-                          simbolo={simbolo}
-                          fila={fila}
-                        />
-                      )}
-                  </div>
-                </Td>
-              </tr>
-            ))}
+                      {empresaId &&
+                        fila.tipo_registro === 'OPERACION' &&
+                        fila.operacion === 'VENTA' &&
+                        (fila.estado || '').toUpperCase() === 'VALIDADO' &&
+                        fila.cliente_proveedor && (
+                          <BotonReenviarComprobante empresaId={empresaId} nombreEmpresa={nombreEmpresa} idioma={idioma} simbolo={simbolo} fila={fila} />
+                        )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -547,8 +650,8 @@ function BotonReenviarComprobante({
           background: '#25D366',
           color: '#fff',
           borderRadius: 8,
-          padding: '4px 9px',
-          fontSize: 11,
+          padding: '6px 11px',
+          fontSize: 13,
           fontWeight: 700,
           cursor: enviando ? 'default' : 'pointer',
           opacity: enviando ? 0.7 : 1,
@@ -557,7 +660,7 @@ function BotonReenviarComprobante({
         📲 {esPT ? 'Reenviar comprovante' : 'Reenviar comprobante'}
       </button>
 
-      {error && <span style={{ fontSize: 10, color: '#dc2626' }}>{error}</span>}
+      {error && <span style={{ fontSize: 12, color: '#dc2626' }}>{error}</span>}
     </span>
   );
 }
@@ -571,9 +674,9 @@ function TipoRegistro({ tipo, idioma }: { tipo: 'OPERACION' | 'AUTOMATICO'; idio
     <span
       style={{
         display: 'inline-block',
-        padding: '5px 9px',
+        padding: '5px 11px',
         borderRadius: 999,
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 700,
         background: automatico ? '#ede9fe' : '#eaf7ee',
         color: automatico ? '#6d28d9' : '#247347',
@@ -585,12 +688,12 @@ function TipoRegistro({ tipo, idioma }: { tipo: 'OPERACION' | 'AUTOMATICO'; idio
 }
 
 
+
 function Resumen({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div style={{ background: '#f1f5f9', borderRadius: 10, padding: '9px 13px', minWidth: 105 }}>
-      <div style={{ fontSize: 10, color: COLORES.gris, marginBottom: 2 }}>{titulo}</div>
-
-      <strong style={{ color: COLORES.azul, fontSize: 14 }}>{valor}</strong>
+    <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '8px 14px', minWidth: 110 }}>
+      <div style={{ fontSize: 12.5, color: COLORES.gris, marginBottom: 2 }}>{titulo}</div>
+      <strong style={{ color: COLORES.azul, fontSize: 17 }}>{valor}</strong>
     </div>
   );
 }

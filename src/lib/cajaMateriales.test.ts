@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INVENTARIO, dependientesActivos, evaluarEnvioALaCaja, evaluarSalidaDeLaCaja, necesidadesEnCaja, piezaPorClave } from './cajaMateriales';
+import { INVENTARIO, claveCajaDeRuta, dependientesActivos, estaEnCajaParaPerfil, evaluarEnvioALaCaja, evaluarSalidaDeLaCaja, nombreAlcanceCaja, necesidadesEnCaja, piezaPorClave } from './cajaMateriales';
 
 const vacia = new Set<string>();
 
@@ -34,7 +34,7 @@ describe('mandar a la caja', () => {
     expect(evaluarEnvioALaCaja('mercaderia', vacia).bloqueos.join(' ')).toMatch(/Mi Local|Producción/);
   });
   it('lo que todavía no tiene interruptor no se puede guardar', () => {
-    const e = evaluarEnvioALaCaja('informes', vacia);
+    const e = evaluarEnvioALaCaja('plan-accion', vacia);
     expect(e.permitido).toBe(false);
     expect(e.bloqueos.join(' ')).toContain('interruptor');
   });
@@ -53,5 +53,27 @@ describe('sacar de la caja', () => {
     expect(necesidadesEnCaja('mi-local', enCaja).map((p) => p.clave)).toEqual(['mercaderia']);
     expect(evaluarSalidaDeLaCaja('mi-local', enCaja).avisos[0]).toContain('Mercadería');
     expect(evaluarSalidaDeLaCaja('lanzamiento-rapido', new Set(['lanzamiento-rapido'])).avisos).toEqual([]);
+  });
+});
+
+describe('alcance por perfil', () => {
+  it('una pieza guardada para todos se esconde a cualquiera; para un perfil, solo a ese', () => {
+    expect(estaEnCajaParaPerfil({ perfiles: null }, 'COMERCIAL')).toBe(true);
+    expect(estaEnCajaParaPerfil({ perfiles: [] }, null)).toBe(true);
+    expect(estaEnCajaParaPerfil({ perfiles: ['FAMILIAR'] }, 'FAMILIAR')).toBe(true);
+    expect(estaEnCajaParaPerfil({ perfiles: ['FAMILIAR'] }, 'COMERCIAL')).toBe(false);
+    expect(estaEnCajaParaPerfil({ perfiles: ['FAMILIAR'] }, null)).toBe(false);
+    expect(estaEnCajaParaPerfil(undefined, 'FAMILIAR')).toBe(false);
+  });
+  it('nombra el alcance y mapea cada pantalla a su pieza', () => {
+    expect(nombreAlcanceCaja(null)).toBe('todas las empresas');
+    expect(nombreAlcanceCaja(['FAMILIAR', 'MIXTO'])).toBe('Finanzas Personales, Mixto');
+    expect(claveCajaDeRuta('/finanzas')).toBe('finanzas');
+    expect(claveCajaDeRuta('/stock/movimientos')).toBe('mercaderia');
+    expect(claveCajaDeRuta('/contabilidad')).toBeNull();
+    expect(claveCajaDeRuta(null)).toBeNull();
+  });
+  it('las piezas que se esconden por perfil están conectadas y existen en el inventario', () => {
+    for (const c of ['finanzas', 'informes', 'visao-3d', 'recursos-humanos', 'contab-lanzamientos', 'contab-registros', 'contab-editar', 'sabio-registra']) expect(piezaPorClave(c)?.interruptor, c).toBe('conectado');
   });
 });
