@@ -58,6 +58,7 @@ async function contarLifetime(empresaId: string, operacion: TipoTrofeo): Promise
     .from('registro_operaciones')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId)
+    .eq('parte', 1)
     .eq('operacion', operacion);
 
   return count ?? 0;

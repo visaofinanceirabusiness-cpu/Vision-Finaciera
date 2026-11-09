@@ -4,7 +4,8 @@
 // motor de siempre (registrarOperacion / eliminarOperacion): acá no hay
 // lógica contable nueva.
 
-import { crearCuotasDeOperacion, type TipoCuotas } from './cuotasOperacion';
+import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
+import type { ParteOperacion } from './pagoDividido';
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { cerrarPendienteConOperacion, reabrirPendientesDeOperacion } from './compromisosAbiertos';
 import { supabase } from './supabase';
@@ -124,7 +125,9 @@ export async function registrarLanzamiento(
   tarjeta: TarjetaRapida,
   monto: number,
   fecha: string = fechaLocalHoy(),
-  cuotas?: { tipo: Exclude<TipoCuotas, null>; cantidad: number; idioma: string }
+  cuotas?: { tipo: Exclude<TipoCuotas, null>; cantidad: number; idioma: string },
+  // Pago dividido: el total se reparte entre varias formas de pago (las cuotas, si hay, son de una sola parte).
+  dividido?: { partes: ParteOperacion[]; cuotas?: { formaPago: string; categoria: string; cantidad: number; idioma: string } }
 ): Promise<string> {
   const resultado = await registrarOperacion(empresaId, {
     fecha,
@@ -134,6 +137,7 @@ export async function registrarLanzamiento(
     historico: tarjeta.ultimoHistorico || tarjeta.categoria,
     clienteProveedor: tarjeta.ultimoProveedor,
     lineas: [{ producto: '', cantidad: 1, monto }],
+    partes: dividido?.partes,
   });
 
   if (tarjeta.pendiente) {
@@ -142,7 +146,21 @@ export async function registrarLanzamiento(
 
   conciliarTrasRegistrar(empresaId);
 
-  if (cuotas && cuotas.cantidad >= 1) {
+  if (dividido?.cuotas && dividido.cuotas.cantidad >= 1) {
+    const c = dividido.cuotas;
+    const tipoParte = await tipoCuotasDeFormaPago(empresaId, tarjeta.operacion, c.formaPago);
+    if (tipoParte) {
+      await crearCuotasDeOperacion(empresaId, c.idioma, tipoParte, {
+        idOperacion: resultado.idOperacion as string,
+        formaPagoNombre: c.formaPago,
+        total: dividido.partes.find((x) => x.formaPago === c.formaPago && x.categoria === c.categoria)?.monto ?? 0,
+        cantidadCuotas: c.cantidad,
+        fecha,
+      });
+    }
+  }
+
+  if (cuotas && cuotas.cantidad >= 1 && !dividido) {
     await crearCuotasDeOperacion(empresaId, cuotas.idioma, cuotas.tipo, {
       idOperacion: resultado.idOperacion as string,
       formaPagoNombre: tarjeta.formaPago,

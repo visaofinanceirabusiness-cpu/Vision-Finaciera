@@ -153,7 +153,7 @@ function normalizarUsuarios(
 async function leerTodo<T>(empresaId: string): Promise<T[]> {
   const salida: T[] = [];
   for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await supabase.from('registro_operaciones').select('creado_en, cuenta_debito, cuenta_credito').eq('empresa_id', empresaId).order('creado_en', { ascending: true }).range(desde, desde + 999);
+    const { data, error } = await supabase.from('registro_operaciones').select('creado_en, cuenta_debito, cuenta_credito, parte').eq('empresa_id', empresaId).order('creado_en', { ascending: true }).range(desde, desde + 999);
     if (error) throw error;
     salida.push(...((data ?? []) as T[]));
     if (!data || data.length < 1000) break;
@@ -168,7 +168,7 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
     obtenerActividad(empresaId).catch(() => [] as FilaActividad[]),
     supabase.from('perfiles').select('id, nombre, tipo_usuario, activo, creado_en, sexo').eq('empresa_id', empresaId),
     supabase.rpc('adn_auditoria_empresa'),
-    leerTodo<{ creado_en: string; cuenta_debito: string | null; cuenta_credito: string | null }>(empresaId),
+    leerTodo<{ creado_en: string; cuenta_debito: string | null; cuenta_credito: string | null; parte: number | null }>(empresaId),
     obtenerTrofeosGanados(empresaId).catch(() => [] as TrofeoGanado[]),
     supabase.from('gamificacion_hitos_vistos').select('nivel, tipo_hito, visto_en').eq('empresa_id', empresaId),
     supabase.from('niveles_gamificacion').select('nivel, nombre, emoji, mision, mensaje'),
@@ -177,7 +177,8 @@ export async function cargarAdn(empresaId: string, esFamiliar: boolean): Promise
 
   const e = empresaRes.data;
   const auditoria = (auditoriaRes.data ?? {}) as { usuarios?: AuditoriaUsuario[]; cambios?: CambioAdn[] };
-  const momentos = opsRes.map((f) => f.creado_en);
+  // Una operación dividida tiene varias filas: las fechas y los niveles cuentan solo la parte 1; las cuentas más usadas sí miran todas las filas.
+  const momentos = opsRes.filter((f) => (f.parte ?? 1) === 1).map((f) => f.creado_en);
 
   const escalonados = await obtenerObjetivosEscalonados(empresaId, progreso.nivel, progreso.operacionesMin, tiposEscalonadosDelPerfil(esFamiliar, manejaMercaderia)).catch(() => [] as ObjetivoEscalonado[]);
 

@@ -34,6 +34,10 @@ import { crearOUsarClientePorTelefono } from '@/lib/clientes';
 import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
+import { crearCuotasDeOperacion, tipoCuotasDeFormaPago } from '@/lib/cuotasOperacion';
+import { DivisionDelPago } from './DivisionDelPago';
+import { useCaja } from '@/components/caja/useCaja';
+import { partesDeForm, partesIniciales, validarPartes, type ParteForm } from '@/lib/pagoDividido';
 import { registrarPagoParcial, type RecordatorioGastoRecurrente } from '@/lib/gastosRecurrentes';
 import { registrarCobroParcial, type RecordatorioIngresoRecurrente } from '@/lib/ingresosRecurrentes';
 import { buscarProductoPorCodigoBarras } from '@/lib/codigoBarras';
@@ -196,6 +200,12 @@ export function CentralDeLanzamientosTab({
   // Calendário del lobby (ver lib/cuotas.ts).
   const [enCuotas, setEnCuotas] = useState(false);
   const [cantidadCuotas, setCantidadCuotas] = useState('2');
+
+  // Pago dividido (ver lib/pagoDividido.ts): el total se reparte entre 2 a 5 formas de pago (o categorías). Al editar una
+  // operación ya dividida arranca activo con sus partes.
+  const [dividiendo, setDividiendo] = useState(Boolean(valoresIniciales?.partes && valoresIniciales.partes.length >= 2));
+  const [partesForm, setPartesForm] = useState<ParteForm[]>(valoresIniciales?.partes ?? []);
+  const { estaEnCaja } = useCaja();
 
   // "+ Crear cuenta nueva" desde el propio selector de forma de pago
   // — evita tener que ir a Configurações para dar de alta una cuenta
@@ -1179,6 +1189,7 @@ export function CentralDeLanzamientosTab({
     : 0;
 
   const saldoMedioInsuficiente =
+    !dividiendo &&
     OPERACIONES_QUE_RESTAN_MEDIO.includes(operacion) &&
     Boolean(cuentaMedioActual) &&
     naturalezaMedioActual === 'DEUDORA' &&
@@ -1190,6 +1201,19 @@ export function CentralDeLanzamientosTab({
     lineas.every((linea) => linea.producto.trim() && linea.cantidad > 0 && linea.monto > 0);
 
   const requiereSocio = esFamiliar && operacion === 'COBRO';
+
+  // En un pago dividido las cuentas las controla el motor al registrar; acá solo se pide que las partes estén completas y sumen el total.
+  const partesMotor = dividiendo && partesForm.length >= 2 ? partesDeForm(partesForm) : null;
+  const errorPartes = dividiendo ? (partesMotor ? validarPartes(partesMotor, total, { tieneStock: operacionesConProducto && categoriaEsProducto }) : '—') : null;
+  const puedeDividir =
+    !estaEnCaja('pago-dividido') &&
+    ['PAGO', 'COMPRA', 'VENTA', 'COBRO'].includes(operacion) &&
+    Boolean(categoria) &&
+    Boolean(formaPago) &&
+    total > 0 &&
+    !recordatorioGastoRecurrente &&
+    !recordatorioIngresoRecurrente &&
+    !pendienteElegido;
 
   const camposCompletos = Boolean(
     fecha &&
@@ -1207,7 +1231,8 @@ export function CentralDeLanzamientosTab({
       (!requiereSocio || socio.trim()) &&
       lineasCompletas &&
       !stockInsuficiente &&
-      !saldoMedioInsuficiente
+      !saldoMedioInsuficiente &&
+      !errorPartes
   );
 
   // Guía paso a paso de "Sabio" (mensaje verde) una vez que ya se
@@ -1296,6 +1321,7 @@ export function CentralDeLanzamientosTab({
               : historico.trim(),
         clienteProveedor: clienteProveedor.trim(),
         socio: requiereSocio ? socio.trim() : '',
+        partes: partesMotor ?? undefined,
         lineas: lineas.map((linea) => {
           const productoElegido = productos.find((p) => p.id === linea.producto.trim());
           const unidadGeneral = productoElegido?.unidad_medida ?? '';
@@ -1338,7 +1364,7 @@ export function CentralDeLanzamientosTab({
         // el mismo id_operacion — eso ya se llevó puesto el cronograma
         // de cuotas viejo (ver limpiarOperacion en lib/motor), así que
         // si seguía marcada "en cuotas" hay que rearmarlo de cero.
-        if (puedeEnCuotas && enCuotas) {
+        if (!partesMotor && puedeEnCuotas && enCuotas) {
           const cantidad = Number(cantidadCuotas);
 
           if (Number.isInteger(cantidad) && cantidad >= 1) {
@@ -1357,6 +1383,23 @@ export function CentralDeLanzamientosTab({
                 total: resultadoEdicion.total,
                 cantidadCuotas: cantidad,
                 fechaCompra: formulario.fecha,
+              });
+            }
+          }
+        }
+
+        if (partesMotor) {
+          const conCuotas = partesForm.find((p) => p.enCuotas);
+          const cuotasParte = Number(conCuotas?.cuotas ?? 0);
+          if (conCuotas && Number.isInteger(cuotasParte) && cuotasParte >= 1) {
+            const tipoParte = await tipoCuotasDeFormaPago(empresaId, formulario.operacion, conCuotas.formaPago);
+            if (tipoParte) {
+              await crearCuotasDeOperacion(empresaId, idioma, tipoParte, {
+                idOperacion: idOperacionEditar,
+                formaPagoNombre: conCuotas.formaPago,
+                total: partesMotor.find((p) => p.formaPago === conCuotas.formaPago && p.categoria === conCuotas.categoria)?.monto ?? 0,
+                cantidadCuotas: cuotasParte,
+                fecha: formulario.fecha,
               });
             }
           }
@@ -1392,7 +1435,23 @@ export function CentralDeLanzamientosTab({
       // Después de la asociación explícita de arriba (así no se cuenta dos veces).
       conciliarTrasRegistrar(empresaId);
 
-      if (puedeEnCuotas && enCuotas) {
+      if (partesMotor) {
+        // Las cuotas son de UNA parte (la tarjeta o la cuenta a cobrar/pagar): se arman con el monto de esa parte.
+        const conCuotas = partesForm.find((p) => p.enCuotas);
+        const cuotasParte = Number(conCuotas?.cuotas ?? 0);
+        if (conCuotas && Number.isInteger(cuotasParte) && cuotasParte >= 1) {
+          const tipoParte = await tipoCuotasDeFormaPago(empresaId, formulario.operacion, conCuotas.formaPago);
+          if (tipoParte) {
+            await crearCuotasDeOperacion(empresaId, idioma, tipoParte, {
+              idOperacion: resultado.idOperacion,
+              formaPagoNombre: conCuotas.formaPago,
+              total: partesMotor.find((p) => p.formaPago === conCuotas.formaPago && p.categoria === conCuotas.categoria)?.monto ?? 0,
+              cantidadCuotas: cuotasParte,
+              fecha: formulario.fecha,
+            });
+          }
+        }
+      } else if (puedeEnCuotas && enCuotas) {
         const cantidad = Number(cantidadCuotas);
 
         if (Number.isInteger(cantidad) && cantidad >= 1) {
@@ -1466,7 +1525,7 @@ export function CentralDeLanzamientosTab({
               fecha: formulario.fecha,
               cliente: formulario.clienteProveedor,
               detalle: formulario.historico,
-              formaPago: formulario.formaPago,
+              formaPago: partesMotor ? partesMotor.map((p) => p.formaPago).join(' + ') : formulario.formaPago,
               total: resultado.total,
               simboloMoneda: simbolo,
             });
@@ -1772,7 +1831,7 @@ export function CentralDeLanzamientosTab({
               }
               setFormaPago(e.target.value);
             }}
-            disabled={!categoria}
+            disabled={!categoria || dividiendo}
             style={campoInput}
           >
             <option value="">{t('seleccionar')}</option>
@@ -1838,7 +1897,45 @@ export function CentralDeLanzamientosTab({
         </Campo>
       </div>
 
-      {puedeEnCuotas && (
+      {puedeDividir && !dividiendo && (
+        <button
+          type="button"
+          onClick={() => {
+            setEnCuotas(false);
+            setPartesForm(partesIniciales(categoria, formaPago, total));
+            setDividiendo(true);
+          }}
+          style={{ border: `2px dashed ${COLORES.azul}`, background: 'transparent', color: COLORES.azul, borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer', marginBottom: 16 }}
+        >
+          ➗ {idioma === 'PT' ? 'Dividir o pagamento' : 'Dividir el pago'}
+        </button>
+      )}
+
+      {dividiendo && empresaId && (
+        <div style={{ marginBottom: 16 }}>
+          <DivisionDelPago
+            empresaId={empresaId}
+            operacion={operacion}
+            fecha={fecha}
+            total={total}
+            simbolo={simbolo}
+            idioma={idioma}
+            tieneStock={operacionesConProducto && categoriaEsProducto}
+            partes={partesForm}
+            onChange={setPartesForm}
+            onCancelar={
+              valoresIniciales?.partes
+                ? undefined
+                : () => {
+                    setDividiendo(false);
+                    setPartesForm([]);
+                  }
+            }
+          />
+        </div>
+      )}
+
+      {puedeEnCuotas && !dividiendo && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: COLORES.azul, fontWeight: 700, cursor: 'pointer' }}>
             <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />

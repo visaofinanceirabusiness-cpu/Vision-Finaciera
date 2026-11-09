@@ -380,9 +380,9 @@ type ConteosActividad = {
 
 async function obtenerConteosActividad(empresaId: string): Promise<ConteosActividad> {
   const [ventas, ingresos, gastos, clientes, proveedores] = await Promise.all([
-    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'VENTA'),
-    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'COBRO'),
-    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'PAGO'),
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('parte', 1).eq('operacion', 'VENTA'),
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('parte', 1).eq('operacion', 'COBRO'),
+    supabase.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('parte', 1).eq('operacion', 'PAGO'),
     supabase.from('clientes').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     supabase.from('proveedores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
   ]);

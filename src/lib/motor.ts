@@ -6,6 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { verificarTiempoParaCargar } from './tiempoAgotado';
+import { chequearSaldos, cuentasInvolucradas, validarPartes, validarPartidaDoble, type Asiento, type ParteOperacion } from './pagoDividido';
 import { aCentavos } from './centavos';
 import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
 import { cambioDejaSaldoNegativo, primerDiaSinSaldo, saldoAFecha, saldoUtilizableAFecha, type MovimientoCuenta } from './saldoFecha';
@@ -50,6 +51,9 @@ export type FormularioOperacion = {
   // por socio". Opcional: si no se envía, se guarda vacío.
   socio?: string;
   lineas: LineaOperacion[];
+  // Pago dividido (ver lib/pagoDividido.ts): 2 o más partes, cada una con su categoría, forma de pago y monto; la suma tiene que dar el
+  // total de las líneas. Sin esto, o con una sola parte, la operación es la de siempre.
+  partes?: ParteOperacion[];
 };
 
 // =====================================================
@@ -835,12 +839,18 @@ export async function registrarOperacion(
   // 1. BUSCAR REGLA
   // ---------------------------------------------------
 
-  const [regla, { data: empresaConfig }] = await Promise.all([
-    buscarRegla(
-      empresaId,
-      formulario.operacion.trim(),
-      formulario.categoria.trim(),
-      formulario.formaPago.trim()
+  // Pago dividido: cada parte lleva su categoría, forma de pago y monto y se resuelve con la regla de SU combinación. Sin partes (o con
+  // una sola) es la operación de siempre: una fila, una regla.
+  const partes = formulario.partes && formulario.partes.length >= 2 ? formulario.partes : null;
+  if (partes) {
+    formulario = { ...formulario, categoria: partes[0].categoria, formaPago: partes[0].formaPago };
+  }
+
+  const [reglasPartes, { data: empresaConfig }] = await Promise.all([
+    Promise.all(
+      (partes ?? [{ categoria: formulario.categoria, formaPago: formulario.formaPago, monto: total }]).map((p) =>
+        buscarRegla(empresaId, formulario.operacion.trim(), p.categoria.trim(), p.formaPago.trim())
+      )
     ),
     supabase.from('empresas').select('validacion_automatica').eq('id', empresaId).maybeSingle(),
   ]);
@@ -852,78 +862,66 @@ export async function registrarOperacion(
   // manual antes de reflejarse en sus informes.
   const estadoInicial = empresaConfig?.validacion_automatica ? 'VALIDADO' : 'PENDIENTE';
 
-  if (!regla) {
+  const regla = reglasPartes[0];
+  const sinRegla = reglasPartes.findIndex((r) => !r);
+
+  if (sinRegla >= 0) {
+    const sin = partes ? partes[sinRegla] : formulario;
     throw new Error(
-      `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones.`
+      `No se encontró una regla contable para "${formulario.operacion}" / "${sin.categoria}" / "${sin.formaPago}". Revisá la Matriz de Operaciones.`
     );
   }
 
-  await validarMedioDeLiquidacion(empresaId, regla);
+  if (partes) {
+    if (reglasPartes.some((r) => r.stock !== regla.stock || r.libro !== regla.libro || r.cmv !== regla.cmv)) {
+      throw new Error('Las partes de un pago dividido tienen que ser del mismo tipo de operación.');
+    }
+
+    const errorPartes = validarPartes(partes, total, { tieneStock: regla.stock === 'SI' });
+    if (errorPartes) {
+      throw new Error(errorPartes);
+    }
+  }
+
+  for (const reglaParte of reglasPartes) {
+    await validarMedioDeLiquidacion(empresaId, reglaParte);
+  }
 
   // ---------------------------------------------------
   // 1.b VALIDAR QUE NINGUNA CUENTA INVOLUCRADA QUEDE EN NEGATIVO
   //
-  // Regla general, para cuentas de CUALQUIER tipo_saldo (Activo,
-  // Pasivo, Patrimonio, Ingreso, Gasto, Costo): el saldo se mueve
-  // según la naturaleza de la cuenta, no según su tipo. Dos casos
-  // simétricos:
-  //   - El lado que se ACREDITA de una cuenta DEUDORA (Caja, Banco,
-  //     Stock, un Gasto, un Costo) resta de su saldo — no puede
-  //     quedar negativo.
-  //   - El lado que se DEBITA de una cuenta ACREEDORA (Proveedor, un
-  //     Ingreso, Patrimonio) resta de su saldo — tampoco puede quedar
-  //     negativo: sería un saldo "a favor" que hoy no tiene una cuenta
-  //     propia (sería un anticipo, que se modela con otra cuenta —
-  //     pendiente de desarrollar). Hasta que eso exista, se bloquea la
-  //     operación en vez de dejar la cuenta en negativo.
+  // Regla general, para cuentas de CUALQUIER tipo_saldo (Activo, Pasivo, Patrimonio, Ingreso, Gasto, Costo): el saldo se mueve
+  // según la naturaleza de la cuenta, no según su tipo. El lado que se ACREDITA de una cuenta DEUDORA (Caja, Banco, Stock, un Gasto,
+  // un Costo) resta de su saldo, y el que se DEBITA de una cuenta ACREEDORA (Proveedor, un Ingreso, Patrimonio) también: ninguna
+  // puede quedar en negativo (sería un saldo «a favor» que hoy no tiene cuenta propia: el anticipo, todavía sin desarrollar). Una
+  // cuenta ACREEDORA creciendo por el crédito o una DEUDORA creciendo por el débito es normal y no se bloquea.
   //
-  // Una cuenta ACREEDORA creciendo por el crédito (una deuda nueva o
-  // más grande, un ingreso) es normal y no se bloquea acá, ni tampoco
-  // una cuenta DEUDORA creciendo por el débito.
-  // ---------------------------------------------------
-
   // Además del saldo en la fecha de la operación, lo que se resta no puede dejar sin fondos a un movimiento ya cargado con fecha
   // posterior (ej.: ingreso 01/06, pago 10/09 y un pago nuevo el 15/06 → el del 10/09 quedaría sin saldo).
-  if (regla.cuenta_credito) {
-    const historial = await historialDeCuenta(empresaId, regla.cuenta_credito);
+  //
+  // Con un pago dividido se suma lo que le toca a cada cuenta entre todas las partes y se chequea cada una (ver chequearSaldos).
+  // ---------------------------------------------------
 
-    if (historial && historial.naturaleza === 'DEUDORA') {
-      const saldo = saldoAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha);
+  const asientosPartes: Asiento[] = reglasPartes.map((reglaParte, indice) => ({
+    cuenta_debito: reglaParte.cuenta_debito ?? null,
+    cuenta_credito: reglaParte.cuenta_credito ?? null,
+    importe: partes ? Number(partes[indice].monto) : total,
+  }));
 
-      if (aCentavos(saldo - total) < 0) {
-        throw new Error(
-          `No hay saldo suficiente en "${regla.cuenta_credito}" para esta operación en la fecha indicada. Saldo disponible al ${formulario.fecha}: R$ ${saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}. Registrá una Inversión (aporte) con fecha anterior o igual a esta para cubrir la diferencia.`
-        );
-      }
-
-      if (aCentavos(saldoUtilizableAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha) - total) < 0) {
-        const dia = primerDiaSinSaldo(historial.saldoInicial, historial.movimientos, formulario.fecha, total);
-        throw new Error(
-          `Esta operación dejaría sin saldo a "${regla.cuenta_credito}" más adelante: un movimiento ya cargado con fecha posterior (el ${dia ?? 'día siguiente'}) necesita ese dinero. Registrá antes un ingreso o aporte con fecha anterior, o usá una fecha posterior.`
-        );
-      }
-    }
+  // Partida doble: antes de tocar nada, cada asiento tiene que tener Debe y Haber del mismo importe (solo si la operación va al libro).
+  if (regla.libro === 'SI') {
+    const errorPartida = validarPartidaDoble(asientosPartes);
+    if (errorPartida) throw new Error(errorPartida);
   }
 
-  if (regla.cuenta_debito) {
-    const historial = await historialDeCuenta(empresaId, regla.cuenta_debito);
+  const historiales = new Map<string, HistorialCuenta | null>(
+    await Promise.all(cuentasInvolucradas(asientosPartes).map(async (nombre) => [nombre, await historialDeCuenta(empresaId, nombre)] as const))
+  );
 
-    if (historial && historial.naturaleza === 'ACREEDORA') {
-      const saldo = saldoAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha);
+  const errorSaldo = chequearSaldos(asientosPartes, historiales, formulario.fecha);
 
-      if (aCentavos(saldo - total) < 0) {
-        throw new Error(
-          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) en la fecha indicada, y todavía no hay una cuenta de anticipo para eso. Saldo al ${formulario.fecha}: R$ ${saldo.toFixed(2)}, se necesitan R$ ${total.toFixed(2)}.`
-        );
-      }
-
-      if (aCentavos(saldoUtilizableAFecha(historial.saldoInicial, historial.movimientos, formulario.fecha) - total) < 0) {
-        const dia = primerDiaSinSaldo(historial.saldoInicial, historial.movimientos, formulario.fecha, total);
-        throw new Error(
-          `Esta operación dejaría "${regla.cuenta_debito}" con saldo a favor (negativo) más adelante, el ${dia ?? 'día siguiente'}, por un movimiento ya cargado con fecha posterior. Usá una fecha posterior a ese movimiento.`
-        );
-      }
-    }
+  if (errorSaldo) {
+    throw new Error(errorSaldo);
   }
 
   // Al editar una operación existente, se reutiliza el mismo
@@ -1279,34 +1277,38 @@ export async function registrarOperacion(
     // -------------------------------------------------
 
     if (regla.libro === 'SI') {
-      const { error } =
-        await supabase
-          .from('registro_operaciones')
-          .insert({
-            empresa_id: empresaId,
-            id_operacion:
-              idOperacion,
-            fecha:
-              formulario.fecha,
-            operacion:
-              formulario.operacion,
-            categoria:
-              formulario.categoria,
-            forma_pago:
-              formulario.formaPago,
+      const filaComun = {
+        empresa_id: empresaId,
+        id_operacion: idOperacion,
+        fecha: formulario.fecha,
+        operacion: formulario.operacion,
+        historico: formulario.historico,
+        cliente_proveedor: formulario.clienteProveedor,
+        socio: formulario.socio?.trim() || null,
+        estado: estadoInicial,
+      };
+
+      const filas: Record<string, unknown> | Record<string, unknown>[] = partes
+        ? reglasPartes.map((reglaParte, indice) => ({
+            ...filaComun,
+            categoria: partes[indice].categoria,
+            forma_pago: partes[indice].formaPago,
+            total: Number(partes[indice].monto),
+            cuenta_debito: reglaParte.cuenta_debito,
+            cuenta_credito: reglaParte.cuenta_credito,
+            parte: indice + 1,
+          }))
+        : {
+            ...filaComun,
+            categoria: formulario.categoria,
+            forma_pago: formulario.formaPago,
             total,
-            historico:
-              formulario.historico,
-            cliente_proveedor:
-              formulario.clienteProveedor,
-            socio:
-              formulario.socio?.trim() || null,
-            cuenta_debito:
-              regla.cuenta_debito,
-            cuenta_credito:
-              regla.cuenta_credito,
-            estado: estadoInicial,
-          });
+            cuenta_debito: regla.cuenta_debito,
+            cuenta_credito: regla.cuenta_credito,
+          };
+
+      // Una sola llamada: o se guardan todas las partes o ninguna.
+      const { error } = await supabase.from('registro_operaciones').insert(filas);
 
       if (error) {
         throw error;
@@ -1361,6 +1363,27 @@ export async function registrarOperacion(
       }
     }
 
+    // Partida doble, comprobación final sobre lo ya guardado: si el Debe y el Haber no cuadran, el catch borra todo y no queda nada.
+    {
+      const [{ data: guardadas, error: errorLeer }, { data: autos, error: errorLeerAutos }] = await Promise.all([
+        supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+        supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+      ]);
+      if (errorLeer) throw errorLeer;
+      if (errorLeerAutos) throw errorLeerAutos;
+
+      const guardados: Asiento[] = [
+        ...(guardadas ?? []).map((f) => ({ cuenta_debito: f.cuenta_debito as string | null, cuenta_credito: f.cuenta_credito as string | null, importe: Number(f.total) })),
+        ...(autos ?? []).map((f) => ({ cuenta_debito: f.cuenta_debito as string | null, cuenta_credito: f.cuenta_credito as string | null, importe: Number(f.importe) })),
+      ];
+      const errorFinal = validarPartidaDoble(guardados);
+      if (errorFinal) throw new Error(errorFinal);
+
+      if (regla.libro === 'SI' && aCentavos((guardadas ?? []).reduce((suma, f) => suma + Number(f.total), 0)) !== aCentavos(total)) {
+        throw new Error('Partida doble: la suma de los asientos guardados no coincide con el total de la operación, no se registró.');
+      }
+    }
+
     // =================================================
     // TODO SALIÓ CORRECTAMENTE
     // =================================================
@@ -1408,6 +1431,7 @@ export async function registrarOperacion(
       idOperacion,
       cmv:
         datosCMV?.importe ?? 0,
+      partes,
     };
   } catch (error) {
     // =================================================
@@ -1495,7 +1519,7 @@ async function validarQueElCambioNoDejeStockNegativo(
 async function validarQueElCambioNoDejeSaldoNegativo(
   empresaId: string,
   idOperacion: string,
-  nueva: { cuenta_debito: string | null; cuenta_credito: string | null; total: number; fecha: string } | null
+  nuevas: { cuenta_debito: string | null; cuenta_credito: string | null; total: number; fecha: string }[]
 ) {
   const [{ data: ops }, { data: autos }] = await Promise.all([
     supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, fecha').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
@@ -1505,7 +1529,7 @@ async function validarQueElCambioNoDejeSaldoNegativo(
   const filasViejas = [...(ops ?? []), ...(autos ?? [])];
   const cuentas = new Set<string>();
   filasViejas.forEach((f) => [f.cuenta_debito, f.cuenta_credito].forEach((c) => c && cuentas.add(c as string)));
-  if (nueva) [nueva.cuenta_debito, nueva.cuenta_credito].forEach((c) => c && cuentas.add(c));
+  nuevas.forEach((nueva) => [nueva.cuenta_debito, nueva.cuenta_credito].forEach((c) => c && cuentas.add(c)));
 
   const problemas: string[] = [];
 
@@ -1518,7 +1542,8 @@ async function validarQueElCambioNoDejeSaldoNegativo(
     const despues: MovimientoCuenta[] = antes.filter((mov) => mov.idOperacion !== idOperacion);
     const fechas = filasViejas.filter((f) => f.cuenta_debito === nombre || f.cuenta_credito === nombre).map((f) => String(f.fecha));
 
-    if (nueva) {
+    // Con un pago dividido la versión nueva trae varios asientos: cada uno mueve su cuenta.
+    for (const nueva of nuevas) {
       if (nueva.cuenta_debito === nombre) despues.push({ fecha: nueva.fecha, delta: signoDebito * nueva.total });
       if (nueva.cuenta_credito === nombre) despues.push({ fecha: nueva.fecha, delta: -signoDebito * nueva.total });
       fechas.push(nueva.fecha);
@@ -1542,7 +1567,7 @@ export async function eliminarOperacion(
   idOperacion: string
 ) {
   await validarQueElCambioNoDejeStockNegativo(empresaId, idOperacion, []);
-  await validarQueElCambioNoDejeSaldoNegativo(empresaId, idOperacion, null);
+  await validarQueElCambioNoDejeSaldoNegativo(empresaId, idOperacion, []);
 
   const errores = await limpiarOperacion(
     empresaId,
@@ -1579,22 +1604,40 @@ export async function editarOperacion(
   // tiempo frenara recién en ese segundo paso la operación se perdería.
   await verificarTiempoParaCargar(empresaId);
 
-  const regla = await buscarRegla(
-    empresaId,
-    formulario.operacion.trim(),
-    formulario.categoria.trim(),
-    formulario.formaPago.trim()
+  // Con un pago dividido se valida cada parte con la regla de su categoría y forma de pago; sin partes es la edición de siempre.
+  const partes = formulario.partes && formulario.partes.length >= 2 ? formulario.partes : null;
+  const totalNuevo = formulario.lineas.reduce((suma, l) => suma + Number(l.cantidad) * Number(l.monto), 0);
+
+  const reglas = await Promise.all(
+    (partes ?? [{ categoria: formulario.categoria, formaPago: formulario.formaPago, monto: totalNuevo }]).map((p) =>
+      buscarRegla(empresaId, formulario.operacion.trim(), p.categoria.trim(), p.formaPago.trim())
+    )
   );
 
-  if (!regla) {
+  const sinRegla = reglas.findIndex((r) => !r);
+
+  if (sinRegla >= 0) {
+    const sin = partes ? partes[sinRegla] : formulario;
     throw new Error(
-      `No se encontró una regla contable para "${formulario.operacion}" / "${formulario.categoria}" / "${formulario.formaPago}". Revisá la Matriz de Operaciones antes de editar.`
+      `No se encontró una regla contable para "${formulario.operacion}" / "${sin.categoria}" / "${sin.formaPago}". Revisá la Matriz de Operaciones antes de editar.`
     );
+  }
+
+  const regla = reglas[0];
+
+  if (partes) {
+    if (reglas.some((r) => r.stock !== regla.stock || r.libro !== regla.libro || r.cmv !== regla.cmv)) {
+      throw new Error('Las partes de un pago dividido tienen que ser del mismo tipo de operación.');
+    }
+    const errorPartes = validarPartes(partes, totalNuevo, { tieneStock: regla.stock === 'SI' });
+    if (errorPartes) throw new Error(errorPartes);
   }
 
   // Antes de borrar la versión anterior: si el medio nuevo no es válido, la
   // edición se rechaza sin tocar nada.
-  await validarMedioDeLiquidacion(empresaId, regla);
+  for (const reglaParte of reglas) {
+    await validarMedioDeLiquidacion(empresaId, reglaParte);
+  }
 
   // También antes de borrar: ni lo que la versión anterior aportaba al stock ni lo que la nueva consumiría
   // puede dejar sin stock a una salida posterior (si no, se borraba y recién después fallaba la validación).
@@ -1607,12 +1650,16 @@ export async function editarOperacion(
           .map((l) => ({ producto_id: l.producto, tipo: formulario.operacion === 'COMPRA' ? 'ENTRADA' : 'SALIDA', cantidad: Number(l.cantidad), fecha: formulario.fecha }))
       : []
   );
-  await validarQueElCambioNoDejeSaldoNegativo(empresaId, idOperacion, {
-    cuenta_debito: regla.cuenta_debito ?? null,
-    cuenta_credito: regla.cuenta_credito ?? null,
-    total: formulario.lineas.reduce((suma, l) => suma + Number(l.cantidad) * Number(l.monto), 0),
-    fecha: formulario.fecha,
-  });
+  await validarQueElCambioNoDejeSaldoNegativo(
+    empresaId,
+    idOperacion,
+    reglas.map((reglaParte, indice) => ({
+      cuenta_debito: reglaParte.cuenta_debito ?? null,
+      cuenta_credito: reglaParte.cuenta_credito ?? null,
+      total: partes ? Number(partes[indice].monto) : totalNuevo,
+      fecha: formulario.fecha,
+    }))
+  );
 
   const erroresLimpieza = await limpiarOperacion(empresaId, idOperacion);
 
