@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PARTES, chequearSaldos, cuentasInvolucradas, importesPorCuenta, totalDePartes, validarPartes, type HistorialSaldo, type ParteOperacion } from './pagoDividido';
+import { MAX_PARTES, chequearSaldos, cuentasInvolucradas, importesPorCuenta, totalDePartes, validarPartes, validarPartidaDoble, type HistorialSaldo, type ParteOperacion } from './pagoDividido';
 
 const parte = (formaPago: string, monto: number, extra: Partial<ParteOperacion> = {}): ParteOperacion => ({ categoria: 'Alimentación', formaPago, monto, ...extra });
 
@@ -129,5 +129,18 @@ describe('formulario de pago dividido', () => {
     expect(partes[1]).toMatchObject({ monto: 200.5, enCuotas: true });
     expect(resumenDePartes(partes, 'R$', false)).toContain('Banco XX R$ 100');
     expect(resumenDePartes(partes, 'R$', true)).toContain('A · Efectivo');
+  });
+});
+
+describe('validarPartidaDoble', () => {
+  it('acepta asientos con Debe y Haber', () => {
+    expect(validarPartidaDoble([{ cuenta_debito: 'Gasto', cuenta_credito: 'Banco', importe: 100 }, { cuenta_debito: 'Gasto', cuenta_credito: 'Caja', importe: 200 }])).toBeNull();
+  });
+  it('rechaza un asiento sin Haber', () => {
+    expect(validarPartidaDoble([{ cuenta_debito: 'Gasto', cuenta_credito: null, importe: 100 }])).toContain('Partida doble');
+  });
+  it('rechaza importes inválidos', () => {
+    expect(validarPartidaDoble([{ cuenta_debito: 'A', cuenta_credito: 'B', importe: 0 }])).toContain('Partida doble');
+    expect(validarPartidaDoble([{ cuenta_debito: 'A', cuenta_credito: 'B', importe: Number.NaN }])).toContain('Partida doble');
   });
 });

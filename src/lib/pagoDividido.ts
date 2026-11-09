@@ -61,6 +61,31 @@ export function validarPartes(partes: ParteOperacion[], total: number, opciones:
   return null;
 }
 
+// PARTIDA DOBLE: en cada asiento el Debe y el Haber tienen que existir y ser del mismo importe, y en toda la operación la suma del
+// Debe tiene que ser igual a la del Haber (al centavo). Si algo no cuadra, la operación NO se graba.
+export function validarPartidaDoble(asientos: Asiento[]): string | null {
+  let debe = 0;
+  let haber = 0;
+
+  for (const [i, a] of asientos.entries()) {
+    const n = asientos.length > 1 ? ` (parte ${i + 1})` : '';
+    if (!a.cuenta_debito || !a.cuenta_credito) {
+      return `Partida doble: el asiento${n} no tiene cuenta en el Debe y en el Haber, no se puede registrar.`;
+    }
+    if (!Number.isFinite(a.importe) || aCentavos(a.importe) <= 0) {
+      return `Partida doble: el asiento${n} tiene un importe inválido, no se puede registrar.`;
+    }
+    debe = aCentavos(debe + a.importe);
+    haber = aCentavos(haber + a.importe);
+  }
+
+  if (debe !== haber) {
+    return `Partida doble: el Debe (${debe.toFixed(2)}) y el Haber (${haber.toFixed(2)}) no son iguales, no se puede registrar.`;
+  }
+
+  return null;
+}
+
 export type ImporteDeCuenta = { cuenta: string; lado: 'DEBITO' | 'CREDITO'; importe: number };
 
 // Suma lo que cada cuenta recibe por el Debe y lo que da por el Haber: dos partes que terminan en la misma cuenta se validan juntas.

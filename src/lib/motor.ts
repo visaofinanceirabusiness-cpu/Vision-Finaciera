@@ -6,7 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { verificarTiempoParaCargar } from './tiempoAgotado';
-import { chequearSaldos, cuentasInvolucradas, validarPartes, type Asiento, type ParteOperacion } from './pagoDividido';
+import { chequearSaldos, cuentasInvolucradas, validarPartes, validarPartidaDoble, type Asiento, type ParteOperacion } from './pagoDividido';
 import { aCentavos } from './centavos';
 import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
 import { cambioDejaSaldoNegativo, primerDiaSinSaldo, saldoAFecha, saldoUtilizableAFecha, type MovimientoCuenta } from './saldoFecha';
@@ -908,6 +908,12 @@ export async function registrarOperacion(
     importe: partes ? Number(partes[indice].monto) : total,
   }));
 
+  // Partida doble: antes de tocar nada, cada asiento tiene que tener Debe y Haber del mismo importe (solo si la operación va al libro).
+  if (regla.libro === 'SI') {
+    const errorPartida = validarPartidaDoble(asientosPartes);
+    if (errorPartida) throw new Error(errorPartida);
+  }
+
   const historiales = new Map<string, HistorialCuenta | null>(
     await Promise.all(cuentasInvolucradas(asientosPartes).map(async (nombre) => [nombre, await historialDeCuenta(empresaId, nombre)] as const))
   );
@@ -1354,6 +1360,27 @@ export async function registrarOperacion(
 
       if (error) {
         throw error;
+      }
+    }
+
+    // Partida doble, comprobación final sobre lo ya guardado: si el Debe y el Haber no cuadran, el catch borra todo y no queda nada.
+    {
+      const [{ data: guardadas, error: errorLeer }, { data: autos, error: errorLeerAutos }] = await Promise.all([
+        supabase.from('registro_operaciones').select('cuenta_debito, cuenta_credito, total').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+        supabase.from('registros_automaticos').select('cuenta_debito, cuenta_credito, importe').eq('empresa_id', empresaId).eq('id_operacion', idOperacion),
+      ]);
+      if (errorLeer) throw errorLeer;
+      if (errorLeerAutos) throw errorLeerAutos;
+
+      const guardados: Asiento[] = [
+        ...(guardadas ?? []).map((f) => ({ cuenta_debito: f.cuenta_debito as string | null, cuenta_credito: f.cuenta_credito as string | null, importe: Number(f.total) })),
+        ...(autos ?? []).map((f) => ({ cuenta_debito: f.cuenta_debito as string | null, cuenta_credito: f.cuenta_credito as string | null, importe: Number(f.importe) })),
+      ];
+      const errorFinal = validarPartidaDoble(guardados);
+      if (errorFinal) throw new Error(errorFinal);
+
+      if (regla.libro === 'SI' && aCentavos((guardadas ?? []).reduce((suma, f) => suma + Number(f.total), 0)) !== aCentavos(total)) {
+        throw new Error('Partida doble: la suma de los asientos guardados no coincide con el total de la operación, no se registró.');
       }
     }
 
