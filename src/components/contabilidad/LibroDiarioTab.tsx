@@ -516,6 +516,11 @@ function GrupoOperacionCard({
   const t = crearTraductor(diccionarioContabilidad, idioma);
   const esPT = idioma === 'PT';
   const importeGrupo = grupo.filas.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
+  // Pago dividido: una operación con más de una fila de tipo OPERACION (una por forma de pago / categoría).
+  const filasOperacion = grupo.filas.filter((f) => f.tipo_registro === 'OPERACION');
+  const esDividida = filasOperacion.length > 1;
+  const totalOperacion = filasOperacion.reduce((suma, fila) => suma + Number(fila.importe ?? 0), 0);
+  const mediosOperacion = filasOperacion.map((f) => f.forma_pago).filter(Boolean).join(' + ');
   const cabecera: React.CSSProperties = { padding: '12px 10px', color: '#475569', fontSize: 13, textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 800, letterSpacing: 0.3 };
   const celda: React.CSSProperties = { padding: '11px 10px', fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
@@ -526,6 +531,11 @@ function GrupoOperacionCard({
           <span style={{ fontSize: 18, fontWeight: 800, color: COLORES.azul }}>{grupo.id_operacion}</span>
           <span style={{ fontSize: 14, color: COLORES.gris }}>📅 {new Date(`${grupo.fecha}T12:00:00`).toLocaleDateString(esPT ? 'pt-BR' : 'es-AR')}</span>
           <span style={{ padding: '5px 11px', borderRadius: 999, background: '#eaf7ee', color: '#247347', fontSize: 13, fontWeight: 700 }}>{contadorAsientos(idioma, grupo.filas.length)}</span>
+          {esDividida && (
+            <span style={{ padding: '5px 11px', borderRadius: 999, background: '#eef2ff', color: '#3730a3', fontSize: 13, fontWeight: 700 }}>
+              ➗ {esPT ? `Pagamento dividido em ${filasOperacion.length}` : `Pago dividido en ${filasOperacion.length}`}
+            </span>
+          )}
         </div>
         <div style={{ fontSize: 15, color: COLORES.gris }}>
           {t('importeRegistrado')} <strong style={{ color: COLORES.azul, fontSize: 17 }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
@@ -594,8 +604,9 @@ function GrupoOperacionCard({
                         fila.tipo_registro === 'OPERACION' &&
                         fila.operacion === 'VENTA' &&
                         (fila.estado || '').toUpperCase() === 'VALIDADO' &&
-                        fila.cliente_proveedor && (
-                          <BotonReenviarComprobante empresaId={empresaId} nombreEmpresa={nombreEmpresa} idioma={idioma} simbolo={simbolo} fila={fila} />
+                        fila.cliente_proveedor &&
+                        (!esDividida || fila === filasOperacion[0]) && (
+                          <BotonReenviarComprobante empresaId={empresaId} nombreEmpresa={nombreEmpresa} idioma={idioma} simbolo={simbolo} fila={fila} total={esDividida ? totalOperacion : undefined} formaPago={esDividida ? mediosOperacion : undefined} />
                         )}
                     </div>
                   </td>
@@ -619,12 +630,17 @@ function BotonReenviarComprobante({
   idioma,
   simbolo,
   fila,
+  total,
+  formaPago,
 }: {
   empresaId: string;
   nombreEmpresa: string;
   idioma: string | null;
   simbolo: string;
   fila: MovimientoDiario;
+  // Pago dividido: el comprobante va con el total de la operación y todos los medios, no solo los de esta fila.
+  total?: number;
+  formaPago?: string;
 }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -649,8 +665,8 @@ function BotonReenviarComprobante({
         fecha: fila.fecha,
         cliente: fila.cliente_proveedor ?? '',
         detalle: fila.historico ?? '',
-        formaPago: fila.forma_pago ?? '',
-        total: Number(fila.importe ?? 0),
+        formaPago: formaPago ?? fila.forma_pago ?? '',
+        total: total ?? Number(fila.importe ?? 0),
         simboloMoneda: simbolo,
       });
 

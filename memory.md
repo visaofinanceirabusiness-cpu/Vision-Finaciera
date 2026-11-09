@@ -7,6 +7,16 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Pago dividido (09/11/2026) — una operación con varios medios de pago
+- Una operación puede repartirse en **2 a 5 partes** (`MAX_PARTES`), cada una con su forma de pago y, si no mueve productos, su categoría. Ejemplo: gasto de 300 = banco 100 + efectivo 200. Para todos los perfiles; solo PAGO/COMPRA/VENTA/COBRO.
+- **Esquema:** columna `registro_operaciones.parte` (int, default 1, check >= 1) + índice `(empresa_id, id_operacion, parte)`. Las partes son **N filas con el mismo `id_operacion`** (mismo patrón que `registros_automaticos`/CMV); cada una usa la regla de SU (categoría, forma de pago). Se insertan en UN solo `insert([...])` (todo o nada).
+- **Regla de contadores:** todo lo que cuenta operaciones filtra `parte = 1` (Mini-Juego, trofeos, niveles/gamificación, objetivos, escalonados, ADN). Si se agrega un contador nuevo sobre `registro_operaciones`, filtrar `parte = 1` o una operación dividida cuenta doble.
+- **Motor (`lib/motor.ts` + `lib/pagoDividido.ts`, puro y con tests):** `FormularioOperacion.partes`; `validarPartes` (suma exacta, sin duplicados, con stock misma categoría, una sola parte en cuotas); saldos negativos: `chequearSaldos` agrega lo que le toca a cada cuenta entre todas las partes y aplica los mismos mensajes de siempre. Stock y CMV se mueven una sola vez. `editarOperacion` valida todo antes de borrar. Con una sola parte el camino es el de siempre.
+- **UI:** componente compartido `components/contabilidad/DivisionDelPago.tsx` en Mini-Juego (resumen), Central de Lanzamientos (también edición: `construirValoresEdicion` carga las partes), Lanzamiento rápido y chat de Sabio (opción «3) Dividir el pago»; el usuario escribe un medio por línea, el último monto puede omitirse; misma categoría). Editar Registros agrupa en una tarjeta con «pago dividido en N». Libro Diario: chip «➗ Pago dividido en N» y un solo botón de comprobante con el total y todos los medios.
+- **Cuotas:** solo en UNA parte (tarjeta o cuenta a cobrar/pagar), por el monto de esa parte (`tipoCuotasDeFormaPago` + `crearCuotasDeOperacion`).
+- **Interruptor:** pieza de Caja `pago-dividido` (global). Se siembra `en_caja = true` tras el deploy: el dueño prueba en demo y la «saca de la caja» para habilitarla. Mi Local no ofrece dividir (el comprador no elige medio).
+- Pendiente: probar con plata de demo (gasto con banco + efectivo, venta con tarjeta en cuotas + efectivo, edición de una dividida, borrar) y revisar `AnalisisContrapartes` y otros consumidores que cuenten filas.
+
 ## Caja de materiales por perfil + perfil Finanzas Personales acotado + Libro Diario nuevo (06/11/2026)
 
 - **Caja por perfil:** `caja_materiales_estado.perfiles text[]` (migración `caja_materiales_por_perfil`; null = todas las empresas, como antes; `['FAMILIAR']` = solo Finanzas Personales). `useCaja()` resuelve según el perfil de quien está conectado (`miPerfilCodigo()`, `estaEnCajaParaPerfil` en `lib/cajaMateriales.ts`). El Panel Maestro → Caja pregunta «¿Para quién se guarda?» al mandar una pieza y muestra el alcance. **Ojo al sembrar filas por SQL:** el código viejo ignora `perfiles` y trataría la fila como global → insertar filas con `perfiles` SOLO después de que el deploy esté en producción.

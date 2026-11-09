@@ -44,6 +44,7 @@ import { saldoDeFormaDePago, saldosDeCategorias, saldosDeMedios } from './saldoC
 import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarContactoPorTelefono } from './clientes';
 import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
+import { MAX_PARTES, validarPartes, type ParteOperacion } from './pagoDividido';
 
 type Paso =
   | 'PENDIENTE'
@@ -59,6 +60,7 @@ type Paso =
   | 'CANTIDAD'
   | 'PRECIO'
   | 'DETALLE'
+  | 'DIVIDIR'
   | 'CONFIRMAR';
 
 type Datos = {
@@ -103,6 +105,8 @@ type Datos = {
   productoNombre?: string;
   cantidad?: number;
   idsOpciones?: string[];
+  // Pago dividido (paso DIVIDIR): las partes ya validadas; todas llevan la categoría elegida.
+  partes?: ParteOperacion[];
 };
 
 type Conversacion = {
@@ -505,6 +509,62 @@ async function seguirTrasFormaPago(empresaId: string, datos: Datos, formaPago: s
   return `${t(idioma, `¿${etiquetaTitulo}?`, `${etiquetaTitulo}?`)}\n\n${numerarLista(contactos)}\n\n${t(idioma, '0) Escribir otro nombre', '0) Digitar outro nome')}${saldoOrigen}`;
 }
 
+const OPERACIONES_DIVIDIBLES = ['PAGO', 'COMPRA', 'VENTA', 'COBRO'];
+
+// Dividir el pago: solo cuando la operación no está atada a un pendiente ni va en cuotas, y la pieza no está en la Caja.
+async function puedeDividir(datos: Datos): Promise<boolean> {
+  if (!OPERACIONES_DIVIDIBLES.includes(datos.operacion ?? '') || datos.pendiente || (datos.cuotas && datos.cuotas >= 1)) return false;
+  return !(await piezaEnCajaParaMi('pago-dividido'));
+}
+
+function partesDelBot(datos: Datos, simbolo: string): string {
+  const etiqueta = etiquetaFormaPago(datos.idioma, datos.operacion);
+  if (!datos.partes || datos.partes.length < 2) return `${etiqueta}: ${datos.formaPago}`;
+  return `${etiqueta}:\n${datos.partes.map((p) => `   • ${p.formaPago}: ${simbolo} ${formatearNumeroEntero(p.monto)}`).join('\n')}`;
+}
+
+// Total de la operación: con producto el monto guardado es el precio unitario.
+function totalDelBot(datos: Datos): number {
+  return datos.esStock ? (datos.cantidad ?? 1) * (datos.monto ?? 0) : datos.monto ?? 0;
+}
+
+function mensajeConfirmar(datos: Datos, detalle: string, monto: number, ofrecerDividir: boolean): string {
+  const idioma = datos.idioma;
+  const simbolo = datos.simbolo ?? 'R$';
+  const etiquetaContactoTexto = etiquetaContacto(idioma, datos.operacion ?? '');
+  const etiquetaContactoTitulo = etiquetaContactoTexto.charAt(0).toUpperCase() + etiquetaContactoTexto.slice(1);
+  const contactoLinea = datos.contacto ? `\n${etiquetaContactoTitulo}: ${datos.contacto}` : '';
+  const partesLinea = partesDelBot(datos, simbolo);
+
+  return (
+    `${t(idioma, 'Confirmá los datos:', 'Confirme os dados:')}\n\n` +
+    `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
+    `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
+    `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
+    `${partesLinea}${contactoLinea}\n` +
+    (datos.cuotas && datos.cuotas >= 1 ? `${t(idioma, 'Cuotas', 'Parcelas')}: ${datos.cuotas}\n` : '') +
+    (datos.esStock
+      ? `${t(idioma, 'Producto', 'Produto')}: ${datos.productoNombre} x${datos.cantidad}\n` +
+        `${t(idioma, 'Precio unitario', 'Preço unitário')}: ${simbolo} ${formatearNumeroEntero(monto)}\nTotal: ${simbolo} ${formatearNumeroEntero(totalDelBot(datos))}\n\n`
+      : `${t(idioma, 'Detalle', 'Detalhe')}: ${detalle}\n` + `${t(idioma, 'Monto', 'Valor')}: ${simbolo} ${formatearNumeroEntero(monto)}\n\n`) +
+    `1) ${t(idioma, 'Confirmar', 'Confirmar')}\n2) ${t(idioma, 'Cancelar', 'Cancelar')}` +
+    (ofrecerDividir ? `\n3) ${t(idioma, 'Dividir el pago entre varios medios', 'Dividir o pagamento entre vários meios')}` : '')
+  );
+}
+
+// "Banco 100" / "Efectivo: 200,50" → medio + monto. El nombre del medio se busca (sin importar mayúsculas ni tildes) entre los de la categoría.
+function interpretarLineaDePago(linea: string, medios: string[]): { medio: string; monto: number | null } | null {
+  const sinTildes = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const limpia = sinTildes(linea.trim());
+  const medio = [...medios].sort((a, b) => b.length - a.length).find((m) => limpia.includes(sinTildes(m)));
+  if (!medio) return null;
+  const resto = limpia.replace(sinTildes(medio), '').replace(/[^0-9.,]/g, '');
+  if (!resto) return { medio, monto: null };
+  const normal = resto.includes(',') ? resto.replace(/\./g, '').replace(',', '.') : resto;
+  const n = Number(normal);
+  return Number.isFinite(n) && n > 0 ? { medio, monto: n } : { medio, monto: Number.NaN };
+}
+
 export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: string): Promise<string> {
   const bloqueado = await mensajeSiNoRegistra(empresaId);
   if (bloqueado) return bloqueado;
@@ -884,12 +944,13 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
       `${t(idioma, 'Fecha', 'Data')}: ${fechaParaMostrar(datos.fecha)}\n` +
       `${t(idioma, 'Operación', 'Operação')}: ${nombreOperacionDisplay(idioma, datos.operacion ?? '', datos.esFamiliar)}\n` +
       `${etiquetaCategoria(idioma, datos.operacion)}: ${datos.categoria}\n` +
-      `${etiquetaFormaPago(idioma, datos.operacion)}: ${datos.formaPago}${contactoLinea}\n` +
+      `${partesDelBot(datos, simbolo)}${contactoLinea}\n` +
       (datos.cuotas && datos.cuotas >= 1 ? `${t(idioma, 'Cuotas', 'Parcelas')}: ${datos.cuotas}\n` : '') +
       `${t(idioma, 'Producto', 'Produto')}: ${datos.productoNombre} x${datos.cantidad}\n` +
       `${t(idioma, 'Precio unitario', 'Preço unitário')}: ${simbolo} ${formatearNumeroEntero(monto)}\n` +
       `Total: ${simbolo} ${formatearNumeroEntero(total)}\n\n` +
-      `1) ${t(idioma, 'Confirmar', 'Confirmar')}\n2) ${t(idioma, 'Cancelar', 'Cancelar')}`
+      `1) ${t(idioma, 'Confirmar', 'Confirmar')}\n2) ${t(idioma, 'Cancelar', 'Cancelar')}` +
+      ((await puedeDividir(datos)) ? `\n3) ${t(idioma, 'Dividir el pago entre varios medios', 'Dividir o pagamento entre vários meios')}` : '')
     );
   }
 
@@ -946,6 +1007,42 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
   }
 
   // ---------------------------------------------------
+  // 5b. DIVIDIR — el pago se reparte entre varios medios (misma categoría)
+  // ---------------------------------------------------
+  if (paso === 'DIVIDIR') {
+    const total = totalDelBot(datos);
+    const medios = datos.opciones ?? [];
+    const lineas = texto.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const reintento = (motivo: string) => `${motivo}\n\n${t(idioma, 'Probá de nuevo (un medio por línea) o escribí "cancelar".', 'Tente de novo (um meio por linha) ou digite "cancelar".')}`;
+
+    const interpretadas = lineas.map((l) => interpretarLineaDePago(l, medios));
+    if (interpretadas.some((i) => !i)) {
+      return reintento(t(idioma, 'No reconocí alguno de los medios. Usá los nombres de la lista.', 'Não reconheci algum dos meios. Use os nomes da lista.'));
+    }
+    const filas = interpretadas as { medio: string; monto: number | null }[];
+    if (filas.some((f) => f.monto !== null && Number.isNaN(f.monto))) {
+      return reintento(t(idioma, 'Algún monto no es válido.', 'Algum valor não é válido.'));
+    }
+
+    // El último monto puede omitirse: toma lo que falta.
+    const sumaConocida = filas.reduce((suma, f) => suma + (f.monto ?? 0), 0);
+    if (filas.length >= 2 && filas[filas.length - 1].monto === null && filas.slice(0, -1).every((f) => f.monto !== null)) {
+      filas[filas.length - 1].monto = Math.round((total - sumaConocida) * 100) / 100;
+    }
+    if (filas.some((f) => f.monto === null)) {
+      return reintento(t(idioma, 'Falta el monto de algún medio (solo el último puede omitirse).', 'Falta o valor de algum meio (só o último pode ser omitido).'));
+    }
+
+    const partes: ParteOperacion[] = filas.map((f) => ({ categoria: datos.categoria ?? '', formaPago: f.medio, monto: Math.round((f.monto as number) * 100) / 100 }));
+    const problema = validarPartes(partes, total, { tieneStock: Boolean(datos.esStock) });
+    if (problema) return reintento(problema);
+
+    const nuevosDatos: Datos = { ...datos, partes, formaPago: partes[0].formaPago, opciones: undefined };
+    await guardarConversacion(empresaId, 'CONFIRMAR', nuevosDatos);
+    return mensajeConfirmar(nuevosDatos, datos.historico ?? '', datos.monto ?? 0, false);
+  }
+
+  // ---------------------------------------------------
   // 6. CONFIRMAR
   // ---------------------------------------------------
   if (paso === 'CONFIRMAR') {
@@ -955,6 +1052,16 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         idioma,
         '❌ Operación cancelada. Escribí cualquier cosa para empezar de nuevo.',
         '❌ Operação cancelada. Digite qualquer coisa para começar de novo.'
+      );
+    }
+
+    if (texto === '3' && (await puedeDividir(datos))) {
+      const medios = await obtenerFormasPagoOperacion(empresaId, datos.operacion ?? '', datos.categoria ?? '').catch(() => [] as string[]);
+      await guardarConversacion(empresaId, 'DIVIDIR', { ...datos, opciones: medios, partes: undefined });
+      return t(
+        idioma,
+        `➗ Escribí cómo se reparte los ${datos.simbolo ?? 'R$'} ${formatearNumeroEntero(totalDelBot(datos))}, un medio por línea (de 2 a ${MAX_PARTES}), con el monto. Ejemplo:\n\n${medios[0] ?? 'Banco'} 100\n${medios[1] ?? 'Efectivo'} 200\n\nEl último monto puede omitirse: toma lo que falta.\n\nMedios disponibles:\n${medios.map((m) => `• ${m}`).join('\n')}`,
+        `➗ Escreva como o valor de ${datos.simbolo ?? 'R$'} ${formatearNumeroEntero(totalDelBot(datos))} é repartido, um meio por linha (de 2 a ${MAX_PARTES}), com o valor. Exemplo:\n\n${medios[0] ?? 'Banco'} 100\n${medios[1] ?? 'Dinheiro'} 200\n\nO último valor pode ser omitido: fica com o que falta.\n\nMeios disponíveis:\n${medios.map((m) => `• ${m}`).join('\n')}`
       );
     }
 
@@ -976,6 +1083,7 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
         clienteProveedor: datos.contacto ?? '',
         socio: '',
         lineas,
+        partes: datos.partes && datos.partes.length >= 2 ? datos.partes : undefined,
       });
       if (datos.pendiente) {
         await cerrarPendienteConOperacion(empresaId, datos.pendiente, resultado.idOperacion, resultado.total, datos.fecha ?? fechaLocalHoy());

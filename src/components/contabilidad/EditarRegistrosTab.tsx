@@ -60,7 +60,7 @@ export function EditarRegistrosTab() {
     const { data, error } = await supabase
       .from('registro_operaciones')
       .select(
-        'id_operacion, fecha, operacion, categoria, forma_pago, total, historico, cliente_proveedor, estado'
+        'id_operacion, fecha, operacion, categoria, forma_pago, total, historico, cliente_proveedor, estado, parte'
       )
       .eq('empresa_id', empresa)
       .gte('fecha', fechaHaceNDias(DIAS_VENTANA_EDITAR_REGISTROS))
@@ -71,7 +71,18 @@ export function EditarRegistrosTab() {
       return;
     }
 
-    setFilas((data ?? []) as Registro[]);
+    // Un pago dividido tiene una fila por parte: acá se muestra UNA tarjeta por operación (la parte 1) con el total sumado.
+    const porOperacion = new Map<string, Registro & { parte?: number }>();
+    for (const f of (data ?? []) as Array<Registro & { parte?: number }>) {
+      const previa = porOperacion.get(f.id_operacion);
+      if (!previa) {
+        porOperacion.set(f.id_operacion, { ...f, total: Number(f.total), partes: 1 });
+        continue;
+      }
+      const base = (f.parte ?? 1) < (previa.parte ?? 1) ? { ...f } : previa;
+      porOperacion.set(f.id_operacion, { ...base, total: Number(previa.total) + Number(f.total), partes: (previa.partes ?? 1) + 1 });
+    }
+    setFilas(Array.from(porOperacion.values()));
   }
 
   useEffect(() => {
@@ -218,6 +229,12 @@ export function EditarRegistrosTab() {
                 <span style={{ fontSize: 20, fontWeight: 800, color: COLORES.verde }}>
                   {simbolo} {formatearNumeroEntero(Number(fila.total))}
                 </span>
+
+                {(fila.partes ?? 1) > 1 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: COLORES.gris }}>
+                    ➗ {idioma === 'PT' ? `pago dividido em ${fila.partes}`.replace('pago', 'pagamento') : `pago dividido en ${fila.partes}`}
+                  </span>
+                )}
 
                 <span style={{ fontSize: 12, color: COLORES.gris }}>
                   {new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}

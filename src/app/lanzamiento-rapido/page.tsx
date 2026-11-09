@@ -8,6 +8,9 @@
 // Disponible para todas las empresas (nació como piloto de Buenaventura).
 
 import { useEffect, useRef, useState } from 'react';
+import { DivisionDelPago } from '@/components/contabilidad/DivisionDelPago';
+import { useCaja } from '@/components/caja/useCaja';
+import { partesDeForm, partesIniciales, validarPartes, type ParteForm } from '@/lib/pagoDividido';
 import { tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -77,6 +80,10 @@ export default function LanzamientoRapidoPage() {
   const [tipoCuotas, setTipoCuotas] = useState<TipoCuotas>(null);
   const [enCuotas, setEnCuotas] = useState(false);
   const [cantidadCuotas, setCantidadCuotas] = useState('2');
+  // Pago dividido (lib/pagoDividido.ts): se reparte el valor entre varios medios.
+  const [dividiendo, setDividiendo] = useState(false);
+  const [partesForm, setPartesForm] = useState<ParteForm[]>([]);
+  const { estaEnCaja } = useCaja();
   // Aviso "ya lo devengaste" de la tarjeta abierta, y la categoría del compromiso si se eligió.
   const [avisos, setAvisos] = useState<CompromisoAbierto[]>([]);
   const [categoriaAlt, setCategoriaAlt] = useState<string | null>(null);
@@ -253,6 +260,8 @@ export default function LanzamientoRapidoPage() {
     }
     setTipoCuotas(null);
     setEnCuotas(false);
+    setDividiendo(false);
+    setPartesForm([]);
     setCantidadCuotas('2');
     if (empresaId && t.formaPago) {
       tipoCuotasDeFormaPago(empresaId, t.operacion, t.formaPago)
@@ -284,8 +293,16 @@ export default function LanzamientoRapidoPage() {
       setErrorTarjeta(tr('Elegí con qué medio.', 'Escolha o meio.'));
       return;
     }
-    const cuotasElegidas = tipoCuotas && enCuotas ? Number(cantidadCuotas) : 0;
-    if (tipoCuotas && enCuotas && (!Number.isInteger(cuotasElegidas) || cuotasElegidas < 1)) {
+    const partesMotor = dividiendo && partesForm.length >= 2 ? partesDeForm(partesForm) : null;
+    if (partesMotor) {
+      const errorPartes = validarPartes(partesMotor, monto, { tieneStock: false });
+      if (errorPartes) {
+        setErrorTarjeta(errorPartes);
+        return;
+      }
+    }
+    const cuotasElegidas = tipoCuotas && enCuotas && !partesMotor ? Number(cantidadCuotas) : 0;
+    if (tipoCuotas && enCuotas && !partesMotor && (!Number.isInteger(cuotasElegidas) || cuotasElegidas < 1)) {
       setErrorTarjeta(tr('La cantidad de cuotas tiene que ser 1 o más.', 'A quantidade de parcelas tem que ser 1 ou mais.'));
       return;
     }
@@ -301,7 +318,17 @@ export default function LanzamientoRapidoPage() {
       const id = await registrarLanzamiento(empresaId, { ...t, formaPago: t.formaPago || medioCuota, ...(categoriaAlt ? { categoria: categoriaAlt } : {}), pendiente: t.pendiente ?? pendienteAviso ?? undefined },
         monto,
         fecha,
-        tipoCuotas && enCuotas ? { tipo: tipoCuotas, cantidad: cuotasElegidas, idioma: meta.idioma } : undefined
+        tipoCuotas && enCuotas && !partesMotor ? { tipo: tipoCuotas, cantidad: cuotasElegidas, idioma: meta.idioma } : undefined,
+        partesMotor
+          ? {
+              partes: partesMotor,
+              cuotas: (() => {
+                const c = partesForm.find((x) => x.enCuotas);
+                const n = Number(c?.cuotas ?? 0);
+                return c && Number.isInteger(n) && n >= 1 ? { formaPago: c.formaPago, categoria: c.categoria, cantidad: n, idioma: meta.idioma } : undefined;
+              })(),
+            }
+          : undefined
       );
       invalidarCache(empresaId);
       if (t.pendiente || pendienteAviso) pendientesParaCargar(empresaId).then(setPendientes).catch(() => null);
@@ -524,7 +551,39 @@ export default function LanzamientoRapidoPage() {
                         </label>
                       </div>
 
-                      {tipoCuotas && (
+                      {!dividiendo && !t.pendiente && !pendienteAviso && !categoriaAlt && !estaEnCaja('pago-dividido') && ['PAGO', 'COMPRA', 'VENTA', 'COBRO'].includes(t.operacion) && parsearMonto(valor) > 0 && (t.formaPago || medioCuota) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEnCuotas(false);
+                            setPartesForm(partesIniciales(t.categoria, t.formaPago || medioCuota, parsearMonto(valor)));
+                            setDividiendo(true);
+                          }}
+                          style={{ border: `2px dashed ${COLORES.azul}`, background: 'transparent', color: COLORES.azul, borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                        >
+                          ➗ {tr('Dividir el pago', 'Dividir o pagamento')}
+                        </button>
+                      )}
+
+                      {dividiendo && empresaId && (
+                        <DivisionDelPago
+                          empresaId={empresaId}
+                          operacion={t.operacion}
+                          fecha={fecha}
+                          total={parsearMonto(valor)}
+                          simbolo={simbolo}
+                          idioma={meta.idioma}
+                          tieneStock={false}
+                          partes={partesForm}
+                          onChange={setPartesForm}
+                          onCancelar={() => {
+                            setDividiendo(false);
+                            setPartesForm([]);
+                          }}
+                        />
+                      )}
+
+                      {tipoCuotas && !dividiendo && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: COLORES.azul, cursor: 'pointer' }}>
                             <input type="checkbox" checked={enCuotas} onChange={(e) => setEnCuotas(e.target.checked)} />

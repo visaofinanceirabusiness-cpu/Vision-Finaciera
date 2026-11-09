@@ -121,7 +121,8 @@ async function contarOperaciones(
     .eq(
       'empresa_id',
       empresaId
-    );
+    )
+    .eq('parte', 1);
 
   if (error) {
     throw error;

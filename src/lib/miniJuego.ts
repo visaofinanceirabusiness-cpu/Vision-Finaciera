@@ -70,6 +70,7 @@ export async function contarJugadasHoy(empresaId: string): Promise<number> {
     .from('registro_operaciones')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId)
+    .eq('parte', 1)
     .gte('creado_en', `${fechaLocalHoy()}T00:00:00`);
 
   if (error) throw error;

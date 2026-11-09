@@ -39,6 +39,9 @@ import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from './PendientesParaCargar';
+import { DivisionDelPago } from '@/components/contabilidad/DivisionDelPago';
+import { useCaja } from '@/components/caja/useCaja';
+import { partesDeForm, partesIniciales, resumenDePartes, validarPartes, type ParteForm } from '@/lib/pagoDividido';
 
 type Colores = { azul: string; verde: string; acento: string; blanco: string };
 
@@ -123,6 +126,10 @@ export function MiniJuego({
   const [tipoCuotas, setTipoCuotas] = useState<TipoCuotas>(null);
   const [enCuotas, setEnCuotas] = useState(false);
   const [cantidadCuotas, setCantidadCuotas] = useState('2');
+  // Pago dividido (ver lib/pagoDividido.ts): en la pantalla de resumen se puede repartir el total entre varias formas de pago.
+  const [dividiendo, setDividiendo] = useState(false);
+  const [partesForm, setPartesForm] = useState<ParteForm[]>([]);
+  const { estaEnCaja } = useCaja();
   const [productoId, setProductoId] = useState('');
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadMedida, setUnidadMedida] = useState('');
@@ -314,6 +321,8 @@ export function MiniJuego({
     setOperacion(op);
     setCategoria('');
     setFormaPago('');
+    setDividiendo(false);
+    setPartesForm([]);
     setClienteProveedor('');
     setContactos([]);
     setCreandoContacto(false);
@@ -545,7 +554,11 @@ export function MiniJuego({
       cargarLineaEnPantalla(lineas[ultimo]);
       setEditandoIndice(ultimo);
       setPaso('monto');
-    } else if (paso === 'resumen') setPaso(necesitaProducto ? 'canasta' : 'monto');
+    } else if (paso === 'resumen') {
+      setDividiendo(false);
+      setPartesForm([]);
+      setPaso(necesitaProducto ? 'canasta' : 'monto');
+    }
     else if (paso === 'monto') setPaso(necesitaProducto ? 'cantidad' : tablaContacto ? 'contacto' : 'formaPago');
   }
 
@@ -616,14 +629,16 @@ export function MiniJuego({
   }
 
   function armarResumen(): ResumenJugada {
+    const partesResumen = dividiendo && partesForm.length >= 2 ? partesDeForm(partesForm) : null;
+    const categoriasPartes = partesResumen ? Array.from(new Set(partesResumen.map((p) => p.categoria))) : [];
     return {
       emojiOperacion: iconoOperacion(operacion),
       operacion: nombreOperacionDisplay(idioma, operacion, esFamiliar),
       monto: necesitaProducto ? totalLineas(lineas) : Number(monto),
       simbolo,
       fecha,
-      categoria,
-      formaPago,
+      categoria: partesResumen ? categoriasPartes.join(' + ') : categoria,
+      formaPago: partesResumen ? resumenDePartes(partesResumen, simbolo, categoriasPartes.length > 1) : formaPago,
       contacto: tablaContacto ? clienteProveedor.trim() || undefined : undefined,
       producto: necesitaProducto && lineas.length > 0 ? lineas.map(textoLinea).join(', ') : undefined,
       cuotas: tipoCuotas && enCuotas ? Number(cantidadCuotas) : undefined,
@@ -638,10 +653,20 @@ export function MiniJuego({
       return;
     }
 
-    const cuotas = tipoCuotas && enCuotas ? Number(cantidadCuotas) : 0;
-    if (tipoCuotas && enCuotas && (!Number.isInteger(cuotas) || cuotas < 1)) {
+    const cuotas = tipoCuotas && enCuotas && !dividiendo ? Number(cantidadCuotas) : 0;
+    if (tipoCuotas && enCuotas && !dividiendo && (!Number.isInteger(cuotas) || cuotas < 1)) {
       setError(esPT ? 'A quantidade de parcelas tem que ser 1 ou mais.' : 'La cantidad de cuotas tiene que ser 1 o más.');
       return;
+    }
+
+    // Pago dividido: se valida acá (suma, partes completas, cuotas) antes de tocar nada; las cuentas las controla el motor.
+    const partesMotor = dividiendo && partesForm.length >= 2 ? partesDeForm(partesForm) : null;
+    if (partesMotor) {
+      const errorPartes = validarPartes(partesMotor, total, { tieneStock: necesitaProducto });
+      if (errorPartes) {
+        setError(errorPartes);
+        return;
+      }
     }
 
     setPaso('guardando');
@@ -661,6 +686,7 @@ export function MiniJuego({
         historico: categoria,
         clienteProveedor: clienteProveedor.trim(),
         lineas: lineasMotor,
+        partes: partesMotor ?? undefined,
       });
       // Después de la asociación explícita (así la conciliación no cuenta dos veces).
       if (resultado && pendienteElegido) {
@@ -668,7 +694,7 @@ export function MiniJuego({
       }
       if (!simulacion) conciliarTrasRegistrar(empresaId);
 
-      if (resultado && tipoCuotas && enCuotas) {
+      if (resultado && tipoCuotas && enCuotas && !partesMotor) {
         await crearCuotasDeOperacion(empresaId, idioma, tipoCuotas, {
           idOperacion: resultado.idOperacion,
           formaPagoNombre: formaPago,
@@ -676,6 +702,24 @@ export function MiniJuego({
           cantidadCuotas: cuotas,
           fecha,
         });
+      }
+
+      // En un pago dividido las cuotas son de UNA parte (la tarjeta o la cuenta a cobrar): se arman con el monto de esa parte.
+      if (resultado && partesMotor) {
+        const conCuotas = partesForm.find((p) => p.enCuotas);
+        const cuotasParte = Number(conCuotas?.cuotas ?? 0);
+        if (conCuotas && Number.isInteger(cuotasParte) && cuotasParte >= 1) {
+          const tipoParte = await tipoCuotasDeFormaPago(empresaId, operacion, conCuotas.formaPago);
+          if (tipoParte) {
+            await crearCuotasDeOperacion(empresaId, idioma, tipoParte, {
+              idOperacion: resultado.idOperacion,
+              formaPagoNombre: conCuotas.formaPago,
+              total: partesMotor.find((p) => p.formaPago === conCuotas.formaPago && p.categoria === conCuotas.categoria)?.monto ?? 0,
+              cantidadCuotas: cuotasParte,
+              fecha,
+            });
+          }
+        }
       }
 
       let numeroDelDia: number;
@@ -1439,6 +1483,41 @@ export function MiniJuego({
             <div style={{ background: '#fff', borderRadius: 20, padding: '8px 20px 22px', textAlign: 'center', marginBottom: 18 }}>
               <BloqueResumenJugada resumen={armarResumen()} esPT={esPT} />
             </div>
+
+            {/* Pago dividido: repartir el total entre varias formas de pago (o categorías). */}
+            {paso === 'resumen' && !dividiendo && !simulacion && !pendienteElegido && !estaEnCaja('pago-dividido') && ['PAGO', 'COMPRA', 'VENTA', 'COBRO'].includes(operacion) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEnCuotas(false);
+                  setPartesForm(partesIniciales(categoria, formaPago, necesitaProducto ? totalLineas(lineas) : Number(monto)));
+                  setDividiendo(true);
+                }}
+                style={{ border: '2px dashed rgba(255,255,255,0.5)', background: 'transparent', color: '#fff', borderRadius: 16, padding: '12px 0', fontSize: 15, fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}
+              >
+                ➗ {esPT ? 'Dividir o pagamento' : 'Dividir el pago'}
+              </button>
+            )}
+
+            {paso === 'resumen' && dividiendo && (
+              <div style={{ marginBottom: 12 }}>
+                <DivisionDelPago
+                  empresaId={empresaId}
+                  operacion={operacion}
+                  fecha={fecha}
+                  total={necesitaProducto ? totalLineas(lineas) : Number(monto)}
+                  simbolo={simbolo}
+                  idioma={idioma}
+                  tieneStock={necesitaProducto}
+                  partes={partesForm}
+                  onChange={setPartesForm}
+                  onCancelar={() => {
+                    setDividiendo(false);
+                    setPartesForm([]);
+                  }}
+                />
+              </div>
+            )}
 
             <button
               type="button"

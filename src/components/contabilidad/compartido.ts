@@ -6,6 +6,7 @@
 import { createContext } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { LineaOperacion } from '@/lib/motor';
+import type { ParteForm } from '@/lib/pagoDividido';
 
 // Igual que en Informes: contexto para no tener que pasar el símbolo
 // de moneda como prop por cada pestaña y sub-componente.
@@ -52,6 +53,8 @@ export type ValoresIniciales = {
   clienteProveedor: string;
   socio?: string;
   lineas: LineaFormulario[];
+  // Operación con pago dividido: una entrada por parte (la categoría/forma de pago de arriba son las de la parte 1).
+  partes?: ParteForm[];
 };
 
 export type Registro = {
@@ -65,6 +68,8 @@ export type Registro = {
   historico: string | null;
   cliente_proveedor: string | null;
   estado: string | null;
+  // Cantidad de partes si la operación es un pago dividido.
+  partes?: number;
 };
 
 // Reconstruye los ValoresIniciales de un registro ya cargado para
@@ -84,6 +89,17 @@ export async function construirValoresEdicion(empresaId: string, fila: Registro)
     throw errorMovimientos;
   }
 
+  // Pago dividido: la operación tiene una fila por parte; el total a editar es la suma de todas.
+  const { data: filasOp, error: errorFilas } = await supabase
+    .from('registro_operaciones')
+    .select('categoria, forma_pago, total, parte')
+    .eq('empresa_id', empresaId)
+    .eq('id_operacion', fila.id_operacion)
+    .order('parte', { ascending: true });
+  if (errorFilas) throw errorFilas;
+  const dividida = (filasOp ?? []).length > 1;
+  const totalOperacion = dividida ? (filasOp ?? []).reduce((suma, f) => suma + Number(f.total), 0) : Number(fila.total);
+
   const lineas: LineaFormulario[] =
     movimientos && movimientos.length > 0
       ? movimientos.map((m) => ({
@@ -92,7 +108,7 @@ export async function construirValoresEdicion(empresaId: string, fila: Registro)
           monto: Number(m.costo_unitario),
           unidadCarga: '',
         }))
-      : [{ producto: '', cantidad: 1, monto: Number(fila.total), unidadCarga: '' }];
+      : [{ producto: '', cantidad: 1, monto: totalOperacion, unidadCarga: '' }];
 
   return {
     fecha: fila.fecha,
@@ -102,5 +118,6 @@ export async function construirValoresEdicion(empresaId: string, fila: Registro)
     historico: fila.historico ?? '',
     clienteProveedor: fila.cliente_proveedor ?? '',
     lineas,
+    partes: dividida ? (filasOp ?? []).map((f) => ({ categoria: f.categoria as string, formaPago: f.forma_pago as string, monto: String(Number(f.total)) })) : undefined,
   };
 }

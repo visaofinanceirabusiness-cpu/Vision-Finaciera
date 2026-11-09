@@ -129,6 +129,7 @@ async function fechaInicioNivel(empresaId: string, operacionesMin: number): Prom
     .from('registro_operaciones')
     .select('creado_en')
     .eq('empresa_id', empresaId)
+    .eq('parte', 1)
     .order('creado_en', { ascending: true })
     .range(operacionesMin - 1, operacionesMin - 1);
 
@@ -140,6 +141,7 @@ async function contarDesde(empresaId: string, operacion: TipoEscalonado, desde: 
     .from('registro_operaciones')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId)
+    .eq('parte', 1)
     .eq('operacion', operacion);
 
   if (desde) {
