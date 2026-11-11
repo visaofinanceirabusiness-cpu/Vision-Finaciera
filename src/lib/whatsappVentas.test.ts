@@ -31,3 +31,16 @@ describe('mensaje de la venta', () => {
     expect(m).toContain('Total: $ 85.00');
   });
 });
+
+describe('operaciones anteriores al detalle guardado', () => {
+  it('con un producto calcula el precio por unidad; con varios solo lista cantidad y producto', async () => {
+    const { completarVentasAnteriores } = await import('./whatsappVentas');
+    const base = agruparVentas([fila('OP-1', { total: 120, historico: 'OP-1' }), fila('OP-2', { total: 300, historico: 'OP-2' })], new Map());
+    const r = completarVentasAnteriores(base, [{ id_operacion: 'OP-1', producto_id: 'a', cantidad: 4 }, { id_operacion: 'OP-2', producto_id: 'a', cantidad: 2 }, { id_operacion: 'OP-2', producto_id: 'b', cantidad: 1 }], new Map([['a', 'Remera'], ['b', 'Gorra']]), new Map());
+    const v1 = r.find((v) => v.idOperacion === 'OP-1')!;
+    const v2 = r.find((v) => v.idOperacion === 'OP-2')!;
+    expect(v1.lineas[0]).toMatchObject({ cantidad: 4, producto: 'Remera', unitario: 30, total: 120 });
+    expect(v2.lineas.map((l) => l.unitario)).toEqual([null, null]);
+    expect(v2.detalle).toBe('Remera / Gorra');
+  });
+});
