@@ -31,6 +31,8 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
+import { prepararComprobante, type ComprobanteListo } from '@/lib/whatsappVentas';
+import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
 import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
@@ -137,7 +139,7 @@ export function CentralDeLanzamientosTab({
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [cargandoInicial, setCargandoInicial] = useState(true);
-  const [comprobanteWhatsapp, setComprobanteWhatsapp] = useState<{ cliente: string; enlace: string } | null>(null);
+  const [comprobanteWhatsapp, setComprobanteWhatsapp] = useState<ComprobanteListo | null>(null);
   const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
 
   // Tutorial guiado (Fase 3 del onboarding): activo siempre para una
@@ -1515,26 +1517,25 @@ export function CentralDeLanzamientosTab({
         formulario.clienteProveedor
       ) {
         try {
-          const telefono = await buscarTelefonoCliente(empresaId, formulario.clienteProveedor);
+          // Detalle completo: cantidad, producto, precio por unidad y precio de la línea (montoParaMotor ya es el precio por unidad).
+          const lineasComprobante = formulario.lineas
+            .filter((l) => l.cantidad > 0)
+            .map((l) => ({ cantidad: l.cantidad, producto: nombreDeLinea(l.producto), unitario: l.monto, total: l.cantidad * l.monto }));
 
-          if (empresaTieneTelefonoValido(telefono)) {
-            const mensaje = armarMensajeComprobante({
-              idioma,
-              nombreEmpresa: nombreEmpresa || (idioma === 'PT' ? 'Meu Negócio' : 'Mi Negocio'),
-              numeroComprobante: resultado.idOperacion,
-              fecha: formulario.fecha,
-              cliente: formulario.clienteProveedor,
-              detalle: formulario.historico,
-              formaPago: partesMotor ? partesMotor.map((p) => p.formaPago).join(' + ') : formulario.formaPago,
-              total: resultado.total,
-              simboloMoneda: simbolo,
-            });
+          const listo = await prepararComprobante(empresaId, {
+            idioma,
+            nombreEmpresa,
+            simbolo,
+            idOperacion: resultado.idOperacion,
+            fecha: formulario.fecha,
+            cliente: formulario.clienteProveedor,
+            detalle: formulario.historico,
+            formaPago: partesMotor ? partesMotor.map((p) => p.formaPago).join(' + ') : formulario.formaPago,
+            total: resultado.total,
+            lineas: formulario.operacion === 'VENTA' ? lineasComprobante : undefined,
+          });
 
-            setComprobanteWhatsapp({
-              cliente: formulario.clienteProveedor,
-              enlace: enlaceWhatsapp(telefono as string, mensaje),
-            });
-          }
+          if (listo) setComprobanteWhatsapp(listo);
         } catch (errorWhatsapp) {
           console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
         }
@@ -2264,55 +2265,7 @@ export function CentralDeLanzamientosTab({
 
       <p style={{ color: COLORES.verde, fontSize: 13, margin: '14px 0 0' }}>{mensajeSabio}</p>
 
-      {comprobanteWhatsapp && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: '12px 14px',
-            borderRadius: 12,
-            background: '#e7f9ef',
-            border: '1px solid #bbf0d1',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 10,
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ fontSize: 13, color: COLORES.azul }}>
-            {idioma === 'PT'
-              ? `Enviar o comprovante para ${comprobanteWhatsapp.cliente}?`
-              : `¿Enviar el comprobante a ${comprobanteWhatsapp.cliente}?`}
-          </span>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <a
-              href={comprobanteWhatsapp.enlace}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setComprobanteWhatsapp(null)}
-              style={{
-                background: '#25D366',
-                color: '#fff',
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontWeight: 700,
-                fontSize: 13,
-                textDecoration: 'none',
-              }}
-            >
-              📲 {idioma === 'PT' ? 'Enviar por WhatsApp' : 'Enviar por WhatsApp'}
-            </a>
-
-            <button
-              onClick={() => setComprobanteWhatsapp(null)}
-              style={{ border: 'none', background: 'transparent', color: COLORES.azul, cursor: 'pointer', fontSize: 13 }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      {comprobanteWhatsapp && <AvisoComprobante comprobante={comprobanteWhatsapp} idioma={idioma} onCerrar={() => setComprobanteWhatsapp(null)} />}
 
       {error && (
         <div

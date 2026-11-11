@@ -45,6 +45,12 @@ function fechaDisplay(fecha: string, idioma?: string | null): string {
   return `${dia}/${mes}/${anio}`;
 }
 
+export type LineaComprobante = { cantidad: number; producto: string; unitario: number; total: number };
+
+function numeroDisplay(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(3)));
+}
+
 export function armarMensajeComprobante(datos: {
   idioma?: string | null;
   nombreEmpresa: string;
@@ -55,16 +61,28 @@ export function armarMensajeComprobante(datos: {
   formaPago: string;
   total: number;
   simboloMoneda: string;
+  // Detalle completo de la venta: cantidad, producto, precio por unidad y precio de la línea.
+  lineas?: LineaComprobante[];
 }): string {
   const esPT = datos.idioma === 'PT';
   const totalFormateado = `${datos.simboloMoneda} ${datos.total.toFixed(2)}`;
+  const dinero = (n: number) => `${datos.simboloMoneda} ${n.toFixed(2)}`;
+  const lineas = (datos.lineas ?? []).filter((l) => l.producto && l.cantidad > 0);
+  const bloqueLineas = lineas.length
+    ? [
+        '',
+        esPT ? '*Itens:*' : '*Detalle:*',
+        ...lineas.map((l) => `• ${numeroDisplay(l.cantidad)} × ${l.producto} — ${dinero(l.unitario)} ${esPT ? 'cada' : 'c/u'} = ${dinero(l.total)}`),
+        '',
+      ]
+    : null;
 
   if (esPT) {
     return [
       `🧾 Comprovante #${datos.numeroComprobante} — ${datos.nombreEmpresa}`,
       `Data: ${fechaDisplay(datos.fecha, datos.idioma)}`,
       `Cliente: ${datos.cliente}`,
-      `Detalhe: ${datos.detalle}`,
+      ...(bloqueLineas ?? [`Detalhe: ${datos.detalle}`]),
       `Forma de pagamento: ${datos.formaPago}`,
       `Total: ${totalFormateado}`,
       '',
@@ -76,7 +94,7 @@ export function armarMensajeComprobante(datos: {
     `🧾 Comprobante #${datos.numeroComprobante} — ${datos.nombreEmpresa}`,
     `Fecha: ${fechaDisplay(datos.fecha, datos.idioma)}`,
     `Cliente: ${datos.cliente}`,
-    `Detalle: ${datos.detalle}`,
+    ...(bloqueLineas ?? [`Detalle: ${datos.detalle}`]),
     `Forma de pago: ${datos.formaPago}`,
     `Total: ${totalFormateado}`,
     '',

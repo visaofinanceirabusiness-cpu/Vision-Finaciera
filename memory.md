@@ -7,6 +7,15 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## WhatsApp con protagonismo (11/11/2026) — /whatsapp + comprobante automático
+- **Sin WhatsApp Business API**: todo es un enlace `wa.me` con el mensaje armado; la persona toca «Enviar» dentro de WhatsApp. Teléfono = el de Recursos Humanos → Clientes (por nombre exacto del cliente).
+- **Comprobante completo** (`armarMensajeComprobante` en lib/whatsapp.ts): por línea «cantidad × producto — precio por unidad c/u = total de la línea», más forma de pago (todos los medios si el pago es dividido) y total. Para eso el motor guarda `registro_operaciones.lineas_detalle` (jsonb `[{p, c, u}]`, producto id o texto, cantidad, precio unitario; solo VENTA y solo la parte 1). Migración `registro_operaciones_lineas_detalle` aplicada por MCP. Las ventas anteriores no tienen detalle: su mensaje sale con el «Detalle» de siempre.
+- **Después de cada venta/cobro** con cliente con teléfono (Central de Lanzamientos y Mini-Juego) aparece `components/whatsapp/AvisoComprobante.tsx` y WhatsApp se abre solo (`abrirWhatsappAutomatico`); si el navegador bloquea la ventana queda el botón y el mensaje a la vista. No cubre aún Lanzamiento rápido ni el chat de Sabio.
+- **Libro Diario**: botones «📲 Enviar comprobante» y «💬 Chatear» en la cabecera de cada venta/cobro validado (una vez por operación, con el detalle completo).
+- **Pantalla `/whatsapp`** (acceso «WhatsApp» en la barra superior junto a Panel de Control y Mini-Juego): ventas y cobros con cliente, filtros Hoy/7/30/Todo, «Sin enviar», búsqueda, ver mensaje. «Enviado» se guarda solo en el navegador (localStorage), no se comparte entre dispositivos.
+- Pieza de Caja `whatsapp` (oculta la pantalla y el acceso). Lógica pura con tests en lib/whatsappVentas.ts.
+- Pendiente: probar con una venta real con cliente con teléfono; si se quiere «enviado» compartido o envío realmente automático hace falta WhatsApp Business API (Meta).
+
 ## Pago dividido (09/11/2026) — una operación con varios medios de pago
 - Una operación puede repartirse en **2 a 5 partes** (`MAX_PARTES`), cada una con su forma de pago y, si no mueve productos, su categoría. Ejemplo: gasto de 300 = banco 100 + efectivo 200. Para todos los perfiles; solo PAGO/COMPRA/VENTA/COBRO.
 - **Esquema:** columna `registro_operaciones.parte` (int, default 1, check >= 1) + índice `(empresa_id, id_operacion, parte)`. Las partes son **N filas con el mismo `id_operacion`** (mismo patrón que `registros_automaticos`/CMV); cada una usa la regla de SU (categoría, forma de pago). Se insertan en UN solo `insert([...])` (todo o nada).

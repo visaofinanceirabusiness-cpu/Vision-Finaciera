@@ -1286,6 +1286,11 @@ export async function registrarOperacion(
         cliente_proveedor: formulario.clienteProveedor,
         socio: formulario.socio?.trim() || null,
         estado: estadoInicial,
+        // Líneas de la venta (producto, cantidad, precio unitario) para armar el comprobante de WhatsApp; solo en la parte 1.
+        lineas_detalle:
+          formulario.operacion === 'VENTA'
+            ? formulario.lineas.map((l) => ({ p: l.producto, c: Number(l.cantidad), u: Number(l.monto) }))
+            : null,
       };
 
       const filas: Record<string, unknown> | Record<string, unknown>[] = partes
@@ -1297,6 +1302,7 @@ export async function registrarOperacion(
             cuenta_debito: reglaParte.cuenta_debito,
             cuenta_credito: reglaParte.cuenta_credito,
             parte: indice + 1,
+            ...(indice > 0 ? { lineas_detalle: null } : {}),
           }))
         : {
             ...filaComun,

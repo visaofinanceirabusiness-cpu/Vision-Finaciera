@@ -39,6 +39,9 @@ import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from './PendientesParaCargar';
+import { prepararComprobante, type ComprobanteListo } from '@/lib/whatsappVentas';
+import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
+import { supabase } from '@/lib/supabase';
 import { DivisionDelPago } from '@/components/contabilidad/DivisionDelPago';
 import { useCaja } from '@/components/caja/useCaja';
 import { partesDeForm, partesIniciales, resumenDePartes, validarPartes, type ParteForm } from '@/lib/pagoDividido';
@@ -152,6 +155,8 @@ export function MiniJuego({
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
   const [error, setError] = useState('');
   const [celebrando, setCelebrando] = useState<number | null>(null);
+  // Comprobante de WhatsApp de la venta recién cargada (se abre solo; ver AvisoComprobante).
+  const [comprobante, setComprobante] = useState<ComprobanteListo | null>(null);
   // Foto de la jugada al confirmar: el juego se reinicia al terminar el festejo.
   const [resumenJugada, setResumenJugada] = useState<ResumenJugada | null>(null);
   const [busqueda, setBusqueda] = useState('');
@@ -323,6 +328,7 @@ export function MiniJuego({
     setFormaPago('');
     setDividiendo(false);
     setPartesForm([]);
+    setComprobante(null);
     setClienteProveedor('');
     setContactos([]);
     setCreandoContacto(false);
@@ -730,6 +736,30 @@ export function MiniJuego({
         numeroDelDia = await contarJugadasHoy(empresaId).catch(() => 1);
       }
       setResumenJugada(armarResumen());
+
+      // WhatsApp: después de una venta o cobro con cliente que tiene teléfono, el comprobante sale solo, completo (cantidad, producto, precio por unidad y total).
+      setComprobante(null);
+      if (resultado && !simulacion && (operacion === 'VENTA' || operacion === 'COBRO') && clienteProveedor.trim()) {
+        try {
+          const { data: emp } = await supabase.from('empresas').select('nombre').eq('id', empresaId).maybeSingle();
+          const listo = await prepararComprobante(empresaId, {
+            idioma,
+            nombreEmpresa: (emp?.nombre as string) ?? '',
+            simbolo,
+            idOperacion: resultado.idOperacion,
+            fecha,
+            cliente: clienteProveedor,
+            detalle: necesitaProducto ? lineas.map((l) => l.nombre).join(' / ') : categoria,
+            formaPago: partesMotor ? partesMotor.map((p) => p.formaPago).join(' + ') : formaPago,
+            total: resultado.total,
+            lineas: operacion === 'VENTA' && necesitaProducto ? lineas.map((l) => ({ cantidad: l.cantidad, producto: l.nombre, unitario: l.monto / (l.cantidad || 1), total: l.monto })) : undefined,
+          });
+          if (listo) setComprobante(listo);
+        } catch (errorWhatsapp) {
+          console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
+        }
+      }
+
       setCelebrando(numeroDelDia);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la jugada.');
@@ -1558,6 +1588,8 @@ export function MiniJuego({
           </div>
         )}
       </div>
+
+      {comprobante && <AvisoComprobante comprobante={comprobante} idioma={idioma} onCerrar={() => setComprobante(null)} />}
 
       {celebrando !== null && (
         <CelebracionMiniJuego
