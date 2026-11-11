@@ -7,6 +7,11 @@ relevantes; no hace falta detallar cada PR, solo lo que otra sesión
 necesitaría saber para no repetir trabajo o pisar una decisión ya
 tomada.
 
+## Cuotas: red de seguridad para que ninguna deuda quede sin cuota (11/11/2026)
+- Caso Buenaventura OP-00352 (Pago Transporte 140 con Tarjeta Nu, 16/10): se cargó sin marcar «¿En cuotas?», la deuda estaba en la contabilidad pero NO en Compromisos/Pasivos (esa pantalla lista `cuotas_pasivo`/`cuotas_cobro`). Se creó a mano la cuota 1/1 con vencimiento 13/11.
+- Ahora `asegurarCuotasPendientes` (lib/cuotasOperacion.ts) corre al final de TODOS los métodos de carga (Central —también al editar—, Mini-Juego, Lanzamiento rápido, chat de Sabio): si la forma de pago es una deuda (rubro 2 en Compra/Pago) o una cuenta a cobrar (Venta/Cobro) y esa operación no tiene cuota para ese medio, crea UNA cuota por el monto de esa parte que vence en la fecha de la operación. Si la persona ya armó sus cuotas no toca nada. Nunca frena el registro (solo avisa por consola).
+- No cubre lo que se registra por otros caminos (devengos de gastos/ingresos recurrentes, Mi Local, pagos de cuotas). Quedan operaciones viejas sin cuota (sobre todo recurrentes «… a pagar», «Prestamo Santander» y «Proveedores» de Equilibra): no se tocaron.
+
 ## WhatsApp con protagonismo (11/11/2026) — /whatsapp + comprobante automático
 - **Sin WhatsApp Business API**: todo es un enlace `wa.me` con el mensaje armado; la persona toca «Enviar» dentro de WhatsApp. Teléfono = el de Recursos Humanos → Clientes (por nombre exacto del cliente).
 - **Comprobante completo** (`armarMensajeComprobante` en lib/whatsapp.ts): por línea «cantidad × producto — precio por unidad c/u = total de la línea», más forma de pago (todos los medios si el pago es dividido) y total. Para eso el motor guarda `registro_operaciones.lineas_detalle` (jsonb `[{p, c, u}]`, producto id o texto, cantidad, precio unitario; solo VENTA y solo la parte 1). Migración `registro_operaciones_lineas_detalle` aplicada por MCP. Las ventas anteriores no tienen `lineas_detalle`: `completarVentasAnteriores` arma el mensaje con los movimientos de stock (SALIDA) de la venta — con UN producto el precio por unidad es total ÷ cantidad (exacto); con varios solo se listan cantidad y producto (el precio por línea no se guardaba); sin productos (servicios) el detalle es la categoría.

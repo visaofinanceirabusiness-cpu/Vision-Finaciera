@@ -36,7 +36,7 @@ import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
 import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago } from '@/lib/cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago } from '@/lib/cuotasOperacion';
 import { DivisionDelPago } from './DivisionDelPago';
 import { useCaja } from '@/components/caja/useCaja';
 import { partesDeForm, partesIniciales, validarPartes, type ParteForm } from '@/lib/pagoDividido';
@@ -1411,6 +1411,9 @@ export function CentralDeLanzamientosTab({
           }
         }
 
+        // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente.
+        await asegurarCuotasPendientes(empresaId, idioma, formulario.operacion, idOperacionEditar, formulario.fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: formulario.formaPago, monto: resultadoEdicion.total }]);
+
         setMensajeSabio(msgOperacionActualizada(idioma));
         onGuardado?.();
         return;
@@ -1480,6 +1483,9 @@ export function CentralDeLanzamientosTab({
           }
         }
       }
+
+      // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya marcado «en cuotas».
+      await asegurarCuotasPendientes(empresaId, idioma, formulario.operacion, resultado.idOperacion, formulario.fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: formulario.formaPago, monto: resultado.total }]);
 
       // En Venta, el histórico pasa a ser el número de comprobante
       // (el id_operacion recién asignado) en vez del texto/producto

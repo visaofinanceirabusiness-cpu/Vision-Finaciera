@@ -18,7 +18,7 @@ import { puedeAgregarLinea, reemplazarLinea, sumarLinea, textoLinea, totalLineas
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
 import {
   obtenerCategoriasJuego,
   obtenerFormasPagoJuego,
@@ -732,6 +732,11 @@ export function MiniJuego({
             });
           }
         }
+      }
+
+      // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya marcado «en cuotas».
+      if (resultado) {
+        await asegurarCuotasPendientes(empresaId, idioma, operacion, resultado.idOperacion, fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago, monto: resultado.total }]);
       }
 
       let numeroDelDia: number;
