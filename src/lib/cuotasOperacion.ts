@@ -73,3 +73,41 @@ export async function crearCuotasDeOperacion(
     await crearCuotasPasivo(empresaId, idioma, { idOperacion, formaPagoNombre, total, cantidadCuotas, fechaCompra: fecha });
   }
 }
+
+// RED DE SEGURIDAD: una compra o pago con una forma de pago que es una deuda (tarjeta, préstamo) o una venta/cobro contra una cuenta a cobrar
+// SIEMPRE deja una cuota pendiente, aunque la persona no haya marcado «en cuotas». Sin cuota la deuda existe en la contabilidad pero no aparece en
+// Compromisos/Pasivos (pasó con OP-00352 de Buenaventura). Si la persona ya armó sus cuotas para ese medio no se toca nada; si no, se crea una
+// sola cuota por el monto de esa parte que vence en la fecha de la operación (se puede ajustar después). Nunca frena el registro: si falla, avisa por consola.
+export async function asegurarCuotasPendientes(
+  empresaId: string,
+  idioma: string | null | undefined,
+  operacion: string,
+  idOperacion: string,
+  fecha: string,
+  medios: Array<{ formaPago: string; monto: number }>
+): Promise<void> {
+  try {
+    if (!idioma) {
+      const { data: emp } = await supabase.from('empresas').select('idioma').eq('id', empresaId).maybeSingle();
+      idioma = emp?.idioma as string | undefined;
+    }
+    for (const { formaPago, monto } of medios) {
+      if (!formaPago || !(monto > 0)) continue;
+      const tipo = await tipoCuotasDeFormaPago(empresaId, operacion, formaPago);
+      if (!tipo) continue;
+
+      const { count, error } = await supabase
+        .from(tipo === 'COBRO' ? 'cuotas_cobro' : 'cuotas_pasivo')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('id_operacion', idOperacion)
+        .eq('forma_pago_nombre', formaPago);
+      if (error) throw error;
+      if ((count ?? 0) > 0) continue;
+
+      await crearCuotasDeOperacion(empresaId, idioma, tipo, { idOperacion, formaPagoNombre: formaPago, total: monto, cantidadCuotas: 1, fecha });
+    }
+  } catch (e) {
+    console.warn('No se pudo asegurar la cuota pendiente de la operación:', idOperacion, e);
+  }
+}

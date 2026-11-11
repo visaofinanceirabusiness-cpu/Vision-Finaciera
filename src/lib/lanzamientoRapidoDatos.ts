@@ -4,7 +4,7 @@
 // motor de siempre (registrarOperacion / eliminarOperacion): acá no hay
 // lógica contable nueva.
 
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
 import type { ParteOperacion } from './pagoDividido';
 import { conciliarTrasRegistrar } from './conciliacionCompromisosDatos';
 import { cerrarPendienteConOperacion, reabrirPendientesDeOperacion } from './compromisosAbiertos';
@@ -169,6 +169,9 @@ export async function registrarLanzamiento(
       fecha,
     });
   }
+
+  // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya marcado «en cuotas».
+  await asegurarCuotasPendientes(empresaId, cuotas?.idioma ?? dividido?.cuotas?.idioma, tarjeta.operacion, resultado.idOperacion as string, fecha, dividido ? dividido.partes.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: tarjeta.formaPago, monto: resultado.total }]);
 
   return resultado.idOperacion as string;
 }

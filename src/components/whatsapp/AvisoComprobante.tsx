@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { abrirWhatsappAutomatico, type ComprobanteListo } from '@/lib/whatsappVentas';
 
-export function AvisoComprobante({ comprobante, idioma, onCerrar, automatico = true }: { comprobante: ComprobanteListo; idioma: string | null | undefined; onCerrar: () => void; automatico?: boolean }) {
+export function AvisoComprobante({ comprobante, idioma, onCerrar, automatico = true, flotante = false }: { comprobante: ComprobanteListo; idioma: string | null | undefined; onCerrar: () => void; automatico?: boolean; flotante?: boolean }) {
   const esPT = idioma === 'PT';
   const [bloqueado, setBloqueado] = useState(false);
   const intentado = useRef<string | null>(null);
@@ -19,7 +19,7 @@ export function AvisoComprobante({ comprobante, idioma, onCerrar, automatico = t
   }, [automatico, comprobante.enlace]);
 
   return (
-    <div role="status" style={{ marginTop: 12, padding: '14px 16px', borderRadius: 14, background: '#e7f9ef', border: '2px solid #25D366', color: '#1f3a5f', textAlign: 'left' }}>
+    <div role="status" style={{ ...(flotante ? { position: 'fixed', left: 12, right: 12, bottom: 12, maxWidth: 520, margin: '0 auto', zIndex: 10000, boxShadow: '0 10px 30px rgba(0,0,0,0.35)' } : { marginTop: 12 }), padding: '14px 16px', borderRadius: 14, background: '#e7f9ef', border: '2px solid #25D366', color: '#1f3a5f', textAlign: 'left' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <strong style={{ fontSize: 15 }}>
           📲 {esPT ? `Comprovante pronto para ${comprobante.cliente}` : `Comprobante listo para ${comprobante.cliente}`}

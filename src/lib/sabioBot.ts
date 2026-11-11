@@ -43,7 +43,7 @@ import { simboloMoneda, formatearNumeroEntero } from './moneda';
 import { saldoDeFormaDePago, saldosDeCategorias, saldosDeMedios } from './saldoCuenta';
 import { nombreOperacionDisplay } from './i18n';
 import { crearOUsarContactoPorTelefono } from './clientes';
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from './cuotasOperacion';
 import { MAX_PARTES, validarPartes, type ParteOperacion } from './pagoDividido';
 
 type Paso =
@@ -1099,6 +1099,9 @@ export async function procesarMensajeSabioBot(empresaId: string, textoOriginal: 
           fecha: datos.fecha ?? fechaLocalHoy(),
         });
       }
+
+      // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya elegido cuotas.
+      await asegurarCuotasPendientes(empresaId, idioma, datos.operacion ?? '', resultado.idOperacion, datos.fecha ?? fechaLocalHoy(), datos.partes && datos.partes.length >= 2 ? datos.partes.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: datos.formaPago ?? '', monto: resultado.total }]);
 
       await borrarConversacion(empresaId);
 

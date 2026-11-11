@@ -31,12 +31,12 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
-import { prepararComprobante, type ComprobanteListo } from '@/lib/whatsappVentas';
+import { liberarVentanaReservada, precargarTelefonos, prepararComprobante, reservarVentanaSiHayTelefono, type ComprobanteListo } from '@/lib/whatsappVentas';
 import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
 import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
 import { crearCuotasCobro } from '@/lib/cuotasCobro';
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago } from '@/lib/cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago } from '@/lib/cuotasOperacion';
 import { DivisionDelPago } from './DivisionDelPago';
 import { useCaja } from '@/components/caja/useCaja';
 import { partesDeForm, partesIniciales, validarPartes, type ParteForm } from '@/lib/pagoDividido';
@@ -685,6 +685,7 @@ export function CentralDeLanzamientosTab({
       }
 
       setEmpresaId(perfil.empresa_id);
+      void precargarTelefonos(perfil.empresa_id);
 
       const [onboardingCompleto, manejaMercaderia, empresaPerfil] = await Promise.all([
         empresaTieneOnboardingCompleto(perfil.empresa_id),
@@ -1298,6 +1299,9 @@ export function CentralDeLanzamientosTab({
     setError('');
     setGuardando(true);
 
+    // WhatsApp automático: la pestaña se reserva ahora, en el mismo toque (ver lib/whatsappVentas.ts).
+    if (!modoEdicion && (operacion === 'VENTA' || operacion === 'COBRO')) reservarVentanaSiHayTelefono(empresaId, clienteProveedor);
+
     try {
       // Cuando la categoría maneja stock, el <select> de producto
       // guarda el id (uuid) en linea.producto, no el nombre — hay que
@@ -1407,6 +1411,9 @@ export function CentralDeLanzamientosTab({
           }
         }
 
+        // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente.
+        await asegurarCuotasPendientes(empresaId, idioma, formulario.operacion, idOperacionEditar, formulario.fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: formulario.formaPago, monto: resultadoEdicion.total }]);
+
         setMensajeSabio(msgOperacionActualizada(idioma));
         onGuardado?.();
         return;
@@ -1477,6 +1484,9 @@ export function CentralDeLanzamientosTab({
         }
       }
 
+      // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya marcado «en cuotas».
+      await asegurarCuotasPendientes(empresaId, idioma, formulario.operacion, resultado.idOperacion, formulario.fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago: formulario.formaPago, monto: resultado.total }]);
+
       // En Venta, el histórico pasa a ser el número de comprobante
       // (el id_operacion recién asignado) en vez del texto/producto
       // que se haya usado para armar la operación — ver el aviso en
@@ -1536,7 +1546,9 @@ export function CentralDeLanzamientosTab({
           });
 
           if (listo) setComprobanteWhatsapp(listo);
+          else liberarVentanaReservada();
         } catch (errorWhatsapp) {
+          liberarVentanaReservada();
           console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
         }
       }
@@ -1552,6 +1564,7 @@ export function CentralDeLanzamientosTab({
 
       setLineas([{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]);
     } catch (e: unknown) {
+      liberarVentanaReservada();
       console.error('ERROR REGISTRANDO OPERACIÓN:', e);
 
       if (e instanceof Error) {

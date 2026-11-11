@@ -18,7 +18,7 @@ import { puedeAgregarLinea, reemplazarLinea, sumarLinea, textoLinea, totalLineas
 import { conciliarTrasRegistrar } from '@/lib/conciliacionCompromisosDatos';
 import { useEffect, useMemo, useState } from 'react';
 import { registrarOperacion } from '@/lib/motor';
-import { crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
+import { asegurarCuotasPendientes, crearCuotasDeOperacion, tipoCuotasDeFormaPago, type TipoCuotas } from '@/lib/cuotasOperacion';
 import {
   obtenerCategoriasJuego,
   obtenerFormasPagoJuego,
@@ -39,7 +39,7 @@ import type { DatosSimulados } from '@/lib/tutorialSimulacion';
 import { cerrarPendienteConOperacion, compromisosAbiertosDeCategoria, operacionDeCompromiso, type CompromisoAbierto } from '@/lib/compromisosAbiertos';
 import { AvisoCompromisosAbiertos } from './AvisoCompromisosAbiertos';
 import { PendientesParaCargar } from './PendientesParaCargar';
-import { prepararComprobante, type ComprobanteListo } from '@/lib/whatsappVentas';
+import { liberarVentanaReservada, precargarTelefonos, prepararComprobante, reservarVentanaSiHayTelefono, type ComprobanteListo } from '@/lib/whatsappVentas';
 import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
 import { supabase } from '@/lib/supabase';
 import { DivisionDelPago } from '@/components/contabilidad/DivisionDelPago';
@@ -133,6 +133,9 @@ export function MiniJuego({
   const [dividiendo, setDividiendo] = useState(false);
   const [partesForm, setPartesForm] = useState<ParteForm[]>([]);
   const { estaEnCaja } = useCaja();
+  useEffect(() => {
+    if (!simulacion) void precargarTelefonos(empresaId);
+  }, [empresaId, simulacion]);
   const [productoId, setProductoId] = useState('');
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadMedida, setUnidadMedida] = useState('');
@@ -678,6 +681,9 @@ export function MiniJuego({
     setPaso('guardando');
     setError('');
 
+    // WhatsApp automático: la pestaña se reserva ahora, en el mismo toque (ver lib/whatsappVentas.ts).
+    if (!simulacion && (operacion === 'VENTA' || operacion === 'COBRO')) reservarVentanaSiHayTelefono(empresaId, clienteProveedor);
+
     try {
       // El motor espera el monto por unidad de stock; acá cada línea trae su total.
       const lineasMotor = necesitaProducto
@@ -728,6 +734,11 @@ export function MiniJuego({
         }
       }
 
+      // Red de seguridad: una deuda (tarjeta, préstamo) nunca queda sin cuota pendiente aunque no se haya marcado «en cuotas».
+      if (resultado) {
+        await asegurarCuotasPendientes(empresaId, idioma, operacion, resultado.idOperacion, fecha, partesMotor ? partesMotor.map((p) => ({ formaPago: p.formaPago, monto: p.monto })) : [{ formaPago, monto: resultado.total }]);
+      }
+
       let numeroDelDia: number;
       if (simulacion) {
         numeroDelDia = jugadasSimuladas + 1;
@@ -755,13 +766,16 @@ export function MiniJuego({
             lineas: operacion === 'VENTA' && necesitaProducto ? lineas.map((l) => ({ cantidad: l.cantidad, producto: l.nombre, unitario: l.monto / (l.cantidad || 1), total: l.monto })) : undefined,
           });
           if (listo) setComprobante(listo);
+          else liberarVentanaReservada();
         } catch (errorWhatsapp) {
+          liberarVentanaReservada();
           console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
         }
       }
 
       setCelebrando(numeroDelDia);
     } catch (e) {
+      liberarVentanaReservada();
       setError(e instanceof Error ? e.message : 'No se pudo registrar la jugada.');
       setPaso('resumen');
     }
@@ -1589,7 +1603,7 @@ export function MiniJuego({
         )}
       </div>
 
-      {comprobante && <AvisoComprobante comprobante={comprobante} idioma={idioma} onCerrar={() => setComprobante(null)} />}
+      {comprobante && <AvisoComprobante flotante comprobante={comprobante} idioma={idioma} onCerrar={() => setComprobante(null)} />}
 
       {celebrando !== null && (
         <CelebracionMiniJuego
