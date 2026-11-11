@@ -23,7 +23,7 @@ export type VentaWhatsapp = {
 
 type LineaGuardada = { p: string; c: number; u: number };
 
-type FilaVenta = { id_operacion: string; fecha: string; operacion: string; cliente_proveedor: string | null; historico: string | null; forma_pago: string | null; total: number | string; parte?: number | null; lineas_detalle?: LineaGuardada[] | null };
+type FilaVenta = { id_operacion: string; fecha: string; operacion: string; cliente_proveedor: string | null; historico: string | null; forma_pago: string | null; categoria?: string | null; total: number | string; parte?: number | null; lineas_detalle?: LineaGuardada[] | null };
 
 // Un pago dividido tiene una fila por parte: la venta es una sola, con el total sumado y todos los medios.
 export function agruparVentas(filas: FilaVenta[], telefonos: Map<string, string>, productos: Map<string, string> = new Map()): VentaWhatsapp[] {
@@ -56,6 +56,41 @@ export function agruparVentas(filas: FilaVenta[], telefonos: Map<string, string>
     .sort((a, b) => (a.fecha === b.fecha ? b.idOperacion.localeCompare(a.idOperacion, undefined, { numeric: true }) : b.fecha.localeCompare(a.fecha)));
 }
 
+type MovimientoVenta = { id_operacion: string; producto_id: string; cantidad: number | string };
+
+// Operaciones anteriores al detalle guardado (lineas_detalle): se arma con los movimientos de stock de la venta. Con UN producto el precio por
+// unidad es el total ÷ cantidad (exacto); con varios no se sabe cuánto costó cada uno y solo se lista cantidad y producto. Sin productos
+// (servicios) el detalle es la categoría.
+export function completarVentasAnteriores(ventas: VentaWhatsapp[], movimientos: MovimientoVenta[], productos: Map<string, string>, categorias: Map<string, string>): VentaWhatsapp[] {
+  const porOp = new Map<string, MovimientoVenta[]>();
+  for (const m of movimientos) porOp.set(m.id_operacion, [...(porOp.get(m.id_operacion) ?? []), m]);
+
+  return ventas.map((v) => {
+    if (v.lineas.length > 0 || v.operacion !== 'VENTA') return v;
+    const movs = porOp.get(v.idOperacion) ?? [];
+    const detalleCategoria = categorias.get(v.idOperacion) ?? '';
+    if (movs.length === 0) return { ...v, detalle: detalleCategoria || v.detalle };
+    if (movs.length === 1) {
+      const cantidad = Number(movs[0].cantidad);
+      const producto = productos.get(movs[0].producto_id) ?? detalleCategoria;
+      return { ...v, detalle: producto, lineas: cantidad > 0 ? [{ cantidad, producto, unitario: v.total / cantidad, total: v.total }] : [] };
+    }
+    const lineas = movs.map((m) => ({ cantidad: Number(m.cantidad), producto: productos.get(m.producto_id) ?? detalleCategoria, unitario: null, total: null }));
+    return { ...v, detalle: lineas.map((l) => l.producto).join(' / '), lineas };
+  });
+}
+
+async function completarDesdeStock(empresaId: string, ventas: VentaWhatsapp[], productos: Map<string, string>, categorias: Map<string, string>): Promise<VentaWhatsapp[]> {
+  const ids = ventas.filter((v) => v.operacion === 'VENTA' && v.lineas.length === 0).map((v) => v.idOperacion);
+  const movimientos: MovimientoVenta[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase.from('movimientos_stock').select('id_operacion, producto_id, cantidad').eq('empresa_id', empresaId).eq('tipo', 'SALIDA').in('id_operacion', ids.slice(i, i + 100));
+    if (error) throw error;
+    movimientos.push(...((data ?? []) as MovimientoVenta[]));
+  }
+  return completarVentasAnteriores(ventas, movimientos, productos, categorias);
+}
+
 export function mensajeDeVenta(v: VentaWhatsapp, nombreEmpresa: string, idioma: string | null | undefined, simbolo: string): string {
   return armarMensajeComprobante({
     idioma,
@@ -86,6 +121,12 @@ export async function telefonosDeClientes(empresaId: string): Promise<Map<string
   return mapa;
 }
 
+function categoriasDe(filas: FilaVenta[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const f of filas) if (f.categoria && !m.has(f.id_operacion)) m.set(f.id_operacion, f.categoria);
+  return m;
+}
+
 async function nombresDeProductos(empresaId: string): Promise<Map<string, string>> {
   const { data } = await supabase.from('productos').select('id, nombre').eq('empresa_id', empresaId);
   return new Map((data ?? []).map((p) => [p.id as string, p.nombre as string]));
@@ -94,7 +135,7 @@ async function nombresDeProductos(empresaId: string): Promise<Map<string, string
 export async function listarVentasWhatsapp(empresaId: string, desde: string | null): Promise<VentaWhatsapp[]> {
   let consulta = supabase
     .from('registro_operaciones')
-    .select('id_operacion, fecha, operacion, cliente_proveedor, historico, forma_pago, total, parte, lineas_detalle')
+    .select('id_operacion, fecha, operacion, cliente_proveedor, historico, forma_pago, categoria, total, parte, lineas_detalle')
     .eq('empresa_id', empresaId)
     .in('operacion', ['VENTA', 'COBRO'])
     .order('fecha', { ascending: false })
@@ -103,7 +144,8 @@ export async function listarVentasWhatsapp(empresaId: string, desde: string | nu
 
   const [{ data, error }, telefonos, productos] = await Promise.all([consulta, telefonosDeClientes(empresaId), nombresDeProductos(empresaId)]);
   if (error) throw error;
-  return agruparVentas((data ?? []) as FilaVenta[], telefonos, productos);
+  const filas = (data ?? []) as FilaVenta[];
+  return completarDesdeStock(empresaId, agruparVentas(filas, telefonos, productos), productos, categoriasDe(filas));
 }
 
 // Comprobante recién generado de una venta o cobro: null si no hay cliente o no tiene teléfono cargado.
@@ -142,12 +184,14 @@ export async function ventaPorId(empresaId: string, idOperacion: string): Promis
   const [{ data, error }, telefonos, productos] = await Promise.all([
     supabase
       .from('registro_operaciones')
-      .select('id_operacion, fecha, operacion, cliente_proveedor, historico, forma_pago, total, parte, lineas_detalle')
+      .select('id_operacion, fecha, operacion, cliente_proveedor, historico, forma_pago, categoria, total, parte, lineas_detalle')
       .eq('empresa_id', empresaId)
       .eq('id_operacion', idOperacion),
     telefonosDeClientes(empresaId),
     nombresDeProductos(empresaId),
   ]);
   if (error) throw error;
-  return agruparVentas((data ?? []) as FilaVenta[], telefonos, productos)[0] ?? null;
+  const filas = (data ?? []) as FilaVenta[];
+  const [venta] = await completarDesdeStock(empresaId, agruparVentas(filas, telefonos, productos), productos, categoriasDe(filas));
+  return venta ?? null;
 }

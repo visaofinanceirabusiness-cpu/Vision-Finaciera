@@ -45,7 +45,8 @@ function fechaDisplay(fecha: string, idioma?: string | null): string {
   return `${dia}/${mes}/${anio}`;
 }
 
-export type LineaComprobante = { cantidad: number; producto: string; unitario: number; total: number };
+// unitario/total null: operación anterior al detalle guardado con varios productos (no se sabe cuánto costó cada uno).
+export type LineaComprobante = { cantidad: number; producto: string; unitario: number | null; total: number | null };
 
 function numeroDisplay(n: number): string {
   return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(3)));
@@ -72,7 +73,7 @@ export function armarMensajeComprobante(datos: {
     ? [
         '',
         esPT ? '*Itens:*' : '*Detalle:*',
-        ...lineas.map((l) => `• ${numeroDisplay(l.cantidad)} × ${l.producto} — ${dinero(l.unitario)} ${esPT ? 'cada' : 'c/u'} = ${dinero(l.total)}`),
+        ...lineas.map((l) => (l.unitario === null || l.total === null ? `• ${numeroDisplay(l.cantidad)} × ${l.producto}` : `• ${numeroDisplay(l.cantidad)} × ${l.producto} — ${dinero(l.unitario)} ${esPT ? 'cada' : 'c/u'} = ${dinero(l.total)}`)),
         '',
       ]
     : null;
