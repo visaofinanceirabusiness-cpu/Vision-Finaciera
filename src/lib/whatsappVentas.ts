@@ -176,10 +176,53 @@ export async function prepararComprobante(
   return { cliente, telefono, mensaje, enlace: enlaceWhatsapp(telefono, mensaje) };
 }
 
-// Intenta abrir WhatsApp sin que la persona toque nada. Si el navegador lo bloquea (ventanas emergentes) devuelve false y el aviso
-// muestra el botón de siempre.
+// Los navegadores solo dejan abrir una pestaña nueva mientras dura el toque de la persona, y registrar una venta tarda más que eso: por
+// eso, si el cliente tiene teléfono, la pestaña se reserva en el mismo toque («Registrar») y después se la lleva a WhatsApp.
+const telefonosEnCache = new Map<string, Set<string>>();
+let ventanaReservada: Window | null = null;
+
+export async function precargarTelefonos(empresaId: string): Promise<void> {
+  try {
+    telefonosEnCache.set(empresaId, new Set((await telefonosDeClientes(empresaId)).keys()));
+  } catch {
+    /* sin cache: no se reserva la pestaña y queda el aviso con el botón */
+  }
+}
+
+// Llamar en el mismo toque en que se confirma una venta o cobro. No hace nada si el cliente no tiene teléfono.
+export function reservarVentanaSiHayTelefono(empresaId: string, cliente: string): void {
+  liberarVentanaReservada();
+  if (!telefonosEnCache.get(empresaId)?.has(cliente.trim())) return;
+  try {
+    const v = window.open('about:blank', '_blank');
+    if (v) {
+      v.document.title = 'WhatsApp';
+      v.document.body.innerText = 'Preparando el comprobante…';
+      ventanaReservada = v;
+    }
+  } catch {
+    ventanaReservada = null;
+  }
+}
+
+export function liberarVentanaReservada(): void {
+  try {
+    if (ventanaReservada && !ventanaReservada.closed) ventanaReservada.close();
+  } catch {
+    /* ya cerrada */
+  }
+  ventanaReservada = null;
+}
+
+// Lleva a WhatsApp sin que la persona toque nada más: usa la pestaña reservada o, si no hay, intenta abrir una (puede bloquearse).
+// Devuelve false si no se pudo y el aviso muestra el botón de siempre.
 export function abrirWhatsappAutomatico(enlace: string): boolean {
   try {
+    if (ventanaReservada && !ventanaReservada.closed) {
+      ventanaReservada.location.href = enlace;
+      ventanaReservada = null;
+      return true;
+    }
     const ventana = window.open(enlace, '_blank', 'noopener,noreferrer');
     return Boolean(ventana);
   } catch {

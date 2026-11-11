@@ -31,7 +31,7 @@ import { empresaManejaMercaderia } from '@/lib/perfilCapacidades';
 import { empresaTieneOnboardingCompleto, marcarOnboardingCompleto } from '@/lib/onboarding';
 import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
 import { crearOUsarClientePorTelefono } from '@/lib/clientes';
-import { prepararComprobante, type ComprobanteListo } from '@/lib/whatsappVentas';
+import { liberarVentanaReservada, precargarTelefonos, prepararComprobante, reservarVentanaSiHayTelefono, type ComprobanteListo } from '@/lib/whatsappVentas';
 import { AvisoComprobante } from '@/components/whatsapp/AvisoComprobante';
 import { saldoDeFormaDePago, saldoDeCategoria, saldoEnTransferencia, saldosDeCategorias, saldosDeMedios } from '@/lib/saldoCuenta';
 import { crearCuotasPasivo } from '@/lib/cuotas';
@@ -685,6 +685,7 @@ export function CentralDeLanzamientosTab({
       }
 
       setEmpresaId(perfil.empresa_id);
+      void precargarTelefonos(perfil.empresa_id);
 
       const [onboardingCompleto, manejaMercaderia, empresaPerfil] = await Promise.all([
         empresaTieneOnboardingCompleto(perfil.empresa_id),
@@ -1298,6 +1299,9 @@ export function CentralDeLanzamientosTab({
     setError('');
     setGuardando(true);
 
+    // WhatsApp automático: la pestaña se reserva ahora, en el mismo toque (ver lib/whatsappVentas.ts).
+    if (!modoEdicion && (operacion === 'VENTA' || operacion === 'COBRO')) reservarVentanaSiHayTelefono(empresaId, clienteProveedor);
+
     try {
       // Cuando la categoría maneja stock, el <select> de producto
       // guarda el id (uuid) en linea.producto, no el nombre — hay que
@@ -1536,7 +1540,9 @@ export function CentralDeLanzamientosTab({
           });
 
           if (listo) setComprobanteWhatsapp(listo);
+          else liberarVentanaReservada();
         } catch (errorWhatsapp) {
+          liberarVentanaReservada();
           console.warn('No se pudo preparar el comprobante por WhatsApp:', errorWhatsapp);
         }
       }
@@ -1552,6 +1558,7 @@ export function CentralDeLanzamientosTab({
 
       setLineas([{ producto: '', cantidad: 0, monto: 0, unidadCarga: '' }]);
     } catch (e: unknown) {
+      liberarVentanaReservada();
       console.error('ERROR REGISTRANDO OPERACIÓN:', e);
 
       if (e instanceof Error) {
