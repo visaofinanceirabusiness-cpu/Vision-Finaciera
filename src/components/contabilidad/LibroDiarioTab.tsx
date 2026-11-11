@@ -11,7 +11,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { formatearNumeroEntero } from '@/lib/moneda';
 import { crearTraductor, nombreOperacionDisplay } from '@/lib/i18n';
-import { armarMensajeComprobante, buscarTelefonoCliente, empresaTieneTelefonoValido, enlaceWhatsapp } from '@/lib/whatsapp';
+import { enlaceWhatsapp } from '@/lib/whatsapp';
+import { enlaceChat, mensajeDeVenta, ventaPorId } from '@/lib/whatsappVentas';
 import {
   diccionarioContabilidad,
   msgErrorOperaciones,
@@ -537,6 +538,9 @@ function GrupoOperacionCard({
             </span>
           )}
         </div>
+        {empresaId && filasOperacion.length > 0 && ['VENTA', 'COBRO'].includes(filasOperacion[0].operacion) && (filasOperacion[0].estado || '').toUpperCase() === 'VALIDADO' && filasOperacion[0].cliente_proveedor && (
+          <BotonWhatsappVenta empresaId={empresaId} nombreEmpresa={nombreEmpresa} idioma={idioma} simbolo={simbolo} idOperacion={grupo.id_operacion} cliente={filasOperacion[0].cliente_proveedor} />
+        )}
         <div style={{ fontSize: 15, color: COLORES.gris }}>
           {t('importeRegistrado')} <strong style={{ color: COLORES.azul, fontSize: 17 }}>{simbolo} {formatearNumeroEntero(importeGrupo)}</strong>
         </div>
@@ -600,14 +604,6 @@ function GrupoOperacionCard({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <Estado estado={fila.estado} idioma={idioma} />
 
-                      {empresaId &&
-                        fila.tipo_registro === 'OPERACION' &&
-                        fila.operacion === 'VENTA' &&
-                        (fila.estado || '').toUpperCase() === 'VALIDADO' &&
-                        fila.cliente_proveedor &&
-                        (!esDividida || fila === filasOperacion[0]) && (
-                          <BotonReenviarComprobante empresaId={empresaId} nombreEmpresa={nombreEmpresa} idioma={idioma} simbolo={simbolo} fila={fila} total={esDividida ? totalOperacion : undefined} formaPago={esDividida ? mediosOperacion : undefined} />
-                        )}
                     </div>
                   </td>
                 </tr>
@@ -620,84 +616,57 @@ function GrupoOperacionCard({
   );
 }
 
-// Reenvía el comprobante de una Venta ya validada — misma mecánica
-// que el botón que aparece al registrar (ver lib/whatsapp.ts), pero
-// reconstruyendo el mensaje a partir de la fila del Libro Diario en
-// vez de tenerlo ya armado en memoria.
-function BotonReenviarComprobante({
+// WhatsApp de una venta o cobro ya validado, bien a la vista en la cabecera de la operación: manda el comprobante completo (cantidad, producto,
+// precio por unidad, total y forma de pago) o abre el chat con el cliente. Mismo mecanismo que /whatsapp (ver lib/whatsappVentas.ts).
+function BotonWhatsappVenta({
   empresaId,
   nombreEmpresa,
   idioma,
   simbolo,
-  fila,
-  total,
-  formaPago,
+  idOperacion,
+  cliente,
 }: {
   empresaId: string;
   nombreEmpresa: string;
   idioma: string | null;
   simbolo: string;
-  fila: MovimientoDiario;
-  // Pago dividido: el comprobante va con el total de la operación y todos los medios, no solo los de esta fila.
-  total?: number;
-  formaPago?: string;
+  idOperacion: string;
+  cliente: string;
 }) {
-  const [enviando, setEnviando] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const esPT = idioma === 'PT';
 
-  async function reenviar() {
-    setEnviando(true);
+  async function enviar(conMensaje: boolean) {
+    setCargando(true);
     setError('');
-
     try {
-      const telefono = await buscarTelefonoCliente(empresaId, fila.cliente_proveedor ?? '');
-
-      if (!empresaTieneTelefonoValido(telefono)) {
+      const venta = await ventaPorId(empresaId, idOperacion);
+      if (!venta?.telefono) {
         setError(esPT ? 'Esse cliente não tem telefone cadastrado.' : 'Ese cliente no tiene teléfono cargado.');
         return;
       }
-
-      const mensaje = armarMensajeComprobante({
-        idioma,
-        nombreEmpresa: nombreEmpresa || (esPT ? 'Meu Negócio' : 'Mi Negocio'),
-        numeroComprobante: fila.id_operacion,
-        fecha: fila.fecha,
-        cliente: fila.cliente_proveedor ?? '',
-        detalle: fila.historico ?? '',
-        formaPago: formaPago ?? fila.forma_pago ?? '',
-        total: total ?? Number(fila.importe ?? 0),
-        simboloMoneda: simbolo,
-      });
-
-      window.open(enlaceWhatsapp(telefono as string, mensaje), '_blank', 'noopener,noreferrer');
-    } catch (errorReenviar) {
-      setError((errorReenviar as Error).message);
+      const enlace = conMensaje ? enlaceWhatsapp(venta.telefono, mensajeDeVenta(venta, nombreEmpresa, idioma, simbolo)) : enlaceChat(venta.telefono);
+      window.open(enlace, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
-      setEnviando(false);
+      setCargando(false);
     }
   }
 
-  return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-      <button
-        onClick={reenviar}
-        disabled={enviando}
-        style={{
-          border: 'none',
-          background: '#25D366',
-          color: '#fff',
-          borderRadius: 8,
-          padding: '6px 11px',
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: enviando ? 'default' : 'pointer',
-          opacity: enviando ? 0.7 : 1,
-        }}
-      >
-        📲 {esPT ? 'Reenviar comprovante' : 'Reenviar comprobante'}
-      </button>
+  const estiloBoton: React.CSSProperties = { border: 'none', borderRadius: 10, padding: '9px 14px', fontSize: 14, fontWeight: 800, cursor: cargando ? 'default' : 'pointer', opacity: cargando ? 0.7 : 1 };
 
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" disabled={cargando} onClick={() => enviar(true)} title={cliente} style={{ ...estiloBoton, background: '#25D366', color: '#fff' }}>
+          📲 {esPT ? 'Enviar comprovante' : 'Enviar comprobante'}
+        </button>
+        <button type="button" disabled={cargando} onClick={() => enviar(false)} style={{ ...estiloBoton, background: '#e7f9ef', color: '#166534', border: '1px solid #25D366' }}>
+          💬 {esPT ? 'Conversar' : 'Chatear'}
+        </button>
+      </span>
       {error && <span style={{ fontSize: 12, color: '#dc2626' }}>{error}</span>}
     </span>
   );
