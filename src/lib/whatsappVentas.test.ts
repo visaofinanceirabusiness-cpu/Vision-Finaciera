@@ -44,3 +44,13 @@ describe('operaciones anteriores al detalle guardado', () => {
     expect(v2.detalle).toBe('Remera / Gorra');
   });
 });
+
+describe('lineasDetalleDeVenta (lo que el motor guarda)', () => {
+  it('guarda producto, cantidad, precio por unidad y total exacto de cada línea', async () => {
+    const { lineasDetalleDeVenta } = await import('./whatsappVentas');
+    expect(lineasDetalleDeVenta([{ producto: 'a', cantidad: 3, monto: 100 / 3 }, { producto: 'Envío', cantidad: 1, monto: 10 }, { producto: 'x', cantidad: 0, monto: 5 }])).toEqual([
+      { p: 'a', c: 3, u: 100 / 3, t: 100 },
+      { p: 'Envío', c: 1, u: 10, t: 10 },
+    ]);
+  });
+});

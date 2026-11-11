@@ -21,7 +21,15 @@ export type VentaWhatsapp = {
   lineas: LineaComprobante[];
 };
 
-type LineaGuardada = { p: string; c: number; u: number };
+// Lo que el motor guarda por línea de una venta en registro_operaciones.lineas_detalle: p = producto (id o texto), c = cantidad,
+// u = precio de venta por unidad, t = total de la línea (exacto al centavo, así «3 × 33,33» no se desfasa del total cobrado).
+export type LineaGuardada = { p: string; c: number; u: number; t?: number };
+
+export function lineasDetalleDeVenta(lineas: Array<{ producto: string; cantidad: number | string; monto: number | string }>): LineaGuardada[] {
+  return lineas
+    .filter((l) => Number(l.cantidad) > 0)
+    .map((l) => ({ p: l.producto, c: Number(l.cantidad), u: Number(l.monto), t: Math.round(Number(l.cantidad) * Number(l.monto) * 100) / 100 }));
+}
 
 type FilaVenta = { id_operacion: string; fecha: string; operacion: string; cliente_proveedor: string | null; historico: string | null; forma_pago: string | null; categoria?: string | null; total: number | string; parte?: number | null; lineas_detalle?: LineaGuardada[] | null };
 
@@ -46,7 +54,7 @@ export function agruparVentas(filas: FilaVenta[], telefonos: Map<string, string>
       formaPago: '',
       total: Number(f.total),
       telefono: telefonos.get(cliente) ?? null,
-      lineas: (f.lineas_detalle ?? []).map((l) => ({ cantidad: Number(l.c), producto: productos.get(l.p) ?? l.p, unitario: Number(l.u), total: Number(l.c) * Number(l.u) })),
+      lineas: (f.lineas_detalle ?? []).map((l) => ({ cantidad: Number(l.c), producto: productos.get(l.p) ?? l.p, unitario: Number(l.u), total: l.t ?? Number(l.c) * Number(l.u) })),
       _medios: f.forma_pago ? [f.forma_pago] : [],
     });
   }

@@ -6,6 +6,7 @@
 // Mantiene un mismo id_operacion como hilo conductor.
 
 import { verificarTiempoParaCargar } from './tiempoAgotado';
+import { lineasDetalleDeVenta } from './whatsappVentas';
 import { chequearSaldos, cuentasInvolucradas, validarPartes, validarPartidaDoble, type Asiento, type ParteOperacion } from './pagoDividido';
 import { aCentavos } from './centavos';
 import { cambioDejaStockNegativo, primerDiaSinStock, stockUtilizableAFecha } from './stockFecha';
@@ -1289,7 +1290,7 @@ export async function registrarOperacion(
         // Líneas de la venta (producto, cantidad, precio unitario) para armar el comprobante de WhatsApp; solo en la parte 1.
         lineas_detalle:
           formulario.operacion === 'VENTA'
-            ? formulario.lineas.map((l) => ({ p: l.producto, c: Number(l.cantidad), u: Number(l.monto) }))
+            ? lineasDetalleDeVenta(formulario.lineas)
             : null,
       };
 
