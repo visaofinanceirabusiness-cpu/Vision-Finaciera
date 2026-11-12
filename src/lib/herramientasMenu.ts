@@ -18,6 +18,7 @@ export type Herramienta = {
 export const TODAS_LAS_HERRAMIENTAS: Herramienta[] = [
   { href: '/panel-de-control', titulo: 'Panel de Control', corto: { es: 'Panel', pt: 'Painel' }, emoji: '📊', color: '#2e8b57' },
   { href: '/contabilidad', titulo: 'Contabilidad', corto: { es: 'Contab.', pt: 'Contab.' }, emoji: '🧾', color: '#7c3aed' },
+  { href: '/conciliacion-bancaria', titulo: 'Conciliación bancaria', corto: { es: 'Bancos', pt: 'Bancos' }, emoji: '🏦', color: '#0369a1' },
   { href: '/finanzas', titulo: 'Finanzas', corto: { es: 'Finanzas', pt: 'Finanças' }, emoji: '💼', color: '#0d9488' },
   { href: '/mercaderia', titulo: 'Mercadería', corto: { es: 'Mercad.', pt: 'Mercad.' }, emoji: '📦', color: '#ea580c' },
   { href: '/mi-local', titulo: 'Mi Local', corto: { es: 'Mi Local', pt: 'Meu Local' }, emoji: '🛍️', color: '#e11d48' },
