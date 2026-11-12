@@ -144,3 +144,53 @@ export async function reabrirMovimiento(movId: string): Promise<void> {
   const { error } = await supabase.from('bancos_movimientos').update({ estado: 'PENDIENTE' }).eq('id', movId).eq('estado', 'IGNORADO');
   if (error) throw error;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// IMPORTAR EXTRACTO (OFX / CSV): la alternativa sin costo a Open Finance. Usa una conexión «manual» del banco elegido y las mismas tablas.
+// ---------------------------------------------------------------------------------------------------------------------
+
+export async function crearCuentaManual(empresaId: string, bancoCodigo: string, bancoNombre: string, nombreCuenta: string): Promise<CuentaBanco> {
+  const unica = `manual-${bancoCodigo}-${Date.now().toString(36)}`;
+  const { data: conexion, error } = await supabase
+    .from('bancos_conexiones')
+    .insert({ empresa_id: empresaId, proveedor: 'manual', conexion_externa_id: unica, banco_codigo: bancoCodigo, banco_nombre: bancoNombre, estado: 'ACTIVA' })
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  const { data: cuenta, error: errorCuenta } = await supabase
+    .from('bancos_cuentas')
+    .insert({ empresa_id: empresaId, conexion_id: conexion.id, cuenta_externa_id: unica, nombre: nombreCuenta.trim() || 'Conta corrente', moneda: 'BRL' })
+    .select('id, conexion_id, nombre, numero_mascara, moneda, saldo_banco, saldo_actualizado_en, forma_pago_nombre')
+    .single();
+  if (errorCuenta) throw errorCuenta;
+  return { ...(cuenta as CuentaBanco), saldo_banco: null };
+}
+
+// Mete los movimientos del extracto en la cuenta: los que ya estaban (mismo id) se saltean y conservan su estado; solo entran los nuevos.
+export async function importarMovimientos(
+  empresaId: string,
+  cuentaBancoId: string,
+  movimientos: Array<{ idExterno: string; fecha: string; monto: number; descripcion: string; contraparte: string | null }>,
+  saldoBanco: number | null
+): Promise<{ nuevos: number; repetidos: number }> {
+  let nuevos = 0;
+  for (let i = 0; i < movimientos.length; i += 200) {
+    const tanda = movimientos.slice(i, i + 200);
+    const { data, error } = await supabase
+      .from('bancos_movimientos')
+      .upsert(
+        tanda.map((m) => ({ empresa_id: empresaId, cuenta_banco_id: cuentaBancoId, id_externo: m.idExterno, fecha: m.fecha, monto: m.monto, descripcion: m.descripcion, contraparte: m.contraparte })),
+        { onConflict: 'cuenta_banco_id,id_externo', ignoreDuplicates: true }
+      )
+      .select('id');
+    if (error) throw error;
+    nuevos += data?.length ?? 0;
+  }
+
+  if (saldoBanco !== null) {
+    const { error } = await supabase.from('bancos_cuentas').update({ saldo_banco: saldoBanco, saldo_actualizado_en: new Date().toISOString() }).eq('id', cuentaBancoId);
+    if (error) throw error;
+  }
+  return { nuevos, repetidos: movimientos.length - nuevos };
+}
