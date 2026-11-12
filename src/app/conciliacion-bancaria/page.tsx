@@ -11,7 +11,8 @@ import { useEnShell } from '@/components/shell/ShellContext';
 import { simboloMoneda } from '@/lib/moneda';
 import { obtenerCategoriasJuego } from '@/lib/miniJuego';
 import { BANCOS_OPEN_FINANCE, bancoDeNombre } from '@/lib/openFinance/bancos';
-import { aprobarMovimiento, cargarConciliacion, formasPagoVinculables, ignorarMovimiento, recalcularCuenta, reabrirMovimiento, vincularCuenta, type CuentaBanco, type MovimientoBanco } from '@/lib/conciliacionBancariaDatos';
+import { parsearExtracto, numeroDeTexto, type ExtractoLeido } from '@/lib/extractoBancario';
+import { aprobarMovimiento, cargarConciliacion, crearCuentaManual, importarMovimientos, formasPagoVinculables, ignorarMovimiento, recalcularCuenta, reabrirMovimiento, vincularCuenta, type CuentaBanco, type MovimientoBanco } from '@/lib/conciliacionBancariaDatos';
 import type { EstadoSaldos } from '@/lib/conciliacionBancaria';
 
 const COLORES = { azul: 'var(--color-primario, #1f3a5f)', verde: 'var(--color-secundario, #2e8b57)', gris: 'var(--color-acento, #6e7781)' };
@@ -105,11 +106,15 @@ export default function ConciliacionBancariaPage() {
         {activo === false && (
           <div style={{ ...tarjeta, background: '#fffbeb', border: '1px solid #fcd34d' }}>
             <strong>🚧 {t('Open Finance todavía no está activado.', 'O Open Finance ainda não está ativado.')}</strong>
-            <p style={{ margin: '6px 0 0', fontSize: 14 }}>{t('La pantalla está lista: cuando se active, acá vas a conectar tu banco y aprobar las propuestas.', 'A tela está pronta: quando for ativado, aqui você conecta seu banco e aprova as propostas.')}</p>
+            <p style={{ margin: '6px 0 0', fontSize: 14 }}>{t('Mientras tanto podés importar el extracto de tu banco (OFX o CSV) y conciliar igual; cuando se active, acá vas a conectar tu banco.', 'Enquanto isso, você pode importar o extrato do seu banco (OFX ou CSV) e conciliar do mesmo jeito; quando for ativado, aqui você conecta seu banco.')}</p>
           </div>
         )}
         {error && <p style={{ color: '#dc2626', fontSize: 14, margin: 0 }}>{error}</p>}
         {aviso && <p style={{ color: '#166534', fontSize: 14, margin: 0 }}>{aviso}</p>}
+
+        {empresaId && datos && (
+          <ImportarExtracto empresaId={empresaId} cuentas={datos.cuentas} bancos={datos.conexiones} t={t} dinero={dinero} onListo={(m) => { setAviso(m); void cargar(empresaId); }} onError={setError} />
+        )}
 
         {datos && datos.cuentas.length === 0 && (
           <div style={tarjeta}>
@@ -248,3 +253,115 @@ function Propuesta({ mov, formaPago, empresaId, t, dinero, onCambio, onError }: 
 
 // reabrirMovimiento queda disponible para una futura lista de «ignorados».
 void reabrirMovimiento;
+
+// Lee el archivo en UTF-8 y, si trae caracteres inválidos (extractos de bancos de Brasil suelen venir en Windows-1252), de nuevo en ese formato.
+async function leerArchivo(archivo: File): Promise<string> {
+  const bytes = await archivo.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+// IMPORTAR EXTRACTO (OFX / CSV): la alternativa sin costo a Open Finance. Los movimientos entran a la misma conciliación de abajo.
+function ImportarExtracto({ empresaId, cuentas, bancos, t, dinero, onListo, onError }: { empresaId: string; cuentas: CuentaBanco[]; bancos: Array<{ id: string; banco_nombre: string }>; t: (es: string, pt: string) => string; dinero: (n: number) => string; onListo: (mensaje: string) => void; onError: (m: string) => void }) {
+  const NUEVA = '__nueva__';
+  const [cuentaId, setCuentaId] = useState(cuentas[0]?.id ?? NUEVA);
+  const [bancoCodigo, setBancoCodigo] = useState(BANCOS_OPEN_FINANCE[0].codigo);
+  const [nombreCuenta, setNombreCuenta] = useState('');
+  const [leido, setLeido] = useState<ExtractoLeido | null>(null);
+  const [archivoNombre, setArchivoNombre] = useState('');
+  const [saldoTexto, setSaldoTexto] = useState('');
+  const [trabajando, setTrabajando] = useState(false);
+  const nombreBanco = (c: string) => BANCOS_OPEN_FINANCE.find((b) => b.codigo === c)?.nombre ?? c;
+  const etiquetaCuenta = (c: CuentaBanco) => `${bancos.find((b) => b.id === c.conexion_id)?.banco_nombre ?? ''} · ${c.nombre}`;
+
+  async function elegirArchivo(a: File | undefined) {
+    setLeido(null);
+    if (!a) return;
+    try {
+      setArchivoNombre(a.name);
+      setLeido(parsearExtracto(a.name, await leerArchivo(a)));
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'No se pudo leer el archivo.');
+    }
+  }
+
+  async function importar() {
+    if (!leido || leido.movimientos.length === 0) return;
+    setTrabajando(true);
+    try {
+      const destino = cuentaId === NUEVA ? (await crearCuentaManual(empresaId, bancoCodigo, nombreBanco(bancoCodigo), nombreCuenta)).id : cuentaId;
+      const saldo = saldoTexto.trim() ? numeroDeTexto(saldoTexto) : leido.saldoFinal;
+      const r = await importarMovimientos(empresaId, destino, leido.movimientos, saldo);
+      setLeido(null);
+      setArchivoNombre('');
+      setSaldoTexto('');
+      onListo(t(`Listo: ${r.nuevos} movimientos nuevos${r.repetidos ? ` (${r.repetidos} ya estaban)` : ''}.`, `Pronto: ${r.nuevos} movimentos novos${r.repetidos ? ` (${r.repetidos} já estavam)` : ''}.`));
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'No se pudo importar el extracto.');
+    }
+    setTrabajando(false);
+  }
+
+  const fechas = leido?.movimientos.map((m) => m.fecha).sort() ?? [];
+  const campo: React.CSSProperties = { display: 'block', marginTop: 4, padding: '9px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15, minWidth: 0 };
+
+  return (
+    <section style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: '16px 18px', boxShadow: '0 4px 14px rgba(31,58,95,0.06)' }}>
+      <strong style={{ fontSize: 17 }}>📥 {t('Importar extracto (OFX o CSV)', 'Importar extrato (OFX ou CSV)')}</strong>
+      <p style={{ margin: '4px 0 12px', fontSize: 13.5, color: COLORES.gris }}>
+        {t('Bajá el extracto desde tu banco (formato OFX es el más completo) y subilo acá: no cuesta nada y funciona con cualquier banco.', 'Baixe o extrato no seu banco (o formato OFX é o mais completo) e envie aqui: não custa nada e funciona com qualquer banco.')}
+      </p>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+          {t('Cuenta', 'Conta')}
+          <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} style={campo}>
+            {cuentas.map((c) => <option key={c.id} value={c.id}>{etiquetaCuenta(c)}</option>)}
+            <option value={NUEVA}>➕ {t('Cuenta nueva', 'Conta nova')}</option>
+          </select>
+        </label>
+        {cuentaId === NUEVA && (
+          <>
+            <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+              {t('Banco', 'Banco')}
+              <select value={bancoCodigo} onChange={(e) => setBancoCodigo(e.target.value)} style={campo}>
+                {BANCOS_OPEN_FINANCE.map((b) => <option key={b.codigo} value={b.codigo}>{b.nombre}</option>)}
+                <option value="otro">{t('Otro banco', 'Outro banco')}</option>
+              </select>
+            </label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+              {t('Nombre de la cuenta', 'Nome da conta')}
+              <input value={nombreCuenta} onChange={(e) => setNombreCuenta(e.target.value)} placeholder={t('Cuenta corriente', 'Conta corrente')} style={campo} />
+            </label>
+          </>
+        )}
+        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+          {t('Archivo', 'Arquivo')}
+          <input type="file" accept=".ofx,.qfx,.csv,.txt" onChange={(e) => void elegirArchivo(e.target.files?.[0])} style={{ ...campo, padding: '7px 10px' }} />
+        </label>
+      </div>
+
+      {leido && (
+        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: 13.5 }}>
+          <strong>{archivoNombre}</strong>: {leido.movimientos.length} {t('movimientos', 'movimentos')}
+          {fechas.length > 0 && ` · ${new Date(`${fechas[0]}T12:00:00`).toLocaleDateString()} → ${new Date(`${fechas[fechas.length - 1]}T12:00:00`).toLocaleDateString()}`}
+          {leido.saldoFinal !== null && ` · ${t('saldo final', 'saldo final')} ${dinero(leido.saldoFinal)}`}
+          {leido.errores.length > 0 && <div style={{ marginTop: 6, color: '#b45309' }}>{leido.errores.slice(0, 3).join(' ')}{leido.errores.length > 3 ? ` (+${leido.errores.length - 3})` : ''}</div>}
+          {leido.saldoFinal === null && leido.movimientos.length > 0 && (
+            <label style={{ display: 'block', marginTop: 8, fontSize: 12, fontWeight: 700, color: COLORES.gris }}>
+              {t('Saldo del banco hoy (opcional, para comparar)', 'Saldo do banco hoje (opcional, para comparar)')}
+              <input value={saldoTexto} onChange={(e) => setSaldoTexto(e.target.value)} inputMode="decimal" placeholder="1.234,56" style={{ ...campo, maxWidth: 200 }} />
+            </label>
+          )}
+          <div style={{ marginTop: 10 }}>
+            <button type="button" disabled={trabajando || leido.movimientos.length === 0} onClick={importar} style={{ border: 'none', borderRadius: 10, padding: '9px 16px', fontWeight: 800, background: leido.movimientos.length === 0 ? '#cbd5e1' : COLORES.verde, color: '#fff', cursor: 'pointer' }}>
+              📥 {t('Importar', 'Importar')}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

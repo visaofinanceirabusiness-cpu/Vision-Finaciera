@@ -7,11 +7,11 @@
 import { supabase } from './supabase';
 import { estaEnCajaParaPerfil } from './cajaMateriales';
 
-export type EstadoCaja = { clave: string; en_caja: boolean; motivo: string | null; movido_en: string; perfiles: string[] | null };
+export type EstadoCaja = { clave: string; en_caja: boolean; motivo: string | null; movido_en: string; perfiles: string[] | null; empresas_abiertas?: string[] | null };
 
 export async function cargarCaja(): Promise<EstadoCaja[]> {
   try {
-    const { data, error } = await supabase.from('caja_materiales_estado').select('clave, en_caja, motivo, movido_en, perfiles').eq('en_caja', true);
+    const { data, error } = await supabase.from('caja_materiales_estado').select('clave, en_caja, motivo, movido_en, perfiles, empresas_abiertas').eq('en_caja', true);
     if (error || !data) return [];
     return data as EstadoCaja[];
   } catch {
@@ -40,26 +40,32 @@ export async function empresasConTarjetasFijadas(): Promise<number | null> {
 }
 
 // Código del perfil de empresa de quien está conectado (COMERCIAL, FAMILIAR…). Se guarda por sesión: no cambia mientras se usa.
-let perfilCache: { userId: string; codigo: string | null } | null = null;
+let perfilCache: { userId: string; codigo: string | null; empresaId: string | null } | null = null;
 
-export async function miPerfilCodigo(): Promise<string | null> {
+// Perfil y empresa de quien está conectado (para el alcance por perfil y las excepciones por empresa de la caja).
+export async function miContextoCaja(): Promise<{ codigo: string | null; empresaId: string | null }> {
   try {
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return null;
-    if (perfilCache && perfilCache.userId === u.user.id) return perfilCache.codigo;
-    const { data: perfil } = await supabase.from('perfiles').select('empresas(perfiles_empresa(codigo))').eq('id', u.user.id).maybeSingle();
+    if (!u.user) return { codigo: null, empresaId: null };
+    if (perfilCache && perfilCache.userId === u.user.id) return { codigo: perfilCache.codigo, empresaId: perfilCache.empresaId };
+    const { data: perfil } = await supabase.from('perfiles').select('empresa_id, empresas(perfiles_empresa(codigo))').eq('id', u.user.id).maybeSingle();
     const emp = perfil?.empresas as unknown as { perfiles_empresa: { codigo: string } | { codigo: string }[] | null } | null;
     const rel = emp?.perfiles_empresa;
     const codigo = (Array.isArray(rel) ? rel[0]?.codigo : rel?.codigo) ?? null;
-    perfilCache = { userId: u.user.id, codigo };
-    return codigo;
+    const empresaId = (perfil?.empresa_id as string | null | undefined) ?? null;
+    perfilCache = { userId: u.user.id, codigo, empresaId };
+    return { codigo, empresaId };
   } catch {
-    return null;
+    return { codigo: null, empresaId: null };
   }
+}
+
+export async function miPerfilCodigo(): Promise<string | null> {
+  return (await miContextoCaja()).codigo;
 }
 
 // Para código que no es una pantalla (p. ej. el chat de Sabio): ¿esta pieza está guardada para mi perfil?
 export async function piezaEnCajaParaMi(clave: string): Promise<boolean> {
-  const [filas, perfil] = await Promise.all([cargarCaja(), miPerfilCodigo()]);
-  return estaEnCajaParaPerfil(filas.find((f) => f.clave === clave), perfil);
+  const [filas, ctx] = await Promise.all([cargarCaja(), miContextoCaja()]);
+  return estaEnCajaParaPerfil(filas.find((f) => f.clave === clave), ctx.codigo, ctx.empresaId);
 }

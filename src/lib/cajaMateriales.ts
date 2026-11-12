@@ -192,8 +192,10 @@ export function nombreAlcanceCaja(perfiles: string[] | null | undefined): string
 }
 
 // ¿Esta pieza guardada se esconde para quien tiene ese perfil? Sin perfil conocido solo cuenta lo guardado para todos.
-export function estaEnCajaParaPerfil(fila: { perfiles?: string[] | null } | undefined, perfilCodigo: string | null): boolean {
+// `empresas_abiertas`: empresas para las que la pieza sigue ABIERTA aunque esté en la caja (excepción por empresa, p. ej. probarla en una sola).
+export function estaEnCajaParaPerfil(fila: { perfiles?: string[] | null; empresas_abiertas?: string[] | null } | undefined, perfilCodigo: string | null, empresaId: string | null = null): boolean {
   if (!fila) return false;
+  if (empresaId && fila.empresas_abiertas?.includes(empresaId)) return false;
   if (!fila.perfiles || fila.perfiles.length === 0) return true;
   return perfilCodigo !== null && fila.perfiles.includes(perfilCodigo);
 }

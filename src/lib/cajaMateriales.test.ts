@@ -59,6 +59,8 @@ describe('sacar de la caja', () => {
 describe('alcance por perfil', () => {
   it('una pieza guardada para todos se esconde a cualquiera; para un perfil, solo a ese', () => {
     expect(estaEnCajaParaPerfil({ perfiles: null }, 'COMERCIAL')).toBe(true);
+    expect(estaEnCajaParaPerfil({ perfiles: null, empresas_abiertas: ['e1'] }, 'COMERCIAL', 'e1')).toBe(false);
+    expect(estaEnCajaParaPerfil({ perfiles: null, empresas_abiertas: ['e1'] }, 'COMERCIAL', 'e2')).toBe(true);
     expect(estaEnCajaParaPerfil({ perfiles: [] }, null)).toBe(true);
     expect(estaEnCajaParaPerfil({ perfiles: ['FAMILIAR'] }, 'FAMILIAR')).toBe(true);
     expect(estaEnCajaParaPerfil({ perfiles: ['FAMILIAR'] }, 'COMERCIAL')).toBe(false);
