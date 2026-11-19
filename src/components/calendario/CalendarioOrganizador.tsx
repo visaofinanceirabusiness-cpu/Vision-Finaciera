@@ -23,6 +23,8 @@ import {
   nombreCategoria,
 } from '@/lib/calendario';
 import { ModalEvento } from './ModalEvento';
+import { AvisoCierreMes } from './AvisoCierreMes';
+import { hoyLocalCierre, marcaDelDia, type SituacionCierre } from '@/lib/cierres';
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { fechasEspecialesDelPais, iconoFechaEspecial, mapaFechasEspeciales, paisPorMoneda } from '@/lib/fechasEspeciales';
 
@@ -127,6 +129,7 @@ export function CalendarioOrganizador({
   const [anotaciones, setAnotaciones] = useState<AnotacionCalendario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [situacionCierre, setSituacionCierre] = useState<SituacionCierre | null>(null);
 
   const [referenciasAbiertas, setReferenciasAbiertas] = useState(true);
   const [notasAbiertas, setNotasAbiertas] = useState(true);
@@ -367,6 +370,8 @@ export function CalendarioOrganizador({
         </div>
       </div>
 
+      <AvisoCierreMes empresaId={empresaId} idioma={idioma} onSituacion={setSituacionCierre} />
+
       {error && (
         <div style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
           {error}
@@ -473,6 +478,7 @@ export function CalendarioOrganizador({
                   const expandido = diaExpandido === celda.fecha;
                   const visibles = expandido ? eventosDelDia : eventosDelDia.slice(0, 2);
                   const restantes = eventosDelDia.length - visibles.length;
+                  const marcaCierre = situacionCierre && celda.delMes ? marcaDelDia(situacionCierre.config, celda.fecha, hoyLocalCierre(), esPT) : null;
                   const especialesDelDia = fechasEspecialesVisibles ? fechasEspeciales.get(celda.fecha.slice(5, 10)) ?? [] : [];
 
                   // El fondo de cada día va con transparencia (no un
@@ -532,6 +538,15 @@ export function CalendarioOrganizador({
                           </span>
                         )}
                       </div>
+
+                      {marcaCierre && (
+                        <div
+                          title={marcaCierre.titulo}
+                          style={{ background: `${marcaCierre.color}22`, color: marcaCierre.color, border: `1px solid ${marcaCierre.color}`, borderRadius: 6, padding: '1px 4px', fontSize: 9.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        >
+                          🔒 {marcaCierre.texto}
+                        </div>
+                      )}
 
                       {visibles.map((ev) => (
                         <div

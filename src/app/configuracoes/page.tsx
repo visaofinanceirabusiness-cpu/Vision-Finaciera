@@ -91,6 +91,7 @@ import {
   msgResetExito,
   msgResetErrorParcial,
 } from './i18n';
+import { CierreDePeriodosTab } from '@/components/configuracoes/CierreDePeriodosTab';
 import { MisDatosSeccion } from '@/components/configuracoes/MisDatosSeccion';
 import { PersonalizacionColoresSeccion } from '@/components/configuracoes/PersonalizacionColoresSeccion';
 import { GestionAsistentes } from '@/components/configuracoes/GestionAsistentes';
@@ -117,7 +118,7 @@ const IDIOMAS = [
   { value: 'PT', label: 'Português' },
 ];
 
-type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'reset' | 'matriz';
+type Pestana = 'empresa' | 'categorias' | 'plan' | 'inicializacion' | 'objetivos' | 'facturacion' | 'cierres' | 'reset' | 'matriz';
 
 type PerfilEmpresa = {
   id: string;
@@ -148,6 +149,8 @@ export default function ConfiguracoesPage() {
   const [pestana, setPestana] = useState<Pestana>('empresa');
   const [esAdmin, setEsAdmin] = useState(false);
   const [puedeEditarObjetivos, setPuedeEditarObjetivos] = useState(false);
+  const [cierreActivo, setCierreActivo] = useState(false);
+  const [puedeHabilitarCierre, setPuedeHabilitarCierre] = useState(false);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [idioma, setIdioma] = useState('ES');
   const [cargando, setCargando] = useState(true);
@@ -183,7 +186,7 @@ export default function ConfiguracoesPage() {
 
       const { data: empresaData } = await supabase
         .from('empresas')
-        .select('idioma')
+        .select('idioma, cierre_mensual_activo')
         .eq('id', perfil.empresa_id)
         .maybeSingle();
 
@@ -199,6 +202,8 @@ export default function ConfiguracoesPage() {
         Boolean(perfil.es_admin_plataforma) || (perfil.tipo_usuario !== 'ASISTENTE' && perfil.tipo_usuario !== 'SOPORTE')
       );
       setIdioma(empresaData?.idioma ?? 'ES');
+      setCierreActivo(Boolean(empresaData?.cierre_mensual_activo));
+      setPuedeHabilitarCierre(perfil.tipo_usuario === 'CLIENTE' || Boolean(perfil.es_admin_plataforma));
       setCargando(false);
     }
 
@@ -283,6 +288,12 @@ export default function ConfiguracoesPage() {
               {t('tabFacturacion')}
             </button>
 
+            {cierreActivo && (
+              <button type="button" onClick={() => setPestana('cierres')} style={tabStyle(pestana === 'cierres')}>
+                {idioma === 'PT' ? 'Fechamento de períodos' : 'Cierre de períodos'}
+              </button>
+            )}
+
             <button type="button" onClick={() => setPestana('reset')} style={tabStyle(pestana === 'reset')}>
               {t('tabReset')}
             </button>
@@ -300,6 +311,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} puedeEditar={puedeEditarObjetivos} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
+          {pestana === 'cierres' && cierreActivo && <CierreDePeriodosTab empresaId={empresaId} idioma={idioma} puedeHabilitar={puedeHabilitarCierre} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
         </main>

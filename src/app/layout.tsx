@@ -7,6 +7,7 @@ import { TemaGlobal } from '@/components/TemaGlobal';
 import { ProveedorEspectador } from '@/components/demo/ProveedorEspectador';
 import { AppShell } from '@/components/shell/AppShell';
 import { AvisoTiempoAgotado } from '@/components/AvisoTiempoAgotado';
+import { LatidoCierre } from '@/components/cierres/LatidoCierre';
 import { AvisoPorVencer } from '@/components/AvisoPorVencer';
 
 export const metadata: Metadata = {
@@ -65,6 +66,7 @@ export default function RootLayout({
         <AppShell>{children}</AppShell>
         <AvisoTiempoAgotado />
         <AvisoPorVencer />
+        <LatidoCierre />
       </body>
     </html>
   );
