@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 // El motor contable y la lectura de saldos se simulan: acá se prueba la LÓGICA de Sabio (orden, aportes, reposición, pausa, reserva del día).
 const formularios: Array<Record<string, unknown>> = [];
+const filtrosDeFecha: string[] = [];
 vi.mock('../motor', () => ({
   registrarOperacion: vi.fn(async (_empresa: string, form: Record<string, unknown>) => {
     formularios.push(form);
@@ -22,8 +23,15 @@ function fakeAdmin(tablas: Tablas, opciones: { diaYaReservado?: boolean; counts?
   const insertados: Array<{ tabla: string; filas: unknown }> = [];
   const constructor = (tabla: string) => {
     const b: Record<string, unknown> = {};
-    const encadenable = ['select', 'eq', 'gte', 'lte', 'order', 'range', 'in', 'update', 'delete'];
+    const encadenable = ['select', 'eq', 'order', 'range', 'in', 'update', 'delete'];
     for (const m of encadenable) b[m] = () => b;
+    // Las fechas de los filtros tienen que existir de verdad: la base rechaza «2026-02-31» y el día entero falla.
+    for (const m of ['gte', 'lte']) {
+      b[m] = (columna: string, valor: unknown) => {
+        if (columna === 'fecha') filtrosDeFecha.push(String(valor));
+        return b;
+      };
+    }
     b.insert = (filas: unknown) => {
       insertados.push({ tabla, filas });
       return Promise.resolve({ error: tabla === 'sabio_soporte_dias' && opciones.diaYaReservado ? { message: 'duplicate key' } : null });
@@ -55,9 +63,22 @@ const base = (extra: Tablas = {}): Tablas => ({
 
 beforeEach(() => {
   formularios.length = 0;
+  filtrosDeFecha.length = 0;
 });
 
 describe('ejecutarDia', () => {
+  it('nunca consulta con una fecha que no existe (febrero, abril, noviembre…)', async () => {
+    for (const fecha of ['2026-03-02', '2026-04-15', '2026-05-04', '2026-07-01', '2026-11-19', '2028-03-01']) {
+      const { admin } = fakeAdmin(base());
+      await ejecutarDia(admin, 'e', fecha, { hoy: '2029-12-31', simular: true });
+    }
+    expect(filtrosDeFecha.length).toBeGreaterThan(0);
+    for (const f of filtrosDeFecha) {
+      const d = new Date(`${f}T12:00:00Z`);
+      expect(Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== f, f).toBe(false);
+    }
+  });
+
   it('no hace nada si está pausado, antes del inicio o en el futuro', async () => {
     const pausado = fakeAdmin(base({ sabio_soporte_config: [{ activo: true, pausado: true, config: {} }] }));
     expect((await ejecutarDia(pausado.admin, 'e', '2026-03-04', { hoy: '2026-11-19' })).omitido).toBe('PAUSADO');

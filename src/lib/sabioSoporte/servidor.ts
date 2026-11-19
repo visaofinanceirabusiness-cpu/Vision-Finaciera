@@ -37,3 +37,19 @@ export async function diasPendientes(admin: SupabaseClient, empresaId: string, h
   }
   return pendientes;
 }
+
+// Los errores de Supabase son objetos planos ({ message, details, hint }), no `Error`: sin esto el panel solo veía «Error al ejecutar».
+export function mensajeDeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === 'object') {
+    const o = e as { message?: string; details?: string; hint?: string; code?: string };
+    const partes = [o.message, o.details, o.hint, o.code ? `(${o.code})` : ''].filter(Boolean);
+    if (partes.length) return partes.join(' · ');
+    try {
+      return JSON.stringify(e);
+    } catch {
+      /* sin detalle */
+    }
+  }
+  return String(e);
+}

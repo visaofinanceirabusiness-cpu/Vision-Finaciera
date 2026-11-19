@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ejecutarDia } from '@/lib/sabioSoporte/ejecutor';
-import { EMPRESA_DEMO_ID, clienteDeServicio, diasPendientes, esAdminPlataforma, hoyLocal } from '@/lib/sabioSoporte/servidor';
+import { EMPRESA_DEMO_ID, clienteDeServicio, diasPendientes, esAdminPlataforma, hoyLocal, mensajeDeError } from '@/lib/sabioSoporte/servidor';
 
 // SABIO SOPORTE — acciones del Panel Maestro (solo administrador de plataforma). Procesa de a UN día por llamada: el panel repite la llamada
 // para rellenar la historia, así ninguna pasa del límite de tiempo de la función. Ver lib/sabioSoporte/ejecutor.ts.
@@ -28,6 +28,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     return NextResponse.json({ error: 'Acción desconocida.' }, { status: 404 });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error al ejecutar Sabio Soporte.' }, { status: 500 });
+    return NextResponse.json({ error: mensajeDeError(e) }, { status: 500 });
   }
 }

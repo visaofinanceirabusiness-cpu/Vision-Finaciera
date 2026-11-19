@@ -41,6 +41,12 @@ export function diasDelMes(mes: string): string[] {
   return Array.from({ length: n }, (_, i) => `${mes}-${String(i + 1).padStart(2, '0')}`);
 }
 
+// Último día real del mes (28, 29, 30 o 31): `${mes}-31` no existe en febrero, abril, junio, septiembre ni noviembre y la base rechaza esa fecha.
+export function ultimoDiaDelMes(mes: string): string {
+  const dias = diasDelMes(mes);
+  return dias[dias.length - 1];
+}
+
 export function diaDeSemana(fecha: string): number {
   return new Date(`${fecha}T12:00:00Z`).getUTCDay();
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG_POR_DEFECTO, configCompleta, validarConfig, type ConfigSabio } from './config';
-import { metaVentasMes, presupuestoVentasDia, diasDelMes, factorInflacion } from './plan';
+import { metaVentasMes, presupuestoVentasDia, diasDelMes, factorInflacion, ultimoDiaDelMes } from './plan';
 import { crearRng, semillaDelDia } from './rng';
 import { planificarDia, precioDeVenta, resolverCompra, resolverVentaProducto, type EntradaDia, type ProductoEstado } from './agenda';
 
@@ -152,5 +152,15 @@ describe('resolverCompra', () => {
   });
   it('sin productos de las categorías permitidas devuelve null', () => {
     expect(resolverCompra(1000, [{ id: 'x', nombre: 'Auto', categoria: 'Automóveis' }], base, crearRng(1), '2026-03-02')).toBeNull();
+  });
+});
+
+describe('ultimoDiaDelMes', () => {
+  it('da el último día real de cada mes (febrero, abril, noviembre…)', () => {
+    expect(ultimoDiaDelMes('2026-02')).toBe('2026-02-28');
+    expect(ultimoDiaDelMes('2028-02')).toBe('2028-02-29');
+    expect(ultimoDiaDelMes('2026-04')).toBe('2026-04-30');
+    expect(ultimoDiaDelMes('2026-11')).toBe('2026-11-30');
+    expect(ultimoDiaDelMes('2026-12')).toBe('2026-12-31');
   });
 });

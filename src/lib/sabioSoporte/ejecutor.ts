@@ -13,7 +13,7 @@ import { obtenerCategoriasJuego } from '../miniJuego';
 import { aCentavos } from '../centavos';
 import { configCompleta, MEDIOS_PLATA, validarConfig, type ConfigSabio } from './config';
 import { crearRng, elegir, elegirConPeso, semillaDelDia } from './rng';
-import { diasDelMes, presupuestoVentasDia } from './plan';
+import { diasDelMes, presupuestoVentasDia, ultimoDiaDelMes } from './plan';
 import { planificarDia, resolverCompra, resolverVentaProducto, type Intencion, type ProductoCatalogo, type ProductoEstado } from './agenda';
 
 export type EntradaRegistro = { tipo: 'OPERACION' | 'RECHAZO' | 'INFO'; operacion?: string; idOperacion?: string; monto?: number; detalle: string; error?: string };
@@ -287,10 +287,10 @@ export async function ejecutarDia(admin: SupabaseClient, empresaId: string, fech
       sumaVentas(admin, empresaId, `${mes}-01`, fecha === `${mes}-01` ? `${mes}-01` : diaAnterior(fecha)),
       sumaVentas(admin, empresaId, fecha, fecha),
       admin.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('fecha', fecha).eq('parte', 1),
-      admin.from('registro_operaciones').select('categoria').eq('empresa_id', empresaId).eq('operacion', 'PAGO').gte('fecha', `${mes}-01`).lte('fecha', `${mes}-31`),
+      admin.from('registro_operaciones').select('categoria').eq('empresa_id', empresaId).eq('operacion', 'PAGO').gte('fecha', `${mes}-01`).lte('fecha', ultimoDiaDelMes(mes)),
       admin.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'INVERSION').lte('fecha', fecha),
-      sumaVentas(admin, empresaId, `${mesAnterior(mes)}-01`, `${mesAnterior(mes)}-31`),
-      admin.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'EXTRACCION').gte('fecha', `${mes}-01`).lte('fecha', `${mes}-31`),
+      sumaVentas(admin, empresaId, `${mesAnterior(mes)}-01`, ultimoDiaDelMes(mesAnterior(mes))),
+      admin.from('registro_operaciones').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('operacion', 'EXTRACCION').gte('fecha', `${mes}-01`).lte('fecha', ultimoDiaDelMes(mes)),
     ]);
 
     const hastaAyer = fecha === `${mes}-01` ? 0 : ventasHastaAyer;
