@@ -31,6 +31,7 @@ export const RUTAS_EN_SHELL = [
   '/familia-unida',
   '/whatsapp',
   '/conciliacion-bancaria',
+  '/evolucion',
 ];
 
 export function empresaUsaShell(empresaId: string | null | undefined): boolean {

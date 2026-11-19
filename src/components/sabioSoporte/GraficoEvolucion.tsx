@@ -14,7 +14,7 @@ const GRIS = '#6e7781';
 
 const PRESETS: Array<{ nombre: string; claves: string[] }> = [
   { nombre: 'Ecuación contable', claves: ['1.0.0.0.0', '2.0.0.0.0', 'RES:PN_TOTAL'] },
-  { nombre: 'Liquidez', claves: ['RES:DISPONIBLE', '1.1.2.0.1', '2.1.1.0.1'] },
+  { nombre: 'Disponible vs deuda', claves: ['RES:DISPONIBLE', '2.0.0.0.0'] },
   { nombre: 'Resultado', claves: ['4.0.0.0.0', '5.0.0.0.0', 'RES:RESULTADO'] },
   { nombre: 'Stock', claves: ['RES:MERCADERIAS', '1.1.1.0.2'] },
 ];
@@ -37,7 +37,7 @@ function escalaBonita(min: number, max: number): { min: number; max: number; mar
   return { min: lo, max: hi, marcas };
 }
 
-export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion; simbolo: string }) {
+export function GraficoEvolucion({ evolucion, simbolo, alto: altoLienzo = '68vh' }: { evolucion: Evolucion; simbolo: string; alto?: string }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const lienzo = useRef<HTMLDivElement>(null);
   const [ancho, setAncho] = useState(900);
@@ -124,8 +124,8 @@ export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion;
   const tooltip = cursor !== null ? activas.map((s) => ({ s, v: s.valores[puntos[cursor]] })).sort((a, b) => b.v - a.v) : [];
 
   return (
-    <div ref={contenedor} style={{ background: '#fff', display: 'flex', flexDirection: 'column', height: completa ? '100vh' : 'auto', padding: completa ? 16 : 0, boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+    <div ref={contenedor} style={{ background: '#fff', display: 'flex', flexDirection: 'column', height: completa ? '100vh' : 'auto', width: completa ? '100vw' : 'auto', padding: completa ? 18 : 0, boxSizing: 'border-box', overflow: completa ? 'hidden' : undefined }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10, flex: '0 0 auto' }}>
         {(['MES', 'SEMANA', 'DIA'] as Granularidad[]).map((g) => (
           <button key={g} type="button" onClick={() => { setGran(g); setDesde(0); setHasta(-1); }} style={boton(gran === g)}>{g === 'MES' ? 'Mensual' : g === 'SEMANA' ? 'Semanal' : 'Diario'}</button>
         ))}
@@ -136,8 +136,8 @@ export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion;
         <button type="button" onClick={pantallaCompleta} style={boton(completa)}>{completa ? '⤡ Salir de pantalla completa' : '⤢ Pantalla completa'}</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
-        <aside style={{ width: 290, maxWidth: '100%', maxHeight: completa ? 'none' : 620, overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 14, padding: 10, flex: '0 0 auto' }}>
+      <div style={{ display: 'flex', gap: 14, flex: completa ? '1 1 0' : undefined, minHeight: 0, flexWrap: completa ? 'nowrap' : 'wrap', alignItems: 'stretch' }}>
+        <aside style={{ width: completa ? 320 : 290, maxWidth: '100%', maxHeight: completa ? undefined : 620, overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 14, padding: 10, flex: '0 0 auto' }}>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar cuenta…" style={{ ...selector, width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
             {PRESETS.map((p) => <button key={p.nombre} type="button" onClick={() => setSel(p.claves.filter((k) => evolucion.porClave.has(k)))} style={{ ...boton(false), padding: '3px 9px', fontSize: 11.5 }}>{p.nombre}</button>)}
@@ -164,15 +164,15 @@ export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion;
           })}
         </aside>
 
-        <div ref={lienzo} style={{ flex: '1 1 520px', minWidth: 0, height: completa ? 'auto' : '68vh', minHeight: 360, position: 'relative', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
+        <div ref={lienzo} style={{ flex: '1 1 520px', minWidth: 0, height: completa ? undefined : altoLienzo, minHeight: completa ? 0 : 360, position: 'relative', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
           <svg width={ancho} height={alto} onMouseMove={alMover} onMouseLeave={() => setCursor(null)} style={{ display: 'block' }}>
             {escala.marcas.map((v) => (
               <g key={v}>
                 <line x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke={v === 0 ? '#94a3b8' : '#eef2f6'} strokeWidth={v === 0 ? 1.5 : 1} />
-                <text x={m.izq - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fill={GRIS}>{relativo ? `${v}%` : compacto(v, simbolo)}</text>
+                <text x={m.izq - 8} y={y(v) + 4} textAnchor="end" fontSize={completa ? 13 : 11} fill={GRIS}>{relativo ? `${v}%` : compacto(v, simbolo)}</text>
               </g>
             ))}
-            {puntos.map((_, i) => (i % paso === 0 ? <text key={i} x={x(i)} y={alto - 14} textAnchor="middle" fontSize={11} fill={GRIS}>{etiquetaFecha(i)}</text> : null))}
+            {puntos.map((_, i) => (i % paso === 0 ? <text key={i} x={x(i)} y={alto - 14} textAnchor="middle" fontSize={completa ? 13 : 11} fill={GRIS}>{etiquetaFecha(i)}</text> : null))}
 
             {/* Padres primero (áreas al fondo) y después las individuales por encima. */}
             {[...activas].sort((a, b) => Number(b.esPadre) - Number(a.esPadre)).map((s) => {
@@ -197,7 +197,7 @@ export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion;
           </svg>
 
           {cursor !== null && activas.length > 0 && (
-            <div style={{ position: 'absolute', top: 10, left: x(cursor) > ancho / 2 ? undefined : x(cursor) + 14, right: x(cursor) > ancho / 2 ? ancho - x(cursor) + 14 : undefined, background: 'rgba(255,255,255,0.97)', border: '1px solid #cbd5e1', borderRadius: 10, padding: '8px 10px', fontSize: 12.5, boxShadow: '0 6px 18px rgba(15,23,42,0.18)', pointerEvents: 'none', maxHeight: '90%', overflow: 'hidden', minWidth: 230 }}>
+            <div style={{ position: 'absolute', top: 10, left: x(cursor) > ancho / 2 ? undefined : x(cursor) + 14, right: x(cursor) > ancho / 2 ? ancho - x(cursor) + 14 : undefined, background: 'rgba(255,255,255,0.97)', border: '1px solid #cbd5e1', borderRadius: 10, padding: '8px 10px', fontSize: completa ? 14.5 : 12.5, boxShadow: '0 6px 18px rgba(15,23,42,0.18)', pointerEvents: 'none', maxHeight: '90%', overflow: 'hidden', minWidth: 230 }}>
               <div style={{ fontWeight: 800, color: AZUL, marginBottom: 4 }}>{evolucion.fechas[puntos[cursor]]}</div>
               {tooltip.map(({ s, v }) => {
                 const raiz = raizDelGrupo.get(s.grupo);
@@ -216,7 +216,7 @@ export function GraficoEvolucion({ evolucion, simbolo }: { evolucion: Evolucion;
           {activas.length === 0 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: GRIS, fontSize: 15 }}>Elegí una o más cuentas de la lista.</div>}
         </div>
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 11.5, color: GRIS }}>Áreas con línea gruesa = cuentas padre (su total); líneas finas con puntos = cuentas individuales. Pasá el mouse por el gráfico para ver cada valor y su peso dentro del grupo.</p>
+      <p style={{ margin: '8px 0 0', fontSize: 11.5, color: GRIS, flex: '0 0 auto' }}>Áreas con línea gruesa = cuentas padre (su total); líneas finas con puntos = cuentas individuales. Pasá el mouse por el gráfico para ver cada valor y su peso dentro del grupo.</p>
     </div>
   );
 }

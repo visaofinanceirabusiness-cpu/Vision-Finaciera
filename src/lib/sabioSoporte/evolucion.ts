@@ -6,7 +6,7 @@
 
 export type GrupoCuenta = 'RESUMEN' | 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'COSTO' | 'GASTO';
 
-export type CuentaPlan = { id: string; codigo: string; nombre: string; padreId: string | null; naturaleza: string; tipo: string; saldoInicial: number };
+export type CuentaPlan = { id: string; codigo: string; nombre: string; padreId: string | null; naturaleza: string; tipo: string; saldoInicial: number; rol?: string | null };
 export type AsientoSimple = { fecha: string; debito: string | null; credito: string | null; importe: number };
 
 export type SerieCuenta = {
@@ -39,7 +39,11 @@ export function diasEntreFechas(desde: string, hasta: string): string[] {
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
-export function calcularEvolucion(cuentas: CuentaPlan[], asientos: AsientoSimple[], hasta: string): Evolucion {
+// `disponibles`: ids de las cuentas que son plata de verdad (caja, bancos, billeteras: las que son medio de pago y no «a cobrar»). Sin eso se usa el
+// prefijo de código de la plantilla (1.1.1.).
+export type OpcionesEvolucion = { disponibles?: Set<string> };
+
+export function calcularEvolucion(cuentas: CuentaPlan[], asientos: AsientoSimple[], hasta: string, opciones: OpcionesEvolucion = {}): Evolucion {
   if (asientos.length === 0) return { fechas: [], series: [], porClave: new Map() };
 
   const desde = asientos.reduce((min, a) => (a.fecha < min ? a.fecha : min), asientos[0].fecha);
@@ -102,11 +106,12 @@ export function calcularEvolucion(cuentas: CuentaPlan[], asientos: AsientoSimple
     for (const r of raices(tipo)) total(r).forEach((x, i) => (v[i] += x));
     return v;
   };
-  const sumaPrefijo = (prefijo: string): number[] => {
+  const sumaCuentas = (lista: CuentaPlan[]): number[] => {
     const v = new Array(fechas.length).fill(0);
-    for (const c of cuentas.filter((x) => x.codigo.startsWith(prefijo) && !(hijas.get(x.id)?.length))) propias.get(c.id)!.forEach((x, i) => (v[i] += x));
+    for (const c of lista) propias.get(c.id)!.forEach((x, i) => (v[i] += x));
     return v;
   };
+  const hojas = (cond: (c: CuentaPlan) => boolean) => cuentas.filter((c) => cond(c) && !(hijas.get(c.id)?.length));
 
   const ingresos = sumaDeTipo('INGRESO');
   const costos = sumaDeTipo('COSTO');
@@ -115,12 +120,21 @@ export function calcularEvolucion(cuentas: CuentaPlan[], asientos: AsientoSimple
   const patrimonio = sumaDeTipo('PATRIMONIO');
 
   const derivada = (clave: string, nombre: string, valores: number[]): SerieCuenta => ({ clave, nombre, codigo: '', grupo: 'RESUMEN', esPadre: true, nivel: 0, valores: valores.map(redondear) });
+  const descendienteDe = (c: CuentaPlan, ancestroId: string): boolean => {
+    for (let p = c.padreId ? cuentas.find((x) => x.id === c.padreId) : undefined; p; p = p.padreId ? cuentas.find((x) => x.id === p!.padreId) : undefined) if (p.id === ancestroId) return true;
+    return false;
+  };
+
   const derivadas = [
     derivada('RES:RESULTADO', 'Resultado acumulado', resultado),
     derivada('RES:PN_TOTAL', 'Patrimonio neto total (con resultado)', patrimonio.map((x, i) => x + resultado[i])),
-    derivada('RES:DISPONIBLE', 'Disponibilidades (caja, bancos y billeteras)', sumaPrefijo('1.1.1.')),
-    derivada('RES:MERCADERIAS', 'Mercaderías (stock)', sumaPrefijo('1.1.3.')),
   ];
+  const disponibles = opciones.disponibles && opciones.disponibles.size > 0 ? hojas((c) => opciones.disponibles!.has(c.id)) : hojas((c) => c.codigo.startsWith('1.1.1.'));
+  if (disponibles.length > 0) derivadas.push(derivada('RES:DISPONIBLE', 'Disponibilidades (caja, bancos y billeteras)', sumaCuentas(disponibles)));
+  // Mercaderías: lo que cuelga del contenedor de stock (si la empresa maneja mercadería).
+  const contenedorStock = cuentas.find((c) => c.rol === 'CONTENEDOR_STOCK');
+  const stock = contenedorStock ? hojas((c) => c.id !== contenedorStock.id && descendienteDe(c, contenedorStock.id)) : hojas((c) => c.codigo.startsWith('1.1.3.'));
+  if (stock.length > 0) derivadas.push(derivada('RES:MERCADERIAS', 'Mercaderías (stock)', sumaCuentas(stock)));
 
   const todas = [...derivadas, ...series];
   return { fechas, series: todas, porClave: new Map(todas.map((s) => [s.clave, s])) };

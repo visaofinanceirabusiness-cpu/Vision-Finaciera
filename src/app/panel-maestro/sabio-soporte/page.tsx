@@ -12,7 +12,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CONFIG_POR_DEFECTO, MEDIOS_PLATA, configCompleta, validarConfig, type ConfigSabio, type Curva, type GastoFijo } from '@/lib/sabioSoporte/config';
 import { metaVentasMes } from '@/lib/sabioSoporte/plan';
-import { calcularEvolucion, valorAlCierreDelMes, type AsientoSimple, type CuentaPlan, type Evolucion } from '@/lib/sabioSoporte/evolucion';
+import { valorAlCierreDelMes, type Evolucion } from '@/lib/sabioSoporte/evolucion';
+import { armarEvolucion, leerDatosEvolucion } from '@/lib/evolucionDatos';
 import { GraficoEvolucion } from '@/components/sabioSoporte/GraficoEvolucion';
 
 const EMPRESA_DEMO_ID = 'c887a052-cbab-47f2-8ec7-a2102af43295';
@@ -23,23 +24,10 @@ const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 type Entrada = { id: string; fecha: string; tipo: string; operacion: string | null; id_operacion: string | null; monto: number | null; detalle: string | null; error: string | null; creado_en: string };
 type ResultadoMes = { mes: string; meta: number; ventas: number; compras: number; gastos: number; ops: number; cmv: number };
 
-const consulta = (tabla: string, columnas: string) => supabase.from(tabla).select(columnas);
-
-// PostgREST corta cada respuesta en 1000 filas: la demo ya tiene más, así que se lee por tandas.
-async function leerTodo<T>(tabla: string, columnas: string, filtro: (q: ReturnType<typeof consulta>) => ReturnType<typeof consulta>): Promise<T[]> {
-  const salida: T[] = [];
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await filtro(consulta(tabla, columnas)).order('id').range(desde, desde + 999);
-    if (error) throw error;
-    salida.push(...((data ?? []) as T[]));
-    if (!data || data.length < 1000) return salida;
-  }
-}
 type Resumen = { fecha: string; omitido?: string; ok: number; errores: number; simulado: boolean; registro: Array<{ tipo: string; detalle: string; error?: string }> };
 
 // Saldos al cierre de cada mes (el mes en curso, a hoy). Clave = código de cuenta o serie derivada (ver lib/sabioSoporte/evolucion.ts).
 const BALANCE: Array<[string, string]> = [['1.0.0.0.0', 'Activo'], ['2.0.0.0.0', 'Pasivo'], ['RES:PN_TOTAL', 'Patrimonio neto'], ['RES:RESULTADO', 'Resultado acum.'], ['RES:DISPONIBLE', 'Caja y bancos'], ['RES:MERCADERIAS', 'Mercaderías'], ['1.1.2.0.1', 'Clientes'], ['2.1.1.0.1', 'Proveedores']];
-const hoyLocalPanel = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
 const dinero = (n: number) => `R$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 function poner<T>(obj: T, ruta: Array<string | number>, valor: unknown): T {
@@ -122,11 +110,8 @@ export default function SabioSoportePage() {
     setDias((dd ?? []) as typeof dias);
 
     // Resultados reales de la demo por mes (lo que ven los Informes): salen de las operaciones cargadas, no de Sabio.
-    const [ops, cmvs, plan] = await Promise.all([
-      leerTodo<{ fecha: string; operacion: string; total: number | string; parte: number; cuenta_debito: string | null; cuenta_credito: string | null }>('registro_operaciones', 'id, fecha, operacion, total, parte, cuenta_debito, cuenta_credito', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
-      leerTodo<{ fecha: string; importe: number | string; tipo_registro: string; cuenta_debito: string | null; cuenta_credito: string | null }>('registros_automaticos', 'id, fecha, importe, tipo_registro, cuenta_debito, cuenta_credito', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
-      leerTodo<{ id: string; codigo: string; nombre: string; cuenta_padre_id: string | null; naturaleza: string; tipo_saldo: string; saldo_inicial: number | string | null }>('plan_cuentas', 'id, codigo, nombre, cuenta_padre_id, naturaleza, tipo_saldo, saldo_inicial', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
-    ]);
+    const datos = await leerDatosEvolucion(EMPRESA_DEMO_ID);
+    const { ops, cmvs } = datos;
     const porMes = new Map<string, ResultadoMes>();
     const mes = (m: string) => porMes.get(m) ?? porMes.set(m, { mes: m, meta: metaVentasMes(c, m), ventas: 0, compras: 0, gastos: 0, ops: 0, cmv: 0 }).get(m)!;
     for (const o of ops) {
@@ -141,12 +126,7 @@ export default function SabioSoportePage() {
     for (const x of cmvs) if (x.fecha >= c.inicio && x.tipo_registro === 'CMV') mes(x.fecha.slice(0, 7)).cmv += Number(x.importe);
 
     // Evolución de las cuentas (todo el historial, no solo desde la fecha de inicio del plan).
-    const asientos: AsientoSimple[] = [
-      ...ops.map((o) => ({ fecha: o.fecha, debito: o.cuenta_debito, credito: o.cuenta_credito, importe: Number(o.total) })),
-      ...cmvs.map((x) => ({ fecha: x.fecha, debito: x.cuenta_debito, credito: x.cuenta_credito, importe: Number(x.importe) })),
-    ];
-    const cuentas: CuentaPlan[] = plan.map((p) => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, padreId: p.cuenta_padre_id, naturaleza: p.naturaleza, tipo: p.tipo_saldo, saldoInicial: Number(p.saldo_inicial ?? 0) }));
-    setEvolucion(calcularEvolucion(cuentas, asientos, hoyLocalPanel()));
+    setEvolucion(armarEvolucion(datos));
     setMeses([...porMes.values()].sort((a, b) => a.mes.localeCompare(b.mes)));
   }, []);
 

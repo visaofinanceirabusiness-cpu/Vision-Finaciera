@@ -351,6 +351,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <nav aria-label={t('Accesos rápidos', 'Acessos rápidos')} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, position: 'relative' }}>
               <BotonImagen href="/panel-de-control" imagen="/sabio/sabio-panel-control.png" texto={t('Panel de Control', 'Painel de Controle')} punto />
               <BotonImagen onClick={() => setJuegoAbierto(true)} imagen={SABIO_LUDICO_URL} texto="Mini-Juego" punto />
+              {!estaEnCaja('evolucion') && <BotonImagen href="/evolucion" emoji="📈" texto={t('Evolución', 'Evolução')} ayuda={t('Evolución de tus cuentas en el tiempo', 'Evolução das suas contas no tempo')} />}
               {!estaEnCaja('whatsapp') && <BotonImagen href="/whatsapp" emoji="📲" texto="WhatsApp" ayuda={t('Comprobantes y chats con tus clientes', 'Comprovantes e chats com seus clientes')} />}
               <BotonImagen onClick={() => setTrofeosAbierto(true)} emoji="🏆" texto={t('Trofeos', 'Troféus')} />
               <BotonImagen onClick={() => setSabioAbierto(true)} emoji="💬" texto="Chat" ayuda={t('Chatear con Sabio', 'Conversar com o Sábio')} />
