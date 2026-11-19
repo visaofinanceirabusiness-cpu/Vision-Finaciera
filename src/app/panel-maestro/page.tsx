@@ -681,6 +681,13 @@ export default function PanelMaestroPage() {
             />
 
             <TarjetaHerramientaMaestro
+              href="/panel-maestro/sabio-soporte"
+              emoji="🦉"
+              titulo="Sabio Soporte — mantiene viva la demo"
+              color="#7c3aed"
+            />
+
+            <TarjetaHerramientaMaestro
               href="/panel-maestro/apertura-visao-3d"
               emoji="🏢"
               titulo="Apertura de Visão 3D"
