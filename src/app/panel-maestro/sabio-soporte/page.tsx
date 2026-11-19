@@ -12,6 +12,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CONFIG_POR_DEFECTO, MEDIOS_PLATA, configCompleta, validarConfig, type ConfigSabio, type Curva, type GastoFijo } from '@/lib/sabioSoporte/config';
 import { metaVentasMes } from '@/lib/sabioSoporte/plan';
+import { calcularEvolucion, valorAlCierreDelMes, type AsientoSimple, type CuentaPlan, type Evolucion } from '@/lib/sabioSoporte/evolucion';
+import { GraficoEvolucion } from '@/components/sabioSoporte/GraficoEvolucion';
 
 const EMPRESA_DEMO_ID = 'c887a052-cbab-47f2-8ec7-a2102af43295';
 const COLORES = { azul: '#1f3a5f', verde: '#2e8b57', gris: '#6e7781' };
@@ -20,8 +22,24 @@ const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 type Entrada = { id: string; fecha: string; tipo: string; operacion: string | null; id_operacion: string | null; monto: number | null; detalle: string | null; error: string | null; creado_en: string };
 type ResultadoMes = { mes: string; meta: number; ventas: number; compras: number; gastos: number; ops: number; cmv: number };
+
+const consulta = (tabla: string, columnas: string) => supabase.from(tabla).select(columnas);
+
+// PostgREST corta cada respuesta en 1000 filas: la demo ya tiene más, así que se lee por tandas.
+async function leerTodo<T>(tabla: string, columnas: string, filtro: (q: ReturnType<typeof consulta>) => ReturnType<typeof consulta>): Promise<T[]> {
+  const salida: T[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await filtro(consulta(tabla, columnas)).order('id').range(desde, desde + 999);
+    if (error) throw error;
+    salida.push(...((data ?? []) as T[]));
+    if (!data || data.length < 1000) return salida;
+  }
+}
 type Resumen = { fecha: string; omitido?: string; ok: number; errores: number; simulado: boolean; registro: Array<{ tipo: string; detalle: string; error?: string }> };
 
+// Saldos al cierre de cada mes (el mes en curso, a hoy). Clave = código de cuenta o serie derivada (ver lib/sabioSoporte/evolucion.ts).
+const BALANCE: Array<[string, string]> = [['1.0.0.0.0', 'Activo'], ['2.0.0.0.0', 'Pasivo'], ['RES:PN_TOTAL', 'Patrimonio neto'], ['RES:RESULTADO', 'Resultado acum.'], ['RES:DISPONIBLE', 'Caja y bancos'], ['RES:MERCADERIAS', 'Mercaderías'], ['1.1.2.0.1', 'Clientes'], ['2.1.1.0.1', 'Proveedores']];
+const hoyLocalPanel = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
 const dinero = (n: number) => `R$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 function poner<T>(obj: T, ruta: Array<string | number>, valor: unknown): T {
@@ -34,9 +52,11 @@ function poner<T>(obj: T, ruta: Array<string | number>, valor: unknown): T {
   return copia as T;
 }
 
-function Panel({ titulo, ayuda, children }: { titulo: string; ayuda?: string; children: React.ReactNode }) {
+function Panel({ titulo, ayuda, children, anchoCompleto }: { titulo: string; ayuda?: string; children: React.ReactNode; anchoCompleto?: boolean }) {
+  // anchoCompleto: se sale del ancho de la página y ocupa todo el de la pantalla (tabla de resultados con muchas columnas).
+  const salir: React.CSSProperties = anchoCompleto ? { position: 'relative', left: '50%', width: 'calc(100vw - 40px)', marginLeft: 'calc(-50vw + 20px)', boxSizing: 'border-box' } : {};
   return (
-    <section style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 18, marginBottom: 16 }}>
+    <section style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 18, marginBottom: 16, ...salir }}>
       <h2 style={{ margin: 0, fontSize: 17, color: COLORES.azul }}>{titulo}</h2>
       {ayuda && <p style={{ margin: '4px 0 12px', fontSize: 13, color: COLORES.gris }}>{ayuda}</p>}
       {!ayuda && <div style={{ height: 10 }} />}
@@ -67,6 +87,7 @@ export default function SabioSoportePage() {
   const [pausado, setPausado] = useState(false);
   const [sucio, setSucio] = useState(false);
   const [meses, setMeses] = useState<ResultadoMes[]>([]);
+  const [evolucion, setEvolucion] = useState<Evolucion | null>(null);
   const [registro, setRegistro] = useState<Entrada[]>([]);
   const [dias, setDias] = useState<Array<{ fecha: string; ops_ok: number; ops_error: number }>>([]);
   const [error, setError] = useState('');
@@ -101,21 +122,31 @@ export default function SabioSoportePage() {
     setDias((dd ?? []) as typeof dias);
 
     // Resultados reales de la demo por mes (lo que ven los Informes): salen de las operaciones cargadas, no de Sabio.
-    const [ops, cmvs] = await Promise.all([
-      supabase.from('registro_operaciones').select('fecha, operacion, total, parte').eq('empresa_id', EMPRESA_DEMO_ID).gte('fecha', c.inicio).limit(10000),
-      supabase.from('registros_automaticos').select('fecha, importe, tipo_registro').eq('empresa_id', EMPRESA_DEMO_ID).eq('tipo_registro', 'CMV').gte('fecha', c.inicio).limit(10000),
+    const [ops, cmvs, plan] = await Promise.all([
+      leerTodo<{ fecha: string; operacion: string; total: number | string; parte: number; cuenta_debito: string | null; cuenta_credito: string | null }>('registro_operaciones', 'id, fecha, operacion, total, parte, cuenta_debito, cuenta_credito', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
+      leerTodo<{ fecha: string; importe: number | string; tipo_registro: string; cuenta_debito: string | null; cuenta_credito: string | null }>('registros_automaticos', 'id, fecha, importe, tipo_registro, cuenta_debito, cuenta_credito', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
+      leerTodo<{ id: string; codigo: string; nombre: string; cuenta_padre_id: string | null; naturaleza: string; tipo_saldo: string; saldo_inicial: number | string | null }>('plan_cuentas', 'id, codigo, nombre, cuenta_padre_id, naturaleza, tipo_saldo, saldo_inicial', (q) => q.eq('empresa_id', EMPRESA_DEMO_ID)),
     ]);
     const porMes = new Map<string, ResultadoMes>();
     const mes = (m: string) => porMes.get(m) ?? porMes.set(m, { mes: m, meta: metaVentasMes(c, m), ventas: 0, compras: 0, gastos: 0, ops: 0, cmv: 0 }).get(m)!;
-    for (const o of ops.data ?? []) {
-      const m = mes((o.fecha as string).slice(0, 7));
+    for (const o of ops) {
+      if (o.fecha < c.inicio) continue;
+      const m = mes(o.fecha.slice(0, 7));
       const t = Number(o.total);
       if (o.operacion === 'VENTA') m.ventas += t;
       else if (o.operacion === 'COMPRA') m.compras += t;
       else if (o.operacion === 'PAGO') m.gastos += t;
       if (o.parte === 1) m.ops++;
     }
-    for (const x of cmvs.data ?? []) mes((x.fecha as string).slice(0, 7)).cmv += Number(x.importe);
+    for (const x of cmvs) if (x.fecha >= c.inicio && x.tipo_registro === 'CMV') mes(x.fecha.slice(0, 7)).cmv += Number(x.importe);
+
+    // Evolución de las cuentas (todo el historial, no solo desde la fecha de inicio del plan).
+    const asientos: AsientoSimple[] = [
+      ...ops.map((o) => ({ fecha: o.fecha, debito: o.cuenta_debito, credito: o.cuenta_credito, importe: Number(o.total) })),
+      ...cmvs.map((x) => ({ fecha: x.fecha, debito: x.cuenta_debito, credito: x.cuenta_credito, importe: Number(x.importe) })),
+    ];
+    const cuentas: CuentaPlan[] = plan.map((p) => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, padreId: p.cuenta_padre_id, naturaleza: p.naturaleza, tipo: p.tipo_saldo, saldoInicial: Number(p.saldo_inicial ?? 0) }));
+    setEvolucion(calcularEvolucion(cuentas, asientos, hoyLocalPanel()));
     setMeses([...porMes.values()].sort((a, b) => a.mes.localeCompare(b.mes)));
   }, []);
 
@@ -235,12 +266,12 @@ export default function SabioSoportePage() {
           )}
         </Panel>
 
-        <Panel titulo="Resultados en vivo (lo que ven los Informes de la demo)" ayuda="Meta del plan contra lo realmente cargado en la demo. Si un mes va atrasado, Sabio vende un poco más los días que quedan.">
+        <Panel anchoCompleto titulo="Resultados en vivo (lo que ven los Informes de la demo)" ayuda="Meta del plan contra lo realmente cargado en la demo y los saldos al cierre de cada mes (el mes en curso, a hoy). Si un mes va atrasado, Sabio vende un poco más los días que quedan.">
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13.5 }}>
               <thead>
                 <tr style={{ textAlign: 'right', color: COLORES.gris }}>
-                  {['Mes', 'Meta ventas', 'Ventas reales', 'Avance', 'Compras', 'Gastos (pagos)', 'Margen bruto', 'Ops'].map((h, i) => <th key={h} style={{ padding: '6px 8px', textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>)}
+                  {['Mes', 'Meta ventas', 'Ventas reales', 'Avance', 'Compras', 'Gastos (pagos)', 'Margen bruto', 'Ops', 'Activo', 'Pasivo', 'Patrimonio neto', 'Resultado acum.', 'Caja y bancos', 'Mercaderías', 'Clientes', 'Proveedores'].map((h, i) => <th key={h} style={{ padding: '6px 8px', textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -249,7 +280,7 @@ export default function SabioSoportePage() {
                   const margen = m.ventas > 0 ? ((m.ventas - m.cmv) / m.ventas) * 100 : 0;
                   return (
                     <tr key={m.mes} style={{ borderTop: '1px solid #eef2f6', textAlign: 'right' }}>
-                      <td style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>{MESES[Number(m.mes.slice(5, 7)) - 1]} {m.mes.slice(0, 4)}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{MESES[Number(m.mes.slice(5, 7)) - 1]} {m.mes.slice(0, 4)}</td>
                       <td style={{ padding: '6px 8px' }}>{dinero(m.meta)}</td>
                       <td style={{ padding: '6px 8px', fontWeight: 700 }}>{dinero(m.ventas)}</td>
                       <td style={{ padding: '6px 8px', color: avance >= 90 ? '#166534' : avance >= 60 ? '#b45309' : '#b91c1c', fontWeight: 700 }}>{avance.toFixed(0)} %</td>
@@ -257,14 +288,26 @@ export default function SabioSoportePage() {
                       <td style={{ padding: '6px 8px' }}>{dinero(m.gastos)}</td>
                       <td style={{ padding: '6px 8px', color: Math.abs(margen - cfg.plan.margenBrutoObjetivoPct) <= 8 ? '#166534' : '#b45309' }}>{m.ventas > 0 ? `${margen.toFixed(0)} %` : '—'}</td>
                       <td style={{ padding: '6px 8px' }}>{m.ops}</td>
+                      {BALANCE.map(([clave]) => {
+                        const v = evolucion ? valorAlCierreDelMes(evolucion, clave, m.mes) : null;
+                        return <td key={clave} style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: v !== null && v < 0 ? '#b91c1c' : undefined }}>{v === null ? '—' : dinero(v)}</td>;
+                      })}
                     </tr>
                   );
                 })}
-                {meses.length === 0 && <tr><td colSpan={8} style={{ padding: 12, color: COLORES.gris }}>Todavía no hay operaciones desde {cfg.inicio}.</td></tr>}
+                {meses.length === 0 && <tr><td colSpan={16} style={{ padding: 12, color: COLORES.gris }}>Todavía no hay operaciones desde {cfg.inicio}.</td></tr>}
               </tbody>
             </table>
           </div>
         </Panel>
+
+        <section style={{ position: 'relative', left: '50%', width: 'calc(100vw - 40px)', marginLeft: 'calc(-50vw + 20px)', boxSizing: 'border-box', marginBottom: 16 }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 18 }}>
+            <h2 style={{ margin: 0, fontSize: 17, color: COLORES.azul }}>📊 Evolución de cuentas</h2>
+            <p style={{ margin: '4px 0 12px', fontSize: 13, color: COLORES.gris }}>Elegí las cuentas que quieras ver (por tipo, varias a la vez). Las cuentas padre se ven como áreas y las individuales como líneas, así se aprecia el peso de cada una dentro de su grupo. Con «Pantalla completa» ocupa todo el monitor.</p>
+            {evolucion ? <GraficoEvolucion evolucion={evolucion} simbolo="R$" /> : <p style={{ color: COLORES.gris }}>Cargando…</p>}
+          </div>
+        </section>
 
         <Panel titulo="📈 Plan de crecimiento" ayuda="De acá sale la meta de ventas de cada mes y, dividida por día, el presupuesto diario.">
           <div style={rejilla}>
