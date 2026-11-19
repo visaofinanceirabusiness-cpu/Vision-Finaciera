@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ejecutarDia } from '@/lib/sabioSoporte/ejecutor';
-import { EMPRESA_DEMO_ID, clienteDeServicio, diasPendientes, hoyLocal } from '@/lib/sabioSoporte/servidor';
+import { EMPRESA_DEMO_ID, clienteDeServicio, diasPendientes, hoyLocal, mensajeDeError } from '@/lib/sabioSoporte/servidor';
 
 // SABIO SOPORTE — disparo automático diario (Vercel Cron, ver vercel.json). Protegido con CRON_SECRET como los demás crons.
 // Solo corre si Sabio Soporte está ACTIVO y no PAUSADO. Ejecuta el día de hoy y, si en los últimos días quedó alguno sin ejecutar
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     try {
       resultados.push(await ejecutarDia(admin, EMPRESA_DEMO_ID, fecha, { hoy }));
     } catch (e) {
-      resultados.push({ fecha, error: e instanceof Error ? e.message : String(e) });
+      resultados.push({ fecha, error: mensajeDeError(e) });
     }
   }
   return NextResponse.json({ ejecutado: true, hoy, resultados: resultados.map((r) => ('error' in r ? r : { fecha: r.fecha, ok: r.ok, errores: r.errores, omitido: r.omitido })) });
