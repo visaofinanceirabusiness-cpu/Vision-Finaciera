@@ -535,35 +535,20 @@ export async function generarIdOperacion(
   // Venta/Compra podía terminar reusando el mismo OP-XXXXX que una
   // Producción ya confirmada, mezclando ambas bajo un mismo número en
   // el Libro Diario.
-  const [{ data: dataOperaciones, error: errorOperaciones }, { data: dataProducciones, error: errorProducciones }] =
-    await Promise.all([
-      supabase.from('registro_operaciones').select('id_operacion').eq('empresa_id', empresaId),
-      supabase.from('producciones').select('id_operacion').eq('empresa_id', empresaId),
-    ]);
+  // PostgREST corta cada respuesta en 1000 filas: sin paginar, una empresa con más de 1000 filas calculaba el máximo sobre un tramo y
+  // repetía el número de una operación ya cargada (mezclaba dos operaciones bajo el mismo OP-XXXXX).
+  const [operaciones, producciones] = await Promise.all([
+    traerTodo<{ id_operacion: string | null }>((d, h) => supabase.from('registro_operaciones').select('id_operacion').eq('empresa_id', empresaId).order('id').range(d, h)),
+    traerTodo<{ id_operacion: string | null }>((d, h) => supabase.from('producciones').select('id_operacion').eq('empresa_id', empresaId).order('id').range(d, h)),
+  ]);
 
-  if (errorOperaciones) {
-    throw errorOperaciones;
-  }
+  return siguienteIdOperacion([...operaciones, ...producciones].map((f) => f.id_operacion));
+}
 
-  if (errorProducciones) {
-    throw errorProducciones;
-  }
-
-  const numeros = [...(dataOperaciones ?? []), ...(dataProducciones ?? [])]
-    .map((fila) =>
-      parseInt(
-        String(fila.id_operacion ?? '')
-          .replace('OP-', ''),
-        10
-      )
-    )
-    .filter((n) => !Number.isNaN(n));
-
-  const siguiente =
-    numeros.length > 0
-      ? Math.max(...numeros) + 1
-      : 1;
-
+// El número que sigue al mayor OP-XXXXX existente (puro, con test).
+export function siguienteIdOperacion(ids: Array<string | null | undefined>): string {
+  const numeros = ids.map((id) => parseInt(String(id ?? '').replace('OP-', ''), 10)).filter((n) => !Number.isNaN(n));
+  const siguiente = numeros.length > 0 ? numeros.reduce((max, n) => (n > max ? n : max), 0) + 1 : 1;
   return `OP-${String(siguiente).padStart(5, '0')}`;
 }
 
