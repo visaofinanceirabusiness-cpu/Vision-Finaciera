@@ -81,3 +81,18 @@ describe('indicesDeCierre', () => {
     expect(indicesDeCierre(['2026-02-01', '2026-02-02', '2026-02-08'], 'SEMANA')).toEqual([0, 2]);
   });
 });
+
+describe('disponibilidades y mercaderías según la empresa', () => {
+  it('usa los medios de pago indicados (no el prefijo de la plantilla)', () => {
+    const otro: CuentaPlan[] = [c('a', '1.0.0.0.0', 'ACTIVO', 'ACTIVO', 'DEUDORA'), c('n', '1.1.0.0.4', 'Banco Nu', 'ACTIVO', 'DEUDORA', 'a'), c('r', '1.1.2.0.1', 'Alquiler a cobrar', 'ACTIVO', 'DEUDORA', 'a'), c('ap', '3.1.1.0.1', 'Aportes', 'PATRIMONIO', 'ACREEDORA')];
+    const asi: AsientoSimple[] = [{ fecha: '2026-03-01', debito: 'Banco Nu', credito: 'Aportes', importe: 500 }, { fecha: '2026-03-02', debito: 'Alquiler a cobrar', credito: 'Aportes', importe: 200 }];
+    const ev = calcularEvolucion(otro, asi, '2026-03-02', { disponibles: new Set(['n']) });
+    expect(ev.porClave.get('RES:DISPONIBLE')!.valores.at(-1)).toBe(500);
+    expect(ev.porClave.has('RES:MERCADERIAS')).toBe(false); // sin mercadería no hay serie
+  });
+  it('mercaderías = lo que cuelga del contenedor de stock', () => {
+    const conStock: CuentaPlan[] = [{ ...c('a', '1.0.0.0.0', 'ACTIVO', 'ACTIVO', 'DEUDORA') }, { ...c('m', '1.1.7.0.0', 'Mercadorias', 'ACTIVO', 'DEUDORA', 'a'), rol: 'CONTENEDOR_STOCK' }, c('e', '1.1.7.0.2', 'Estoque Y', 'ACTIVO', 'DEUDORA', 'm'), c('b', '1.1.0.0.1', 'Banco', 'ACTIVO', 'DEUDORA', 'a')];
+    const asi: AsientoSimple[] = [{ fecha: '2026-03-01', debito: 'Estoque Y', credito: 'Banco', importe: 300 }];
+    expect(calcularEvolucion(conStock, asi, '2026-03-01').porClave.get('RES:MERCADERIAS')!.valores.at(-1)).toBe(300);
+  });
+});
