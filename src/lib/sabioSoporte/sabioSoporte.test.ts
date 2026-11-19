@@ -55,6 +55,13 @@ describe('plan de crecimiento', () => {
     for (const d of diasDelMes('2026-02')) vendido += presupuestoVentasDia(base, d, vendido);
     expect(Math.round(vendido)).toBe(8800);
   });
+  it('un mes atrasado no fuerza ventas exageradas: el día no pasa de 1,6 veces lo normal', () => {
+    const normal = presupuestoVentasDia(base, '2026-03-02', 8800 * 0.1 + 0) ; // día con poco atraso
+    const atrasadisimo = presupuestoVentasDia(base, '2026-03-19', 0);
+    const normalDia = (metaVentasMes(base, '2026-03') * 1) / 22;
+    expect(atrasadisimo).toBeLessThanOrEqual(normalDia * base.ritmo.maxPresupuestoDiarioX + 1);
+    expect(normal).toBeGreaterThan(0);
+  });
   it('la inflación de costos se acumula mes a mes', () => {
     expect(factorInflacion(base, '2026-01-20')).toBe(1);
     expect(factorInflacion(base, '2026-03-02')).toBeCloseTo(1.0201, 4);
@@ -134,6 +141,17 @@ describe('resolverVentaProducto', () => {
   it('el precio incluye el recargo configurado', () => {
     const sinVariacion = { ...base, ventas: { ...base.ventas, variacionPrecioPct: 0 } };
     expect(precioDeVenta(100, sinVariacion, crearRng(1))).toBe(145);
+  });
+});
+
+describe('ticket máximo de productos', () => {
+  it('una venta de productos no pasa del ticket máximo (salvo una unidad que ya lo supera)', () => {
+    const c = { ...base, ventas: { ...base.ventas, ticketMaximoProductos: 400, variacionPrecioPct: 0 } };
+    for (let i = 0; i < 100; i++) {
+      const r = resolverVentaProducto(5000, productos, c, crearRng(i))!;
+      const unidades = r.lineas.reduce((s, l) => s + l.cantidad, 0);
+      expect(r.total <= 400 + 1 || unidades === r.lineas.length).toBe(true);
+    }
   });
 });
 

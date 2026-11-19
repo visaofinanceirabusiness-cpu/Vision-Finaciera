@@ -32,10 +32,13 @@ export type ConfigSabio = {
     // Peso de cada día de la semana (domingo…sábado): reparte la meta del mes y la cantidad de operaciones (0 = sin actividad).
     pesoDiaSemana: number[];
     topeDiario: number; // nunca se superan estas operaciones en un día
+    // Un día nunca vende más que este múltiplo de lo «normal» (meta del mes repartida): evita recuperar de golpe un mes atrasado con ventas exageradas.
+    maxPresupuestoDiarioX: number;
   };
   ventas: {
     mixServiciosPct: number; // % de las ventas (en monto) que son servicios
     ticketServicios: number;
+    ticketMaximoProductos: number; // una venta de productos no pasa de este monto (salvo que una sola unidad ya lo supere)
     margenProductosPct: number; // recargo sobre el costo promedio
     variacionPrecioPct: number; // ± de variación aleatoria del precio
     categoriasProducto: string[]; // categorías de producto que se compran y se venden
@@ -81,10 +84,11 @@ export const CONFIG_POR_DEFECTO: ConfigSabio = {
     estacionalidad: [0.9, 0.9, 1, 1, 1.12, 1, 1, 1.02, 1.05, 1.08, 1.2, 1.35],
     margenBrutoObjetivoPct: 38,
   },
-  ritmo: { opsMin: 4, opsMax: 6, pesoDiaSemana: [0, 1, 1, 1, 1, 1.25, 0.6], topeDiario: 9 },
+  ritmo: { opsMin: 4, opsMax: 6, pesoDiaSemana: [0, 1, 1, 1, 1, 1.25, 0.6], topeDiario: 9, maxPresupuestoDiarioX: 1.6 },
   ventas: {
     mixServiciosPct: 25,
     ticketServicios: 380,
+    ticketMaximoProductos: 700,
     margenProductosPct: 45,
     variacionPrecioPct: 8,
     categoriasProducto: ['Calçados', 'Perfumaria', 'Roupas', 'Eletrônicos', 'Madeireira'],
@@ -142,6 +146,8 @@ export function validarConfig(c: ConfigSabio): string | null {
   if (c.ritmo.opsMin < 0 || c.ritmo.opsMax < c.ritmo.opsMin) return 'Las operaciones por día: el máximo no puede ser menor que el mínimo.';
   if (c.ritmo.topeDiario < c.ritmo.opsMax) return 'El tope diario no puede ser menor que el máximo de operaciones por día.';
   if (c.ritmo.pesoDiaSemana.length !== 7 || c.ritmo.pesoDiaSemana.every((x) => !(x > 0))) return 'Algún día de la semana tiene que tener actividad.';
+  if (c.ritmo.maxPresupuestoDiarioX < 1) return 'El tope de presupuesto diario tiene que ser 1 o más (múltiplo de lo normal).';
+  if (c.ventas.ticketMaximoProductos <= 0) return 'El ticket máximo de productos tiene que ser mayor a 0.';
   if (c.ventas.mixServiciosPct < 0 || c.ventas.mixServiciosPct > 100) return 'El mix de servicios va de 0 a 100 %.';
   if (c.ventas.margenProductosPct < 0) return 'El margen de productos no puede ser negativo.';
   if (c.ventas.categoriasProducto.length === 0) return 'Hace falta al menos una categoría de producto.';

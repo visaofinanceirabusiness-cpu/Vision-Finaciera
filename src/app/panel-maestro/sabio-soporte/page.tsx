@@ -292,6 +292,7 @@ export default function SabioSoportePage() {
             <Campo etiqueta="Operaciones mínimas por día"><input type="number" style={estiloCampo} value={cfg.ritmo.opsMin} onChange={(e) => cambiar(['ritmo', 'opsMin'], num(e))} /></Campo>
             <Campo etiqueta="Operaciones máximas por día"><input type="number" style={estiloCampo} value={cfg.ritmo.opsMax} onChange={(e) => cambiar(['ritmo', 'opsMax'], num(e))} /></Campo>
             <Campo etiqueta="Tope diario" ayuda="Nunca se superan (seguridad)"><input type="number" style={estiloCampo} value={cfg.ritmo.topeDiario} onChange={(e) => cambiar(['ritmo', 'topeDiario'], num(e))} /></Campo>
+            <Campo etiqueta="Tope de ventas diarias (× lo normal)" ayuda="Un mes atrasado se recupera como máximo a este múltiplo de un día normal: evita ventas exageradas"><input type="number" step="0.1" style={estiloCampo} value={cfg.ritmo.maxPresupuestoDiarioX} onChange={(e) => cambiar(['ritmo', 'maxPresupuestoDiarioX'], num(e))} /></Campo>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(60px, 1fr))', gap: 8, marginTop: 12 }}>
             {DIAS.map((d, i) => (
@@ -304,6 +305,7 @@ export default function SabioSoportePage() {
           <div style={rejilla}>
             <Campo etiqueta="Servicios en el mix de ventas (%)"><input type="number" style={estiloCampo} value={cfg.ventas.mixServiciosPct} onChange={(e) => cambiar(['ventas', 'mixServiciosPct'], num(e))} /></Campo>
             <Campo etiqueta="Ticket de un servicio (R$)"><input type="number" style={estiloCampo} value={cfg.ventas.ticketServicios} onChange={(e) => cambiar(['ventas', 'ticketServicios'], num(e))} /></Campo>
+            <Campo etiqueta="Ticket máximo de productos (R$)" ayuda="Ninguna venta de productos pasa de este monto (salvo una unidad que ya lo supera)"><input type="number" style={estiloCampo} value={cfg.ventas.ticketMaximoProductos} onChange={(e) => cambiar(['ventas', 'ticketMaximoProductos'], num(e))} /></Campo>
             <Campo etiqueta="Margen sobre el costo (%)" ayuda="Recargo de los productos"><input type="number" style={estiloCampo} value={cfg.ventas.margenProductosPct} onChange={(e) => cambiar(['ventas', 'margenProductosPct'], num(e))} /></Campo>
             <Campo etiqueta="Variación de precio (± %)"><input type="number" style={estiloCampo} value={cfg.ventas.variacionPrecioPct} onChange={(e) => cambiar(['ventas', 'variacionPrecioPct'], num(e))} /></Campo>
             {MEDIOS_PLATA.map((m) => (
