@@ -82,13 +82,30 @@ async function fetchConModoEspectador(input: RequestInfo | URL, init?: RequestIn
   return respuesta;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const clienteDelNavegador = createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: fetchConModoEspectador },
+});
+
+// SOLO SERVIDOR — lo usa Sabio Soporte (lib/sabioSoporte): el motor contable y sus ayudantes importan `supabase` de acá, y desde una ruta de
+// servidor hay que hacerlos trabajar con un cliente de servicio (sin sesión de navegador). Se activa dentro de una ruta que procesa de a una
+// tarea y siempre se restaura en un `finally` (ver ejecutor de Sabio Soporte). En el navegador nunca se usa.
+let clienteAlternativo: typeof clienteDelNavegador | null = null;
+
+export function usarClienteDeServicio(cliente: typeof clienteDelNavegador | null): void {
+  clienteAlternativo = cliente;
+}
+
+export const supabase: typeof clienteDelNavegador = new Proxy(clienteDelNavegador, {
+  get(destino, propiedad) {
+    const actual = clienteAlternativo ?? destino;
+    const valor = Reflect.get(actual, propiedad, actual);
+    return typeof valor === 'function' ? valor.bind(actual) : valor;
+  },
 });
 
 // Si alguien entra con otra cuenta en un navegador que había usado la demo, deja de ser espectador.
 if (typeof window !== 'undefined') {
-  supabase.auth.onAuthStateChange((evento, sesion) => {
+  clienteDelNavegador.auth.onAuthStateChange((evento, sesion) => {
     const espectador = leerEspectador();
     if (!espectador) return;
     if (evento === 'SIGNED_OUT' || (evento === 'SIGNED_IN' && sesion?.user && sesion.user.id !== espectador.userId)) {
