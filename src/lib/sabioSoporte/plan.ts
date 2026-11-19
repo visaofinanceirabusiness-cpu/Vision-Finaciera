@@ -63,8 +63,13 @@ export function presupuestoVentasDia(c: ConfigSabio, fecha: string, ventasReales
   const pesoRestante = restantes.reduce((s, d) => s + pesoDelDia(c, d), 0);
   const peso = pesoDelDia(c, fecha);
   if (pesoRestante <= 0 || peso <= 0) return 0;
-  const falta = Math.max(0, metaVentasMes(c, mes) - ventasRealesHastaAyer);
-  return Math.round(((falta * peso) / pesoRestante) * 100) / 100;
+  const meta = metaVentasMes(c, mes);
+  const falta = Math.max(0, meta - ventasRealesHastaAyer);
+  const pesoMes = diasDelMes(mes).reduce((s, d) => s + pesoDelDia(c, d), 0);
+  const normal = (meta * peso) / pesoMes;
+  // Recuperar un atraso reparte lo que falta entre los días que quedan, pero nunca más que `maxPresupuestoDiarioX` veces un día normal:
+  // un mes que arranca tarde termina por debajo de la meta en vez de forzar ventas exageradas.
+  return Math.round(Math.min((falta * peso) / pesoRestante, normal * c.ritmo.maxPresupuestoDiarioX) * 100) / 100;
 }
 
 // Costo acumulado por inflación desde el mes de inicio.

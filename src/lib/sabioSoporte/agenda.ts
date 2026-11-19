@@ -97,7 +97,7 @@ export function planificarDia(e: EntradaDia): Intencion[] {
     if (nServ === 0 && presServ > c.ventas.ticketServicios * 0.4 && rng() < presServ / c.ventas.ticketServicios) nServ = 1;
     nServ = Math.min(nServ, Math.max(0, libres - (presProd > 0 ? 1 : 0)));
     const nProd = presProd > 0 ? Math.max(1, libres - nServ) : 0;
-    for (let i = 0; i < nProd; i++) intenciones.push({ tipo: 'VENTA_PRODUCTO', objetivo: redondear((presProd / nProd) * entre(rng, 0.7, 1.3), 5) });
+    for (let i = 0; i < nProd; i++) intenciones.push({ tipo: 'VENTA_PRODUCTO', objetivo: Math.min(c.ventas.ticketMaximoProductos, redondear((presProd / nProd) * entre(rng, 0.7, 1.3), 5)) });
     for (let i = 0; i < nServ; i++) intenciones.push({ tipo: 'VENTA_SERVICIO', objetivo: redondear((presServ / Math.max(1, nServ)) * entre(rng, 0.7, 1.3), 10) });
   }
 
@@ -130,9 +130,13 @@ export function resolverVentaProducto(objetivo: number, productos: ProductoEstad
 
   const lineas: LineaPlan[] = [];
   let total = 0;
-  const armar = (p: ProductoEstado, meta: number) => {
+  const armar = (p: ProductoEstado, meta: number, esSegunda = false) => {
     const precio = precioDeVenta(p.costoMedio, c, rng);
-    const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad), 6, Math.round(meta / precio)));
+    const lugar = c.ventas.ticketMaximoProductos - total;
+    // La segunda línea solo entra si cabe entera; la primera lleva al menos una unidad aunque ella sola ya supere el ticket máximo.
+    if (esSegunda && precio > lugar) return;
+    const topeTicket = Math.max(1, Math.floor(Math.max(0, Math.min(meta, lugar)) / precio));
+    const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad), 6, Math.round(meta / precio), topeTicket));
     lineas.push({ producto: p.id, cantidad, precio });
     total += cantidad * precio;
   };
@@ -140,9 +144,9 @@ export function resolverVentaProducto(objetivo: number, productos: ProductoEstad
 
   // Segunda línea (misma categoría: una venta con stock lleva una sola categoría) si el objetivo no se cubrió y hay otro producto.
   const resto = objetivo - total;
-  if (resto > objetivo * 0.25) {
+  if (resto > objetivo * 0.25 && total + 1 < c.ventas.ticketMaximoProductos) {
     const otros = candidatos.filter((p) => p.categoria === primero.categoria && p.id !== primero.id);
-    if (otros.length > 0) armar(elegir(rng, otros), resto);
+    if (otros.length > 0) armar(elegir(rng, otros), resto, true);
   }
   return { categoria: primero.categoria, lineas, total: Math.round(total * 100) / 100 };
 }
