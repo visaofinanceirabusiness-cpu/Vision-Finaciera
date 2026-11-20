@@ -313,7 +313,7 @@ export function Torta({ trozos, total, pt, etiquetaTotal }: { trozos: { nombre: 
   );
 }
 
-function TopCuentas({ titulo, filas, color, dinero, pt, verTodas, ordenar = true }: { titulo: string; filas: FilaCuenta[]; color: string; dinero: (n: number) => string; pt: boolean; verTodas: string; ordenar?: boolean }) {
+export function TopCuentas({ titulo, filas, color, dinero, pt, verTodas, ordenar = true }: { titulo: string; filas: FilaCuenta[]; color: string; dinero: (n: number) => string; pt: boolean; verTodas: string; ordenar?: boolean }) {
   const [todas, setTodas] = useState(false);
   const { filas: top, total, hayMas } = topCuentas(filas, todas ? 200 : 5, ordenar);
   return (
