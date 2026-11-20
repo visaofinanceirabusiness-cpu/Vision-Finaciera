@@ -95,6 +95,10 @@ export default function InformesPage() {
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
+  // Asientos de cierre del ejercicio (31/12): solo los usan las pestañas acumuladas (Balance, Mayor, Sumas y Saldos). El Estado de Resultado
+  // y el Flujo de Caja no los reciben: si no, cada año cerrado mostraría ingresos y gastos en cero.
+  const [cierres, setCierres] = useState<Asiento[]>([]);
+  const asientosConCierre = useMemo(() => [...asientos, ...cierres], [asientos, cierres]);
   const [nombresMedioFinanciero, setNombresMedioFinanciero] = useState<Set<string>>(new Set());
   const [nombresPorCobrar, setNombresPorCobrar] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
@@ -186,6 +190,7 @@ export default function InformesPage() {
         { data: operacionesData, error: errorOperaciones },
         { data: automaticosData, error: errorAutomaticos },
         { data: formaPagoCuentasData, error: errorFormaPagoCuentas },
+        { data: cierresData },
       ] = await Promise.all([
         supabase
           .from('plan_cuentas')
@@ -214,6 +219,8 @@ export default function InformesPage() {
           .select('cuenta_id')
           .eq('empresa_id', perfil.empresa_id)
           .eq('activo', true),
+
+        supabase.from('asientos_cierre').select('id_cierre, fecha, historico, cuenta_debito, cuenta_credito, importe').eq('empresa_id', perfil.empresa_id),
       ]);
 
       if (errorCuentas) console.warn('No se pudo cargar el plan de cuentas:', errorCuentas);
@@ -271,6 +278,17 @@ export default function InformesPage() {
       }));
 
       setAsientos([...asientosOperaciones, ...asientosAutomaticos]);
+      setCierres(
+        (cierresData ?? []).map((fila) => ({
+          id_operacion: fila.id_cierre,
+          fecha: String(fila.fecha ?? ''),
+          descripcion: fila.historico ?? '',
+          debito: fila.cuenta_debito,
+          credito: fila.cuenta_credito,
+          importe: Number(fila.importe ?? 0),
+          operacion: null,
+        }))
+      );
       setCargando(false);
     }
 
@@ -377,13 +395,13 @@ export default function InformesPage() {
             <div style={cargandoStyle}>{t('cargandoInformes')}</div>
           ) : (
             <>
-              {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientos} cuentaInicial={cuentaInicial} />}
-              {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientos} />}
+              {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientosConCierre} cuentaInicial={cuentaInicial} />}
+              {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientosConCierre} />}
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} periodoInicial={periodoInicial} empresaId={empresaId} esFamiliar={esFamiliar} />
               )}
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} esFamiliar={esFamiliar} />}
-              {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientos} />}
+              {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientosConCierre} />}
             </>
           )}
         </main>
