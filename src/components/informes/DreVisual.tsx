@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { formatearNumeroEntero } from '@/lib/moneda';
-import { analisisSabio, composicionSalidas, topCuentas, variacionPct, type FilaCuenta } from '@/lib/informes/dre';
+import { analisisNaturaleza, analisisSabio, composicionSalidas, etiquetasNaturaleza, filasPorNaturaleza, ORDEN_NAT, topCuentas, variacionPct, type FilaCuenta, type NaturalezaClave, type ResumenNat } from '@/lib/informes/dre';
 
 // Vista visual del Estado de Resultado (DRE): tarjetas con Sabio, resultado del período, evolución, composición de las salidas, top de
 // cuentas y análisis de Sabio. Todo se alimenta de los números que calcula el informe; la demostración completa sigue debajo.
@@ -31,6 +31,10 @@ export type PropsDreVisual = {
   filasCostos: FilaCuenta[];
   filasGastos: FilaCuenta[];
   tendencia: { clave: string; etiqueta: string; valor: number }[];
+  // Filtro «Ver por»: por cuenta (como siempre) o por naturaleza (fijos / recurrentes variables / del mes).
+  vista?: 'CUENTA' | 'NATURALEZA';
+  onVista?: (v: 'CUENTA' | 'NATURALEZA') => void;
+  naturaleza?: { ingresos: Record<NaturalezaClave, number>; costos: Record<NaturalezaClave, number>; gastos: Record<NaturalezaClave, number>; resumen: ResumenNat } | 'cargando' | null;
 };
 
 export function DreVisual(p: PropsDreVisual) {
@@ -52,7 +56,11 @@ export function DreVisual(p: PropsDreVisual) {
         { clave: 'gastos', titulo: pt ? 'Despesas Operacionais' : 'Gastos Operacionales', sub: p.totales.ingresos ? `${((p.totales.gastos / p.totales.ingresos) * 100).toFixed(1).replace('.', ',')}% ${pt ? 'das receitas' : 'de los ingresos'}` : '', valor: p.totales.gastos, ant: p.anterior?.gastos, sabio: 'sabio-checklist', color: '#6d28d9', fondo: '#f5f3ff', subeEsBueno: false },
       ];
 
-  const analisis = analisisSabio({
+  const vistaNat = p.vista === 'NATURALEZA';
+  const nat = p.naturaleza && typeof p.naturaleza === 'object' ? p.naturaleza : null;
+  const etiquetasNat = etiquetasNaturaleza(pt);
+
+  const analisisCuenta = analisisSabio({
     pt,
     esFamiliar,
     ingresos: p.totales.ingresos,
@@ -62,6 +70,7 @@ export function DreVisual(p: PropsDreVisual) {
     mayoresSalidas: [...salidas].sort((a, b) => b.valor - a.valor).filter((f) => f.valor > 0).map((f) => f.nombre),
     dinero,
   });
+  const analisis = vistaNat && nat ? analisisNaturaleza({ pt, resumen: nat.resumen, resultado: p.totales.resultado, dinero }) : analisisCuenta;
 
   const titulo = esFamiliar ? (pt ? 'Demonstração de Resultado' : 'Estado de Resultado') : pt ? 'Demonstração de Resultado (DRE)' : 'Estado de Resultado (DRE)';
 
@@ -93,6 +102,18 @@ export function DreVisual(p: PropsDreVisual) {
               ))}
             </select>
           </div>
+          {p.onVista && (
+            <div>
+              <div style={{ fontSize: 11, color: COL.gris, fontWeight: 700 }}>{pt ? 'Ver por' : 'Ver por'}</div>
+              <div role="group" style={{ display: 'inline-flex', border: '1px solid #d1d5db', borderRadius: 999, overflow: 'hidden' }}>
+                {([['CUENTA', pt ? 'Conta' : 'Cuenta'], ['NATURALEZA', pt ? 'Natureza' : 'Naturaleza']] as const).map(([v, et]) => (
+                  <button key={v} type="button" onClick={() => p.onVista?.(v)} aria-pressed={(p.vista ?? 'CUENTA') === v} style={{ padding: '7px 14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12.5, background: (p.vista ?? 'CUENTA') === v ? '#22a559' : 'transparent', color: (p.vista ?? 'CUENTA') === v ? '#fff' : COL.azul }}>
+                    {et}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <BotonExportarPdf pt={pt} />
         </div>
       </div>
@@ -146,12 +167,58 @@ export function DreVisual(p: PropsDreVisual) {
         </Tarjeta>
 
         <Tarjeta titulo={`🍩 ${pt ? 'Composição das Saídas' : 'Composición de las Salidas'}`}>
-          <Torta trozos={composicionSalidas(salidas, 3, pt ? 'Outros' : 'Otros')} total={dinero(p.totales.costos + p.totales.gastos)} pt={pt} />
+          <Torta trozos={composicionSalidas(vistaNat && nat ? filasPorNaturaleza([nat.costos, nat.gastos], pt) : salidas, 3, pt ? 'Outros' : 'Otros')} total={dinero(p.totales.costos + p.totales.gastos)} pt={pt} />
         </Tarjeta>
       </div>
 
       {/* Top de cuentas + análisis */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginBottom: 18 }}>
+        {vistaNat ? (
+          nat ? (
+            <>
+              <TopCuentas titulo={`💰 ${pt ? 'Receitas por Natureza' : 'Ingresos por Naturaleza'}`} filas={filasPorNaturaleza([nat.ingresos], pt)} color="#22c55e" dinero={dinero} pt={pt} verTodas="" ordenar={false} />
+              <TopCuentas titulo={`🧾 ${pt ? 'Saídas por Natureza' : 'Salidas por Naturaleza'}`} filas={filasPorNaturaleza([nat.costos, nat.gastos], pt)} color="#ef4444" dinero={dinero} pt={pt} verTodas="" ordenar={false} />
+              <Tarjeta titulo={`⚖️ ${pt ? 'Resultado por Natureza' : 'Resultado por Naturaleza'}`}>
+                <div style={{ display: 'grid', gap: 8, fontSize: 13.5 }}>
+                  {ORDEN_NAT.map((n) => (
+                    <div key={n} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                      <span>
+                        {etiquetasNat[n]}
+                        <span style={{ color: COL.gris, fontSize: 12, marginLeft: 6 }}>{n === 'DEL_MES' ? (pt ? 'depende do mês' : 'depende del mes') : pt ? 'previsível' : 'previsible'}</span>
+                      </span>
+                      <strong style={{ color: nat.resumen.neto[n] >= 0 ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>{dinero(nat.resumen.neto[n])}</strong>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: 8, fontWeight: 800 }}>
+                    <span>{pt ? 'Resultado total' : 'Resultado total'}</span>
+                    <span style={{ color: p.totales.resultado >= 0 ? '#16a34a' : '#dc2626' }}>{dinero(p.totales.resultado)}</span>
+                  </div>
+                  {(nat.resumen.cobertura !== null || nat.resumen.pesoRecurrente !== null) && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                      {nat.resumen.cobertura !== null && (
+                        <div style={{ flex: '1 1 110px', background: '#f8fafc', borderRadius: 12, padding: '8px 10px' }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, color: COL.gris }}>{pt ? 'COBERTURA DO RECORRENTE' : 'COBERTURA DE LO RECURRENTE'}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: nat.resumen.cobertura >= 1 ? '#16a34a' : '#dc2626' }}>{Math.round(nat.resumen.cobertura * 100)}%</div>
+                        </div>
+                      )}
+                      {nat.resumen.pesoRecurrente !== null && (
+                        <div style={{ flex: '1 1 110px', background: '#f8fafc', borderRadius: 12, padding: '8px 10px' }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, color: COL.gris }}>{pt ? 'PESO DO RECORRENTE' : 'PESO DE LO RECURRENTE'}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: COL.azul }}>{Math.round(nat.resumen.pesoRecurrente * 100)}%</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Tarjeta>
+            </>
+          ) : (
+            <div style={{ gridColumn: '1 / -1', padding: 24, textAlign: 'center', color: COL.gris, fontSize: 14 }}>
+              {p.naturaleza === 'cargando' ? (pt ? 'Carregando natureza dos lançamentos…' : 'Cargando la naturaleza de los asientos…') : pt ? 'Não foi possível carregar a vista por natureza.' : 'No se pudo cargar la vista por naturaleza.'}
+            </div>
+          )
+        ) : (
+          <>
         <TopCuentas titulo={`💰 ${pt ? 'Receitas por Conta' : 'Ingresos por Cuenta'}`} filas={p.filasIngresos} color="#22c55e" dinero={dinero} pt={pt} verTodas={pt ? 'Ver todas as receitas' : 'Ver todos los ingresos'} />
         <TopCuentas
           titulo={esFamiliar ? `🧾 ${pt ? 'Despesas por Conta' : 'Gastos por Cuenta'}` : `📦 ${pt ? 'Custos por Conta' : 'Costos por Cuenta'}`}
@@ -161,7 +228,9 @@ export function DreVisual(p: PropsDreVisual) {
           pt={pt}
           verTodas={esFamiliar ? (pt ? 'Ver todas as despesas' : 'Ver todos los gastos') : pt ? 'Ver todos os custos' : 'Ver todos los costos'}
         />
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          </>
+        )}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14, display: 'flex', gap: 8, alignItems: 'flex-end', gridColumn: vistaNat ? '1 / -1' : undefined }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, color: COL.azul, fontSize: 16, marginBottom: 8 }}>🎯 {pt ? 'Análise do Sabio' : 'Análisis del Sabio'}</div>
             <div style={{ background: '#ecfdf3', border: '1px solid #bbf7d0', borderRadius: 14, padding: '10px 12px', fontSize: 13.5, color: '#1f2937', lineHeight: 1.5 }}>
@@ -244,9 +313,9 @@ export function Torta({ trozos, total, pt, etiquetaTotal }: { trozos: { nombre: 
   );
 }
 
-function TopCuentas({ titulo, filas, color, dinero, pt, verTodas }: { titulo: string; filas: FilaCuenta[]; color: string; dinero: (n: number) => string; pt: boolean; verTodas: string }) {
+function TopCuentas({ titulo, filas, color, dinero, pt, verTodas, ordenar = true }: { titulo: string; filas: FilaCuenta[]; color: string; dinero: (n: number) => string; pt: boolean; verTodas: string; ordenar?: boolean }) {
   const [todas, setTodas] = useState(false);
-  const { filas: top, total, hayMas } = topCuentas(filas, todas ? 200 : 5);
+  const { filas: top, total, hayMas } = topCuentas(filas, todas ? 200 : 5, ordenar);
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14 }}>
       <div style={{ fontWeight: 800, color: COL.azul, fontSize: 16, marginBottom: 8 }}>{titulo}</div>

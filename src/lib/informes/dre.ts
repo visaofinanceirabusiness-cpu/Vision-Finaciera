@@ -24,8 +24,9 @@ export function composicionSalidas(filas: FilaCuenta[], max: number, nombreOtros
 
 export type FilaTop = FilaCuenta & { pct: number };
 
-export function topCuentas(filas: FilaCuenta[], n: number): { filas: FilaTop[]; total: number; hayMas: boolean } {
-  const positivas = filas.filter((f) => f.valor > 0).sort((a, b) => b.valor - a.valor);
+export function topCuentas(filas: FilaCuenta[], n: number, ordenar = true): { filas: FilaTop[]; total: number; hayMas: boolean } {
+  const positivas = filas.filter((f) => f.valor > 0);
+  if (ordenar) positivas.sort((a, b) => b.valor - a.valor);
   const total = positivas.reduce((s, f) => s + f.valor, 0);
   return {
     filas: positivas.slice(0, n).map((f) => ({ ...f, pct: total > 0 ? (f.valor / total) * 100 : 0 })),
@@ -75,5 +76,43 @@ export function analisisSabio(d: DatosAnalisis): string[] {
       parrafos.push(pt ? `Continue assim! O maior peso das saídas está em ${nombres}: vale mantê-lo sob controle.` : `¡Seguí así! El mayor peso de las salidas está en ${nombres}: conviene mantenerlo bajo control.`);
     }
   }
+  return parrafos;
+}
+
+// ---- Vista «por naturaleza» (fijos / recurrentes variables / del mes) ----
+export type NaturalezaClave = 'FIJO' | 'RECURRENTE_VARIABLE' | 'DEL_MES';
+export const ORDEN_NAT: NaturalezaClave[] = ['FIJO', 'RECURRENTE_VARIABLE', 'DEL_MES'];
+
+export function etiquetasNaturaleza(pt: boolean): Record<NaturalezaClave, string> {
+  return {
+    FIJO: pt ? 'Fixos' : 'Fijos',
+    RECURRENTE_VARIABLE: pt ? 'Recorrentes variáveis' : 'Recurrentes variables',
+    DEL_MES: pt ? 'Do mês' : 'Del mes',
+  };
+}
+
+// Un total por naturaleza, sumando los tipos pedidos (p. ej. costos + gastos para «salidas»).
+export function filasPorNaturaleza(totales: Record<NaturalezaClave, number>[], pt: boolean): FilaCuenta[] {
+  const etiquetas = etiquetasNaturaleza(pt);
+  return ORDEN_NAT.map((n) => ({ nombre: etiquetas[n], valor: totales.reduce((s, t) => s + (t[n] ?? 0), 0) }));
+}
+
+export type ResumenNat = { neto: Record<NaturalezaClave, number>; cobertura: number | null; pesoRecurrente: number | null };
+
+export function analisisNaturaleza(d: { pt: boolean; resumen: ResumenNat; resultado: number; dinero: (n: number) => string }): string[] {
+  const { pt, resumen } = d;
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const parrafos: string[] = [];
+  if (resumen.pesoRecurrente !== null) {
+    parrafos.push(pt ? `${pct(resumen.pesoRecurrente)} das suas despesas já estão comprometidas por recorrentes.` : `El ${pct(resumen.pesoRecurrente)} de tus gastos ya está comprometido por recurrentes.`);
+  }
+  if (resumen.cobertura !== null) {
+    parrafos.push(
+      resumen.cobertura >= 1
+        ? pt ? `Suas receitas recorrentes cobrem ${pct(resumen.cobertura)} dos gastos recorrentes: a base está coberta.` : `Tus ingresos recurrentes cubren el ${pct(resumen.cobertura)} de los gastos recurrentes: la base está cubierta.`
+        : pt ? `Suas receitas recorrentes cobrem só ${pct(resumen.cobertura)} dos gastos recorrentes: o resto depende do mês.` : `Tus ingresos recurrentes cubren solo el ${pct(resumen.cobertura)} de los gastos recurrentes: el resto depende del mes.`
+    );
+  }
+  if (parrafos.length === 0) parrafos.push(pt ? 'Ainda não há recorrentes neste período: tudo é do mês.' : 'Todavía no hay recurrentes en este período: todo es del mes.');
   return parrafos;
 }
