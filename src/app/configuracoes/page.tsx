@@ -311,7 +311,7 @@ export default function ConfiguracoesPage() {
           {pestana === 'inicializacion' && <InicializacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'objetivos' && <ObjetivosTab empresaId={empresaId} puedeEditar={puedeEditarObjetivos} idioma={idioma} />}
           {pestana === 'facturacion' && <FacturacionTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
-          {pestana === 'cierres' && cierreActivo && <CierreDePeriodosTab empresaId={empresaId} idioma={idioma} puedeHabilitar={puedeHabilitarCierre} />}
+          {pestana === 'cierres' && cierreActivo && <CierreDePeriodosTab empresaId={empresaId} idioma={idioma} puedeHabilitar={puedeHabilitarCierre} sinClave={esAdmin} />}
           {pestana === 'reset' && <ResetearSistemaTab empresaId={empresaId} esAdmin={esAdmin} idioma={idioma} />}
           {pestana === 'matriz' && esAdmin && <MatrizYPlanMaestroTab empresaId={empresaId} idioma={idioma} />}
         </main>

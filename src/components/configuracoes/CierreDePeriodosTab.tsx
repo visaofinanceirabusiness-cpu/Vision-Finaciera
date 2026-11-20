@@ -36,7 +36,7 @@ function mesesParaMostrar(situacion: SituacionCierre, hoy: string): string[] {
   return lista;
 }
 
-export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar }: { empresaId: string; idioma: string; puedeHabilitar: boolean }) {
+export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar, sinClave = false }: { empresaId: string; idioma: string; puedeHabilitar: boolean; sinClave?: boolean }) {
   const pt = idioma === 'PT';
   const [situacion, setSituacion] = useState<SituacionCierre | null>(null);
   const [eligiendo, setEligiendo] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar }: { emp
   async function habilitar(mes: string) {
     setTrabajando(true);
     setMensaje('');
-    const r = await habilitarPeriodo(mes, clave).catch(() => null);
+    const r = await habilitarPeriodo(mes, sinClave ? '' : clave).catch(() => null);
     setTrabajando(false);
     if (r?.ok) {
       setClave('');
@@ -116,8 +116,8 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar }: { emp
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <strong style={{ textTransform: 'capitalize', flex: '1 1 140px' }}>{nombreMes(mes)}</strong>
               <span style={{ background: color.fondo, color: color.texto, borderRadius: 999, padding: '3px 12px', fontSize: 13, fontWeight: 700 }}>{etiqueta[estado]}</span>
-              {estado === 'CERRADO' && puedeHabilitar && (
-                <button type="button" onClick={() => { setEligiendo(eligiendo === mes ? null : mes); setMensaje(''); setClave(''); }} style={botonSecundario}>
+              {(estado === 'CERRADO' || (estado === 'BLOQUEADO' && sinClave)) && puedeHabilitar && (
+                <button type="button" disabled={trabajando} onClick={() => { setMensaje(''); setClave(''); if (sinClave) void habilitar(mes); else setEligiendo(eligiendo === mes ? null : mes); }} style={botonSecundario}>
                   {pt ? `Habilitar ${nombreMes(mes)}` : `Habilitar ${nombreMes(mes)}`}
                 </button>
               )}
