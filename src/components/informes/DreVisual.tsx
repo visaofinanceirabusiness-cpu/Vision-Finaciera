@@ -25,7 +25,6 @@ export type PropsDreVisual = {
   periodos: { valor: string; etiqueta: string }[];
   periodo: string;
   onPeriodo: (valor: string) => void;
-  selectorVista: React.ReactNode;
   totales: TotalesDre;
   anterior: TotalesDre | null;
   filasIngresos: FilaCuenta[];
@@ -94,11 +93,11 @@ export function DreVisual(p: PropsDreVisual) {
               ))}
             </select>
           </div>
-          {p.selectorVista}
           <BotonExportarPdf pt={pt} />
         </div>
       </div>
 
+      <ZonaInforme titulo={pt ? 'Resumo do período' : 'Resumen del período'} subtitulo={pt ? 'Tudo o que importa em um só olhar' : 'Todo lo importante de un vistazo'} tono="verde">
       {/* Tarjetas con Sabio */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${esFamiliar ? 260 : 220}px, 1fr))`, gap: 12, marginBottom: 14 }}>
         {tarjetas.map((c) => {
@@ -174,6 +173,7 @@ export function DreVisual(p: PropsDreVisual) {
           <img className="dre-sabio-tarjeta" src="/sabio/sabio-analiza.webp" alt="" style={{ height: 120, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
         </div>
       </div>
+      </ZonaInforme>
     </div>
   );
 }
@@ -308,5 +308,19 @@ export function BotonExportarPdf({ pt }: { pt: boolean }) {
     >
       ⬇ {pt ? 'Exportar PDF' : 'Exportar PDF'}
     </button>
+  );
+}
+
+// Zona con título y fondo propios que agrupa las tarjetas de una vista (simplificada / detallada).
+export function ZonaInforme({ titulo, subtitulo, tono, children }: { titulo: string; subtitulo: string; tono: 'verde' | 'azul'; children: React.ReactNode }) {
+  const c = tono === 'verde' ? { fondo: 'linear-gradient(180deg, #f0fdf4, #f8fafc)', borde: '#bbf7d0', titulo: '#15803d' } : { fondo: 'linear-gradient(180deg, #eff6ff, #f8fafc)', borde: '#bfdbfe', titulo: '#1d4ed8' };
+  return (
+    <section style={{ background: c.fondo, border: `1px solid ${c.borde}`, borderRadius: 22, padding: '14px 14px 4px', marginBottom: 18 }}>
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontSize: 18, color: c.titulo }}>{titulo}</h3>
+        <span style={{ fontSize: 13, color: '#6b7280' }}>{subtitulo}</span>
+      </div>
+      {children}
+    </section>
   );
 }
