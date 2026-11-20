@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
     const { data: primera } = await admin.from('registro_operaciones').select('fecha').eq('empresa_id', e.id).order('fecha', { ascending: true }).limit(1).maybeSingle();
     if (!primera?.fecha) continue;
     const { data: hechos } = await admin.from('asientos_cierre').select('ejercicio').eq('empresa_id', e.id);
-    const cerrados = new Set((hechos ?? []).map((h) => h.ejercicio as number));
+    // Un año sin movimientos de resultado cierra con 0 asientos: queda registrado en el log y no se reintenta todos los días.
+    const { data: sinMovimiento } = await admin.from('periodos_eventos').select('periodo').eq('empresa_id', e.id).eq('accion', 'CIERRE_ANUAL');
+    const cerrados = new Set([...(hechos ?? []).map((h) => h.ejercicio as number), ...(sinMovimiento ?? []).map((v) => Number(String(v.periodo).slice(0, 4)))]);
     for (let anio = Number(String(primera.fecha).slice(0, 4)); anio < anioActual; anio++) {
       if (cerrados.has(anio)) continue;
       const { data, error } = await admin.rpc('cerrar_ejercicio', { p_empresa: e.id, p_ejercicio: anio, p_usuario: null, p_forzar: false });
