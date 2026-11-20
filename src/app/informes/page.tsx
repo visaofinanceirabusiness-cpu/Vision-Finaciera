@@ -30,6 +30,8 @@ import { cargarNaturalezaPorOperacion } from '@/lib/naturalezaResultadoDatos';
 import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/lib/naturalezaResultado';
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
+import { FlujoVisual, type FilaResumen } from '@/components/informes/FlujoVisual';
+import { serieFlujo } from '@/lib/informes/flujo';
 import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
 import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -1008,101 +1010,6 @@ function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[], id
   });
 }
 
-// Bloque "panorama general": título + gráfico de tendencia, siempre
-// con todo el histórico, sin importar el período elegido arriba.
-function SeccionTendencia({
-  titulo,
-  datos,
-  idioma,
-}: {
-  titulo: string;
-  datos: { clave: string; etiqueta: string; valor: number }[];
-  idioma: string | null;
-}) {
-  const t = crearTraductor(diccionarioInformes, idioma);
-
-  return (
-    <div style={{ marginTop: 24 }}>
-      <div style={{ marginBottom: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: COLORES.verde }}>
-        {t('panoramaGeneral')}
-      </div>
-
-      <h3 style={{ margin: '0 0 4px', color: COLORES.azul, fontSize: 17 }}>{titulo}</h3>
-
-      <p style={{ margin: '0 0 14px', fontSize: 12, color: COLORES.gris }}>
-        {t('tendenciaSubtitulo')}
-      </p>
-
-      <GraficoTendenciaResultado datos={datos} idioma={idioma} />
-    </div>
-  );
-}
-
-function GraficoTendenciaResultado({
-  datos,
-  idioma,
-}: {
-  datos: { clave: string; etiqueta: string; valor: number }[];
-  idioma: string | null;
-}) {
-  const t = crearTraductor(diccionarioInformes, idioma);
-
-  if (!datos.length) {
-    return <div style={vacioOperacion}>{t('sinHistorialTendencia')}</div>;
-  }
-
-  const alto = 160;
-  const anchoBarra = 46;
-  const gap = 14;
-  const ancho = datos.length * (anchoBarra + gap) + gap;
-
-  const maxAbs = Math.max(...datos.map((d) => Math.abs(d.valor)), 1);
-  const mitad = alto / 2;
-  const escala = (mitad - 16) / maxAbs;
-
-  return (
-    <div style={{ ...tablaContenedor, padding: '18px 12px', overflowX: 'auto' }}>
-      <svg width={ancho} height={alto + 26} style={{ display: 'block' }}>
-        <line x1={0} y1={mitad} x2={ancho} y2={mitad} stroke="#e5e7eb" strokeWidth={1} />
-
-        {datos.map((dato, indice) => {
-          const x = gap + indice * (anchoBarra + gap);
-          const alturaBarra = Math.abs(dato.valor) * escala;
-          const y = dato.valor >= 0 ? mitad - alturaBarra : mitad;
-          const color = dato.valor >= 0 ? COLORES.verde : '#dc2626';
-
-          return (
-            <g key={dato.clave}>
-              <rect x={x} y={y} width={anchoBarra} height={Math.max(alturaBarra, 2)} rx={4} fill={color} />
-
-              <text
-                x={x + anchoBarra / 2}
-                y={dato.valor >= 0 ? y - 6 : y + alturaBarra + 14}
-                textAnchor="middle"
-                fontSize={10}
-                fontWeight={700}
-                fill={color}
-              >
-                {dato.valor.toFixed(0)}
-              </text>
-
-              <text
-                x={x + anchoBarra / 2}
-                y={alto + 18}
-                textAnchor="middle"
-                fontSize={11}
-                fill={COLORES.gris}
-              >
-                {dato.etiqueta}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
 const CLAVE_VISTA_INFORME = 'informes:vista';
 
 // Simplificada / detallada: se recuerda en el dispositivo y vale para Flujo de Caja y Estado de Resultado.
@@ -1156,33 +1063,6 @@ function ToggleVistaInforme({ vista, onChange, esPT }: { vista: 'SIMPLE' | 'DETA
           {etiqueta}
         </button>
       ))}
-    </div>
-  );
-}
-
-// Línea de saldo del flujo de caja (inicial, final, subtotal de cada actividad).
-function LineaSaldo({ titulo, valor, destacada = false }: { titulo: string; valor: number; destacada?: boolean }) {
-  const simbolo = useContext(SimboloContext);
-
-  return (
-    <div
-      style={{
-        marginBottom: 12,
-        padding: destacada ? '12px 16px' : '10px 14px',
-        borderRadius: 12,
-        background: destacada ? (valor >= 0 ? '#edf6f0' : '#fef2f2') : '#f8fafc',
-        border: `1px solid ${destacada ? (valor >= 0 ? '#cfe5d6' : '#fecaca') : '#e5e7eb'}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
-        flexWrap: 'wrap',
-      }}
-    >
-      <strong style={{ color: COLORES.azul, fontSize: 13.5 }}>{titulo}</strong>
-      <strong style={{ fontSize: 15, color: valor >= 0 ? COLORES.azul : '#dc2626', whiteSpace: 'nowrap' }}>
-        {simbolo} {formatearNumeroEntero(valor)}
-      </strong>
     </div>
   );
 }
@@ -1319,112 +1199,6 @@ function SaldoDeseado({ empresaId, periodo, saldoFinal, esPT, esFamiliar, sugeri
   );
 }
 
-function SubtotalResultado({ titulo, valor, porcentaje }: { titulo: string; valor: number; porcentaje: number }) {
-  const simbolo = useContext(SimboloContext);
-
-  return (
-    <div
-      style={{
-        marginBottom: 16,
-        padding: '12px 16px',
-        borderRadius: 12,
-        background: valor >= 0 ? '#edf6f0' : '#fef2f2',
-        border: `1px solid ${valor >= 0 ? '#cfe5d6' : '#fecaca'}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 8,
-      }}
-    >
-      <strong style={{ color: COLORES.azul, fontSize: 14 }}>= {titulo}</strong>
-      <span style={{ fontWeight: 800, fontSize: 16, color: valor >= 0 ? COLORES.verde : '#dc2626', whiteSpace: 'nowrap' }}>
-        {simbolo} {formatearNumeroEntero(valor)}
-        <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 700, color: COLORES.gris }}>{porcentaje.toFixed(1)}%</span>
-      </span>
-    </div>
-  );
-}
-
-function SeccionResultado({
-  titulo,
-  emoji,
-  filas,
-  total,
-  color,
-  resta = false,
-  soloTotal = false,
-}: {
-  titulo: string;
-  emoji: string;
-  filas: { cuenta: CuentaPlan; saldoFinal: number }[];
-  total: number;
-  color: string;
-  resta?: boolean;
-  // Vista simplificada: solo el encabezado con el total, sin el detalle por cuenta.
-  soloTotal?: boolean;
-}) {
-  const simbolo = useContext(SimboloContext);
-  const idioma = useContext(IdiomaContext);
-  const t = crearTraductor(diccionarioInformes, idioma);
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 14px',
-          background: '#f8fafc',
-          borderRadius: soloTotal ? 10 : '10px 10px 0 0',
-          border: '1px solid #e5e7eb',
-          borderBottom: soloTotal ? '1px solid #e5e7eb' : 'none',
-          gap: 12,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        <strong style={{ color: COLORES.azul, fontSize: 13, whiteSpace: 'nowrap' }}>
-          {emoji} {titulo}
-        </strong>
-
-        <strong style={{ color, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
-        </strong>
-      </div>
-
-      {!soloTotal && (
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
-        {!filas.length ? (
-          <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
-            {t('sinMovimientoPeriodo')}
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            {filas.map((fila, indice) => (
-              <div
-                key={fila.cuenta.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '9px 14px',
-                  fontSize: 13,
-                  gap: 16,
-                  borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
-                }}
-              >
-                <span style={{ whiteSpace: 'nowrap' }}>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</span>
-                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      )}
-    </div>
-  );
-}
-
 /* ==========================================================
    PESTAÑA · FLUJO DE CAJA
 ========================================================== */
@@ -1450,8 +1224,6 @@ function FlujoDeCajaTab({
   const idioma = useContext(IdiomaContext);
   const esPT = idioma === 'PT';
   const t = crearTraductor(diccionarioInformes, idioma);
-  const [vista, setVista] = useVistaInforme();
-  const soloTotal = vista === 'SIMPLE';
   // "Cuenta de caja" = cualquier cuenta que sea de verdad un medio
   // financiero (está vinculada a una forma de pago activa), no una
   // adivinanza por el código del Plan de Cuentas — bancos agregados a
@@ -1559,13 +1331,6 @@ function FlujoDeCajaTab({
     [esFamiliar, asientos, nombresCaja, clasificar, periodo]
   );
 
-  // Igual que en Estado de Resultado: la tendencia mira todo el
-  // histórico, sin importar el período elegido arriba.
-  const tendenciaCaja = useMemo(
-    () => calcularTendenciaCaja(nombresCaja, asientos, idioma),
-    [nombresCaja, asientos, idioma]
-  );
-
   const tituloBloque: Record<BloqueFlujo, { emoji: string; actividades: string; flujo: string }> = {
     COMERCIAL: {
       emoji: '🛒',
@@ -1599,249 +1364,94 @@ function FlujoDeCajaTab({
     },
   };
 
-  return (
-    <div>
-      <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ maxWidth: 280, flex: 1, minWidth: 220 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-            {t('periodoLabel')}
-          </label>
+  // Entradas y salidas de todos los bloques en una sola lista (Familia ya trae las suyas, sin ahorro ni bienes).
+  const juntarTodo = (lado: 'entradas' | 'salidas') => {
+    const mapa = new Map<string, number>();
+    for (const b of BLOQUES_FLUJO) for (const f of flujo.bloques[b][lado]) mapa.set(f.nombre, (mapa.get(f.nombre) ?? 0) + f.valor);
+    return Array.from(mapa.entries()).map(([nombre, valor]) => ({ nombre, valor }));
+  };
+  const totalEntradas = esFamiliar ? familia.totalEntradas : flujo.totalEntradas;
+  const totalSalidas = esFamiliar ? familia.totalSalidas : flujo.totalSalidas;
+  const serie = useMemo(
+    () => serieFlujo(movimientosDeCaja(asientos, nombresCaja), (clave) => saldoAlCierreDePeriodo(cuentasCaja, asientos, clave)),
+    [asientos, nombresCaja, cuentasCaja]
+  );
+  const dinero = (n: number) => `${simbolo} ${formatearNumeroEntero(n)}`;
+  const netoBienes = flujo.bloques.BIENES.neto;
 
-          <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
-            <option value="TODOS">{t('todosLosPeriodos')}</option>
+  const filasResumen: FilaResumen[] = [
+    { etiqueta: esPT ? 'Saldo inicial' : 'Saldo inicial', valor: saldoInicial, signo: '' },
+    { etiqueta: esPT ? 'Total de entradas' : 'Total de entradas', valor: totalEntradas, signo: '+' },
+    { etiqueta: esPT ? 'Total de saídas' : 'Total de salidas', valor: totalSalidas, signo: '-' },
+    ...(esFamiliar ? [
+      { etiqueta: esPT ? 'Aportes líquidos a poupança e investimento' : 'Aportes netos a ahorro e inversión', valor: ahorradoNeto, signo: '-' as const },
+      ...(netoBienes !== 0 ? [{ etiqueta: esPT ? 'Compras menos vendas de bens' : 'Compras menos ventas de bienes', valor: -netoBienes, signo: '-' as const }] : []),
+    ] : []),
+    { etiqueta: esPT ? 'Saldo final' : 'Saldo final', valor: saldoFinal, signo: '', destacada: true },
+  ];
 
-            {periodos.map((p) => (
-              <option key={p.valor} value={p.valor}>
-                {p.etiqueta}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div
-          style={{
-            padding: '11px 18px',
-            borderRadius: 12,
-            background: 'linear-gradient(90deg, #edf6f0, #f7faf8)',
-            minWidth: 200,
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            {t('cajaDisponibleHoy')}
-          </div>
-
-          <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
-            {simbolo} {formatearNumeroEntero(saldoCajaActual)}
-          </div>
-        </div>
-
-        <ToggleVistaInforme vista={vista} onChange={setVista} esPT={esPT} />
-      </div>
-
-      <LineaSaldo titulo={esFamiliar ? (esPT ? 'Com quanto você começou (dinheiro disponível)' : 'Con cuánto arrancaste (plata disponible)') : esPT ? 'Saldo inicial (fechamento do mês anterior)' : 'Saldo inicial (cierre del mes anterior)'} valor={saldoInicial} />
-
-      {esFamiliar ? (
-        <>
-          <SeccionMontos titulo={t('entradasDeCaja')} emoji="⬇️" filas={filas(familia.entradas)} total={familia.totalEntradas} color={COLORES.verde} soloTotal={soloTotal} />
-          <SeccionMontos titulo={t('salidasDeCaja')} emoji="⬆️" filas={filas(familia.salidas)} total={familia.totalSalidas} color="#c2410c" resta soloTotal={soloTotal} />
-
-          <div style={{ marginTop: 8, marginBottom: 8 }}>
-            <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>{t('subtituloAhorroInversion')}</p>
-            <SeccionMontos titulo={esPT ? 'Você aplicou em poupança e investimentos' : 'Aportaste a ahorro e inversión'} emoji="🏦" filas={filas(flujo.bloques.INVERSION.salidas)} total={flujo.bloques.INVERSION.totalSalidas} color={COLORES.azul} resta soloTotal={soloTotal} />
-            <SeccionMontos titulo={esPT ? 'Você resgatou de poupança e investimentos' : 'Rescataste de ahorro e inversión'} emoji="🏦" filas={filas(flujo.bloques.INVERSION.entradas)} total={flujo.bloques.INVERSION.totalEntradas} color={COLORES.azul} soloTotal={soloTotal} />
-            <LineaSaldo
-              titulo={esPT ? '= Você poupou neste período' : '= Ahorraste en el período'}
-              valor={ahorradoNeto}
-              destacada
-            />
-            {tasaAhorro !== null && (
-              <p style={{ fontSize: 13, color: COLORES.azul, fontWeight: 700, margin: '0 2px 12px' }}>
-                {esPT ? 'Taxa de poupança' : 'Tasa de ahorro'}: {tasaAhorro.toFixed(1)}% {esPT ? 'da sua renda' : 'de tus ingresos'}
-              </p>
-            )}
-          </div>
-
-          {(flujo.bloques.BIENES.entradas.length > 0 || flujo.bloques.BIENES.salidas.length > 0) && (
-            <div style={{ marginTop: 8, marginBottom: 8 }}>
-              <p style={{ fontSize: 12, color: COLORES.gris, marginBottom: 10 }}>
-                {esPT ? 'Compras e vendas de bens e propriedades: não contam como poupança.' : 'Compras y ventas de bienes y propiedades: no cuentan como ahorro.'}
-              </p>
-              <SeccionMontos titulo={esPT ? 'Compras de bens' : 'Compras de bienes'} emoji="🏠" filas={filas(flujo.bloques.BIENES.salidas)} total={flujo.bloques.BIENES.totalSalidas} color="#c2410c" resta soloTotal={soloTotal} />
-              <SeccionMontos titulo={esPT ? 'Vendas de bens' : 'Ventas de bienes'} emoji="🏠" filas={filas(flujo.bloques.BIENES.entradas)} total={flujo.bloques.BIENES.totalEntradas} color={COLORES.verde} soloTotal={soloTotal} />
-            </div>
-          )}
-        </>
-      ) : (
-        BLOQUES_FLUJO.filter((b) => (b !== 'OTROS' && b !== 'BIENES') || flujo.bloques[b].entradas.length > 0 || flujo.bloques[b].salidas.length > 0).map((b) => {
-          const bloque = flujo.bloques[b];
-
-          return (
-            <div key={b} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: COLORES.azul, letterSpacing: 0.4, textTransform: 'uppercase', margin: '4px 2px 8px' }}>
-                {tituloBloque[b].emoji} {tituloBloque[b].actividades}
-              </div>
-
-              {!soloTotal && (
-                <>
-                  <SeccionMontos titulo={esPT ? 'Entradas' : 'Entradas'} emoji="⬇️" filas={filas(bloque.entradas)} total={bloque.totalEntradas} color={COLORES.verde} />
-                  <SeccionMontos titulo={esPT ? 'Saídas' : 'Salidas'} emoji="⬆️" filas={filas(bloque.salidas)} total={bloque.totalSalidas} color="#c2410c" resta />
-                </>
-              )}
-
-              <LineaSaldo titulo={`= ${tituloBloque[b].flujo}`} valor={bloque.neto} destacada />
-            </div>
-          );
-        })
-      )}
-
-      <div
-        style={{
-          marginTop: 18,
-          padding: '18px 20px',
-          borderRadius: 16,
-          background: flujoNeto >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
-        }}
-      >
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-          {msgFlujoNetoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))}
-        </div>
-
-        <div style={{ fontSize: 24, fontWeight: 800, color: flujoNeto >= 0 ? COLORES.verde : '#dc2626' }}>
-          {simbolo} {formatearNumeroEntero(flujoNeto)}
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <LineaSaldo titulo={esFamiliar ? (esPT ? 'Com quanto você fecha (dinheiro disponível)' : 'Con cuánto cerrás (plata disponible)') : esPT ? 'Saldo final (saldo inicial + fluxo líquido)' : 'Saldo final (saldo inicial + flujo neto)'} valor={saldoFinal} destacada />
-      </div>
-
-      {esFamiliar && (
-        <div style={{ marginTop: 12 }}>
-          <LineaSaldo titulo={esPT ? 'Poupança e investimentos — início do período' : 'Ahorros e inversiones — inicio del período'} valor={ahorroInicial} />
-          <LineaSaldo titulo={esPT ? 'Poupança e investimentos — fim do período' : 'Ahorros e inversiones — cierre del período'} valor={ahorroFinal} />
-          <LineaSaldo titulo={esPT ? 'Dinheiro líquido total (disponível + poupança)' : 'Plata líquida total (disponible + ahorros)'} valor={saldoFinal + ahorroFinal} destacada />
-        </div>
-      )}
-
-      {empresaId && !esTodos && (
-        <SaldoDeseado empresaId={empresaId} periodo={periodo} saldoFinal={saldoFinal} esPT={esPT} esFamiliar={esFamiliar} sugerido={colchonSugerido} />
-      )}
-
-      <SeccionTendencia titulo={t('tendenciaCajaTitulo')} datos={tendenciaCaja} idioma={idioma} />
+  const fila = (etiqueta: string, valor: number, destacada = false) => (
+    <div key={etiqueta} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13.5, fontWeight: destacada ? 800 : 500, padding: destacada ? '8px 10px' : 0, borderRadius: 10, background: destacada ? '#dbeafe' : 'transparent' }}>
+      <span>{etiqueta}</span>
+      <span style={{ whiteSpace: 'nowrap', color: valor < 0 ? '#dc2626' : COLORES.azul }}>{dinero(valor)}</span>
     </div>
   );
-}
 
-// Flujo neto de caja (entradas - salidas) de cada mes: la misma definición del
-// informe, así la tendencia coincide con el flujo neto de cada período.
-function calcularTendenciaCaja(nombresCaja: Set<string>, asientos: Asiento[], idioma: string | null) {
-  const claves = Array.from(new Set(asientos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
-  const porMes = new Map<string, number>();
-
-  for (const m of movimientosDeCaja(asientos, nombresCaja)) {
-    const clave = m.fecha.slice(0, 7);
-    porMes.set(clave, (porMes.get(clave) ?? 0) + (m.entrada ? m.importe : -m.importe));
-  }
-
-  return claves.map((clave) => ({ clave, etiqueta: formatearPeriodoCorto(clave, idioma), valor: porMes.get(clave) ?? 0 }));
-}
-
-// Agrupa una lista de asientos por el nombre de la cuenta "contraparte"
-// (la otra punta del asiento), sumando importes iguales.
-function agruparPorContraparte(
-  lista: Asiento[],
-  contraparte: (a: Asiento) => string | null,
-  idioma: string | null
-) {
-  const mapa = new Map<string, number>();
-
-  for (const asiento of lista) {
-    const clave = contraparte(asiento) || '__OTRO__';
-    mapa.set(clave, (mapa.get(clave) ?? 0) + asiento.importe);
-  }
-
-  const t = crearTraductor(diccionarioInformes, idioma);
-
-  return Array.from(mapa.entries())
-    .map(([nombre, valor]) => ({ nombre: nombre === '__OTRO__' ? t('otro') : nombre, valor }))
-    .sort((a, b) => b.valor - a.valor);
-}
-
-function SeccionMontos({
-  titulo,
-  emoji,
-  filas,
-  total,
-  color,
-  resta = false,
-  soloTotal = false,
-}: {
-  titulo: string;
-  emoji: string;
-  filas: { nombre: string; valor: number }[];
-  total: number;
-  color: string;
-  resta?: boolean;
-  // Vista simplificada: solo el encabezado con el total, sin el detalle por cuenta.
-  soloTotal?: boolean;
-}) {
-  const simbolo = useContext(SimboloContext);
-  const idioma = useContext(IdiomaContext);
-  const t = crearTraductor(diccionarioInformes, idioma);
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 14px',
-          background: '#f8fafc',
-          borderRadius: soloTotal ? 10 : '10px 10px 0 0',
-          border: '1px solid #e5e7eb',
-          borderBottom: soloTotal ? '1px solid #e5e7eb' : 'none',
-          gap: 12,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        <strong style={{ color: COLORES.azul, fontSize: 13, whiteSpace: 'nowrap' }}>
-          {emoji} {titulo}
-        </strong>
-
-        <strong style={{ color, fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {resta ? '− ' : ''}{simbolo} {formatearNumeroEntero(total)}
-        </strong>
-      </div>
-
-      {!soloTotal && (
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
-        {!filas.length ? (
-          <div style={{ padding: 16, textAlign: 'center', color: COLORES.gris, fontSize: 13 }}>
-            {t('sinMovimientoPeriodo')}
+  const extras = (
+    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', marginBottom: 14 }}>
+      {esFamiliar ? (
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <img className="dre-sabio-tarjeta" src="/sabio/sabio-alcancia.webp" alt="" style={{ height: 96, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+          <div style={{ flex: 1, display: 'grid', gap: 6 }}>
+            <div style={{ fontWeight: 800, color: COLORES.azul, fontSize: 16 }}>🏦 {esPT ? 'Poupança e investimento' : 'Ahorro e inversión'}</div>
+            {fila(esPT ? 'Você aplicou' : 'Aportaste', flujo.bloques.INVERSION.totalSalidas)}
+            {fila(esPT ? 'Você resgatou' : 'Rescataste', flujo.bloques.INVERSION.totalEntradas)}
+            {fila(esPT ? '= Você poupou neste período' : '= Ahorraste en el período', ahorradoNeto, true)}
+            {tasaAhorro !== null && <div style={{ fontSize: 12.5, color: COLORES.azul, fontWeight: 700 }}>{esPT ? 'Taxa de poupança' : 'Tasa de ahorro'}: {tasaAhorro.toFixed(1)}% {esPT ? 'da sua renda' : 'de tus ingresos'}</div>}
+            {fila(esPT ? 'Poupança — início do período' : 'Ahorros — inicio del período', ahorroInicial)}
+            {fila(esPT ? 'Poupança — fim do período' : 'Ahorros — cierre del período', ahorroFinal)}
+            {fila(esPT ? 'Dinheiro líquido total (disponível + poupança)' : 'Plata líquida total (disponible + ahorros)', saldoFinal + ahorroFinal, true)}
           </div>
-        ) : (
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            {filas.map((fila, indice) => (
-              <div
-                key={fila.nombre}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '9px 14px',
-                  fontSize: 13,
-                  gap: 16,
-                  borderTop: indice === 0 ? 'none' : '1px solid #f1f5f9',
-                }}
-              >
-                <span style={{ whiteSpace: 'nowrap' }}>{nombreCuentaDisplay(idioma, fila.nombre)}</span>
-                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(fila.valor)}</span>
-              </div>
-            ))}
+        </div>
+      ) : (
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14 }}>
+          <div style={{ fontWeight: 800, color: COLORES.azul, fontSize: 16, marginBottom: 8 }}>⚙️ {esPT ? 'Fluxo por atividade' : 'Flujo por actividad'}</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {BLOQUES_FLUJO.filter((b) => (b !== 'OTROS' && b !== 'BIENES') || flujo.bloques[b].entradas.length > 0 || flujo.bloques[b].salidas.length > 0).map((b) => fila(`${tituloBloque[b].emoji} ${tituloBloque[b].flujo}`, flujo.bloques[b].neto))}
           </div>
-        )}
-      </div>
+        </div>
       )}
+      {empresaId && !esTodos && (
+        <div style={{ minWidth: 0 }}>
+          <SaldoDeseado empresaId={empresaId} periodo={periodo} saldoFinal={saldoFinal} esPT={esPT} esFamiliar={esFamiliar} sugerido={colchonSugerido} />
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div id="informe-imprimible">
+      <FlujoVisual
+        pt={esPT}
+        esFamiliar={esFamiliar}
+        simbolo={simbolo}
+        periodos={periodos}
+        periodo={periodo}
+        onPeriodo={setPeriodo}
+        etiquetaPeriodo={esTodos ? t('todosLosPeriodos') : formatearPeriodo(periodo, idioma)}
+        cajaHoy={saldoCajaActual}
+        saldoInicial={saldoInicial}
+        entradas={totalEntradas}
+        salidas={totalSalidas}
+        saldoFinal={saldoFinal}
+        neto={flujoNeto}
+        serie={serie}
+        etiquetaMes={(clave) => formatearPeriodoCorto(clave, idioma)}
+        filasEntradas={filas(esFamiliar ? familia.entradas : juntarTodo('entradas'))}
+        filasSalidas={filas(esFamiliar ? familia.salidas : juntarTodo('salidas'))}
+        filasResumen={filasResumen}
+        extras={extras}
+      />
     </div>
   );
 }
