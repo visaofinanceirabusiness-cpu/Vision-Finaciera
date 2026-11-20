@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import {
   EVENTO_PERIODO_CAMBIO,
   bloquearPeriodos,
@@ -43,9 +44,16 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar }: { emp
   const [trabajando, setTrabajando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [, setReloj] = useState(0);
+  const [ejercicios, setEjercicios] = useState<Array<{ ejercicio: number; asientos: number }>>([]);
   const hoy = hoyLocalCierre();
 
-  const cargar = useCallback(async () => setSituacion(await cargarSituacionCierre(empresaId)), [empresaId]);
+  const cargar = useCallback(async () => {
+    setSituacion(await cargarSituacionCierre(empresaId));
+    const { data } = await supabase.from('asientos_cierre').select('ejercicio').eq('empresa_id', empresaId);
+    const cuenta = new Map<number, number>();
+    for (const f of data ?? []) cuenta.set(f.ejercicio as number, (cuenta.get(f.ejercicio as number) ?? 0) + 1);
+    setEjercicios([...cuenta].map(([ejercicio, asientos]) => ({ ejercicio, asientos })).sort((a, b) => b.ejercicio - a.ejercicio));
+  }, [empresaId]);
   useEffect(() => {
     void cargar();
     const r = setInterval(() => {
@@ -155,6 +163,25 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar }: { emp
           </div>
         );
       })}
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 14, background: '#fff' }}>
+        <strong>{pt ? 'Fechamento anual (31/12)' : 'Cierre anual (31/12)'}</strong>
+        <div style={{ color: '#6b7280', fontSize: 13, margin: '4px 0 8px' }}>
+          {pt
+            ? 'Automático: depois que dezembro fecha (a partir de 6/1) o sistema gera os lançamentos que levam o resultado do ano para Resultados Acumulados. O ano fechado não pode mais ser reaberto por você.'
+            : 'Automático: cuando diciembre queda cerrado (desde el 6/1) el sistema genera los asientos que llevan el resultado del año a Resultados Acumulados. Un año cerrado ya no lo podés reabrir vos.'}
+        </div>
+        {ejercicios.length === 0 ? (
+          <span style={{ color: '#6b7280', fontSize: 13 }}>{pt ? 'Nenhum exercício fechado ainda.' : 'Todavía no hay ejercicios cerrados.'}</span>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {ejercicios.map((e) => (
+              <span key={e.ejercicio} style={{ background: '#ede9fe', color: '#5b21b6', borderRadius: 999, padding: '3px 12px', fontSize: 13, fontWeight: 700 }}>
+                🔒 {e.ejercicio} · {e.asientos} {pt ? 'lançamentos' : 'asientos'}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
       {mensaje && <div style={{ color: '#991b1b', fontWeight: 600 }}>{mensaje}</div>}
     </div>
   );
