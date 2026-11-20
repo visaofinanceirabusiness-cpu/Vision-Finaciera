@@ -28,6 +28,7 @@ import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { ResultadoPorNaturaleza } from '@/components/informes/ResultadoPorNaturaleza';
 import { DreVisual } from '@/components/informes/DreVisual';
+import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
 import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -943,7 +944,7 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
   const aFilas = (filas: { cuenta: CuentaPlan; saldoFinal: number }[]) => filas.map((f) => ({ nombre: nombreCuentaDisplay(idioma, f.cuenta.nombre), valor: f.saldoFinal }));
 
   return (
-    <div id="dre-imprimible">
+    <div id="informe-imprimible">
       <DreVisual
         pt={esPT}
         esFamiliar={esFamiliar}
@@ -1941,7 +1942,7 @@ function SeccionMontos({
 function BalancePatrimonialTab({
   cuentas,
   hojas,
-  asientos,
+  asientos: asientosTodos,
 }: {
   cuentas: CuentaPlan[];
   hojas: CuentaPlan[];
@@ -1951,6 +1952,12 @@ function BalancePatrimonialTab({
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
   const [mostrarCeros, setMostrarCeros] = useState(false);
+  const [nivel, setNivel] = useVistaInforme();
+  const esPT = idioma === 'PT';
+  // El balance es una foto a una fecha: se acumula todo hasta el cierre del mes elegido.
+  const periodos = useMemo(() => obtenerPeriodos(asientosTodos, idioma), [asientosTodos, idioma]);
+  const [periodo, setPeriodo] = useState(mesEnCurso());
+  const asientos = useMemo(() => asientosTodos.filter((a) => a.fecha.slice(0, 7) <= periodo), [asientosTodos, periodo]);
 
   // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
   // (ej. "Caja"/"PIX" bajo "ATIVO CIRCULANTE"), para mostrar el balance
@@ -2025,106 +2032,62 @@ function BalancePatrimonialTab({
   const totalPasivoYPatrimonio = pasivo.total + totalPatrimonioConResultado;
   const diferencia = activo.total - totalPasivoYPatrimonio;
 
+  const soloGrupos = nivel === 'SIMPLE';
+  const cierra = Math.abs(diferencia) < 0.01;
+  const totalGrupo = (grupos: Map<string, { saldoFinal: number }[]>) => Array.from(grupos.entries()).map(([nombre, filas]) => ({ nombre: nombreCuentaDisplay(idioma, nombre), valor: filas.reduce((acc, f) => acc + f.saldoFinal, 0) }));
+
   return (
-    <div>
-      <div
-        style={{
-          marginBottom: 18,
-          padding: '18px 20px',
-          borderRadius: 16,
-          background: resultadoDelEjercicio >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            {t('resultadoEjercicioSinCerrar')}
+    <div id="informe-imprimible">
+      <BalanceVisual
+        pt={esPT}
+        simbolo={simbolo}
+        periodos={periodos}
+        periodo={periodo}
+        onPeriodo={setPeriodo}
+        selectorVista={<ToggleVistaInforme vista={nivel} onChange={setNivel} esPT={esPT} />}
+        totales={{ activo: activo.total, pasivo: pasivo.total, patrimonio: totalPatrimonioConResultado, resultado: resultadoDelEjercicio }}
+        gruposActivo={totalGrupo(activo.grupos)}
+        activoNode={<BloqueBalance titulo={t('activoTitulo')} emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} soloGrupos={soloGrupos} />}
+        pasivoNode={
+          <div>
+            <BloqueBalance titulo={t('pasivoTitulo')} emoji="💗" grupos={pasivo.grupos} total={pasivo.total} color="#b91c1c" soloGrupos={soloGrupos} />
+
+            <div style={{ height: 14 }} />
+
+            <BloqueBalance
+              titulo={t('patrimonioTitulo')}
+              emoji="💙"
+              grupos={patrimonio.grupos}
+              total={patrimonio.total}
+              color={COLORES.azul}
+              filaExtra={{ nombre: t('resultadoEjercicioNoCerrado'), valor: resultadoDelEjercicio }}
+              soloGrupos={soloGrupos}
+            />
           </div>
-
-          <div
-            style={{
-              fontSize: 26,
-              fontWeight: 800,
-              color: resultadoDelEjercicio >= 0 ? COLORES.verde : '#dc2626',
-            }}
-          >
-            {simbolo} {formatearNumeroEntero(resultadoDelEjercicio)}
-          </div>
-        </div>
-
-        <p style={{ margin: 0, maxWidth: 280, fontSize: 12, color: COLORES.gris }}>
-          {t('resultadoEjercicioDescripcion')}
-        </p>
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <BotonToggle
-          activo={mostrarCeros}
-          onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo={t('ocultarCerosEnCero')}
-          etiquetaInactivo={t('mostrarCerosEnCero')}
-        />
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          // min(340px, 100%) en vez de 340px a secas: si el ancho
-          // disponible es menor a 340px (celular en vertical), la
-          // columna se achica a ese 100% en vez de forzar que toda la
-          // grilla se salga de la pantalla sin ninguna forma de
-          // deslizarla -- eso era lo que dejaba "clavado" el bloque
-          // aunque las filas de adentro ya tuvieran su propio scroll.
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
-          gap: 18,
-        }}
-      >
-        <BloqueBalance titulo={t('activoTitulo')} emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} />
-
-        <div>
-          <BloqueBalance titulo={t('pasivoTitulo')} emoji="💗" grupos={pasivo.grupos} total={pasivo.total} color="#b91c1c" />
-
-          <div style={{ height: 14 }} />
-
-          <BloqueBalance
-            titulo={t('patrimonioTitulo')}
-            emoji="💙"
-            grupos={patrimonio.grupos}
-            total={patrimonio.total}
-            color={COLORES.azul}
-            filaExtra={{ nombre: t('resultadoEjercicioNoCerrado'), valor: resultadoDelEjercicio }}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: 18,
-          padding: '12px 16px',
-          borderRadius: 12,
-          fontSize: 13,
-          fontWeight: 700,
-          background: Math.abs(diferencia) < 0.01 ? '#eaf7ee' : '#fef2f2',
-          color: Math.abs(diferencia) < 0.01 ? '#247347' : '#dc2626',
-        }}
-      >
-        {Math.abs(diferencia) < 0.01
-          ? msgEcuacionCierra(
-              idioma,
-              `${simbolo} ${formatearNumeroEntero(activo.total)}`,
-              `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`
-            )
-          : msgEcuacionNoCierra(
-              idioma,
-              `${simbolo} ${formatearNumeroEntero(diferencia)}`,
-              `${simbolo} ${formatearNumeroEntero(activo.total)}`,
-              `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`
-            )}
-      </div>
+        }
+        pie={
+          <>
+            <div style={{ marginBottom: 12 }} className="dre-no-imprimir">
+              <BotonToggle activo={mostrarCeros} onClick={() => setMostrarCeros((actual) => !actual)} etiquetaActivo={t('ocultarCerosEnCero')} etiquetaInactivo={t('mostrarCerosEnCero')} />
+            </div>
+            <div
+              style={{
+                padding: '12px 16px',
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 700,
+                background: cierra ? '#eaf7ee' : '#fef2f2',
+                color: cierra ? '#247347' : '#dc2626',
+              }}
+            >
+              {cierra
+                ? msgEcuacionCierra(idioma, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)
+                : msgEcuacionNoCierra(idioma, `${simbolo} ${formatearNumeroEntero(diferencia)}`, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)}
+              {cierra && <span style={{ marginLeft: 10 }}>✓ {esPT ? 'Balanço em equilíbrio!' : '¡Balance en equilibrio!'}</span>}
+            </div>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -2136,6 +2099,7 @@ function BloqueBalance({
   total,
   color,
   filaExtra,
+  soloGrupos = false,
 }: {
   titulo: string;
   emoji: string;
@@ -2143,7 +2107,11 @@ function BloqueBalance({
   total: number;
   color: string;
   filaExtra?: { nombre: string; valor: number };
+  // Vista simplificada: solo cada grupo con su subtotal, sin las cuentas.
+  soloGrupos?: boolean;
 }) {
+  const [cerrados, setCerrados] = useState<Set<string>>(new Set());
+  const alternar = (grupo: string) => setCerrados((previo) => { const n = new Set(previo); if (n.has(grupo)) n.delete(grupo); else n.add(grupo); return n; });
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
   const t = crearTraductor(diccionarioInformes, idioma);
@@ -2180,11 +2148,17 @@ function BloqueBalance({
       <div style={{ padding: '4px 0', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {entradas.map(([grupo, filas]) => (
           <div key={grupo} style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: COLORES.gris, marginBottom: 4, whiteSpace: 'nowrap' }}>
-              {nombreCuentaDisplay(idioma, grupo).toUpperCase()}
-            </div>
+            <button
+              type="button"
+              onClick={() => alternar(grupo)}
+              aria-expanded={!soloGrupos && !cerrados.has(grupo)}
+              style={{ display: 'flex', justifyContent: 'space-between', gap: 16, width: '100%', border: 'none', background: 'none', padding: 0, marginBottom: 4, cursor: 'pointer', fontSize: 13, fontWeight: 800, color: COLORES.azul, textAlign: 'left' }}
+            >
+              <span style={{ whiteSpace: 'nowrap' }}>{soloGrupos || cerrados.has(grupo) ? '▸' : '▾'} {nombreCuentaDisplay(idioma, grupo)}</span>
+              <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{simbolo} {formatearNumeroEntero(filas.reduce((acc, f) => acc + f.saldoFinal, 0))}</span>
+            </button>
 
-            {filas.map((fila) => (
+            {!soloGrupos && !cerrados.has(grupo) && filas.map((fila) => (
               <div
                 key={fila.cuenta.id}
                 style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0', gap: 16 }}

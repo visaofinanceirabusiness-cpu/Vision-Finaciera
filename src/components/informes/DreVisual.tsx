@@ -12,7 +12,7 @@ const COL = {
   verde: 'var(--color-secundario, #2e7d4f)',
   gris: '#6b7280',
 };
-const PALETA_TORTA = ['#2563eb', '#22c55e', '#f59e0b', '#8b5cf6'];
+export const PALETA_TORTA = ['#2563eb', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 export type TotalesDre = { ingresos: number; costos: number; gastos: number; resultadoBruto: number; resultado: number };
 
@@ -68,17 +68,7 @@ export function DreVisual(p: PropsDreVisual) {
 
   return (
     <div>
-      <style>{`
-        @media print {
-          @page { size: A4; margin: 10mm; }
-          body * { visibility: hidden !important; }
-          #dre-imprimible, #dre-imprimible * { visibility: visible !important; }
-          #dre-imprimible { position: absolute; left: 0; top: 0; width: 100%; }
-          .dre-no-imprimir { display: none !important; }
-          #dre-imprimible { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-        @media (max-width: 560px) { .dre-sabio-tarjeta { display: none !important; } }
-      `}</style>
+      <EstiloImpresion />
 
       <div style={{ fontSize: 12.5, color: COL.gris, marginBottom: 6 }}>
         {pt ? 'Relatórios' : 'Informes'} › <strong style={{ color: COL.azul }}>{titulo}</strong>
@@ -105,13 +95,7 @@ export function DreVisual(p: PropsDreVisual) {
             </select>
           </div>
           {p.selectorVista}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            style={{ border: '1px solid #d1d5db', background: '#fff', color: COL.azul, borderRadius: 12, padding: '9px 14px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
-          >
-            ⬇ {pt ? 'Exportar PDF' : 'Exportar PDF'}
-          </button>
+          <BotonExportarPdf pt={pt} />
         </div>
       </div>
 
@@ -194,7 +178,7 @@ export function DreVisual(p: PropsDreVisual) {
   );
 }
 
-function Tarjeta({ titulo, sub, children }: { titulo: string; sub?: string; children: React.ReactNode }) {
+export function Tarjeta({ titulo, sub, children }: { titulo: string; sub?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 18, padding: 14 }}>
       <div style={{ fontWeight: 800, color: COL.azul, fontSize: 16, marginBottom: 8 }}>
@@ -229,7 +213,7 @@ function GraficoBarras({ datos, resaltar, dinero, pt }: { datos: { clave: string
   );
 }
 
-function Torta({ trozos, total, pt }: { trozos: { nombre: string; valor: number; pct: number }[]; total: string; pt: boolean }) {
+export function Torta({ trozos, total, pt, etiquetaTotal }: { trozos: { nombre: string; valor: number; pct: number }[]; total: string; pt: boolean; etiquetaTotal?: string }) {
   if (trozos.length === 0) return <div style={{ color: COL.gris, fontSize: 13 }}>{pt ? 'Sem saídas no período.' : 'Sin salidas en el período.'}</div>;
   const r = 52, c = 2 * Math.PI * r;
   let acumulado = 0;
@@ -245,7 +229,7 @@ function Torta({ trozos, total, pt }: { trozos: { nombre: string; valor: number;
           })}
         </g>
         <text x="70" y="66" textAnchor="middle" fontSize="11" fontWeight="800" fill="#1f3a5f">{total}</text>
-        <text x="70" y="80" textAnchor="middle" fontSize="8.5" fill="#6b7280">{pt ? 'Total de Saídas' : 'Total de Salidas'}</text>
+        <text x="70" y="80" textAnchor="middle" fontSize="8.5" fill="#6b7280">{etiquetaTotal ?? (pt ? 'Total de Saídas' : 'Total de Salidas')}</text>
       </svg>
       <div style={{ display: 'grid', gap: 6, fontSize: 13, minWidth: 0, flex: 1 }}>
         {trozos.map((t, i) => (
@@ -295,5 +279,34 @@ function TopCuentas({ titulo, filas, color, dinero, pt, verTodas }: { titulo: st
         </span>
       </div>
     </div>
+  );
+}
+
+// Al imprimir (Exportar PDF) solo queda el informe: se esconde el resto de la pantalla (menú, cabecera, botones).
+export function EstiloImpresion() {
+  return (
+    <style>{`
+      @media print {
+        @page { size: A4; margin: 10mm; }
+        body * { visibility: hidden !important; }
+        #informe-imprimible, #informe-imprimible * { visibility: visible !important; }
+        #informe-imprimible { position: absolute; left: 0; top: 0; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .dre-no-imprimir { display: none !important; }
+      }
+      @media (max-width: 560px) { .dre-sabio-tarjeta { display: none !important; } }
+    `}</style>
+  );
+}
+
+export function BotonExportarPdf({ pt }: { pt: boolean }) {
+  return (
+    <button
+      type="button"
+      className="dre-no-imprimir"
+      onClick={() => window.print()}
+      style={{ border: '1px solid #d1d5db', background: '#fff', color: COL.azul, borderRadius: 12, padding: '9px 14px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+    >
+      ⬇ {pt ? 'Exportar PDF' : 'Exportar PDF'}
+    </button>
   );
 }
