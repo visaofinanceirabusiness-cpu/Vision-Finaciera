@@ -36,6 +36,7 @@ import {
 import { coincideBusqueda, coincideGrupoTipo, estiloDeOperacion, ultimosTresDias, type GrupoTipo, type ResumenDia } from '@/lib/libroDiario';
 import { EVENTO_MINIJUEGO_CERRADO, abrirMiniJuego } from '@/lib/miniJuegoEvento';
 import { fechaLocalHoy } from '@/lib/fecha';
+import { AsientosDeCierre } from '@/components/cierres/AsientosDeCierre';
 
 type MovimientoDiario = {
   empresa_id: string;
@@ -411,6 +412,8 @@ export function LibroDiarioTab() {
             {hayBusqueda && <span style={{ fontSize: 14, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '6px 12px', fontWeight: 700 }}>🔎 {esPT ? 'Buscando em todo o histórico' : 'Buscando en todo el historial'}</span>}
           </div>
         </div>
+
+        {empresaId && <AsientosDeCierre empresaId={empresaId} idioma={idioma ?? 'ES'} />}
 
         {cargando ? (
           <p style={{ fontSize: 16 }}>{t('cargandoLibroDiario')}</p>

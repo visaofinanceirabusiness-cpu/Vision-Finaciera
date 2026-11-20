@@ -98,6 +98,7 @@ export default function InformesPage() {
   // Asientos de cierre del ejercicio (31/12): solo los usan las pestañas acumuladas (Balance, Mayor, Sumas y Saldos). El Estado de Resultado
   // y el Flujo de Caja no los reciben: si no, cada año cerrado mostraría ingresos y gastos en cero.
   const [cierres, setCierres] = useState<Asiento[]>([]);
+  const [ejerciciosCerrados, setEjerciciosCerrados] = useState<Array<{ ejercicio: number; esPrueba: boolean }>>([]);
   const asientosConCierre = useMemo(() => [...asientos, ...cierres], [asientos, cierres]);
   const [nombresMedioFinanciero, setNombresMedioFinanciero] = useState<Set<string>>(new Set());
   const [nombresPorCobrar, setNombresPorCobrar] = useState<Set<string>>(new Set());
@@ -220,7 +221,7 @@ export default function InformesPage() {
           .eq('empresa_id', perfil.empresa_id)
           .eq('activo', true),
 
-        supabase.from('asientos_cierre').select('id_cierre, fecha, historico, cuenta_debito, cuenta_credito, importe').eq('empresa_id', perfil.empresa_id),
+        supabase.from('asientos_cierre').select('id_cierre, ejercicio, fecha, historico, cuenta_debito, cuenta_credito, importe, es_prueba').eq('empresa_id', perfil.empresa_id),
       ]);
 
       if (errorCuentas) console.warn('No se pudo cargar el plan de cuentas:', errorCuentas);
@@ -278,6 +279,9 @@ export default function InformesPage() {
       }));
 
       setAsientos([...asientosOperaciones, ...asientosAutomaticos]);
+      setEjerciciosCerrados(
+        [...new Map((cierresData ?? []).map((f) => [f.ejercicio as number, { ejercicio: f.ejercicio as number, esPrueba: Boolean(f.es_prueba) }])).values()].sort((a, b) => b.ejercicio - a.ejercicio)
+      );
       setCierres(
         (cierresData ?? []).map((fila) => ({
           id_operacion: fila.id_cierre,
@@ -386,6 +390,20 @@ export default function InformesPage() {
           </div>
 
           {error && <div style={errorStyle}>{error}</div>}
+
+          {ejerciciosCerrados.length > 0 && (pestana === 'balance' || pestana === 'mayor' || pestana === 'sumas') && (
+            <div style={{ border: '1px solid #ddd6fe', background: '#faf5ff', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#4c1d95' }}>
+              🔒{' '}
+              {idioma === 'PT'
+                ? `Exercício${ejerciciosCerrados.length > 1 ? 's' : ''} ${ejerciciosCerrados.map((e) => e.ejercicio).join(', ')} fechado${ejerciciosCerrados.length > 1 ? 's' : ''} em 31/12: o resultado de cada ano já está em Resultados Acumulados e as contas de resultado ficam em zero nesta aba. O Demonstrativo de Resultado continua mostrando os valores reais de cada ano.`
+                : `Ejercicio${ejerciciosCerrados.length > 1 ? 's' : ''} ${ejerciciosCerrados.map((e) => e.ejercicio).join(', ')} cerrado${ejerciciosCerrados.length > 1 ? 's' : ''} el 31/12: el resultado de cada año ya está en Resultados Acumulados y las cuentas de resultado quedan en cero en esta pestaña. El Estado de Resultado sigue mostrando las cifras reales de cada año.`}
+              {ejerciciosCerrados.some((e) => e.esPrueba) && (
+                <strong style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '2px 10px' }}>
+                  {idioma === 'PT' ? 'TESTE — empresa demo' : 'PRUEBA — empresa demo'}
+                </strong>
+              )}
+            </div>
+          )}
 
           {bloqueada(pestana) ? (
             <div style={{ ...cargandoStyle, fontSize: 16 }}>

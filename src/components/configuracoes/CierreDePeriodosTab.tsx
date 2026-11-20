@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { AsientosDeCierre } from '@/components/cierres/AsientosDeCierre';
 import {
   EVENTO_PERIODO_CAMBIO,
   bloquearPeriodos,
@@ -44,11 +45,14 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar, sinClav
   const [trabajando, setTrabajando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [, setReloj] = useState(0);
+  const [esPrueba, setEsPrueba] = useState(false);
   const [ejercicios, setEjercicios] = useState<Array<{ ejercicio: number; asientos: number }>>([]);
   const hoy = hoyLocalCierre();
 
   const cargar = useCallback(async () => {
     setSituacion(await cargarSituacionCierre(empresaId));
+    const { data: emp } = await supabase.from('empresas').select('cierre_es_prueba').eq('id', empresaId).maybeSingle();
+    setEsPrueba(Boolean(emp?.cierre_es_prueba));
     const { data } = await supabase.from('asientos_cierre').select('ejercicio').eq('empresa_id', empresaId);
     const cuenta = new Map<number, number>();
     for (const f of data ?? []) cuenta.set(f.ejercicio as number, (cuenta.get(f.ejercicio as number) ?? 0) + 1);
@@ -102,6 +106,13 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar, sinClav
 
   return (
     <div style={{ display: 'grid', gap: 14, maxWidth: 760 }}>
+      {esPrueba && (
+        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 12, padding: '10px 14px', fontWeight: 700, fontSize: 14 }}>
+          {pt
+            ? 'TESTE — empresa demo: os fechamentos daqui servem para provar o sistema. O fechamento verdadeiro é o dos clientes reais.'
+            : 'PRUEBA — empresa demo: los cierres de acá sirven para probar el sistema. El cierre verdadero es el de los clientes reales.'}
+        </div>
+      )}
       <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>
         {pt
           ? 'Cada mês fecha sozinho ao terminar: no dia 1 já está fechado. Durante os 5 primeiros dias do mês seguinte você pode reabri-lo com a sua senha, lançar o que falta e ele volta a bloquear sozinho quando fechar o app. Depois dos 5 dias só se reabre falando com o desenvolvedor.'
@@ -170,18 +181,9 @@ export function CierreDePeriodosTab({ empresaId, idioma, puedeHabilitar, sinClav
             ? 'Automático: depois que dezembro fecha (a partir de 6/1) o sistema gera os lançamentos que levam o resultado do ano para Resultados Acumulados. O ano fechado não pode mais ser reaberto por você.'
             : 'Automático: cuando diciembre queda cerrado (desde el 6/1) el sistema genera los asientos que llevan el resultado del año a Resultados Acumulados. Un año cerrado ya no lo podés reabrir vos.'}
         </div>
-        {ejercicios.length === 0 ? (
-          <span style={{ color: '#6b7280', fontSize: 13 }}>{pt ? 'Nenhum exercício fechado ainda.' : 'Todavía no hay ejercicios cerrados.'}</span>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {ejercicios.map((e) => (
-              <span key={e.ejercicio} style={{ background: '#ede9fe', color: '#5b21b6', borderRadius: 999, padding: '3px 12px', fontSize: 13, fontWeight: 700 }}>
-                🔒 {e.ejercicio} · {e.asientos} {pt ? 'lançamentos' : 'asientos'}
-              </span>
-            ))}
-          </div>
-        )}
+        {ejercicios.length === 0 && <span style={{ color: '#6b7280', fontSize: 13 }}>{pt ? 'Nenhum exercício fechado ainda.' : 'Todavía no hay ejercicios cerrados.'}</span>}
       </div>
+      <AsientosDeCierre empresaId={empresaId} idioma={idioma} titulo={false} />
       {mensaje && <div style={{ color: '#991b1b', fontWeight: 600 }}>{mensaje}</div>}
     </div>
   );

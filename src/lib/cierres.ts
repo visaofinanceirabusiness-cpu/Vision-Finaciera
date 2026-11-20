@@ -113,3 +113,29 @@ export function marcaDelDia(config: ConfigCierre, fecha: string, _hoy: string, p
   if (dia === DIAS_REAPERTURA) return { color: '#7c3aed', texto: pt ? 'Últ. dia p/ reabrir' : 'Últ. día p/ reabrir', titulo: pt ? 'Último dia para reabrir o mês anterior' : 'Último día para reabrir el mes anterior' };
   return null;
 }
+
+// ---- Resumen de un asiento de cierre ----
+export type LineaCierre = { ejercicio: number; cuenta_debito: string; cuenta_credito: string; importe: number; es_prueba?: boolean };
+export type ResumenEjercicio = { ejercicio: number; ingresos: number; costos: number; gastos: number; resultado: number; lineas: number; esPrueba: boolean };
+
+// `tipos`: nombre de cuenta → tipo_saldo. Una cuenta de ingreso se cierra con débito; costos y gastos, con crédito.
+export function resumirCierres(lineas: LineaCierre[], tipos: Map<string, string>): ResumenEjercicio[] {
+  const por = new Map<number, ResumenEjercicio>();
+  for (const l of lineas) {
+    const r = por.get(l.ejercicio) ?? { ejercicio: l.ejercicio, ingresos: 0, costos: 0, gastos: 0, resultado: 0, lineas: 0, esPrueba: false };
+    r.lineas += 1;
+    if (l.es_prueba) r.esPrueba = true;
+    const tDebito = tipos.get(l.cuenta_debito);
+    const tCredito = tipos.get(l.cuenta_credito);
+    if (tDebito === 'INGRESO') r.ingresos += l.importe;
+    if (tCredito === 'INGRESO') r.ingresos -= l.importe;
+    if (tCredito === 'COSTO') r.costos += l.importe;
+    if (tDebito === 'COSTO') r.costos -= l.importe;
+    if (tCredito === 'GASTO') r.gastos += l.importe;
+    if (tDebito === 'GASTO') r.gastos -= l.importe;
+    por.set(l.ejercicio, r);
+  }
+  return [...por.values()]
+    .map((r) => ({ ...r, resultado: Math.round((r.ingresos - r.costos - r.gastos) * 100) / 100 }))
+    .sort((a, b) => b.ejercicio - a.ejercicio);
+}
