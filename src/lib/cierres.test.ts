@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diasParaElCierre, enPeriodoDeAviso, estadoPeriodo, limiteReapertura, marcaDelDia } from './cierres';
+import { diasParaElCierre, enPeriodoDeAviso, estadoPeriodo, limiteReapertura, marcaDelDia, resumirCierres } from './cierres';
 
 const cfg = { activo: true, desde: '2026-11-01' };
 
@@ -56,5 +56,25 @@ describe('marcaDelDia', () => {
   });
   it('sin cierre activo no marca nada', () => {
     expect(marcaDelDia({ activo: false, desde: null }, '2026-11-30', '2026-11-30', false)).toBeNull();
+  });
+});
+
+describe('resumirCierres', () => {
+  const tipos = new Map([['Ventas', 'INGRESO'], ['CMV', 'COSTO'], ['Alquiler', 'GASTO'], ['Resultados Acumulados', 'PATRIMONIO']]);
+  it('separa ingresos, costos y gastos y arma el resultado', () => {
+    const r = resumirCierres(
+      [
+        { ejercicio: 2026, cuenta_debito: 'Ventas', cuenta_credito: 'Resultados Acumulados', importe: 1000 },
+        { ejercicio: 2026, cuenta_debito: 'Resultados Acumulados', cuenta_credito: 'CMV', importe: 400 },
+        { ejercicio: 2026, cuenta_debito: 'Resultados Acumulados', cuenta_credito: 'Alquiler', importe: 700, es_prueba: true },
+      ],
+      tipos
+    );
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ ingresos: 1000, costos: 400, gastos: 700, resultado: -100, lineas: 3, esPrueba: true });
+  });
+  it('un ingreso con saldo deudor resta', () => {
+    const r = resumirCierres([{ ejercicio: 2026, cuenta_debito: 'Resultados Acumulados', cuenta_credito: 'Ventas', importe: 50 }], tipos);
+    expect(r[0].ingresos).toBe(-50);
   });
 });

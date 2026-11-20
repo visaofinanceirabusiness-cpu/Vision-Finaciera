@@ -42,18 +42,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ bloqueados: data ?? 0 });
     }
     if (accion === 'habilitar') {
-      if (!cuerpo.periodo || !/^\d{4}-\d{2}-\d{2}$/.test(cuerpo.periodo) || !cuerpo.clave) return NextResponse.json({ error: 'Faltan datos.' }, { status: 400 });
+      if (!cuerpo.periodo || !/^\d{4}-\d{2}-\d{2}$/.test(cuerpo.periodo) || (!esDev && !cuerpo.clave)) return NextResponse.json({ error: 'Faltan datos.' }, { status: 400 });
 
-      const desde = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-      const { count } = await admin.from('periodos_eventos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('usuario_id', usuario.id).eq('accion', 'CLAVE_ERRADA').gte('creado_en', desde);
-      if ((count ?? 0) >= MAX_INTENTOS) return NextResponse.json({ error: 'Demasiados intentos. Probá de nuevo en 15 minutos.' }, { status: 429 });
+      // El desarrollador es el único cliente de su propia empresa (la demo): no se le pide contraseña. Los clientes reales, siempre.
+      if (!esDev) {
+        const desde = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+        const { count } = await admin.from('periodos_eventos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).eq('usuario_id', usuario.id).eq('accion', 'CLAVE_ERRADA').gte('creado_en', desde);
+        if ((count ?? 0) >= MAX_INTENTOS) return NextResponse.json({ error: 'Demasiados intentos. Probá de nuevo en 15 minutos.' }, { status: 429 });
 
-      // Cliente descartable: no toca ni reemplaza la sesión del usuario.
-      const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { error: errClave } = await anon.auth.signInWithPassword({ email: usuario.email as string, password: cuerpo.clave });
-      if (errClave) {
-        await admin.from('periodos_eventos').insert({ empresa_id: empresaId, periodo: cuerpo.periodo, accion: 'CLAVE_ERRADA', usuario_id: usuario.id });
-        return NextResponse.json({ error: 'Contraseña incorrecta.' }, { status: 401 });
+        // Cliente descartable: no toca ni reemplaza la sesión del usuario.
+        const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string, { auth: { persistSession: false, autoRefreshToken: false } });
+        const { error: errClave } = await anon.auth.signInWithPassword({ email: usuario.email as string, password: cuerpo.clave as string });
+        if (errClave) {
+          await admin.from('periodos_eventos').insert({ empresa_id: empresaId, periodo: cuerpo.periodo, accion: 'CLAVE_ERRADA', usuario_id: usuario.id });
+          return NextResponse.json({ error: 'Contraseña incorrecta.' }, { status: 401 });
+        }
+
       }
 
       const { data, error } = await admin.rpc('periodo_habilitar', { p_empresa: empresaId, p_periodo: cuerpo.periodo, p_usuario: usuario.id, p_es_dev: esDev, p_segundos: TTL_SEGUNDOS });
