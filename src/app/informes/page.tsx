@@ -26,7 +26,8 @@ import { VolverLobby } from '@/components/nav/VolverLobby';
 import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
-import { ResultadoPorNaturaleza } from '@/components/informes/ResultadoPorNaturaleza';
+import { cargarNaturalezaPorOperacion } from '@/lib/naturalezaResultadoDatos';
+import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/lib/naturalezaResultado';
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
@@ -940,6 +941,26 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
     return { ingresos: ing, costos: cos, gastos: gas, resultadoBruto: ing - cos, resultado: ing - cos - gas };
   }, [asientos, hojas, periodo, esTodos]);
 
+  // Vista «por naturaleza»: de dónde viene cada ingreso y gasto (fijo, recurrente variable o del mes).
+  const [vistaDre, setVistaDre] = useState<'CUENTA' | 'NATURALEZA'>('CUENTA');
+  const [mapaNaturaleza, setMapaNaturaleza] = useState<Map<string, Naturaleza> | null | 'error'>(null);
+  useEffect(() => {
+    if (vistaDre !== 'NATURALEZA' || !empresaId || mapaNaturaleza) return;
+    let vigente = true;
+    cargarNaturalezaPorOperacion(empresaId)
+      .then((m) => { if (vigente) setMapaNaturaleza(m); })
+      .catch(() => { if (vigente) setMapaNaturaleza('error'); });
+    return () => { vigente = false; };
+  }, [vistaDre, empresaId, mapaNaturaleza]);
+  const naturaleza = useMemo(() => {
+    if (vistaDre !== 'NATURALEZA') return null;
+    if (mapaNaturaleza === null) return 'cargando' as const;
+    if (mapaNaturaleza === 'error') return null;
+    const r = resultadoPorNaturaleza(hojas, asientosDelPeriodo, mapaNaturaleza, esTodos);
+    const suma = (tipo: 'INGRESO' | 'COSTO' | 'GASTO') => ({ FIJO: r[tipo].FIJO.total, RECURRENTE_VARIABLE: r[tipo].RECURRENTE_VARIABLE.total, DEL_MES: r[tipo].DEL_MES.total });
+    return { ingresos: suma('INGRESO'), costos: suma('COSTO'), gastos: suma('GASTO'), resumen: resumenNaturaleza(r) };
+  }, [vistaDre, mapaNaturaleza, hojas, asientosDelPeriodo, esTodos]);
+
   const aFilas = (filas: { cuenta: CuentaPlan; saldoFinal: number }[]) => filas.map((f) => ({ nombre: nombreCuentaDisplay(idioma, f.cuenta.nombre), valor: f.saldoFinal }));
 
   return (
@@ -959,6 +980,9 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
         filasCostos={aFilas(costos)}
         filasGastos={aFilas(gastos)}
         tendencia={tendencia}
+        vista={vistaDre}
+        onVista={empresaId ? setVistaDre : undefined}
+        naturaleza={naturaleza}
       />
 
     </div>

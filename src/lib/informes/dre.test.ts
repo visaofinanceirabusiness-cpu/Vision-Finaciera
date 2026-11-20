@@ -52,3 +52,22 @@ describe('analisisSabio', () => {
     expect(t[0]).toContain('saldo do período ficou positivo');
   });
 });
+
+import { analisisNaturaleza, filasPorNaturaleza } from './dre';
+
+describe('vista por naturaleza', () => {
+  it('suma los tipos pedidos en cada naturaleza', () => {
+    const f = filasPorNaturaleza([{ FIJO: 100, RECURRENTE_VARIABLE: 50, DEL_MES: 10 }, { FIJO: 20, RECURRENTE_VARIABLE: 0, DEL_MES: 5 }], false);
+    expect(f.map((x) => x.valor)).toEqual([120, 50, 15]);
+    expect(f[0].nombre).toBe('Fijos');
+  });
+  it('explica peso y cobertura de lo recurrente', () => {
+    const t = analisisNaturaleza({ pt: false, resumen: { neto: { FIJO: 0, RECURRENTE_VARIABLE: 0, DEL_MES: 0 }, cobertura: 0.8, pesoRecurrente: 0.6 }, resultado: 0, dinero: (n) => String(n) });
+    expect(t[0]).toContain('60%');
+    expect(t[1]).toContain('solo el 80%');
+  });
+  it('sin recurrentes lo dice', () => {
+    const t = analisisNaturaleza({ pt: false, resumen: { neto: { FIJO: 0, RECURRENTE_VARIABLE: 0, DEL_MES: 0 }, cobertura: null, pesoRecurrente: null }, resultado: 0, dinero: (n) => String(n) });
+    expect(t[0]).toContain('todo es del mes');
+  });
+});
