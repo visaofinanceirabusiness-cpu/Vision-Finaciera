@@ -27,6 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { simboloMoneda, formatearNumeroEntero } from '@/lib/moneda';
 import { AccesosHerramientas } from '@/components/nav/AccesosHerramientas';
 import { ResultadoPorNaturaleza } from '@/components/informes/ResultadoPorNaturaleza';
+import { DreVisual } from '@/components/informes/DreVisual';
 import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
 import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -927,27 +928,41 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
     [hojas, asientos, idioma]
   );
 
+  // Mes anterior (solo con un mes puntual): para mostrar cuánto subió o bajó cada tarjeta.
+  const totalesAnterior = useMemo(() => {
+    if (esTodos) return null;
+    const delMes = asientos.filter((a) => a.fecha.slice(0, 7) === periodoAnterior(periodo));
+    if (delMes.length === 0) return null;
+    const suma = (tipo: string) => hojas.filter((c) => c.tipo_saldo === tipo).reduce((acc, c) => acc + calcularMovimiento(c, delMes, false).saldoFinal, 0);
+    const ing = suma('INGRESO');
+    const cos = suma('COSTO');
+    const gas = suma('GASTO');
+    return { ingresos: ing, costos: cos, gastos: gas, resultadoBruto: ing - cos, resultado: ing - cos - gas };
+  }, [asientos, hojas, periodo, esTodos]);
+
+  const aFilas = (filas: { cuenta: CuentaPlan; saldoFinal: number }[]) => filas.map((f) => ({ nombre: nombreCuentaDisplay(idioma, f.cuenta.nombre), valor: f.saldoFinal }));
+
   return (
-    <div>
-      <div style={{ marginBottom: 18, maxWidth: 280 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-          {t('periodoLabel')}
-        </label>
+    <div id="dre-imprimible">
+      <DreVisual
+        pt={esPT}
+        esFamiliar={esFamiliar}
+        simbolo={simbolo}
+        etiquetaPeriodo={esTodos ? t('todosLosPeriodos') : formatearPeriodo(periodo, idioma)}
+        esTodos={esTodos}
+        periodos={periodos}
+        periodo={periodo}
+        onPeriodo={setPeriodo}
+        selectorVista={<ToggleVistaInforme vista={nivel} onChange={setNivel} esPT={esPT} />}
+        totales={{ ingresos: totalIngresos, costos: totalCostos, gastos: totalGastos, resultadoBruto, resultado }}
+        anterior={totalesAnterior}
+        filasIngresos={aFilas(ingresos)}
+        filasCostos={aFilas(costos)}
+        filasGastos={aFilas(gastos)}
+        tendencia={tendencia}
+      />
 
-        <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={campoInput}>
-          <option value="TODOS">{t('todosLosPeriodos')}</option>
-
-          {periodos.map((p) => (
-            <option key={p.valor} value={p.valor}>
-              {p.etiqueta}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <ToggleVistaInforme vista={nivel} onChange={setNivel} esPT={idioma === 'PT'} />
-      </div>
+      <h3 style={{ margin: '4px 0 12px', color: COLORES.azul, fontSize: 17 }}>{esPT ? 'Demonstração completa' : 'Demostración completa'}</h3>
 
       {empresaId && !soloTotal && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -1058,7 +1073,6 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
         </>
       )}
 
-      <SeccionTendencia titulo={t('tendenciaResultadoTitulo')} datos={tendencia} idioma={idioma} />
     </div>
   );
 }
