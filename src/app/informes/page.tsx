@@ -879,9 +879,8 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
   const [periodo, setPeriodo] = useState(/^\d{4}-\d{2}$/.test(periodoInicial) ? periodoInicial : mesEnCurso());
   // "Por cuenta" (como siempre) o "Por naturaleza": fijos / recurrentes variables / del mes.
   const [vista, setVista] = useState<'CUENTA' | 'NATURALEZA'>('CUENTA');
-  // Simplificada (solo totales) o detallada (con cada cuenta): compartida con Flujo de Caja.
-  const [nivel, setNivel] = useVistaInforme();
-  const soloTotal = nivel === 'SIMPLE';
+  // La «vista simplificada» ahora es el tablero de tarjetas de arriba; la detallada siempre muestra cada cuenta.
+  const soloTotal = false;
 
   const esTodos = periodo === 'TODOS';
 
@@ -954,7 +953,6 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
         periodos={periodos}
         periodo={periodo}
         onPeriodo={setPeriodo}
-        selectorVista={<ToggleVistaInforme vista={nivel} onChange={setNivel} esPT={esPT} />}
         totales={{ ingresos: totalIngresos, costos: totalCostos, gastos: totalGastos, resultadoBruto, resultado }}
         anterior={totalesAnterior}
         filasIngresos={aFilas(ingresos)}
@@ -962,117 +960,6 @@ function EstadoDeResultadoTab({ hojas, asientos, empresaId, periodoInicial, esFa
         filasGastos={aFilas(gastos)}
         tendencia={tendencia}
       />
-
-      <h3 style={{ margin: '4px 0 12px', color: COLORES.azul, fontSize: 17 }}>{esPT ? 'Demonstração completa' : 'Demostración completa'}</h3>
-
-      {empresaId && !soloTotal && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {(
-            [
-              ['CUENTA', idioma === 'PT' ? 'Por conta' : 'Por cuenta'],
-              ['NATURALEZA', idioma === 'PT' ? 'Por natureza (fixos / recorrentes / do mês)' : 'Por naturaleza (fijos / recurrentes / del mes)'],
-            ] as const
-          ).map(([valor, etiqueta]) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setVista(valor)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 999,
-                border: `1px solid ${vista === valor ? COLORES.verde : '#d1d5db'}`,
-                background: vista === valor ? COLORES.verde : 'transparent',
-                color: vista === valor ? '#fff' : COLORES.azul,
-                fontWeight: 700,
-                fontSize: 12.5,
-                cursor: 'pointer',
-              }}
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {vista === 'NATURALEZA' && empresaId && !soloTotal ? (
-        <ResultadoPorNaturaleza
-          empresaId={empresaId}
-          idioma={idioma}
-          simbolo={simbolo}
-          cuentas={hojas}
-          asientos={asientosDelPeriodo}
-          incluirSaldoInicial={esTodos}
-          etiquetaPeriodo={esTodos ? t('todosLosPeriodos') : formatearPeriodo(periodo, idioma)}
-        />
-      ) : (
-        <>
-      <SeccionResultado soloTotal={soloTotal} titulo={t('ingresosTitulo')} emoji="💵" filas={ingresos} total={totalIngresos} color={COLORES.verde} />
-
-      {esFamiliar ? (
-        <SeccionResultado soloTotal={soloTotal} titulo={t('gastosTitulo')} emoji="🧾" filas={gastos} total={totalGastos} color="#c2410c" resta />
-      ) : (
-        <>
-          {/* Empresas: las tres líneas de resultado salen siempre, en cero si no hay nada que restar. */}
-          <SeccionResultado soloTotal={soloTotal} titulo={t('costosTitulo')} emoji="📦" filas={costos} total={totalCostos} color="#c2410c" resta />
-          <SubtotalResultado titulo={esPT ? 'Resultado bruto' : 'Resultado bruto'} valor={resultadoBruto} porcentaje={porcentajeSobreIngresos(resultadoBruto)} />
-
-          <SeccionResultado
-            soloTotal={soloTotal}
-            titulo={esPT ? 'Despesas operacionais' : 'Gastos operacionales'}
-            emoji="🧾"
-            filas={gastosOperativos}
-            total={totalGastosOperativos}
-            color="#c2410c"
-            resta
-          />
-          <SubtotalResultado titulo={esPT ? 'Resultado operacional' : 'Resultado operacional'} valor={resultadoOperacional} porcentaje={porcentajeSobreIngresos(resultadoOperacional)} />
-
-          <SeccionResultado
-            soloTotal={soloTotal}
-            titulo={esPT ? 'Despesas financeiras e impostos' : 'Gastos financieros e impuestos'}
-            emoji="🏦"
-            filas={gastosNoOperativos}
-            total={totalGastosNoOperativos}
-            color="#c2410c"
-            resta
-          />
-        </>
-      )}
-
-      <div
-        style={{
-          marginTop: 18,
-          padding: '18px 20px',
-          borderRadius: 16,
-          background: resultado >= 0 ? 'linear-gradient(90deg, #edf6f0, #f7faf8)' : '#fef2f2',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-            {esFamiliar
-              ? msgResultadoLabel(idioma, esTodos, formatearPeriodo(periodo, idioma))
-              : `${esPT ? 'RESULTADO LÍQUIDO' : 'RESULTADO NETO'} — ${esTodos ? (esPT ? 'histórico' : 'histórico') : formatearPeriodo(periodo, idioma)}`}
-          </div>
-
-          <div style={{ fontSize: 24, fontWeight: 800, color: resultado >= 0 ? COLORES.verde : '#dc2626' }}>
-            {simbolo} {formatearNumeroEntero(resultado)}
-          </div>
-        </div>
-
-        <div style={{ textAlign: 'right', fontSize: 13, color: COLORES.gris }}>
-          {t('rentabilidadLabel')}
-          <div style={{ fontSize: 18, fontWeight: 800, color: COLORES.azul }}>
-            {rentabilidad.toFixed(1)}%
-          </div>
-        </div>
-      </div>
-        </>
-      )}
 
     </div>
   );
