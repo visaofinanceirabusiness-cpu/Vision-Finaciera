@@ -30,11 +30,10 @@ import { cargarNaturalezaPorOperacion } from '@/lib/naturalezaResultadoDatos';
 import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/lib/naturalezaResultado';
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
+import { MayorVisual } from '@/components/informes/MayorVisual';
 import { FlujoVisual, type FilaResumen } from '@/components/informes/FlujoVisual';
 import { serieFlujo } from '@/lib/informes/flujo';
 import { totalesBalance } from '@/lib/informes/balance';
-import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
-import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
 import { SabioFlotante } from '@/components/panel/SabioFlotante';
 import { crearTraductor, nombreOperacionDisplay, nombreCuentaDisplay } from '@/lib/i18n';
@@ -419,7 +418,7 @@ export default function InformesPage() {
             <div style={cargandoStyle}>{t('cargandoInformes')}</div>
           ) : (
             <>
-              {pestana === 'mayor' && <MayorTab hojas={hojas} asientos={asientosConCierre} cuentaInicial={cuentaInicial} />}
+              {pestana === 'mayor' && <MayorTab cuentas={cuentas} asientos={asientosConCierre} cuentaInicial={cuentaInicial} />}
               {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientosConCierre} />}
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} periodoInicial={periodoInicial} empresaId={empresaId} esFamiliar={esFamiliar} />
@@ -620,253 +619,14 @@ function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: A
    PESTAÑA · MAYOR
 ========================================================== */
 
-// Orden natural del plan de cuentas (Activo → Pasivo → Patrimonio →
-// Ingreso → Costo → Gasto) — mismo criterio que ya se usa en
-// Contabilidad para agrupar Categoría/Forma de Pago.
-const ORDEN_TIPO_SALDO = ['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'COSTO', 'GASTO'];
-
-function tituloTipoSaldo(
-  tipoSaldo: string | null | undefined,
-  t: (clave: 'activoTitulo' | 'pasivoTitulo' | 'patrimonioTitulo' | 'ingresosTitulo' | 'costosTitulo' | 'gastosTitulo') => string,
-  idioma: string | null
-): string {
-  switch (tipoSaldo) {
-    case 'ACTIVO':
-      return t('activoTitulo');
-    case 'PASIVO':
-      return t('pasivoTitulo');
-    case 'PATRIMONIO':
-      return t('patrimonioTitulo');
-    case 'INGRESO':
-      return t('ingresosTitulo');
-    case 'COSTO':
-      return t('costosTitulo');
-    case 'GASTO':
-      return t('gastosTitulo');
-    default:
-      return idioma === 'PT' ? 'Outras' : 'Otras';
-  }
-}
-
-function MayorTab({ hojas, asientos, cuentaInicial }: { hojas: CuentaPlan[]; asientos: Asiento[]; cuentaInicial: string }) {
+function MayorTab({ cuentas, asientos, cuentaInicial }: { cuentas: CuentaPlan[]; asientos: Asiento[]; cuentaInicial: string }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
-  const t = crearTraductor(diccionarioInformes, idioma);
-  const [cuentaId, setCuentaId] = useState('');
-  const [mostrarCeros, setMostrarCeros] = useState(false);
-  // 'TODOS' o 'AAAA-MM'; y la contrapartida tocada en los indicadores (filtra la tabla).
-  const [mes, setMes] = useState('TODOS');
-  const [contrapartida, setContrapartida] = useState<string | null>(null);
-  const esPT = idioma === 'PT';
-
-  // Las cuentas se identifican por nombre en los asientos, así que el
-  // enlace del Panel de Control también viaja por nombre.
-  useEffect(() => {
-    if (!cuentaInicial) return;
-    const encontrada = hojas.find((c) => c.nombre === cuentaInicial);
-    if (encontrada) setCuentaId(encontrada.id);
-  }, [cuentaInicial, hojas]);
-
-  const cuenta = hojas.find((c) => c.id === cuentaId) ?? null;
-
-  // Antes de buscar la cuenta, sacamos del desplegable las que nunca
-  // tuvieron saldo — ensucian la lista y casi nunca son las que se
-  // necesita mirar.
-  const opciones = useMemo(() => {
-    const lista = mostrarCeros
-      ? hojas
-      : hojas.filter((c) => Math.round(calcularMovimiento(c, asientos, true).saldoFinal) !== 0);
-
-    return lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
-  }, [hojas, asientos, mostrarCeros]);
-
-  // Separadas por naturaleza (Activo/Pasivo/.../Gasto) en vez de una
-  // sola lista plana — con decenas de cuentas, encontrar la que se
-  // busca a ojo era cada vez más difícil.
-  const gruposPorTipoSaldo = useMemo(() => {
-    const grupos = new Map<string, CuentaPlan[]>();
-
-    for (const opcion of opciones) {
-      const clave = opcion.tipo_saldo && ORDEN_TIPO_SALDO.includes(opcion.tipo_saldo) ? opcion.tipo_saldo : 'otras';
-      const lista = grupos.get(clave) ?? [];
-      lista.push(opcion);
-      grupos.set(clave, lista);
-    }
-
-    return [...ORDEN_TIPO_SALDO, 'otras']
-      .filter((clave) => grupos.has(clave))
-      .map((clave) => ({
-        titulo: tituloTipoSaldo(clave === 'otras' ? null : clave, t, idioma),
-        cuentas: grupos.get(clave) ?? [],
-      }));
-  }, [opciones, t, idioma]);
-
-  // El saldo actual es siempre el real de la cuenta; el mes solo recorta lo que se muestra.
-  const mayorTodos = useMemo(() => (cuenta ? armarMayor(cuenta, asientos, 'TODOS') : null), [cuenta, asientos]);
-  const mesElegido = mes === 'TODOS' || mayorTodos?.meses.includes(mes) ? mes : 'TODOS';
-  const mayor = useMemo(() => (cuenta ? armarMayor(cuenta, asientos, mesElegido) : null), [cuenta, asientos, mesElegido]);
-  const filasConSaldo = useMemo(
-    () => (mayor ? mayor.filas.filter((f) => !contrapartida || f.contrapartida === contrapartida) : []),
-    [mayor, contrapartida]
-  );
-  const saldoActual = mayorTodos?.saldoFinal ?? 0;
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
 
   return (
-    <div>
-      <div style={{ marginBottom: 18, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ maxWidth: 420, flex: 1, minWidth: 260 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-            {t('cuentaLabel')}
-          </label>
-
-          <select
-            value={cuentaId}
-            onChange={(e) => {
-              setCuentaId(e.target.value);
-              setMes('TODOS');
-              setContrapartida(null);
-            }}
-            style={campoInput}
-          >
-            <option value="">{t('seleccionarCuenta')}</option>
-
-            {gruposPorTipoSaldo.map((grupo) => (
-              <optgroup key={grupo.titulo} label={grupo.titulo}>
-                {grupo.cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {nombreCuentaDisplay(idioma, c.nombre)}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-
-        {cuenta && mayorTodos && (
-          <div style={{ minWidth: 190 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: COLORES.azul, display: 'block', marginBottom: 6 }}>
-              {esPT ? 'Mês' : 'Mes'}
-            </label>
-            <select
-              value={mesElegido}
-              onChange={(e) => {
-                setMes(e.target.value);
-                setContrapartida(null);
-              }}
-              style={campoInput}
-            >
-              <option value="TODOS">{t('todosLosPeriodos')}</option>
-              {mayorTodos.meses.map((clave) => (
-                <option key={clave} value={clave}>
-                  {formatearPeriodo(clave, idioma)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <BotonToggle
-          activo={mostrarCeros}
-          onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo={t('ocultarCerosEnCero')}
-          etiquetaInactivo={t('mostrarCerosEnCero')}
-        />
-
-        {cuenta && (
-          <div
-            style={{
-              padding: '11px 18px',
-              borderRadius: 12,
-              background: 'linear-gradient(90deg, #edf6f0, #f7faf8)',
-              minWidth: 200,
-            }}
-          >
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: COLORES.gris }}>
-              {t('saldoActualLabel')}
-            </div>
-
-            <div style={{ fontSize: 22, fontWeight: 800, color: COLORES.azul }}>
-              {simbolo} {formatearNumeroEntero(saldoActual)}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {cuenta && mayor && (
-        <IndicadoresMayor
-          mayor={mayor}
-          esTodos={mesElegido === 'TODOS'}
-          idioma={idioma}
-          simbolo={simbolo}
-          contrapartidaActiva={contrapartida}
-          onContrapartida={setContrapartida}
-        />
-      )}
-
-      {contrapartida && (
-        <button
-          type="button"
-          onClick={() => setContrapartida(null)}
-          style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}
-        >
-          🔎 Contrapartida: {contrapartida} ✕
-        </button>
-      )}
-
-      {!cuenta || !mayor ? (
-        <div style={vacioOperacion}>{t('elegirCuentaMovimiento')}</div>
-      ) : (
-        <div style={tablaContenedor}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={cabeceraFila}>
-                <Th>{t('fechaHeader')}</Th>
-                <Th>{t('operacionHeader')}</Th>
-                <Th>{t('descripcionHeader')}</Th>
-                <Th align="right">{t('debeHeader')}</Th>
-                <Th align="right">{t('haberHeader')}</Th>
-                <Th align="right">{t('saldoHeader')}</Th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr style={filaStyle}>
-                <Td>—</Td>
-                <Td>—</Td>
-                <Td>
-                  <em>{mesElegido === 'TODOS' ? t('saldoInicialItalic') : 'Saldo anterior'}</em>
-                </Td>
-                <Td align="right">—</Td>
-                <Td align="right">—</Td>
-                <Td align="right">
-                  <strong>{simbolo} {formatearNumeroEntero(mayor.saldoAnterior)}</strong>
-                </Td>
-              </tr>
-
-              {filasConSaldo.map((fila, indice) => (
-                <tr key={`${fila.id_operacion}-${indice}`} style={filaStyle}>
-                  <Td>{new Date(`${fila.fecha}T12:00:00`).toLocaleDateString(idioma === 'PT' ? 'pt-BR' : 'es-AR')}</Td>
-                  <Td>{fila.id_operacion || '—'}</Td>
-                  <Td>{fila.descripcion || '—'}</Td>
-                  <Td align="right">{fila.esDebe ? `${simbolo} ${formatearNumeroEntero(fila.importe)}` : '—'}</Td>
-                  <Td align="right">{!fila.esDebe ? `${simbolo} ${formatearNumeroEntero(fila.importe)}` : '—'}</Td>
-                  <Td align="right">
-                    <strong>{simbolo} {formatearNumeroEntero(fila.saldo)}</strong>
-                  </Td>
-                </tr>
-              ))}
-
-              {!filasConSaldo.length && (
-                <tr>
-                  <td colSpan={6} style={vacioStyle}>
-                    {t('sinMovimientosValidados')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <div id="informe-imprimible">
+      <MayorVisual cuentas={cuentas} asientos={asientos} periodos={periodos} cuentaInicial={cuentaInicial} simbolo={simbolo} idioma={idioma} />
     </div>
   );
 }
@@ -1610,12 +1370,18 @@ function BalancePatrimonialTab({
                 fontWeight: 700,
                 background: cierra ? '#eaf7ee' : '#fef2f2',
                 color: cierra ? '#247347' : '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
               }}
             >
+              <img className="dre-sabio-tarjeta" src={`/sabio/${cierra ? 'sabio-escudo' : 'sabio-alerta'}.webp`} alt="" style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+              <span>
               {cierra
                 ? msgEcuacionCierra(idioma, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)
                 : msgEcuacionNoCierra(idioma, `${simbolo} ${formatearNumeroEntero(diferencia)}`, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)}
               {cierra && <span style={{ marginLeft: 10 }}>✓ {esPT ? 'Balanço em equilíbrio!' : '¡Balance en equilibrio!'}</span>}
+              </span>
             </div>
           </>
         }

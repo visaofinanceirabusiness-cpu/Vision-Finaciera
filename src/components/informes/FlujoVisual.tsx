@@ -127,7 +127,8 @@ export function FlujoVisual(p: PropsFlujoVisual) {
                 ))}
               </div>
             </Tarjeta>
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 18, padding: 14, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 18, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <img className="dre-sabio-tarjeta" src={`/sabio/${p.neto >= 0 ? 'sabio-barras-doradas' : 'sabio-meta'}.webp`} alt="" style={{ height: 64, width: 'auto', objectFit: 'contain' }} />
               <div>
                 <div style={{ fontSize: 12, color: COL.gris }}>{pt ? 'Variação do caixa' : 'Variación de la caja'}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: variacion === null ? COL.gris : variacion >= 0 ? '#16a34a' : '#dc2626' }}>
