@@ -26,7 +26,13 @@ export type NodoMayor = {
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // `periodo` = 'TODOS' o 'AAAA-MM'. Con un mes, el saldo inicial es lo que traía la cuenta al empezar ese mes.
-export function arbolMayor(cuentas: CuentaArbol[], asientos: AsientoArbol[], periodo: string): { raices: NodoMayor[]; totalDebe: number; totalHaber: number } {
+export function arbolMayor(
+  cuentas: CuentaArbol[],
+  asientos: AsientoArbol[],
+  periodo: string,
+  // Balancete: con un mes puntual, las cuentas de resultado (ingresos, costos, gastos) arrancan en cero cada mes: se mira el resultado DEL mes.
+  reiniciarResultados = false
+): { raices: NodoMayor[]; totalDebe: number; totalHaber: number } {
   const hijosDe = new Map<string | null, CuentaArbol[]>();
   for (const c of cuentas) {
     const lista = hijosDe.get(c.cuenta_padre_id) ?? [];
@@ -60,7 +66,8 @@ export function arbolMayor(cuentas: CuentaArbol[], asientos: AsientoArbol[], per
       const acreedora = c.naturaleza === 'ACREEDORA';
       const previo = antes.get(c.nombre) ?? { d: 0, h: 0 };
       const mov = dentro.get(c.nombre) ?? { d: 0, h: 0 };
-      const inicial = Number(c.saldo_inicial ?? 0) + (acreedora ? previo.h - previo.d : previo.d - previo.h);
+      const reinicia = reiniciarResultados && periodo !== 'TODOS' && ['INGRESO', 'COSTO', 'GASTO'].includes(c.tipo_saldo ?? '');
+      const inicial = reinicia ? 0 : Number(c.saldo_inicial ?? 0) + (acreedora ? previo.h - previo.d : previo.d - previo.h);
       totalDebe += mov.d;
       totalHaber += mov.h;
       return { cuenta: c, nivel, hijos: [], esHoja: true, saldoInicial: r2(inicial), debe: r2(mov.d), haber: r2(mov.h), saldoFinal: r2(inicial + (acreedora ? mov.h - mov.d : mov.d - mov.h)) };

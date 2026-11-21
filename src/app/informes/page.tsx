@@ -31,6 +31,7 @@ import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/li
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { MayorVisual } from '@/components/informes/MayorVisual';
+import { SumasVisual } from '@/components/informes/SumasVisual';
 import { FlujoVisual, type FilaResumen } from '@/components/informes/FlujoVisual';
 import { serieFlujo } from '@/lib/informes/flujo';
 import { totalesBalance } from '@/lib/informes/balance';
@@ -419,7 +420,7 @@ export default function InformesPage() {
           ) : (
             <>
               {pestana === 'mayor' && <MayorTab cuentas={cuentas} asientos={asientosConCierre} cuentaInicial={cuentaInicial} />}
-              {pestana === 'sumas' && <SumasYSaldosTab hojas={hojas} asientos={asientosConCierre} />}
+              {pestana === 'sumas' && <SumasYSaldosTab cuentas={cuentas} hojas={hojas} asientos={asientosConCierre} />}
               {pestana === 'flujo' && (
                 <FlujoDeCajaTab hojas={hojas} asientos={asientos} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} periodoInicial={periodoInicial} empresaId={empresaId} esFamiliar={esFamiliar} />
               )}
@@ -480,137 +481,14 @@ function obtenerPeriodos(asientos: Asiento[], idioma: string | null, extra?: str
    PESTAÑA · SUMAS Y SALDOS
 ========================================================== */
 
-function SumasYSaldosTab({ hojas, asientos }: { hojas: CuentaPlan[]; asientos: Asiento[] }) {
+function SumasYSaldosTab({ cuentas, hojas, asientos }: { cuentas: CuentaPlan[]; hojas: CuentaPlan[]; asientos: Asiento[] }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
-  const t = crearTraductor(diccionarioInformes, idioma);
-  const [busqueda, setBusqueda] = useState('');
-  const [mostrarCeros, setMostrarCeros] = useState(false);
-
-  const filas = useMemo(
-    () =>
-      hojas.map((cuenta) => ({
-        cuenta,
-        ...calcularMovimiento(cuenta, asientos),
-      })),
-    [hojas, asientos]
-  );
-
-  const visibles = filas.filter((fila) => {
-    const coincideBusqueda = `${fila.cuenta.codigo} ${fila.cuenta.nombre}`
-      .toLowerCase()
-      .includes(busqueda.toLowerCase());
-
-    // Redondeado, no exacto: un saldo de centavos se muestra como "0"
-    // en pantalla (formatearNumeroEntero redondea), así que si son
-    // todos cero al redondear tiene que contar como "sin movimiento".
-    const tieneMovimiento =
-      Math.round(fila.inicial) !== 0 ||
-      Math.round(fila.debe) !== 0 ||
-      Math.round(fila.haber) !== 0 ||
-      Math.round(fila.saldoFinal) !== 0;
-
-    return coincideBusqueda && (mostrarCeros || tieneMovimiento);
-  });
-
-  const totalInicial = visibles.reduce((s, f) => s + f.inicial, 0);
-  const totalDebe = visibles.reduce((s, f) => s + f.debe, 0);
-  const totalHaber = visibles.reduce((s, f) => s + f.haber, 0);
-  const totalFinal = visibles.reduce((s, f) => s + f.saldoFinal, 0);
-  const diferenciaDebeHaber = totalDebe - totalHaber;
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
-        <input
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder={t('buscarCuenta')}
-          style={{ ...campoInput, maxWidth: 420, marginBottom: 0 }}
-        />
-
-        <BotonToggle
-          activo={mostrarCeros}
-          onClick={() => setMostrarCeros((actual) => !actual)}
-          etiquetaActivo={t('ocultarCerosEnCero')}
-          etiquetaInactivo={t('mostrarCerosEnCero')}
-        />
-      </div>
-
-      <div style={tablaContenedor}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={cabeceraFila}>
-              <Th>{t('codigoHeader')}</Th>
-              <Th>{t('cuentaHeader')}</Th>
-              <Th align="right">{t('saldoInicialHeader')}</Th>
-              <Th align="right">{t('debeHeader')}</Th>
-              <Th align="right">{t('haberHeader')}</Th>
-              <Th align="right">{t('saldoFinalHeader')}</Th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {visibles.map((fila) => (
-              <tr key={fila.cuenta.id} style={filaStyle}>
-                <Td>{fila.cuenta.codigo}</Td>
-                <Td>{nombreCuentaDisplay(idioma, fila.cuenta.nombre)}</Td>
-                <Td align="right">{simbolo} {formatearNumeroEntero(fila.inicial)}</Td>
-                <Td align="right">{fila.debe ? `${simbolo} ${formatearNumeroEntero(fila.debe)}` : '—'}</Td>
-                <Td align="right">{fila.haber ? `${simbolo} ${formatearNumeroEntero(fila.haber)}` : '—'}</Td>
-                <Td align="right">
-                  <strong style={{ color: COLORES.azul }}>{simbolo} {formatearNumeroEntero(fila.saldoFinal)}</strong>
-                </Td>
-              </tr>
-            ))}
-
-            {!visibles.length && (
-              <tr>
-                <td colSpan={6} style={vacioStyle}>
-                  {t('sinCuentas')}
-                </td>
-              </tr>
-            )}
-          </tbody>
-
-          <tfoot>
-            <tr style={pieFila}>
-              <Td>
-                <strong>{t('total')}</strong>
-              </Td>
-              <Td>—</Td>
-              <Td align="right">
-                <strong>{simbolo} {formatearNumeroEntero(totalInicial)}</strong>
-              </Td>
-              <Td align="right">
-                <strong>{simbolo} {formatearNumeroEntero(totalDebe)}</strong>
-              </Td>
-              <Td align="right">
-                <strong>{simbolo} {formatearNumeroEntero(totalHaber)}</strong>
-              </Td>
-              <Td align="right">
-                <strong>{simbolo} {formatearNumeroEntero(totalFinal)}</strong>
-              </Td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div
-        style={{
-          marginTop: 14,
-          padding: '12px 16px',
-          borderRadius: 12,
-          fontSize: 13,
-          fontWeight: 700,
-          background: Math.abs(diferenciaDebeHaber) < 0.01 ? '#eaf7ee' : '#fef2f2',
-          color: Math.abs(diferenciaDebeHaber) < 0.01 ? '#247347' : '#dc2626',
-        }}
-      >
-        {Math.abs(diferenciaDebeHaber) < 0.01
-          ? t('debeHaberCierran')
-          : msgDebeHaberNoCierran(idioma, `${simbolo} ${formatearNumeroEntero(diferenciaDebeHaber)}`)}
-      </div>
+    <div id="informe-imprimible">
+      <SumasVisual cuentas={cuentas} hojas={hojas} asientos={asientos} periodos={periodos} periodoInicial={mesEnCurso()} simbolo={simbolo} idioma={idioma} />
     </div>
   );
 }
@@ -1548,29 +1426,6 @@ function BotonToggle({
   );
 }
 
-function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
-  return (
-    <th
-      style={{
-        padding: '10px 10px',
-        color: '#374151',
-        fontSize: 12,
-        textAlign: align,
-        whiteSpace: 'nowrap',
-        fontWeight: 800,
-      }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
-  return (
-    <td style={{ padding: '10px 10px', fontSize: 13, textAlign: align, whiteSpace: 'nowrap' }}>{children}</td>
-  );
-}
-
 /* ==========================================================
    ESTILOS
 ========================================================== */
@@ -1626,38 +1481,9 @@ const campoInput: React.CSSProperties = {
   outline: 'none',
 };
 
-const tablaContenedor: React.CSSProperties = {
-  overflowX: 'auto',
-  border: '1px solid #e5e7eb',
-  borderRadius: 14,
-};
-
-const cabeceraFila: React.CSSProperties = {
-  background: '#f8fafc',
-  textAlign: 'left',
-};
-
 const pieFila: React.CSSProperties = {
   background: '#f1f5f9',
   borderTop: '2px solid #d6dee5',
-};
-
-const filaStyle: React.CSSProperties = {
-  borderTop: '1px solid #e5e7eb',
-};
-
-const vacioStyle: React.CSSProperties = {
-  padding: 24,
-  textAlign: 'center',
-  color: COLORES.gris,
-};
-
-const vacioOperacion: React.CSSProperties = {
-  padding: 40,
-  textAlign: 'center',
-  color: COLORES.gris,
-  border: '1px dashed #d6dee5',
-  borderRadius: 14,
 };
 
 const errorStyle: React.CSSProperties = {
