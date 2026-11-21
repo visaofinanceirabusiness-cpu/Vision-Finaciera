@@ -32,6 +32,7 @@ import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { FlujoVisual, type FilaResumen } from '@/components/informes/FlujoVisual';
 import { serieFlujo } from '@/lib/informes/flujo';
+import { totalesBalance } from '@/lib/informes/balance';
 import { IndicadoresMayor } from '@/components/informes/IndicadoresMayor';
 import { armarMayor } from '@/lib/mayorCuenta';
 import { SabioWidget } from '@/components/panel/SabioWidget';
@@ -1004,9 +1005,11 @@ function calcularTendenciaResultado(hojas: CuentaPlan[], asientos: Asiento[], id
         .filter((c) => c.tipo_saldo === tipo)
         .reduce((s, c) => s + calcularMovimiento(c, delMes, false).saldoFinal, 0);
 
-    const valor = sumaTipo('INGRESO') - sumaTipo('COSTO') - sumaTipo('GASTO');
+    const ingresos = sumaTipo('INGRESO');
+    const salidas = sumaTipo('COSTO') + sumaTipo('GASTO');
+    const valor = ingresos - salidas;
 
-    return { clave, etiqueta: formatearPeriodoCorto(clave, idioma), valor };
+    return { clave, etiqueta: formatearPeriodoCorto(clave, idioma), etiquetaLarga: formatearPeriodo(clave, idioma), valor, ingresos, salidas };
   });
 }
 
@@ -1447,6 +1450,7 @@ function FlujoDeCajaTab({
         neto={flujoNeto}
         serie={serie}
         etiquetaMes={(clave) => formatearPeriodoCorto(clave, idioma)}
+        etiquetaMesLarga={(clave) => formatearPeriodo(clave, idioma)}
         filasEntradas={filas(esFamiliar ? familia.entradas : juntarTodo('entradas'))}
         filasSalidas={filas(esFamiliar ? familia.salidas : juntarTodo('salidas'))}
         filasResumen={filasResumen}
@@ -1479,6 +1483,12 @@ function BalancePatrimonialTab({
   const periodos = useMemo(() => obtenerPeriodos(asientosTodos, idioma), [asientosTodos, idioma]);
   const [periodo, setPeriodo] = useState(mesEnCurso());
   const asientos = useMemo(() => asientosTodos.filter((a) => a.fecha.slice(0, 7) <= periodo), [asientosTodos, periodo]);
+
+  // Evolución patrimonial: el balance al cierre de cada mes con movimiento (hasta el último), por la misma regla que el balance.
+  const serieBalance = useMemo(() => {
+    const meses = Array.from(new Set(asientosTodos.map((a) => a.fecha.slice(0, 7)).filter(Boolean))).sort();
+    return meses.map((clave) => ({ clave, etiqueta: formatearPeriodoCorto(clave, idioma), etiquetaLarga: formatearPeriodo(clave, idioma), ...totalesBalance(hojas, asientosTodos.filter((a) => a.fecha.slice(0, 7) <= clave)) }));
+  }, [asientosTodos, hojas, idioma]);
 
   // Agrupa cada cuenta hoja bajo el nombre de su cuenta padre directa
   // (ej. "Caja"/"PIX" bajo "ATIVO CIRCULANTE"), para mostrar el balance
@@ -1567,6 +1577,7 @@ function BalancePatrimonialTab({
         onPeriodo={setPeriodo}
         selectorVista={<ToggleVistaInforme vista={nivel} onChange={setNivel} esPT={esPT} />}
         totales={{ activo: activo.total, pasivo: pasivo.total, patrimonio: totalPatrimonioConResultado, resultado: resultadoDelEjercicio }}
+        serie={serieBalance}
         gruposActivo={totalGrupo(activo.grupos)}
         activoNode={<BloqueBalance titulo={t('activoTitulo')} emoji="💚" grupos={activo.grupos} total={activo.total} color={COLORES.verde} soloGrupos={soloGrupos} />}
         pasivoNode={

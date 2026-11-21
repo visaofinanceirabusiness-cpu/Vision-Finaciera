@@ -41,3 +41,31 @@ export function analisisBalance(d: DatosAnalisisBalance): string[] {
   if (d.resultado < 0) parrafos.push(pt ? 'O resultado do exercício está negativo e reduz o patrimônio.' : 'El resultado del ejercicio está negativo y reduce el patrimonio.');
   return parrafos;
 }
+
+// ---- Totales del balance a una fecha (para la evolución patrimonial) ----
+export type CuentaBalance = { nombre: string; naturaleza: string | null; tipo_saldo: string | null; saldo_inicial?: number | string | null };
+export type AsientoBalance = { debito: string | null; credito: string | null; importe: number };
+
+export type TotalesBalance = { activo: number; pasivo: number; patrimonio: number; resultado: number };
+
+// Misma regla que el Balance Patrimonial: cada saldo se lleva a la dirección de su grupo (una cuenta «contra», como Retiro Personal,
+// resta del patrimonio) y el resultado todavía no cerrado se suma al patrimonio.
+export function totalesBalance(hojas: CuentaBalance[], asientos: AsientoBalance[]): TotalesBalance {
+  const saldoPropio = (c: CuentaBalance) => {
+    let debe = 0;
+    let haber = 0;
+    for (const a of asientos) {
+      if (a.debito === c.nombre) debe += a.importe;
+      if (a.credito === c.nombre) haber += a.importe;
+    }
+    const inicial = Number(c.saldo_inicial ?? 0);
+    return c.naturaleza === 'ACREEDORA' ? inicial + haber - debe : inicial + debe - haber;
+  };
+  const enGrupo = (tipo: string) => {
+    const naturalezaGrupo = tipo === 'PASIVO' || tipo === 'PATRIMONIO' ? 'ACREEDORA' : 'DEUDORA';
+    return hojas.filter((c) => c.tipo_saldo === tipo).reduce((s, c) => s + saldoPropio(c) * (c.naturaleza === naturalezaGrupo ? 1 : -1), 0);
+  };
+  const resultadoTipo = (tipo: string) => hojas.filter((c) => c.tipo_saldo === tipo).reduce((s, c) => s + saldoPropio(c), 0);
+  const resultado = resultadoTipo('INGRESO') - resultadoTipo('COSTO') - resultadoTipo('GASTO');
+  return { activo: enGrupo('ACTIVO'), pasivo: enGrupo('PASIVO'), patrimonio: enGrupo('PATRIMONIO') + resultado, resultado };
+}

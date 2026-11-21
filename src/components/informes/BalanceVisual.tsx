@@ -4,6 +4,7 @@ import { formatearNumeroEntero } from '@/lib/moneda';
 import { composicionSalidas, type FilaCuenta } from '@/lib/informes/dre';
 import { analisisBalance } from '@/lib/informes/balance';
 import { BotonExportarPdf, EstiloImpresion, Tarjeta, Torta } from './DreVisual';
+import { GraficoInteractivo } from './GraficoInteractivo';
 
 // Vista visual del Balance Patrimonial: cabecera con período, tarjetas con Sabio, composición del patrimonio y análisis de Sabio.
 // Las listas de cuentas (Activo / Pasivo / Patrimonio) las arma la pestaña y entran como `activoNode` y `pasivoNode`.
@@ -19,6 +20,7 @@ export type PropsBalanceVisual = {
   selectorVista: React.ReactNode;
   totales: { activo: number; pasivo: number; patrimonio: number; resultado: number };
   gruposActivo: FilaCuenta[];
+  serie: { clave: string; etiqueta: string; etiquetaLarga: string; activo: number; pasivo: number; patrimonio: number }[];
   activoNode: React.ReactNode;
   pasivoNode: React.ReactNode;
   pie: React.ReactNode;
@@ -99,6 +101,23 @@ export function BalanceVisual(p: PropsBalanceVisual) {
             <img className="dre-sabio-tarjeta" src="/sabio/sabio-idea.webp" alt="" style={{ height: 110, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <Tarjeta titulo={`📈 ${pt ? 'Evolução Patrimonial' : 'Evolución Patrimonial'}`} sub={pt ? '(clique em um mês para ver o balanço dessa data)' : '(tocá un mes para ver el balance a esa fecha)'}>
+          <GraficoInteractivo
+            puntos={p.serie.map((x) => ({ clave: x.clave, etiqueta: x.etiqueta, etiquetaLarga: x.etiquetaLarga }))}
+            series={[
+              { clave: 'act', nombre: pt ? 'Ativo' : 'Activo', color: '#16a34a', tipo: 'linea', area: true, valores: p.serie.map((x) => x.activo) },
+              { clave: 'pas', nombre: pt ? 'Passivo' : 'Pasivo', color: '#dc2626', tipo: 'linea', valores: p.serie.map((x) => x.pasivo) },
+              { clave: 'pat', nombre: pt ? 'Patrimônio Líquido' : 'Patrimonio Neto', color: '#2563eb', tipo: 'linea', valores: p.serie.map((x) => x.patrimonio) },
+            ]}
+            simbolo={p.simbolo}
+            seleccionado={p.periodo}
+            onSeleccionar={p.onPeriodo}
+            pt={pt}
+          />
+        </Tarjeta>
       </div>
 
       <div style={{ marginTop: 16 }}>{p.pie}</div>

@@ -4,6 +4,7 @@ import { formatearNumeroEntero } from '@/lib/moneda';
 import { pesoDelMovimiento, variacionCaja, type PuntoFlujo } from '@/lib/informes/flujo';
 import type { FilaCuenta } from '@/lib/informes/dre';
 import { BotonExportarPdf, EstiloImpresion, Tarjeta, TopCuentas, ZonaInforme } from './DreVisual';
+import { GraficoInteractivo } from './GraficoInteractivo';
 
 // Vista visual del Flujo de Caja: cabecera con período, cuatro tarjetas (saldo inicial, entradas, salidas, saldo final), evolución
 // mensual con el saldo acumulado, resumen del período y las listas de entradas y salidas con su participación.
@@ -29,6 +30,7 @@ export type PropsFlujoVisual = {
   neto: number;
   serie: PuntoFlujo[];
   etiquetaMes: (clave: string) => string;
+  etiquetaMesLarga: (clave: string) => string;
   filasEntradas: FilaCuenta[];
   filasSalidas: FilaCuenta[];
   filasResumen: FilaResumen[];
@@ -98,8 +100,19 @@ export function FlujoVisual(p: PropsFlujoVisual) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12, marginBottom: 14 }}>
           <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
-            <Tarjeta titulo={`📊 ${pt ? 'Evolução do Fluxo de Caixa' : 'Evolución del Flujo de Caja'}`}>
-              <GraficoFlujo serie={p.serie.slice(-12)} resaltar={p.periodo} etiquetaMes={p.etiquetaMes} pt={pt} />
+            <Tarjeta titulo={`📊 ${pt ? 'Evolução do Fluxo de Caixa' : 'Evolución del Flujo de Caja'}`} sub={pt ? '(clique em um mês para vê-lo)' : '(tocá un mes para verlo)'}>
+              <GraficoInteractivo
+                puntos={p.serie.map((x) => ({ clave: x.clave, etiqueta: p.etiquetaMes(x.clave), etiquetaLarga: p.etiquetaMesLarga(x.clave) }))}
+                series={[
+                  { clave: 'ent', nombre: pt ? 'Entradas' : 'Entradas', color: '#22c55e', tipo: 'barra', valores: p.serie.map((x) => x.entradas) },
+                  { clave: 'sal', nombre: pt ? 'Saídas' : 'Salidas', color: '#ef4444', tipo: 'barra', valores: p.serie.map((x) => x.salidas) },
+                  { clave: 'sdo', nombre: pt ? 'Saldo acumulado' : 'Saldo acumulado', color: '#2563eb', tipo: 'linea', area: true, valores: p.serie.map((x) => x.saldo) },
+                ]}
+                simbolo={p.simbolo}
+                seleccionado={p.periodo}
+                onSeleccionar={p.onPeriodo}
+                pt={pt}
+              />
             </Tarjeta>
           </div>
 
@@ -143,52 +156,5 @@ export function FlujoVisual(p: PropsFlujoVisual) {
         {p.extras}
       </ZonaInforme>
     </div>
-  );
-}
-
-function GraficoFlujo({ serie, resaltar, etiquetaMes, pt }: { serie: PuntoFlujo[]; resaltar: string; etiquetaMes: (c: string) => string; pt: boolean }) {
-  if (serie.length === 0) return <div style={{ color: COL.gris, fontSize: 13 }}>{pt ? 'Ainda não há movimentos de caixa.' : 'Todavía no hay movimientos de caja.'}</div>;
-  const ancho = 640, alto = 230, izq = 44, abajo = 26, arriba = 14;
-  const maximo = Math.max(...serie.flatMap((s) => [s.entradas, s.salidas, s.saldo]), 1);
-  const minimo = Math.min(0, ...serie.map((s) => s.saldo));
-  const rango = maximo - minimo || 1;
-  const util = alto - abajo - arriba;
-  const y = (v: number) => arriba + util - ((v - minimo) / rango) * util;
-  const paso = (ancho - izq) / serie.length;
-  const abrevia = (v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 100) / 10}k`.replace('.', ',') : String(Math.round(v)));
-  const puntos = serie.map((s, i) => ({ x: izq + i * paso + paso / 2, y: y(s.saldo) }));
-  return (
-    <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 'auto', maxHeight: 280 }} role="img" aria-label={pt ? 'Evolução do fluxo de caixa' : 'Evolución del flujo de caja'}>
-      {[0, 0.5, 1].map((f) => {
-        const v = minimo + rango * f;
-        return (
-          <g key={f}>
-            <line x1={izq} x2={ancho} y1={y(v)} y2={y(v)} stroke="#e5e7eb" />
-            <text x={izq - 6} y={y(v) + 3} textAnchor="end" fontSize="10" fill="#6b7280">{abrevia(v)}</text>
-          </g>
-        );
-      })}
-      {serie.map((s, i) => {
-        const x = izq + i * paso;
-        const bw = paso * 0.28;
-        const op = resaltar === 'TODOS' || resaltar === s.clave ? 1 : 0.6;
-        return (
-          <g key={s.clave} opacity={op}>
-            <rect x={x + paso * 0.18} y={y(s.entradas)} width={bw} height={Math.max(y(0) - y(s.entradas), 1)} rx="2" fill="#22c55e" />
-            <rect x={x + paso * 0.18 + bw + 2} y={y(s.salidas)} width={bw} height={Math.max(y(0) - y(s.salidas), 1)} rx="2" fill="#ef4444" />
-            <text x={x + paso / 2} y={alto - 8} textAnchor="middle" fontSize="10.5" fill="#6b7280">{etiquetaMes(s.clave)}</text>
-          </g>
-        );
-      })}
-      <polyline points={puntos.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#2563eb" strokeWidth="2.5" />
-      {puntos.map((q, i) => (
-        <circle key={serie[i].clave} cx={q.x} cy={q.y} r={serie[i].clave === resaltar ? 5 : 3.2} fill="#fff" stroke="#2563eb" strokeWidth="2" />
-      ))}
-      <g transform={`translate(${izq}, 2)`} fontSize="10" fill="#374151">
-        <rect x="0" y="0" width="9" height="9" fill="#22c55e" /><text x="13" y="8">{pt ? 'Entradas' : 'Entradas'}</text>
-        <rect x="70" y="0" width="9" height="9" fill="#ef4444" /><text x="83" y="8">{pt ? 'Saídas' : 'Salidas'}</text>
-        <circle cx="140" cy="4.5" r="4" fill="#fff" stroke="#2563eb" strokeWidth="2" /><text x="149" y="8">{pt ? 'Saldo acumulado' : 'Saldo acumulado'}</text>
-      </g>
-    </svg>
   );
 }
