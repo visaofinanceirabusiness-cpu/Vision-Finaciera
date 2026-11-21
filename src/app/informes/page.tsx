@@ -1370,12 +1370,18 @@ function BalancePatrimonialTab({
                 fontWeight: 700,
                 background: cierra ? '#eaf7ee' : '#fef2f2',
                 color: cierra ? '#247347' : '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
               }}
             >
+              <img className="dre-sabio-tarjeta" src={`/sabio/${cierra ? 'sabio-escudo' : 'sabio-alerta'}.webp`} alt="" style={{ height: 52, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+              <span>
               {cierra
                 ? msgEcuacionCierra(idioma, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)
                 : msgEcuacionNoCierra(idioma, `${simbolo} ${formatearNumeroEntero(diferencia)}`, `${simbolo} ${formatearNumeroEntero(activo.total)}`, `${simbolo} ${formatearNumeroEntero(totalPasivoYPatrimonio)}`)}
               {cierra && <span style={{ marginLeft: 10 }}>✓ {esPT ? 'Balanço em equilíbrio!' : '¡Balance en equilibrio!'}</span>}
+              </span>
             </div>
           </>
         }

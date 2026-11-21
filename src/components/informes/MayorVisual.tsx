@@ -80,6 +80,9 @@ export function MayorVisual({
     return salida.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
   }, [raices]);
 
+  const sabioDeRaiz = (tipo: string | null) =>
+    tipo === 'ACTIVO' ? 'sabio-monedas' : tipo === 'PASIVO' ? 'sabio-escudo' : tipo === 'PATRIMONIO' ? 'sabio-trofeo' : tipo === 'INGRESO' ? 'sabio-barras-doradas' : 'sabio-calculadora-amarilla';
+
   const colorRaiz = (tipo: string | null) => (tipo === 'ACTIVO' ? { fondo: '#e3f6e8', icono: '#16a34a' } : tipo === 'PASIVO' || tipo === 'PATRIMONIO' ? { fondo: '#e0ecfb', icono: '#2563eb' } : tipo === 'INGRESO' ? { fondo: '#e7f5ec', icono: '#16a34a' } : { fondo: '#fdecec', icono: '#dc2626' });
 
   const filas: React.ReactNode[] = [];
@@ -99,7 +102,11 @@ export function MayorVisual({
       >
         <td style={{ padding: '9px 10px', paddingLeft: 10 + (n.nivel - 1) * 18, whiteSpace: 'nowrap', fontWeight: n.esHoja ? 500 : 800, color: COL.azul }}>
           <span style={{ display: 'inline-block', width: 18, color: COL.gris }}>{n.esHoja ? '' : abierto ? '⌄' : '›'}</span>
-          {!n.esHoja && <span style={{ marginRight: 6, color: c.icono }}>📁</span>}
+          {esRaiz ? (
+            <img className="dre-sabio-tarjeta" src={`/sabio/${sabioDeRaiz(tipoRaiz)}.webp`} alt="" style={{ height: 30, width: 'auto', verticalAlign: 'middle', marginRight: 6 }} />
+          ) : (
+            !n.esHoja && <span style={{ marginRight: 6, color: c.icono }}>📁</span>
+          )}
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n.cuenta.codigo}</span>
         </td>
         <td style={{ padding: '9px 10px', fontWeight: n.esHoja ? 500 : 800, color: n.esHoja ? '#1f2937' : COL.azul }}>{nombreCuentaDisplay(idioma, n.cuenta.nombre)}</td>
@@ -140,10 +147,18 @@ export function MayorVisual({
             <p style={{ margin: '2px 0 0', color: COL.gris, fontSize: 14 }}>{pt ? 'Movimento detalhado de cada conta — toque em uma conta para analisá-la.' : 'Movimiento detallado de cada cuenta — tocá una cuenta para analizarla.'}</p>
           </div>
         </div>
-        <BotonExportarPdf pt={pt} />
+        <div className="dre-no-imprimir" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', background: '#fff', border: '1.5px solid #86efac', borderRadius: 14, padding: '8px 12px', maxWidth: 300, fontSize: 13, color: '#14532d', lineHeight: 1.4 }}>
+            💡 {detalle
+              ? pt ? 'Você está vendo os movimentos de uma conta. Toque em uma contrapartida para filtrar.' : 'Estás viendo los movimientos de una cuenta. Tocá una contrapartida para filtrar.'
+              : pt ? 'Toque em uma pasta para abri-la, ou em uma conta para ver seus movimentos.' : 'Tocá una carpeta para abrirla, o una cuenta para ver sus movimientos.'}
+          </div>
+          <BotonExportarPdf pt={pt} />
+        </div>
       </div>
 
       <div className="dre-no-imprimir" style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 18, padding: '12px 16px', marginBottom: 14 }}>
+        <img className="dre-sabio-tarjeta" src="/sabio/sabio-fecha-ok.webp" alt="" style={{ height: 58, width: 'auto', objectFit: 'contain', alignSelf: 'center' }} />
         <div>
           <div style={etiqueta}>{pt ? 'Conta' : 'Cuenta'}</div>
           <select value={cuentaElegida} onChange={(e) => { setCuentaElegida(e.target.value); if (e.target.value) irACuenta(e.target.value); }} style={{ ...campo, minWidth: 220 }}>
@@ -201,7 +216,10 @@ export function MayorVisual({
       </div>
 
       <div style={{ marginTop: 12, background: COL.azul, color: '#fff', borderRadius: 16, padding: '12px 18px', display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        <strong style={{ fontSize: 17 }}>{pt ? 'Totais' : 'Totales'}</strong>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <img className="dre-sabio-tarjeta" src={`/sabio/${cuadra ? 'sabio-verificado' : 'sabio-alerta'}.webp`} alt="" style={{ height: 46, width: 'auto', objectFit: 'contain' }} />
+          <strong style={{ fontSize: 17 }}>{pt ? 'Totais' : 'Totales'}</strong>
+        </span>
         <span>{pt ? 'Débito' : 'Debe'} <strong>{dinero(totalDebe)}</strong></span>
         <span>{pt ? 'Crédito' : 'Haber'} <strong>{dinero(totalHaber)}</strong></span>
         <span style={{ background: cuadra ? '#16a34a' : '#dc2626', borderRadius: 999, padding: '4px 14px', fontWeight: 800, fontSize: 13 }}>
@@ -222,7 +240,10 @@ function DetalleCuenta({ cuenta, asientos, periodo, simbolo, idioma }: { cuenta:
   const dinero = (n: number) => `${simbolo} ${formatearNumeroEntero(n)}`;
   return (
     <div>
-      <div style={{ fontWeight: 800, color: COL.azul, marginBottom: 8 }}>📖 {nombreCuentaDisplay(idioma, cuenta.nombre)}</div>
+      <div style={{ fontWeight: 800, color: COL.azul, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <img className="dre-sabio-tarjeta" src="/sabio/sabio-libro.webp" alt="" style={{ height: 34, width: 'auto' }} />
+        {nombreCuentaDisplay(idioma, cuenta.nombre)}
+      </div>
       <IndicadoresMayor mayor={mayor} esTodos={periodo === 'TODOS'} idioma={idioma} simbolo={simbolo} contrapartidaActiva={contrapartida} onContrapartida={setContrapartida} />
       {contrapartida && (
         <button type="button" onClick={() => setContrapartida(null)} style={{ border: 'none', background: '#fef3c7', color: '#78350f', borderRadius: 999, padding: '5px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', margin: '8px 0' }}>
@@ -258,7 +279,10 @@ function DetalleCuenta({ cuenta, asientos, periodo, simbolo, idioma }: { cuenta:
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ padding: 14, textAlign: 'center', color: COL.gris }}>{pt ? 'Sem movimentos validados neste período.' : 'Sin movimientos validados en este período.'}</td>
+                <td colSpan={6} style={{ padding: 14, textAlign: 'center', color: COL.gris }}>
+                  <img className="dre-sabio-tarjeta" src="/sabio/sabio-meta.webp" alt="" style={{ height: 54, width: 'auto', display: 'block', margin: '0 auto 4px' }} />
+                  {pt ? 'Sem movimentos validados neste período.' : 'Sin movimientos validados en este período.'}
+                </td>
               </tr>
             )}
           </tbody>
