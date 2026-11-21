@@ -36,6 +36,9 @@ export type DatosInterpretacion = {
   cuentasMovidas: { nombre: string; variacion: number; saldoFinal: number }[];
   gruposVariacion: { nombre: string; variacion: number }[] | null;
   sumas: { cuadra: boolean; totalDebe: number; totalHaber: number };
+  // Resultado e ingresos de los últimos meses con movimiento hasta el elegido (el último es el elegido), del más viejo al más nuevo.
+  tendencia?: { etiqueta: string; resultado: number; ingresos: number }[];
+  mesAnterior?: string | null;
 };
 
 export type Tono = 'bien' | 'atencion' | 'neutro';

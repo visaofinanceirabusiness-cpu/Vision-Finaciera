@@ -43,6 +43,7 @@ export function reunirDatos(p: {
   nombresMedioFinanciero: Set<string>;
   nombresPorCobrar: Set<string>;
   nombreDeCuenta?: (nombre: string) => string;
+  etiquetaMes?: (clave: string) => string;
 }): DatosInterpretacion {
   const nom = p.nombreDeCuenta ?? ((n: string) => n);
   const previo = mesAnteriorClave(p.periodo);
@@ -101,6 +102,13 @@ export function reunirDatos(p: {
     .sort((a, b) => Math.abs(b.variacion) - Math.abs(a.variacion))
     .slice(0, 3);
 
+  // Tendencia: resultado e ingresos de los últimos meses con movimiento (hasta el elegido).
+  const mesesConDatos = Array.from(new Set(p.asientos.map((a) => a.fecha.slice(0, 7)).filter((m) => m <= p.periodo))).sort().slice(-4);
+  const tendencia = mesesConDatos.map((clave) => {
+    const res = resumenResultado(arbolMayor(p.cuentas, p.asientos, clave, true).raices);
+    return { etiqueta: p.etiquetaMes ? p.etiquetaMes(clave) : clave, resultado: res.resultado, ingresos: res.ingresos };
+  });
+
   const saldoPrevioRaiz = new Map(B ? B.raices.map((r) => [r.cuenta.id, r.saldoFinal]) : []);
 
   return {
@@ -129,5 +137,7 @@ export function reunirDatos(p: {
     cuentasMovidas,
     gruposVariacion: B ? A.raices.map((r) => ({ nombre: nom(r.cuenta.nombre), variacion: r2(r.saldoFinal - (saldoPrevioRaiz.get(r.cuenta.id) ?? 0)) })) : null,
     sumas: { cuadra: Math.abs(A.totalDebe - A.totalHaber) < 0.01, totalDebe: A.totalDebe, totalHaber: A.totalHaber },
+    tendencia,
+    mesAnterior: hayPrevio && p.etiquetaMes ? p.etiquetaMes(previo) : null,
   };
 }
