@@ -14,7 +14,7 @@
 //   - Flujo de Caja, Estado de Resultado y Balance Patrimonial:
 //     próximos pasos.
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { BLOQUES_FLUJO, armarFlujo, crearClasificador, diferenciaConSaldoDeseado, movimientosDeCaja, promedioSalidasMensuales, saldoAlCierreDePeriodo, saldoInicialDePeriodo, type BloqueFlujo } from '@/lib/flujoCaja';
 import { useEspectador } from '@/components/demo/ProveedorEspectador';
 import { useEstadoDemo } from '@/lib/demoEstado';
@@ -31,8 +31,9 @@ import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/li
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { MayorVisual } from '@/components/informes/MayorVisual';
-import { InterpretacionVisual } from '@/components/informes/InterpretacionVisual';
-import { armarInterpretacion } from '@/lib/informes/interpretacion';
+import { InterpretacionVisual, type EstadoVista } from '@/components/informes/InterpretacionVisual';
+import { armarConversacion, huellaDeDatos } from '@/lib/informes/conversacion';
+import { guardarVersion, listarVersiones, ultimaVersion, versionPorId, type VersionConContenido, type VersionGuardada } from '@/lib/informes/interpretacionHistorial';
 import { reunirDatos } from '@/lib/informes/interpretacionDatos';
 import { useCaja } from '@/components/caja/useCaja';
 import { SumasVisual } from '@/components/informes/SumasVisual';
@@ -105,6 +106,8 @@ export default function InformesPage() {
   const [esFamiliar, setEsFamiliar] = useState(false);
   const [cuentas, setCuentas] = useState<CuentaPlan[]>([]);
   const [asientos, setAsientos] = useState<Asiento[]>([]);
+  const [nombreEmpresa, setNombreEmpresa] = useState('');
+  const [nombreUsuario, setNombreUsuario] = useState('');
   // Asientos de cierre del ejercicio (31/12): solo los usan las pestañas acumuladas (Balance, Mayor, Sumas y Saldos). El Estado de Resultado
   // y el Flujo de Caja no los reciben: si no, cada año cerrado mostraría ingresos y gastos en cero.
   const [cierres, setCierres] = useState<Asiento[]>([]);
@@ -160,7 +163,7 @@ export default function InformesPage() {
 
       const { data: perfil, error: errorPerfil } = await supabase
         .from('perfiles')
-        .select('empresa_id, tipo_usuario')
+        .select('empresa_id, tipo_usuario, nombre')
         .eq('id', userData.user.id)
         .maybeSingle();
 
@@ -188,12 +191,14 @@ export default function InformesPage() {
 
       const { data: empresaData } = await supabase
         .from('empresas')
-        .select('moneda, idioma, perfiles_empresa(codigo)')
+        .select('nombre, moneda, idioma, perfiles_empresa(codigo)')
         .eq('id', perfil.empresa_id)
         .maybeSingle();
 
       const relacionPerfil = empresaData?.perfiles_empresa as { codigo: string }[] | { codigo: string } | null | undefined;
       setEsFamiliar((Array.isArray(relacionPerfil) ? relacionPerfil[0]?.codigo : relacionPerfil?.codigo) === 'FAMILIAR');
+      setNombreEmpresa(empresaData?.nombre ?? '');
+      setNombreUsuario(String(perfil.nombre ?? '').trim().split(/\s+/)[0] ?? '');
       setMoneda(empresaData?.moneda ?? null);
       setIdioma(empresaData?.idioma ?? null);
 
@@ -438,7 +443,7 @@ export default function InformesPage() {
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} esFamiliar={esFamiliar} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientosConCierre} />}
               {pestana === 'interpretacion' && !estaEnCaja('interpretacion') && (
-                <InterpretacionTab cuentas={cuentas} hojas={hojas} asientos={asientos} asientosBalance={asientosConCierre} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} esFamiliar={esFamiliar} />
+                <InterpretacionTab empresaId={empresaId} nombreEmpresa={nombreEmpresa} nombreUsuario={nombreUsuario} cuentas={cuentas} hojas={hojas} asientos={asientos} asientosBalance={asientosConCierre} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} esFamiliar={esFamiliar} />
               )}
             </>
           )}
@@ -1117,6 +1122,9 @@ function FlujoDeCajaTab({
 ========================================================== */
 
 function InterpretacionTab({
+  empresaId,
+  nombreEmpresa,
+  nombreUsuario,
   cuentas,
   hojas,
   asientos,
@@ -1125,6 +1133,9 @@ function InterpretacionTab({
   nombresPorCobrar,
   esFamiliar,
 }: {
+  empresaId: string | null;
+  nombreEmpresa: string;
+  nombreUsuario: string;
   cuentas: CuentaPlan[];
   hojas: CuentaPlan[];
   asientos: Asiento[];
@@ -1135,35 +1146,107 @@ function InterpretacionTab({
 }) {
   const simbolo = useContext(SimboloContext);
   const idioma = useContext(IdiomaContext);
+  const pt = idioma === 'PT';
   const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
   const [periodo, setPeriodo] = useState(mesEnCurso());
   const etiquetaPeriodo = formatearPeriodo(periodo, idioma);
 
-  // Se rehace solo al cambiar de mes o de datos: es el mismo cálculo de cada informe, puesto en palabras.
-  const secciones = useMemo(
+  // La conversación en vivo: el mismo cálculo de cada informe, puesto en palabras. Es lo que se guarda al generar.
+  const datos = useMemo(
     () =>
-      armarInterpretacion(
-        reunirDatos({
-          pt: idioma === 'PT',
-          esFamiliar,
-          periodo,
-          etiquetaPeriodo,
-          dinero: (n) => `${simbolo} ${formatearNumeroEntero(n)}`,
-          cuentas,
-          hojas,
-          asientos,
-          asientosBalance,
-          nombresMedioFinanciero,
-          nombresPorCobrar,
-          nombreDeCuenta: (n) => nombreCuentaDisplay(idioma, n),
-        })
-      ),
-    [idioma, esFamiliar, periodo, etiquetaPeriodo, simbolo, cuentas, hojas, asientos, asientosBalance, nombresMedioFinanciero, nombresPorCobrar]
+      reunirDatos({
+        pt,
+        esFamiliar,
+        periodo,
+        etiquetaPeriodo,
+        dinero: (n) => `${simbolo} ${formatearNumeroEntero(n)}`,
+        cuentas,
+        hojas,
+        asientos,
+        asientosBalance,
+        nombresMedioFinanciero,
+        nombresPorCobrar,
+        nombreDeCuenta: (n) => nombreCuentaDisplay(idioma, n),
+        etiquetaMes: (clave) => formatearPeriodo(clave, idioma),
+      }),
+    [pt, esFamiliar, periodo, etiquetaPeriodo, simbolo, cuentas, hojas, asientos, asientosBalance, nombresMedioFinanciero, nombresPorCobrar, idioma]
   );
+  const vivo = useMemo(() => armarConversacion(datos, { nombre: nombreUsuario || (pt ? 'tudo bem' : 'Sabio'), empresa: nombreEmpresa }), [datos, nombreUsuario, nombreEmpresa, pt]);
+  const huella = useMemo(() => huellaDeDatos(datos), [datos]);
+
+  const [historial, setHistorial] = useState<VersionGuardada[]>([]);
+  const [guardada, setGuardada] = useState<VersionConContenido | null>(null);
+  const [verVersion, setVerVersion] = useState<VersionConContenido | null>(null);
+  const [generando, setGenerando] = useState(false);
+  const [sePuedeGuardar, setSePuedeGuardar] = useState(true);
+
+  const refrescarHistorial = useCallback(async () => {
+    if (empresaId) setHistorial(await listarVersiones(empresaId));
+  }, [empresaId]);
+
+  // Al elegir un mes: si ya hay una interpretación guardada se muestra esa; si no, se ve la conversación en vivo al instante y queda en el
+  // historial recién cuando se toca «Generar».
+  useEffect(() => {
+    if (!empresaId) return;
+    let vigente = true;
+    setVerVersion(null);
+    void (async () => {
+      const ultima = await ultimaVersion(empresaId, periodo);
+      if (!vigente) return;
+      setGuardada(ultima);
+      await refrescarHistorial();
+    })();
+    return () => { vigente = false; };
+  }, [empresaId, periodo, refrescarHistorial]);
+
+  const generar = async () => {
+    if (!empresaId || generando) return;
+    setGenerando(true);
+    setVerVersion(null);
+    const ok = await guardarVersion(empresaId, periodo, vivo, huella, 'MANUAL');
+    setSePuedeGuardar(ok);
+    if (ok) {
+      setGuardada(await ultimaVersion(empresaId, periodo));
+      await refrescarHistorial();
+    }
+    setGenerando(false);
+  };
+
+  const abrirVersion = async (id: string) => {
+    const v = await versionPorId(id);
+    if (v) {
+      if (v.periodo !== periodo) setPeriodo(v.periodo);
+      setVerVersion(v);
+    }
+  };
+
+  // Qué se muestra: una versión del historial, la guardada del mes, o la conversación en vivo.
+  const mostrada = verVersion ? verVersion.contenido : guardada ? guardada.contenido : vivo;
+  const estado: EstadoVista = verVersion
+    ? { tipo: 'historial', version: verVersion.version, generadoEn: verVersion.generado_en, periodoEtiqueta: formatearPeriodo(verVersion.periodo, idioma) }
+    : guardada
+      ? { tipo: 'guardada', version: guardada.version, generadoEn: guardada.generado_en, hayCambios: guardada.huella !== huella }
+      : { tipo: 'vivo' };
 
   return (
     <div id="informe-imprimible">
-      <InterpretacionVisual secciones={secciones} periodos={periodos} periodo={periodo} onPeriodo={setPeriodo} pt={idioma === 'PT'} etiquetaPeriodo={etiquetaPeriodo} />
+      <InterpretacionVisual
+        conversacion={mostrada}
+        estado={estado}
+        empresa={nombreEmpresa}
+        periodos={periodos}
+        periodo={periodo}
+        onPeriodo={setPeriodo}
+        onGenerar={generar}
+        generando={generando}
+        guardado={sePuedeGuardar}
+        historial={historial}
+        etiquetaDe={(clave) => formatearPeriodo(clave, idioma)}
+        onVerVersion={abrirVersion}
+        onVolver={() => setVerVersion(null)}
+        pt={pt}
+        etiquetaPeriodo={etiquetaPeriodo}
+      />
     </div>
   );
 }
