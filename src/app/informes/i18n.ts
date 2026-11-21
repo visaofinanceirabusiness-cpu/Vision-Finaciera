@@ -9,6 +9,7 @@ type Clave =
   | 'tabFlujo'
   | 'tabResultado'
   | 'tabSumas'
+  | 'tabInterpretacion'
   | 'tabBalance'
   | 'tabDeudas'
   | 'deudasSubtitulo'
@@ -85,6 +86,7 @@ export const diccionarioInformes: Diccionario<Clave> = {
     tabFlujo: '💧 Flujo de Caja',
     tabResultado: '📈 Estado de Resultado',
     tabSumas: '🧮 Sumas y Saldos',
+    tabInterpretacion: '🦉 Interpretación',
     tabBalance: '🏛️ Balance Patrimonial',
     tabDeudas: '📅 Mis Deudas',
     deudasSubtitulo: 'Cuotas pendientes de tus Pasivos, ordenadas por vencimiento. Cada una tiene su recordatorio en el Calendário del lobby.',
@@ -161,6 +163,7 @@ export const diccionarioInformes: Diccionario<Clave> = {
     tabFlujo: '💧 Fluxo de Caixa',
     tabResultado: '📈 Demonstração de Resultado',
     tabSumas: '🧮 Balancete',
+    tabInterpretacion: '🦉 Interpretação',
     tabBalance: '🏛️ Balanço Patrimonial',
     tabDeudas: '📅 Minhas Dívidas',
     deudasSubtitulo: 'Parcelas pendentes dos seus Passivos, ordenadas por vencimento. Cada uma tem seu lembrete no Calendário do lobby.',

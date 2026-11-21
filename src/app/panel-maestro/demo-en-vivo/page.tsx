@@ -34,6 +34,7 @@ const NOMBRE_HABILITADA: Record<string, string> = {
   [`${PREFIJO_INFORME}FLUJO`]: 'Informe: Flujo de Caja',
   [`${PREFIJO_INFORME}MAYOR`]: 'Informe: Mayor',
   [`${PREFIJO_INFORME}SUMAS`]: 'Informe: Sumas y Saldos',
+  [`${PREFIJO_INFORME}INTERPRETACION`]: 'Informe: Interpretación',
 };
 
 function hora(fecha: string | null): string {

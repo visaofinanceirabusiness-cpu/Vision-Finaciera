@@ -31,6 +31,10 @@ import { resultadoPorNaturaleza, resumenNaturaleza, type Naturaleza } from '@/li
 import { DreVisual } from '@/components/informes/DreVisual';
 import { BalanceVisual } from '@/components/informes/BalanceVisual';
 import { MayorVisual } from '@/components/informes/MayorVisual';
+import { InterpretacionVisual } from '@/components/informes/InterpretacionVisual';
+import { armarInterpretacion } from '@/lib/informes/interpretacion';
+import { reunirDatos } from '@/lib/informes/interpretacionDatos';
+import { useCaja } from '@/components/caja/useCaja';
 import { SumasVisual } from '@/components/informes/SumasVisual';
 import { FlujoVisual, type FilaResumen } from '@/components/informes/FlujoVisual';
 import { serieFlujo } from '@/lib/informes/flujo';
@@ -69,7 +73,7 @@ const COLORES = {
   blanco: '#ffffff',
 };
 
-type Pestana = 'mayor' | 'flujo' | 'resultado' | 'sumas' | 'balance';
+type Pestana = 'mayor' | 'flujo' | 'resultado' | 'sumas' | 'balance' | 'interpretacion';
 
 type CuentaPlan = {
   id: string;
@@ -127,6 +131,7 @@ export default function InformesPage() {
   // En la demo, cada informe lo libera quien presenta: los demás se ven con candado.
   const espectador = useEspectador();
   const demo = useEstadoDemo();
+  const { estaEnCaja } = useCaja();
   const bloqueada = (id: Pestana) => Boolean(espectador) && !pestanaInformeHabilitada(id, demo.habilitadas);
   const irA = (id: Pestana) => {
     if (bloqueada(id)) {
@@ -139,7 +144,7 @@ export default function InformesPage() {
   // Cuando se libera un informe y el que estaba abierto sigue bloqueado, se pasa al habilitado.
   useEffect(() => {
     if (!espectador || !demo.cargado || !bloqueada(pestana)) return;
-    const habilitada = (['balance', 'resultado', 'flujo', 'mayor', 'sumas'] as Pestana[]).find((id) => !bloqueada(id));
+    const habilitada = (['balance', 'resultado', 'flujo', 'mayor', 'sumas', 'interpretacion'] as Pestana[]).find((id) => !bloqueada(id));
     if (habilitada) setPestana(habilitada);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [espectador, demo.cargado, demo.habilitadas, pestana]);
@@ -393,6 +398,12 @@ export default function InformesPage() {
             >
               {bloqueada('balance') ? '🔒 ' : ''}{t('tabBalance')}
             </button>
+
+            {!estaEnCaja('interpretacion') && (
+              <button type="button" onClick={() => irA('interpretacion')} style={tabStyle(pestana === 'interpretacion')}>
+                {bloqueada('interpretacion') ? '🔒 ' : ''}{t('tabInterpretacion')}
+              </button>
+            )}
           </div>
 
           {error && <div style={errorStyle}>{error}</div>}
@@ -426,6 +437,9 @@ export default function InformesPage() {
               )}
               {pestana === 'resultado' && <EstadoDeResultadoTab hojas={hojas} asientos={asientos} empresaId={empresaId} periodoInicial={periodoInicial} esFamiliar={esFamiliar} />}
               {pestana === 'balance' && <BalancePatrimonialTab cuentas={cuentas} hojas={hojas} asientos={asientosConCierre} />}
+              {pestana === 'interpretacion' && !estaEnCaja('interpretacion') && (
+                <InterpretacionTab cuentas={cuentas} hojas={hojas} asientos={asientos} asientosBalance={asientosConCierre} nombresMedioFinanciero={nombresMedioFinanciero} nombresPorCobrar={nombresPorCobrar} esFamiliar={esFamiliar} />
+              )}
             </>
           )}
         </main>
@@ -1094,6 +1108,62 @@ function FlujoDeCajaTab({
         filasResumen={filasResumen}
         extras={extras}
       />
+    </div>
+  );
+}
+
+/* ==========================================================
+   PESTAÑA · INTERPRETACIÓN
+========================================================== */
+
+function InterpretacionTab({
+  cuentas,
+  hojas,
+  asientos,
+  asientosBalance,
+  nombresMedioFinanciero,
+  nombresPorCobrar,
+  esFamiliar,
+}: {
+  cuentas: CuentaPlan[];
+  hojas: CuentaPlan[];
+  asientos: Asiento[];
+  asientosBalance: Asiento[];
+  nombresMedioFinanciero: Set<string>;
+  nombresPorCobrar: Set<string>;
+  esFamiliar: boolean;
+}) {
+  const simbolo = useContext(SimboloContext);
+  const idioma = useContext(IdiomaContext);
+  const periodos = useMemo(() => obtenerPeriodos(asientos, idioma), [asientos, idioma]);
+  const [periodo, setPeriodo] = useState(mesEnCurso());
+  const etiquetaPeriodo = formatearPeriodo(periodo, idioma);
+
+  // Se rehace solo al cambiar de mes o de datos: es el mismo cálculo de cada informe, puesto en palabras.
+  const secciones = useMemo(
+    () =>
+      armarInterpretacion(
+        reunirDatos({
+          pt: idioma === 'PT',
+          esFamiliar,
+          periodo,
+          etiquetaPeriodo,
+          dinero: (n) => `${simbolo} ${formatearNumeroEntero(n)}`,
+          cuentas,
+          hojas,
+          asientos,
+          asientosBalance,
+          nombresMedioFinanciero,
+          nombresPorCobrar,
+          nombreDeCuenta: (n) => nombreCuentaDisplay(idioma, n),
+        })
+      ),
+    [idioma, esFamiliar, periodo, etiquetaPeriodo, simbolo, cuentas, hojas, asientos, asientosBalance, nombresMedioFinanciero, nombresPorCobrar]
+  );
+
+  return (
+    <div id="informe-imprimible">
+      <InterpretacionVisual secciones={secciones} periodos={periodos} periodo={periodo} onPeriodo={setPeriodo} pt={idioma === 'PT'} etiquetaPeriodo={etiquetaPeriodo} />
     </div>
   );
 }
