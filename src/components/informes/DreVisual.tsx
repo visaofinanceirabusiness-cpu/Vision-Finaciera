@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatearNumeroEntero } from '@/lib/moneda';
+import { GraficoInteractivo } from './GraficoInteractivo';
 import { analisisNaturaleza, analisisSabio, composicionSalidas, etiquetasNaturaleza, filasPorNaturaleza, ORDEN_NAT, topCuentas, variacionPct, type FilaCuenta, type NaturalezaClave, type ResumenNat } from '@/lib/informes/dre';
 
 // Vista visual del Estado de Resultado (DRE): tarjetas con Sabio, resultado del período, evolución, composición de las salidas, top de
@@ -30,7 +31,7 @@ export type PropsDreVisual = {
   filasIngresos: FilaCuenta[];
   filasCostos: FilaCuenta[];
   filasGastos: FilaCuenta[];
-  tendencia: { clave: string; etiqueta: string; valor: number }[];
+  tendencia: { clave: string; etiqueta: string; etiquetaLarga: string; valor: number; ingresos: number; salidas: number }[];
   // Filtro «Ver por»: por cuenta (como siempre) o por naturaleza (fijos / recurrentes variables / del mes).
   vista?: 'CUENTA' | 'NATURALEZA';
   onVista?: (v: 'CUENTA' | 'NATURALEZA') => void;
@@ -162,12 +163,25 @@ export function DreVisual(p: PropsDreVisual) {
           </div>
         </div>
 
-        <Tarjeta titulo={`📈 ${pt ? 'Evolução do Resultado' : 'Evolución del Resultado'}`} sub={pt ? '(últimos 6 meses)' : '(últimos 6 meses)'}>
-          <GraficoBarras datos={p.tendencia.slice(-6)} resaltar={p.periodo} dinero={formatearNumeroEntero} pt={pt} />
-        </Tarjeta>
-
         <Tarjeta titulo={`🍩 ${pt ? 'Composição das Saídas' : 'Composición de las Salidas'}`}>
           <Torta trozos={composicionSalidas(vistaNat && nat ? filasPorNaturaleza([nat.costos, nat.gastos], pt) : salidas, 3, pt ? 'Outros' : 'Otros')} total={dinero(p.totales.costos + p.totales.gastos)} pt={pt} />
+        </Tarjeta>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <Tarjeta titulo={`📈 ${pt ? 'Evolução do Resultado' : 'Evolución del Resultado'}`} sub={pt ? '(clique em um mês para vê-lo)' : '(tocá un mes para verlo)'}>
+          <GraficoInteractivo
+            puntos={p.tendencia.map((t) => ({ clave: t.clave, etiqueta: t.etiqueta, etiquetaLarga: t.etiquetaLarga }))}
+            series={[
+              { clave: 'ing', nombre: pt ? 'Receitas' : 'Ingresos', color: '#16a34a', tipo: 'linea', valores: p.tendencia.map((t) => t.ingresos) },
+              { clave: 'sal', nombre: pt ? 'Saídas' : 'Salidas', color: '#dc2626', tipo: 'linea', valores: p.tendencia.map((t) => t.salidas) },
+              { clave: 'res', nombre: pt ? 'Resultado' : 'Resultado', color: '#1f3a5f', tipo: 'barra', valores: p.tendencia.map((t) => t.valor) },
+            ]}
+            simbolo={simbolo}
+            seleccionado={p.periodo}
+            onSeleccionar={p.onPeriodo}
+            pt={pt}
+          />
         </Tarjeta>
       </div>
 
@@ -255,30 +269,6 @@ export function Tarjeta({ titulo, sub, children }: { titulo: string; sub?: strin
       </div>
       {children}
     </div>
-  );
-}
-
-function GraficoBarras({ datos, resaltar, dinero, pt }: { datos: { clave: string; etiqueta: string; valor: number }[]; resaltar: string; dinero: (n: number) => string; pt: boolean }) {
-  if (datos.length === 0) return <div style={{ color: COL.gris, fontSize: 13 }}>{pt ? 'Ainda não há histórico.' : 'Todavía no hay historial.'}</div>;
-  const maximo = Math.max(...datos.map((d) => Math.abs(d.valor)), 1);
-  const ancho = 360, alto = 190, base = 92, tope = 54, paso = ancho / datos.length;
-  return (
-    <svg viewBox={`0 0 ${ancho} ${alto}`} style={{ width: '100%', height: 'auto', maxHeight: 220 }} role="img" aria-label={pt ? 'Evolução do resultado' : 'Evolución del resultado'}>
-      <line x1="0" x2={ancho} y1={base} y2={base} stroke="#d1d5db" />
-      {datos.map((d, i) => {
-        const h = Math.max((Math.abs(d.valor) / maximo) * tope, d.valor === 0 ? 0 : 2);
-        const x = i * paso + paso * 0.2;
-        const positivo = d.valor >= 0;
-        const y = positivo ? base - h : base;
-        return (
-          <g key={d.clave} opacity={resaltar === 'TODOS' || resaltar === d.clave ? 1 : 0.55}>
-            <rect x={x} y={y} width={paso * 0.6} height={h} rx="3" fill={positivo ? '#22c55e' : '#ef4444'} />
-            <text x={x + paso * 0.3} y={positivo ? y - 5 : y + h + 12} textAnchor="middle" fontSize="10" fontWeight="700" fill={positivo ? '#15803d' : '#b91c1c'}>{dinero(d.valor)}</text>
-            <text x={x + paso * 0.3} y={alto - 8} textAnchor="middle" fontSize="10.5" fill="#6b7280">{d.etiqueta}</text>
-          </g>
-        );
-      })}
-    </svg>
   );
 }
 
