@@ -52,3 +52,24 @@ describe('utilidades del árbol', () => {
     expect(rutaHastaCuenta(cuentas, 'Caja')).toEqual(['11', '1']);
   });
 });
+
+describe('arbolMayor con resultados que se reinician', () => {
+  const cuentas2 = [
+    c('1', '1', 'Activo', null, 'DEUDORA', 'ACTIVO'), c('11', '1.1', 'Caja', '1', 'DEUDORA', 'ACTIVO'),
+    c('4', '4', 'Ingresos', null, 'ACREEDORA', 'INGRESO'), c('41', '4.1', 'Ventas', '4', 'ACREEDORA', 'INGRESO'),
+  ];
+  const as2 = [
+    { fecha: '2026-09-10', debito: 'Caja', credito: 'Ventas', importe: 100 },
+    { fecha: '2026-10-10', debito: 'Caja', credito: 'Ventas', importe: 40 },
+  ];
+  it('un mes: las ventas del mes anterior no arrastran, la caja sí', () => {
+    const { raices } = arbolMayor(cuentas2, as2, '2026-10', true);
+    expect(raices.find((r) => r.cuenta.nombre === 'Ingresos')!.saldoInicial).toBe(0);
+    expect(raices.find((r) => r.cuenta.nombre === 'Ingresos')!.saldoFinal).toBe(40);
+    expect(raices.find((r) => r.cuenta.nombre === 'Activo')!.saldoInicial).toBe(100);
+  });
+  it('sin la opción arrastra (como el Mayor)', () => {
+    const { raices } = arbolMayor(cuentas2, as2, '2026-10');
+    expect(raices.find((r) => r.cuenta.nombre === 'Ingresos')!.saldoInicial).toBe(100);
+  });
+});
